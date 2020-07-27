@@ -51,9 +51,9 @@ def Response(
         'headers': headers
     }
     if isinstance(content, str) or text is not None:
-        response['text'] = content if content else text
+        response['text'] = content# if content else text
     else:
-        response['body'] = content if content else body
+        response['body'] = content# if content else body
     return web.Response(**response)
 
 class Application(object):

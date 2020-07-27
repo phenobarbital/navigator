@@ -1,0 +1,3 @@
+[submodule "extensions/asyncdb"]
+	path = extensions/asyncdb
+	url = git@bitbucket.org:mobileinsight1/asyncdb.git

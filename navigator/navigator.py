@@ -9,7 +9,7 @@ import asyncio
 import uvloop
 import logging
 from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, INSTALLED_APPS, LOCAL_DEVELOPMENT
-from navigator.applications import AppHandler, app_startup
+from navigator.applications import AppHandler, AppBase, app_startup
 from aiohttp_swagger import setup_swagger
 import sockjs
 from typing import Callable, Optional, Any
@@ -42,7 +42,7 @@ class Application(object):
     port = 5000
     _loop = None
 
-    def __init__(self, app: AppHandler,  *args : typing.Any, **kwargs : typing.Any):
+    def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
         self._loop = asyncio.get_event_loop()
         self._executor = ThreadPoolExecutor()
         if 'debug' in kwargs:
@@ -54,7 +54,11 @@ class Application(object):
         self.parser.add_argument('-d', '--debug', action='store_true')
         self.parser.add_argument('-r', '--reload', action='store_true')
         self.parse_arguments()
-        self.app = app(Context)
+        if not app:
+            # create an instance of AppHandler
+            self.app = AppBase(Context)
+        else:
+            self.app = app(Context)
         self._logger = self.get_logger(self.app.Name)
 
 

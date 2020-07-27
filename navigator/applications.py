@@ -201,6 +201,7 @@ class AppHandler(ABC):
             self.app.add_routes(
                 [web.static('/static', static, append_version=True)]
             )
+
     def set_cors(self) -> None:
         """
         set_cors.
@@ -270,7 +271,16 @@ class AppHandler(ABC):
         pass
 
 
+class AppBase(AppHandler):
+    pass
+
 class AppConfig(AppHandler):
+    """
+    AppConfig.
+
+    Class for Configuration of aiohttp SubApps
+    """
+
     template: str = 'templates'
     path: Path = None
     _middleware = None

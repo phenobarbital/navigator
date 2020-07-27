@@ -118,6 +118,42 @@ if __name__ == '__main__':
 """
 save_file('run.py')
 
+print('Fifth Step: adding a *home* template')
+home = """
+<!doctype html>
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+
+  <title>Navigator API</title>
+  <meta name="description" content="Navigator API">
+  <meta name="author" content="Navigator API">
+  <link rel="stylesheet" href="static/css/styles.css?v=1.0">
+
+</head>
+
+<body>
+  <script src="static/js/scripts.js"></script>
+  <h1>Welcome to Navigator</h1>
+  <p>This is Navigator, a "batteries-included" Framework, a comprehensive collection of asyncio-based libraries to easily create any python project in minutes!
+  </p>
+  <p>
+    Navigator is based on python >= 3.8, Asyncio and other fantastic asynchronous technologies like:
+    <ul>
+      <li> Aiohttp </li>
+      <li> Python 3.8 </li>
+      <li> Asyncio+uvloop </li>
+      <li> asyncpg </li>
+      <li> pydantic </li>
+      <li> SockJS </li>
+    </ul>
+    And many others, designed with "functional-first" philosofy, is an async "micro-django" with many tools for easy deploy and development async applications.
+</body>
+</html>
+"""
+save_file('templates/home.html')
+
 try:
     from navigator.conf import BASE_DIR
 except ImportError:

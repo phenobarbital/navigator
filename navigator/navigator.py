@@ -31,12 +31,14 @@ from aiohttp_utils import run as runner
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from concurrent.futures import ThreadPoolExecutor
 
+
+
 def Response(
         content: Any,
         text: str='',
-        body: bytes=None,
+        body: Any=None,
         status: int=200,
-        headers: dict={},
+        headers: dict=None,
         content_type: str='text/plain',
         charset: str='utf-8'
     )-> web.Response:
@@ -47,13 +49,14 @@ def Response(
     response = {
         'content_type': content_type,
         'charset': charset,
-        'status': status,
-        'headers': headers
+        'status': status
     }
+    if headers:
+        response['headers'] = headers
     if isinstance(content, str) or text is not None:
-        response['text'] = content# if content else text
+        response['text'] = content if content else text
     else:
-        response['body'] = content# if content else body
+        response['body'] = content if content else body
     return web.Response(**response)
 
 class Application(object):
@@ -217,12 +220,19 @@ class Application(object):
             return func
         return _decorator
 
+    def Response(self, content: Any) -> web.Response:
+        return web.Response(text=content)
+
     def get(self, route: str):
         def _decorator(func):
             self.app.App.router.add_get(route, func)
-            def wrap_function(request, *args, **kwargs):
-                return func(request, Response, *args, **kwargs)
-            return wrap_function
+            @wraps(func)
+            async def _wrap(request, *args, **kwargs):
+                try:
+                    return f'{func(request, args, **kwargs)}'
+                except Exception as err:
+                    self._logger.exception(err)
+            return _wrap
         return _decorator
 
     def add_sock_endpoint(self, handler: Callable, name: str, route: str = '/sockjs/') -> None:

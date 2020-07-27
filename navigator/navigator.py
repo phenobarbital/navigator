@@ -190,6 +190,12 @@ class Application(object):
             return func
         return _decorator
 
+    def get(self, route: str):
+        def _decorator(func):
+            self.app.App.router.add_get(route, func)
+            return func
+        return _decorator
+
     def add_sock_endpoint(self, handler: Callable, name: str, route: str = '/sockjs/') -> None:
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)

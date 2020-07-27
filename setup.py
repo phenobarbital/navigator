@@ -39,6 +39,7 @@ setup(
         'sockjs==0.10.0',
         'python-dotenv==0.14.0',
         'pydantic==1.6.1',
+        'aiofile==3.0.0',
         'pylibmc==1.6.1',
         'aiojobs==0.2.2',
         'aiohttp-session',

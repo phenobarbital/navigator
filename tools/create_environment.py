@@ -59,8 +59,8 @@ CACHE_PREFIX=local
 PRODUCTION=false
 DEBUG=true
 """
-save_file('env/.env')
-save_file('env/testing/.env')
+save_file('env/.env', env)
+save_file('env/testing/.env', env)
 
 ini = """# basic information
 [info]
@@ -77,7 +77,7 @@ KEY: /etc/ssl/certs/example.com.key
 [logging]
 logdir: /var/log/navigator
 """
-save_file('etc/navigator.ini')
+save_file('etc/navigator.ini', ini)
 
 print('Third Step: Creation of Empty settings.py File')
 settings = """# -*- coding: utf-8 -*-
@@ -92,7 +92,7 @@ from navigator.navigatorConfig import config, BASE_DIR
 # Debug
 DEBUG = config.getboolean('DEBUG', fallback=True)
 LOCAL_DEVELOPMENT = (DEBUG == True and sys.argv[0] == 'run.py')"""
-save_file('settings/settings.py')
+save_file('settings/settings.py', settings)
 
 local = """# -*- coding: utf-8 -*-
 import os
@@ -103,7 +103,7 @@ from navigator.navigatorConfig import config, BASE_DIR
 Example Local Settings
 '''
 # EXAMPLE = config.get('EXAMPLE_KEY')"""
-save_file('settings/local_settings.py.example')
+save_file('settings/local_settings.py.example', local)
 
 print('Fourt Step: Creation of a run.py File')
 run = """#!/usr/bin/env python3
@@ -116,7 +116,7 @@ app = Application()
 if __name__ == '__main__':
     app.run()
 """
-save_file('run.py')
+save_file('run.py', run)
 
 print('Fifth Step: adding a *home* template')
 home = """
@@ -152,7 +152,7 @@ home = """
 </body>
 </html>
 """
-save_file('templates/home.html')
+save_file('templates/home.html', home)
 
 try:
     from navigator.conf import BASE_DIR

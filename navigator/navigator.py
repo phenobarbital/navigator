@@ -15,6 +15,8 @@ import sockjs
 from typing import Callable, Optional, Any
 import inspect
 from aiohttp.abc import AbstractView
+from aiohttp import web
+
 from aiohttp_session import setup as setup_session, get_session
 from navigator.resources import WebSocket, channel_handler
 # get the authentication library
@@ -28,6 +30,29 @@ from aiohttp_utils import run as runner
 # make asyncio use the event loop provided by uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from concurrent.futures import ThreadPoolExecutor
+
+def Response(
+        content: Any,
+        status: int=200,
+        headers: dict={},
+        content_type: str='text/plain',
+        charset: str='utf-8'
+    )-> web.Response:
+    """
+    Response.
+    Web Response Definition for Navigator
+    """
+    response = {
+        'content_type': content_type,
+        'charset': charset,
+        'status': status
+        'headers': headers
+    }
+    if isinstance(content, str):
+        response['text'] = content
+    else:
+        response['body'] = content
+    return web.Response(**response)
 
 class Application(object):
     app: Any = None
@@ -193,7 +218,9 @@ class Application(object):
     def get(self, route: str):
         def _decorator(func):
             self.app.App.router.add_get(route, func)
-            return func
+            def wrap_function(request, *args, **kwargs):
+                return func(request, Response, *args, **kwargs)
+            return wrap_function
         return _decorator
 
     def add_sock_endpoint(self, handler: Callable, name: str, route: str = '/sockjs/') -> None:

@@ -33,6 +33,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 def Response(
         content: Any,
+        text: str='',
+        body: bytes=None,
         status: int=200,
         headers: dict={},
         content_type: str='text/plain',
@@ -45,13 +47,13 @@ def Response(
     response = {
         'content_type': content_type,
         'charset': charset,
-        'status': status
+        'status': status,
         'headers': headers
     }
-    if isinstance(content, str):
-        response['text'] = content
+    if isinstance(content, str) or text is not None:
+        response['text'] = content if content else text
     else:
-        response['body'] = content
+        response['body'] = content if content else body
     return web.Response(**response)
 
 class Application(object):

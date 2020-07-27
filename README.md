@@ -1,4 +1,4 @@
-# Navigator (Framework)#
+# Navigator (Framework)
 
 T-ROC Navigator Framework (API) is a next-generation framework to build Asynchronous APIs.
 

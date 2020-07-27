@@ -44,7 +44,15 @@ setup(
         'aiojobs==0.2.2',
         'aiohttp-session',
         'aiohttp-jrpc',
-        'cryptography'
+        'cryptography',
+        'aiohttp-cors==0.7.0',
+        'uvloop==0.14.0',
+        'objectpath==0.6.1',
+        'aiohttp-debugtoolbar==0.6.0',
+        'aiohttp-jinja2==1.2.0',
+        'aiohttp-session==2.9.0',
+        'aiohttp-swagger==1.0.15',
+        'aiohttp-utils==3.1.1'
     ],
     dependency_links=[
         'git+git@bitbucket.org:mobileinsight1/asyncdb.git@a7ff6c85df0f94cbae29cc31fbab2f366fad2be7#egg=asyncdb',

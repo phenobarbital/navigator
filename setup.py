@@ -36,7 +36,6 @@ setup(
         'asyncio==3.4.3',
         'aiohttp>=3.0.0,<4.0.0',
         'setuptools',
-        'asyncdb',
         'sockjs==0.10.0',
         'python-dotenv==0.14.0',
         'pydantic==1.6.1',

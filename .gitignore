@@ -8,6 +8,9 @@ __pycache__
 # C extensions
 *.so
 *.pyc
+# External Extensions
+extensions/*
+
 # Migrations Folder
 migrations/
 migrations/*

@@ -52,7 +52,9 @@ setup(
         'aiohttp-jinja2==1.2.0',
         'aiohttp-session==2.9.0',
         'aiohttp-swagger==1.0.15',
-        'aiohttp-utils==3.1.1'
+        'aiohttp-utils==3.1.1',
+        'wheel==0.34.2',
+        'aiosocks==0.2.6'
     ],
     dependency_links=[
         'git+git@bitbucket.org:mobileinsight1/asyncdb.git@a7ff6c85df0f94cbae29cc31fbab2f366fad2be7#egg=asyncdb',

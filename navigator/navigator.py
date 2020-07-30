@@ -32,6 +32,43 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from concurrent.futures import ThreadPoolExecutor
 
 
+async def shutdown(loop, signal=None):
+    """Cleanup tasks tied to the service's shutdown."""
+    if signal:
+        print(f"Received exit signal {signal.name}...")
+    print("Closing all connections")
+    try:
+        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+        [task.cancel() for task in tasks]
+        print(f"Cancelling {len(tasks)} outstanding tasks")
+        await asyncio.gather(*tasks, return_exceptions=True)
+    except asyncio.CancelledError:
+        print('Tasks has been canceled')
+    #asyncio.gather(*asyncio.Task.all_tasks()).cancel()
+    finally:
+        loop.stop()
+
+def custom_exception_handler(loop, context):
+    """Exception Handler for Asyncio Loops."""
+    # first, handle with default handler
+    if context:
+        loop.default_exception_handler(context)
+        exception = context.get('exception')
+        print(exception)
+        print(context)
+        try:
+            msg = context.get("exception", context["message"])
+            print("Caught Exception: {}".format(str(msg)))
+        except (TypeError, AttributeError, IndexError):
+            print("Caught Exception: {}, Context: {}".format(str(exception), str(context)))
+        # Canceling pending tasks and stopping the loop
+        try:
+            print("Asyncio Shutting down...")
+            asyncio.run(shutdown(loop))
+        except Exception as e:
+            print(e)
+        finally:
+            print("Successfully shutdown service.")
 
 def Response(
         content: Any,
@@ -73,7 +110,11 @@ class Application(object):
     _loop = None
 
     def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
+        #configuring asyncio loop
         self._loop = asyncio.get_event_loop()
+        self._loop.set_exception_handler(custom_exception_handler)
+        #asyncio.set_event_loop(self._loop)
+
         self._executor = ThreadPoolExecutor()
         if 'debug' in kwargs:
             self.debug = kwargs['debug']
@@ -144,7 +185,17 @@ class Application(object):
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes
         self.app.configure()
-        self.app.set_cors()
+        cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_methods='*',
+                allow_headers="*",
+                max_age=3600
+            )
+        })
+        self.app.setup_cors(cors)
+        self.app.setup_docs()
         # auto-configure swagger
         long_description = """
         Asynchronous RESTful API for data source connections, REST consumer and Query API, used by Navigator, powered by MobileInsight
@@ -187,6 +238,9 @@ class Application(object):
         description: register new route to static path.
         """
         self.get_app().add_static(route, path)
+
+    def add_view(self, route: str, handler: Any):
+        self.get_app().router.add_view(route, handler)
 
     def threaded_func(self, func: Callable, threaded: bool =False):
         @wraps(func)

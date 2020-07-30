@@ -151,21 +151,13 @@ class AppHandler(ABC):
         if self.auto_home:
             self.app.router.add_route('GET', "/ping", ping)
             self.app.router.add_route('GET', "/", home)
-        # set cors:
-        self.cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_methods='*',
-                allow_headers="*",
-                max_age=3600
-            )
-        })
+
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
             print('SETUP NEW APPLICATION: {}'.format(self._name))
         middlewares = {}
+        self.cors = None
         if self._middleware:
             middlewares = {
                 "middlewares": self._middleware
@@ -176,6 +168,15 @@ class AppHandler(ABC):
             loop=self._loop,
             **middlewares
         )
+        self.cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_methods='*',
+                allow_headers="*",
+                max_age=3600
+            )
+        })
         return app
 
     @property
@@ -202,7 +203,7 @@ class AppHandler(ABC):
                 [web.static('/static', static, append_version=True)]
             )
 
-    def set_cors(self) -> None:
+    def setup_docs(self) -> None:
         """
         set_cors.
         description: define CORS configuration
@@ -230,14 +231,18 @@ class AppHandler(ABC):
                             content:
                                 {response}""".format(fnName=fnName, response=response)
                     fn.__doc__ = doc
+
+
+    def setup_cors(self, cors):
+        for route in list(self.app.router.routes()):
             try:
-                #if DEBUG:
-                #    self.logger.info(f'Adding CORS to {route.method} {route.handler}')
-                if not isinstance(route.resource, web.StaticResource):
-                    if inspect.isclass(route.handler) and issubclass(route.handler, AbstractView):
-                        self.cors.add(route, webview=True)
-                    else:
-                        self.cors.add(route)
+                # if DEBUG:
+                #     self.logger.info(f'Adding CORS to {route.method} {route.handler}')
+                #if not isinstance(route.resource, web.StaticResource):
+                if inspect.isclass(route.handler) and issubclass(route.handler, AbstractView):
+                    cors.add(route, webview=True)
+                else:
+                    cors.add(route)
             except ValueError as err:
                 print('Error on Adding CORS: ', err)
                 pass

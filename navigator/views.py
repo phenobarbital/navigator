@@ -3,6 +3,9 @@ from urllib import parse
 import inspect
 from functools import partial
 from typing import Any, List, Dict, Optional, Callable
+import datetime
+import json
+import traceback
 
 from aiohttp.abc import AbstractView
 from aiohttp import web
@@ -17,13 +20,8 @@ from asyncdb.providers.memcache import memcache
 from settings.settings import MEMCACHE_HOST, MEMCACHE_PORT, logging_config, loglevel
 from navigator.libs.encoders import DefaultEncoder
 
-import logging
-from datetime import datetime
-try:
-    import ujson as json
-except ImportError:
-    import json
 
+import logging
 from logging.config import dictConfig
 dictConfig(logging_config)
 
@@ -31,7 +29,7 @@ dictConfig(logging_config)
 class BaseHandler(CorsViewMixin):
     _config = None
     _mem = None
-    _now: datetime = datetime.now()
+    _now = None
     _loop = None
     logger: logging.Logger
     _lasterr = None
@@ -45,7 +43,7 @@ class BaseHandler(CorsViewMixin):
 
     def __init__(self, *args, **kwargs):
         CorsViewMixin.__init__(self)
-        self._now = datetime.now().strftime("%Y%m%d%H%M%S")
+        self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
         self.logger = logging.getLogger('Navigator')
         self.logger.setLevel(loglevel)
@@ -54,7 +52,7 @@ class BaseHandler(CorsViewMixin):
     def post_init(self, *args, **kwargs):
         pass
 
-    def now(self) -> datetime:
+    def now(self):
         return self._now
 
     def log(self, message: str):
@@ -109,6 +107,7 @@ class BaseHandler(CorsViewMixin):
             self,
             request: web.Request,
             exception: Exception=None,
+            traceback=None,
             state: int=500,
             headers: dict={},
             **kwargs
@@ -116,7 +115,8 @@ class BaseHandler(CorsViewMixin):
         # TODO: process the exception object
         response_obj = {
             'status': 'Failed',
-            'reason': str(exception)
+            'reason': str(exception),
+            'stacktrace': traceback
         }
         args = {
             'text': json.dumps(response_obj),

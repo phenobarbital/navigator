@@ -22,6 +22,7 @@ from navigator.resources import WebSocket, channel_handler
 # get the authentication library
 from navigator.modules.auth import AuthHandler
 from navigator.modules.session import navSession
+from navigator.handlers import nav_exception_handler
 
 from functools import wraps
 #from apps.setup import app_startup
@@ -31,44 +32,6 @@ from aiohttp_utils import run as runner
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from concurrent.futures import ThreadPoolExecutor
 
-
-async def shutdown(loop, signal=None):
-    """Cleanup tasks tied to the service's shutdown."""
-    if signal:
-        print(f"Received exit signal {signal.name}...")
-    print("Closing all connections")
-    try:
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
-        [task.cancel() for task in tasks]
-        print(f"Cancelling {len(tasks)} outstanding tasks")
-        await asyncio.gather(*tasks, return_exceptions=True)
-    except asyncio.CancelledError:
-        print('Tasks has been canceled')
-    #asyncio.gather(*asyncio.Task.all_tasks()).cancel()
-    finally:
-        loop.stop()
-
-def custom_exception_handler(loop, context):
-    """Exception Handler for Asyncio Loops."""
-    # first, handle with default handler
-    if context:
-        loop.default_exception_handler(context)
-        exception = context.get('exception')
-        print(exception)
-        print(context)
-        try:
-            msg = context.get("exception", context["message"])
-            print("Caught Exception: {}".format(str(msg)))
-        except (TypeError, AttributeError, IndexError):
-            print("Caught Exception: {}, Context: {}".format(str(exception), str(context)))
-        # Canceling pending tasks and stopping the loop
-        try:
-            print("Asyncio Shutting down...")
-            asyncio.run(shutdown(loop))
-        except Exception as e:
-            print(e)
-        finally:
-            print("Successfully shutdown service.")
 
 def Response(
         content: Any,
@@ -112,7 +75,7 @@ class Application(object):
     def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
         #configuring asyncio loop
         self._loop = asyncio.get_event_loop()
-        self._loop.set_exception_handler(custom_exception_handler)
+        self._loop.set_exception_handler(nav_exception_handler)
         #asyncio.set_event_loop(self._loop)
 
         self._executor = ThreadPoolExecutor()

@@ -5,10 +5,11 @@ import json
 
 class AbstractSession(object):
     _backend = None
+    _parent = None
 
-    @property
     def Backend(self, backend: Any = None):
-        self._backend = backend
+        self._parent = backend
+        self._backend = backend.cache()
 
     async def decode(self, key):
         pass

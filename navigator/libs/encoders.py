@@ -10,7 +10,7 @@ import json
 
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):
-        if isinstance(obj, datetime.datetime):
+        if isinstance(obj, datetime):
             return str(obj)
         else:
             return str(object=obj)

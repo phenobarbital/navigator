@@ -20,6 +20,7 @@ TEMP_DIR = config.get('TEMP_DIR', fallback='/tmp')
 FILES_DIR = config.get('ETL_PATH', fallback='/home/ubuntu/symbits/')
 NAV_DIR = BASE_DIR.joinpath('navigator')
 STATIC_DIR = BASE_DIR.joinpath('static')
+SERVICES_DIR = BASE_DIR.joinpath('services')
 
 """
 Security and debugging

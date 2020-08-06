@@ -9,7 +9,7 @@ import json
 import base64
 from navigator.modules.session.session import AbstractSession
 from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
-from asyncdb.providers import  exception_handler
+from navigator.handlers import nav_exception_handler
 from asyncdb import AsyncPool
 
 """
@@ -29,17 +29,23 @@ class navSession(object):
         self._result = {}
         self._session_key = ''
         self._session_id = None
-        self._loop.set_exception_handler(exception_handler)
+        self._loop.set_exception_handler(nav_exception_handler)
         #set the connector to redis pool
         #TODO: define other session backend
         self._redis = redis = AsyncPool('redis', dsn=dsn, loop=self._loop)
         self._session = session
 
+    def cache(self):
+        return self._cache
+
+    def set_result(self, result):
+        self._result = result
+
     async def connect(self):
         await self._redis.connect()
         if self._redis:
             self._cache = await self._redis.acquire()
-            self._session.Backend = self._cache
+            self._session.Backend(self)
 
     async def close(self):
         if self._cache:
@@ -48,10 +54,10 @@ class navSession(object):
         #self._loop.close()
 
     async def decode(self, key):
-        return self._session.decode(key)
+        return await self._session.decode(key)
 
     async def encode(self, key, data):
-        return self._session.encode(key, data)
+        return await self._session.encode(key, data)
 
     def session_key(self):
         return self._session_key

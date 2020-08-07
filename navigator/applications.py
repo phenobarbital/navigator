@@ -230,7 +230,10 @@ class AppHandler(ABC):
                             description: Successful operation
                             content:
                                 {response}""".format(fnName=fnName, response=response)
-                    fn.__doc__ = doc
+                    try:
+                        fn.__doc__ = doc
+                    except (AttributeError, ValueError):
+                        pass
 
 
     def setup_cors(self, cors):

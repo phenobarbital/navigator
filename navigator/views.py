@@ -59,8 +59,8 @@ class BaseHandler(CorsViewMixin):
         self.logger.info(message)
 
     # function returns
-    def no_content(self, request, headers) -> web.Response:
-        response = HTTPNoContent(content_type='application/json')
+    def no_content(self, request, headers, content_type: str = 'application/json') -> web.Response:
+        response = HTTPNoContent(content_type=content_type)
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
             response.headers[header] = value

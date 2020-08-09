@@ -8,7 +8,8 @@ import ssl
 import asyncio
 import uvloop
 import logging
-from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, INSTALLED_APPS, LOCAL_DEVELOPMENT
+from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, \
+  INSTALLED_APPS, LOCAL_DEVELOPMENT, SESSION_STORAGE, SESSION_URL, SESSION_PREFIX
 from navigator.applications import AppHandler, AppBase, app_startup
 from aiohttp_swagger import setup_swagger
 import sockjs
@@ -16,13 +17,16 @@ from typing import Callable, Optional, Any
 import inspect
 from aiohttp.abc import AbstractView
 from aiohttp import web
+import signal
 
 from aiohttp_session import setup as setup_session, get_session
+from aiohttp_session.redis_storage import RedisStorage
+
 from navigator.resources import WebSocket, channel_handler
 # get the authentication library
 from navigator.modules.auth import AuthHandler
 from navigator.modules.session import navSession
-from navigator.handlers import nav_exception_handler
+from navigator.handlers import nav_exception_handler, shutdown
 
 from functools import wraps
 #from apps.setup import app_startup
@@ -59,8 +63,10 @@ def Response(
         response['body'] = content if content else body
     return web.Response(**response)
 
+
 class Application(object):
     app: Any = None
+    _auth = None
     debug = False
     parser = None
     use_ssl = False
@@ -75,9 +81,12 @@ class Application(object):
     def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
         #configuring asyncio loop
         self._loop = asyncio.get_event_loop()
-        self._loop.set_exception_handler(nav_exception_handler)
-        #asyncio.set_event_loop(self._loop)
-
+        #self._loop.set_exception_handler(nav_exception_handler)
+        # May want to catch other signals too
+        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+        for s in signals:
+            self._loop.add_signal_handler(
+                s, lambda s=s: asyncio.create_task(shutdown(self._loop, s)))
         self._executor = ThreadPoolExecutor()
         if 'debug' in kwargs:
             self.debug = kwargs['debug']
@@ -139,13 +148,19 @@ class Application(object):
         logging.getLogger('aiohttp.web').setLevel(logging.INFO)
         return logging.getLogger(name)
 
+
     def setup_app(self) -> web.Application:
         app = self.get_app()
         # # TODO: iterate over modules folder
-        # auth = AuthHandler()
-        # auth.configure(app)
+        self._auth = AuthHandler(
+            type=SESSION_STORAGE,
+            name=SESSION_PREFIX,
+            url=SESSION_URL
+        )
+        self._auth.configure(app)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
+        app['session'] = self._auth
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(app, defaults={

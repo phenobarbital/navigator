@@ -1,8 +1,16 @@
+import asyncio
 from aiohttp import web
 from navigator.libs.modules import AbstractHandler
-from aiohttp_session import setup as setup_session
+# aiohttp session
+from aiohttp_session import get_session, setup as setup_session
+# Storages
+from cryptography import fernet
+import base64
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from navigator.conf import config, SECRET_KEY
+from aiohttp_session.redis_storage import RedisStorage
+import aioredis
+
+from navigator.conf import config
 
 class AuthHandler(AbstractHandler):
     _template = """
@@ -20,6 +28,37 @@ class AuthHandler(AbstractHandler):
                 <a href="/logout">Logout</a>
             </body>
     """
+    _session_type = None
+    _pool = None
+
+    def __init__(self, type: str = 'redis', name:str = 'AIOHTTP_SESSION', **kwargs):
+        async def make_redis_pool(url, **kwargs):
+            return await aioredis.create_pool(url, **kwargs)
+        if type == 'redis':
+            try:
+                url = kwargs['url']
+                del kwargs['url']
+            except KeyError:
+                raise Exception("Error: For Redis Storage, you need session URL")
+            self._pool = asyncio.get_event_loop().run_until_complete(make_redis_pool(url, **kwargs))
+            self._session_type = RedisStorage(
+                self._pool, cookie_name=name
+            )
+        elif type == 'cookie':
+            try:
+                secret_key = kwargs['secret_key']
+            except KeyError:
+                fernet_key = fernet.Fernet.generate_key()
+                secret_key = base64.urlsafe_b64decode(fernet_key)
+            self._session_type = EncryptedCookieStorage(secret_key, cookie_name=name)
+
+    def pool(self):
+        return self._pool
+
+    async def close(self):
+        if self._pool:
+            self._pool.close()
+            await self._pool.wait_closed()
 
     async def index(self, request):
         response = web.HTTPFound('/')
@@ -60,12 +99,13 @@ class AuthHandler(AbstractHandler):
         response = web.Response(body='You are on protected page')
         return response
 
-    def configure(self, app: web.Application) -> None:
+    def configure(self, app: web.Application) -> web.Application:
         # configure session:
-        setup_session(app, EncryptedCookieStorage(SECRET_KEY))
+        setup_session(app, self._session_type)
         router = app.router
         router.add_route('GET', '/login', self.index, name='index_login')
         router.add_route('POST', '/login', self.login, name='login')
         router.add_route('GET', '/logout', self.logout, name='logout')
         router.add_route('GET', '/public', self.internal_page, name='public')
         router.add_route('GET', '/protected', self.protected_page, name='protected')
+        return app

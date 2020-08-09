@@ -51,6 +51,7 @@ class navSession(object):
         if self._cache:
             await self._cache.close()
         await self._redis.close()
+        await self._redis.wait_closed()
         #self._loop.close()
 
     async def decode(self, key):

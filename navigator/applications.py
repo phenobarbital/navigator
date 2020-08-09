@@ -144,6 +144,7 @@ class AppHandler(ABC):
         self.app['config'] = context
         # register signals for startup cleanup and shutdown
         self.app.on_startup.append(self.on_startup)
+        self.app.on_cleanup.append(self.pre_cleanup)
         self.app.on_cleanup.append(self.on_cleanup)
         self.app.on_shutdown.append(self.on_shutdown)
         self.app.on_response_prepare.append(self.on_prepare)
@@ -257,6 +258,13 @@ class AppHandler(ABC):
         """
         pass
 
+    async def pre_cleanup(self, app):
+        """
+        pre_cleanup.
+        description: Signal for customize the response when server is closing
+        """
+        pass
+
     async def on_cleanup(self, app):
         """
         on_cleanup.
@@ -348,8 +356,8 @@ class AppConfig(AppHandler):
                 await conn.close()
         except Exception as err:
             print('Error closing Interface connection {}'.format(err))
-        finally:
-            print('= Closing {} connections'.format(self._name))
+        # finally:
+        #     print('= Closing {} connections'.format(self._name))
 
     def setup_routes(self):
         # set the urls

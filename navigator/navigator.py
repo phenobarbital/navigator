@@ -24,8 +24,9 @@ from aiohttp_session.redis_storage import RedisStorage
 
 from navigator.resources import WebSocket, channel_handler
 # get the authentication library
-from navigator.modules.auth import AuthHandler
-from navigator.modules.session import navSession
+from navigator.modules.auth import AuthHandler, login_required, auth_middleware
+
+# Exception Handlers
 from navigator.handlers import nav_exception_handler, shutdown
 
 from functools import wraps
@@ -155,12 +156,15 @@ class Application(object):
         self._auth = AuthHandler(
             type=SESSION_STORAGE,
             name=SESSION_PREFIX,
-            url=SESSION_URL
+            url=SESSION_URL,
+            backends=('session', 'hosts', )
         )
         self._auth.configure(app)
+        # adding middleware for Authorization
+        app.middlewares.append(auth_middleware)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
-        app['session'] = self._auth
+        app['auth'] = self._auth
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(app, defaults={

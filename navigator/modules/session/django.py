@@ -2,10 +2,14 @@ import base64
 from navigator.conf import SESSION_PREFIX
 from navigator.modules.session.session import AbstractSession
 from typing import Any
+try:
+    import ujson as json
+except ImportError:
+    import json
 
 class djangoSession(AbstractSession):
 
-        async def decode(self, key):
+        async def decode(self, key: str =None):
             try:
                 result = await self._backend.get('{}:{}'.format(SESSION_PREFIX, key))
                 data = base64.b64decode(result)
@@ -13,11 +17,12 @@ class djangoSession(AbstractSession):
                 self._session_key = key
                 self._session_id = session_data[0]
                 if session_data:
-                    self._result = json.loads(session_data[1])
-                return self
+                    r = json.loads(session_data[1])
+                    self._parent.set_result(r)
             except Exception as err:
                 print(err)
-                return None
+            finally:
+                return self._parent
 
         async def encode(self, key, data):
             raise NotImplementedError

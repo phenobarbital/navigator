@@ -3,6 +3,9 @@ from urllib import parse
 import inspect
 from functools import partial
 from typing import Any, List, Dict, Optional, Callable
+import datetime
+import json
+import traceback
 
 from aiohttp.abc import AbstractView
 from aiohttp import web
@@ -12,17 +15,13 @@ from aiohttp.web_exceptions import HTTPNoContent, HTTPMethodNotAllowed, HTTPClie
 from abc import ABC, ABCMeta, abstractmethod, abstractproperty
 import aiohttp_cors
 from aiohttp_cors import CorsViewMixin
-from navigator.conf import logging_config, loglevel
-from settings.settings import MEMCACHE_HOST, MEMCACHE_PORT
+from asyncdb.providers.memcache import memcache
+
+from settings.settings import MEMCACHE_HOST, MEMCACHE_PORT, logging_config, loglevel
 from navigator.libs.encoders import DefaultEncoder
 
-import logging
-from datetime import datetime
-try:
-    import ujson as json
-except ImportError:
-    import json
 
+import logging
 from logging.config import dictConfig
 dictConfig(logging_config)
 
@@ -30,7 +29,7 @@ dictConfig(logging_config)
 class BaseHandler(CorsViewMixin):
     _config = None
     _mem = None
-    _now: datetime = datetime.now()
+    _now = None
     _loop = None
     logger: logging.Logger
     _lasterr = None
@@ -44,20 +43,24 @@ class BaseHandler(CorsViewMixin):
 
     def __init__(self, *args, **kwargs):
         CorsViewMixin.__init__(self)
-        self._now = datetime.now().strftime("%Y%m%d%H%M%S")
+        self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
         self.logger = logging.getLogger('Navigator')
         self.logger.setLevel(loglevel)
+        self.post_init(self, *args, **kwargs)
 
-    def now(self) -> datetime:
+    def post_init(self, *args, **kwargs):
+        pass
+
+    def now(self):
         return self._now
 
     def log(self, message: str):
         self.logger.info(message)
 
     # function returns
-    def no_content(self, request, headers) -> web.Response:
-        response = HTTPNoContent(content_type='application/json')
+    def no_content(self, request, headers, content_type: str = 'application/json') -> web.Response:
+        response = HTTPNoContent(content_type=content_type)
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
             response.headers[header] = value
@@ -104,6 +107,7 @@ class BaseHandler(CorsViewMixin):
             self,
             request: web.Request,
             exception: Exception=None,
+            traceback=None,
             state: int=500,
             headers: dict={},
             **kwargs
@@ -111,7 +115,8 @@ class BaseHandler(CorsViewMixin):
         # TODO: process the exception object
         response_obj = {
             'status': 'Failed',
-            'reason': str(exception)
+            'reason': str(exception),
+            'stacktrace': traceback
         }
         args = {
             'text': json.dumps(response_obj),
@@ -279,27 +284,21 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
 class DataView(BaseView):
     _mcache: Any = None
-    _connection = None
-    _redis = None
+    _connection: Any = None
+    _redis: Any = None
 
-    def __init__(self, request, *args, **kwargs):
-        super(DataView, self).__init__(request, *args, **kwargs)
+
+    def post_init(self, *args, **kwargs):
         mem_params = {
             "host": MEMCACHE_HOST,
             "port": MEMCACHE_PORT
         }
         self._mcache = memcache(params=mem_params)
 
-    def __del__(self):
-        if self._mcache:
-            try:
-                self._mcache.close()
-            except Exception as err:
-                print(err)
-                pass
 
     async def connection(self):
         return self._connection
+
 
     async def connect(self, request):
         await self._mcache.connection()
@@ -368,7 +367,6 @@ class DataView(BaseView):
     """
     Meta-Operations
     """
-
     def table(self, table):
         try:
             return self._query_raw.format_map(SafeDict(table = table))

@@ -144,6 +144,7 @@ class AppHandler(ABC):
         self.app['config'] = context
         # register signals for startup cleanup and shutdown
         self.app.on_startup.append(self.on_startup)
+        self.app.on_cleanup.append(self.pre_cleanup)
         self.app.on_cleanup.append(self.on_cleanup)
         self.app.on_shutdown.append(self.on_shutdown)
         self.app.on_response_prepare.append(self.on_prepare)
@@ -151,21 +152,13 @@ class AppHandler(ABC):
         if self.auto_home:
             self.app.router.add_route('GET', "/ping", ping)
             self.app.router.add_route('GET', "/", home)
-        # set cors:
-        self.cors = aiohttp_cors.setup(self.app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_methods='*',
-                allow_headers="*",
-                max_age=3600
-            )
-        })
+
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
             print('SETUP NEW APPLICATION: {}'.format(self._name))
         middlewares = {}
+        self.cors = None
         if self._middleware:
             middlewares = {
                 "middlewares": self._middleware
@@ -176,6 +169,15 @@ class AppHandler(ABC):
             loop=self._loop,
             **middlewares
         )
+        self.cors = aiohttp_cors.setup(app, defaults={
+            "*": aiohttp_cors.ResourceOptions(
+                allow_credentials=True,
+                expose_headers="*",
+                allow_methods='*',
+                allow_headers="*",
+                max_age=3600
+            )
+        })
         return app
 
     @property
@@ -202,7 +204,7 @@ class AppHandler(ABC):
                 [web.static('/static', static, append_version=True)]
             )
 
-    def set_cors(self) -> None:
+    def setup_docs(self) -> None:
         """
         set_cors.
         description: define CORS configuration
@@ -229,15 +231,22 @@ class AppHandler(ABC):
                             description: Successful operation
                             content:
                                 {response}""".format(fnName=fnName, response=response)
-                    fn.__doc__ = doc
+                    try:
+                        fn.__doc__ = doc
+                    except (AttributeError, ValueError):
+                        pass
+
+
+    def setup_cors(self, cors):
+        for route in list(self.app.router.routes()):
             try:
-                #if DEBUG:
-                #    self.logger.info(f'Adding CORS to {route.method} {route.handler}')
-                if not isinstance(route.resource, web.StaticResource):
-                    if inspect.isclass(route.handler) and issubclass(route.handler, AbstractView):
-                        self.cors.add(route, webview=True)
-                    else:
-                        self.cors.add(route)
+                # if DEBUG:
+                #     self.logger.info(f'Adding CORS to {route.method} {route.handler}')
+                #if not isinstance(route.resource, web.StaticResource):
+                if inspect.isclass(route.handler) and issubclass(route.handler, AbstractView):
+                    cors.add(route, webview=True)
+                else:
+                    cors.add(route)
             except ValueError as err:
                 print('Error on Adding CORS: ', err)
                 pass
@@ -246,6 +255,13 @@ class AppHandler(ABC):
         """
         on_prepare.
         description: Signal for customize the response while is prepared.
+        """
+        pass
+
+    async def pre_cleanup(self, app):
+        """
+        pre_cleanup.
+        description: Signal for customize the response when server is closing
         """
         pass
 
@@ -340,8 +356,8 @@ class AppConfig(AppHandler):
                 await conn.close()
         except Exception as err:
             print('Error closing Interface connection {}'.format(err))
-        finally:
-            print('= Closing {} connections'.format(self._name))
+        # finally:
+        #     print('= Closing {} connections'.format(self._name))
 
     def setup_routes(self):
         # set the urls

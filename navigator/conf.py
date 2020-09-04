@@ -20,6 +20,7 @@ TEMP_DIR = config.get('TEMP_DIR', fallback='/tmp')
 FILES_DIR = config.get('ETL_PATH', fallback='/home/ubuntu/symbits/')
 NAV_DIR = BASE_DIR.joinpath('navigator')
 STATIC_DIR = BASE_DIR.joinpath('static')
+SERVICES_DIR = BASE_DIR.joinpath('services')
 
 """
 Security and debugging
@@ -122,7 +123,7 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 """
 REDIS Session
 """
-
+SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
 SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)

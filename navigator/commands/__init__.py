@@ -89,7 +89,7 @@ def run_command(**kwargs):
                 raise CommandNotFound("No Command %s was found" % clsCommand)
             # calling cls
             try:
-                cls(args)
+                cls(*args)
                 output = cls.handle(**kwargs)
             except Exception as err:
                 print(err)

@@ -71,12 +71,22 @@ class BaseCommand(object):
                 raise CommandNotFound('Method {} from {} not Found'.format(__name__, self.action))
             fn = getattr(self, self.action)
             sig = signature(fn)
-            print(sig.parameters, len(sig.parameters))
-            #output = fn(options, **kwargs)
+            try:
+                if len(sig.parameters) > 0:
+                    # send parameters to method
+                    output = fn(options, **kwargs)
+                else:
+                    output = fn()
+            except Exception as err:
+                if options.traceback:
+                    print(traceback.format_exc())
+                raise CommandError('Error Calling Method: {}, error: {}'.format(self.action, err))
         except Exception as err:
             if options.traceback:
                 print(traceback.format_exc())
             raise CommandError('Error Parsing arguments: {}'.format(err))
+        finally:
+            print(output)
 
 def run_command(**kwargs):
     """

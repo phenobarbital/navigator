@@ -37,10 +37,10 @@ def run_command(*args, **kwargs):
     """
     Running a command in Navigator Enviroment
     """
-    print(sys.argv)
+    a = sys.argv
     parser = ArgumentParser(description="Navigator")
-    script = args.pop(0)
-    command = args.pop(0)
+    script = a.pop(0)
+    command = a.pop(0)
     print('printing args')
     print(*args)
     print('printing kwargs')

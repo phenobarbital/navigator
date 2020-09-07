@@ -71,7 +71,7 @@ class BaseCommand(object):
                 raise CommandNotFound('Method {} from {} not Found'.format(__name__, self.action))
             fn = getattr(self, self.action)
             sig = signature(fn)
-            print(sig.parameters)
+            print(sig.parameters, len(sig.parameters))
             #output = fn(options, **kwargs)
         except Exception as err:
             if options.traceback:

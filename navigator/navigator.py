@@ -38,6 +38,11 @@ asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 from concurrent.futures import ThreadPoolExecutor
 
 
+__version__ = '1.0.0.dev0'
+
+def get_version():
+    return __version__
+
 def Response(
         content: Any,
         text: str='',

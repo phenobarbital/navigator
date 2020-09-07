@@ -28,7 +28,6 @@ class BaseCommand(object):
 
     def __init__(self, args):
         self.args = args
-        print(args, self.args)
         self.parser = ArgumentParser(description="Navigator")
         self.parser.add_argument(
             '-d', '--debug',
@@ -56,14 +55,13 @@ class BaseCommand(object):
         get_version
             Return the current Navigator Version
         """
-        return get_version()
+        return "Navigator: v.{}".format(get_version())
 
     def handle(self, **kwargs):
         output: Any = None
         try:
             # parsing current arguments
             options = self.parser.parse_args(self.args)
-            print(options.traceback)
             if options.debug:
                 print('Executing : {}'.format(self.action))
             # calling the internal function:

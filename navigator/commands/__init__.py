@@ -54,7 +54,7 @@ class colors:
 
 def cPrint(msg, color=None, level='INFO'):
     try:
-        if color:
+        if color is not None:
             coloring = colors.bold + getattr(colors.fg, color)
         elif level:
             if level == 'INFO':
@@ -67,8 +67,8 @@ def cPrint(msg, color=None, level='INFO'):
                 coloring = colors.fg.lightred
             elif level == 'CRITICAL':
                 coloring = colors.bold + colors.fg.red
-            else:
-                coloring = colors.reset
+        else:
+            coloring = colors.reset
     except Exception as err:
         print('Wrong color schema {}, error: {}'.format(color, str(err)))
         coloring = colors.reset
@@ -149,7 +149,7 @@ class BaseCommand(object):
                 print(traceback.format_exc())
             raise CommandError('Error Parsing arguments: {}'.format(err))
         finally:
-            cPrint(output, 'INFO')
+            cPrint(output, level='INFO')
 
 def run_command(**kwargs):
     """

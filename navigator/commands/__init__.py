@@ -2,6 +2,7 @@
 import os
 import sys
 import importlib
+from inspect import signature
 from typing import List, Any, Dict, Callable
 from argparse import ArgumentParser, HelpFormatter
 from io import TextIOBase
@@ -41,7 +42,6 @@ class BaseCommand(object):
         )
         # get action:
         self.action = self.args.pop(0)
-        print('Action: {}'.format(self.action))
         self.parse_arguments()
 
     def parse_arguments(self):
@@ -58,11 +58,21 @@ class BaseCommand(object):
         """
         return navigator.get_version()
 
-    def handle(self, *args, **kwargs):
+    def handle(self, **kwargs):
+        output: Any = None
         try:
             # parsing current arguments
             options = self.parser.parse_args(self.args)
             print(options.traceback)
+            if options.debug:
+                print('Executing : {}'.format(self.action))
+            # calling the internal function:
+            if not hasattr(self, self.action):
+                raise CommandNotFound('Method {} from {} not Found'.format(__name__, self.action))
+            fn = getattr(self, self.action)
+            sig = signature(fn)
+            print(sig.parameters)
+            #output = fn(options, **kwargs)
         except Exception as err:
             if options.traceback:
                 print(traceback.format_exc())
@@ -76,11 +86,10 @@ def run_command(**kwargs):
         args = sys.argv
         script = args.pop(0)
         command = args.pop(0)
-        print('HERE ', args)
         if command is not None:
             # calling Command
             clsCommand = '{}Command'.format(command.capitalize())
-            print('Command {}, cls: {}'.format(command, clsCommand))
+            #print('Command {}, cls: {}'.format(command, clsCommand))
             try:
                 classpath = 'navigator.commands.{provider}'.format(provider=command)
                 module = importlib.import_module(classpath, package='commands')

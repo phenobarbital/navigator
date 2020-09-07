@@ -62,7 +62,7 @@ class BaseCommand(object):
         try:
             # parsing current arguments
             options = self.parser.parse_args(self.args)
-            print(options)
+            print(options.traceback)
         except Exception as err:
             if options.traceback:
                 print(traceback.format_exc())

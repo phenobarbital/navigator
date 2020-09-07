@@ -38,10 +38,12 @@ def run_command(*args, **kwargs):
     Running a command in Navigator Enviroment
     """
     parser = ArgumentParser(description="Navigator")
+    script = args.pop(0)
+    command = args.pop(0)
     print('printing args')
     print(*args)
     print('printing kwargs')
     for key, value in kwargs.items():
         print("%s == %s" % (key, value))
-    options = parser.parse_args()
+    options = parser.parse_args(args)
     print(options, args, kwargs)

@@ -27,6 +27,7 @@ class BaseCommand(object):
 
     def __init__(self, *args):
         self.args = args
+        print(args, self.args)
         self.parser = ArgumentParser(description="Navigator")
         self.parser.add_argument(
             '-d', '--debug',
@@ -75,6 +76,7 @@ def run_command(**kwargs):
         args = sys.argv
         script = args.pop(0)
         command = args.pop(0)
+        print('HERE ', args)
         if command is not None:
             # calling Command
             clsCommand = '{}Command'.format(command.capitalize())

@@ -123,7 +123,7 @@ class BaseCommand(object):
         return "Navigator: v.{}".format(get_version())
 
     def handle(self, **kwargs):
-        output: Any = None
+        output: str = ''
         try:
             # parsing current arguments
             options = self.parser.parse_args(self.args)

@@ -10,6 +10,8 @@ class EnvCommand(BaseCommand):
         create.
             Create a new Enviroment from scratch
         """
+        output = ''
         if options.debug:
             cPrint(':: Creating a New Navigator Enviroment', level='INFO')
             cPrint('= wait a few minutes', level='WARN')
+        return output

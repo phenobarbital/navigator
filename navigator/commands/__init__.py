@@ -33,7 +33,7 @@ class BaseCommand(object):
         print(options, args, kwargs)
 
 
-def run_command(*args, **kwargs):
+def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
     """
@@ -42,9 +42,9 @@ def run_command(*args, **kwargs):
     script = a.pop(0)
     command = a.pop(0)
     print('printing args')
-    print(*args)
+    print(*a)
     print('printing kwargs')
     for key, value in kwargs.items():
         print("%s == %s" % (key, value))
-    options = parser.parse_args(args)
-    print(options, args, kwargs)
+    options = parser.parse_args(args=a)
+    print(options, a, kwargs)

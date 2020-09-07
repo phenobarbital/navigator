@@ -25,7 +25,7 @@ class BaseCommand(object):
     args: List = []
     action: str = ''
 
-    def __init__(self, *args):
+    def __init__(self, args):
         self.args = args
         print(args, self.args)
         self.parser = ArgumentParser(description="Navigator")
@@ -89,7 +89,7 @@ def run_command(**kwargs):
                 raise CommandNotFound("No Command %s was found" % clsCommand)
             # calling cls
             try:
-                cls(*args)
+                cls(args)
                 output = cls.handle(**kwargs)
             except Exception as err:
                 print(err)

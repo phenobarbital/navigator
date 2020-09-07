@@ -54,11 +54,6 @@ class BaseCommand(object):
         """
         return navigator.get_version()
 
-class EnvCommand(BaseCommand):
-    def parse_arguments(self):
-        self.parser.add_argument('--enable-notify')
-        self.parser.add_argument('--process-services')
-
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
@@ -72,8 +67,9 @@ def run_command(**kwargs):
             clsCommand = '{}Command'.format(command.capitalize())
             print('Command {}, cls: {}'.format(command, clsCommand))
             try:
-                module = importlib.import_module(clsCommand, package='commands')
+                classpath = 'navigator.commands.{provider}'.format(provider=command)
+                module = importlib.import_module(classpath, package='commands')
                 cls = getattr(module, clsCommand)
                 print(cls)
             except ImportError:
-                raise CommandNotFound(message = "No Command %s was found" % clsCommand)
+                raise CommandNotFound("No Command %s was found" % clsCommand)

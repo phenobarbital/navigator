@@ -6,7 +6,7 @@ from inspect import signature
 from typing import List, Any, Dict, Callable
 from argparse import ArgumentParser, HelpFormatter
 from io import TextIOBase
-import navigator
+from navigator import get_version
 import traceback
 
 class CommandError(Exception):
@@ -56,7 +56,7 @@ class BaseCommand(object):
         get_version
             Return the current Navigator Version
         """
-        return navigator.get_version()
+        return get_version()
 
     def handle(self, **kwargs):
         output: Any = None

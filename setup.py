@@ -2,7 +2,7 @@
 """Navigator
     Web Framework based on aiohttp, with batteries included.
 See:
-https://bitbucket.org/mobileinsight1/navigator/src/master/
+https://github.com/phenobarbital/navigator-api/tree/master
 """
 
 from setuptools import setup, find_packages
@@ -11,8 +11,8 @@ setup(
     name='navigator',
     version=open("VERSION").read().strip(),
     python_requires=">=3.8.0",
-    url='https://bitbucket.org/mobileinsight1/navigator/',
-    download_url="https://bitbucket.org/mobileinsight1/navigator/",
+    url='https://github.com/phenobarbital/navigator-api',
+    download_url="https://github.com/phenobarbital/navigator-api",
     description='Asyncio Web Framework',
     keywords=["asyncio", "REST", "Framework", "datasources", 'protocol', 'aiohttp', 'web'],
     long_description=open("README.md").read(),
@@ -61,10 +61,10 @@ setup(
         'aiosocks==0.2.6'
     ],
     dependency_links=[
-        'git+git@bitbucket.org:mobileinsight1/asyncdb.git@a7ff6c85df0f94cbae29cc31fbab2f366fad2be7#egg=asyncdb',
+        'git@github.com:phenobarbital/asyncdb.git@273dae8bdd2c250f14afce34faf5a7a3d92e11b5#egg=asyncdb',
     ],
     project_urls={  # Optional
-        'Source': 'https://bitbucket.org/mobileinsight1/navigator/',
+        'Source': 'https://github.com/phenobarbital/navigator-api',
         'Funding': 'https://paypal.me/phenobarbital',
         'Say Thanks!': 'https://saythanks.io/to/phenobarbital',
     },

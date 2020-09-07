@@ -19,11 +19,16 @@ class BaseCommand(object):
 
     def __init__(self, *args, **kwargs):
         self.args = args
-
-    def __call__(self, *args, **kwargs):
+        print('Calling')
         self.parser = ArgumentParser(description="Navigator")
         self.parser.add_argument('-d', '--debug', action='store_true')
-        print('Calling')
+
+    def __call__(self, *args, **kwargs):
+        print('printing args')
+        print(*args)
+        print('printing kwargs')
+        for key, value in kwargs.items():
+            print("%s == %s" % (key, value))
         options = self.parser.parse_args()
         print(options, args, kwargs)
 

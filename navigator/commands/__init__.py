@@ -21,30 +21,46 @@ class BaseCommand(object):
         self.args = args
         print('Calling')
         self.parser = ArgumentParser(description="Navigator")
-        self.parser.add_argument('-d', '--debug', action='store_true')
+        self.parser.add_argument(
+            '-d', '--debug',
+            action='store_true',
+            help='Enable Debug'
+        )
+        self.parser.parser.add_argument(
+            '--traceback',
+            action='store_true',
+            help='Return the Traceback on CommandError'
+        )
+        self.parse_arguments()
 
-    def __call__(self, *args, **kwargs):
-        print('printing args')
-        print(*args)
-        print('printing kwargs')
-        for key, value in kwargs.items():
-            print("%s == %s" % (key, value))
-        options = self.parser.parse_args()
-        print(options, args, kwargs)
+    def parse_arguments(self):
+        """
+        parse_arguments.
+            allow for subclassed comands to add custom arguments
+        """
+        pass
 
+    def get_version(self):
+        """
+        get_version
+            Return the current Navigator Version
+        """
+        return navigator.get_version()
+
+class EnvCommand(BaseCommand):
+    def parse_arguments(self):
+        self.parser.add_argument('--enable-notify')
+        self.parser.add_argument('--process-services')
 
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
     """
-    a = sys.argv
-    parser = ArgumentParser(description="Navigator")
-    script = a.pop(0)
-    command = a.pop(0)
-    print('printing args')
-    print(*a)
-    print('printing kwargs')
-    for key, value in kwargs.items():
-        print("%s == %s" % (key, value))
-    options = parser.parse_args(args=a)
-    print(options, a, kwargs)
+    if len(sys.argv) > 1:
+        a = sys.argv
+        script = a.pop(0)
+        command = a.pop(0)
+        if command is not None:
+            # calling Command
+            clsCommand = '{}Command'.format(command.capitalize())
+            print('Command {}, cls: {}'.format(command, clsCommand))

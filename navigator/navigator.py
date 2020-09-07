@@ -100,8 +100,16 @@ class Application(object):
         self.parser.add_argument('--path')
         self.parser.add_argument('--host')
         self.parser.add_argument('--port')
-        self.parser.add_argument('-d', '--debug', action='store_true')
-        self.parser.add_argument('-r', '--reload', action='store_true')
+        self.parser.add_argument(
+            '-d', '--debug',
+            action='store_true',
+            help='Enable Debug'
+        )
+        self.parser.parser.add_argument(
+            '--traceback',
+            action='store_true',
+            help='Return the Traceback on CommandError'
+        )
         self.parse_arguments()
         if not app:
             # create an instance of AppHandler

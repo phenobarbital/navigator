@@ -7,7 +7,7 @@ if __name__ == '__main__':
     sys.path.append(os.path.join(PROJECT_ROOT, "apps"))
     try:
         from navigator.commands import RunCommand
-    except ImportError as exc:
+    except ImportError as err:
         raise ImportError(
             "Couldn't import Navigator. Are you sure it's installed and "
             "available on your PYTHONPATH environment variable? Did you "

@@ -15,6 +15,10 @@ class CommandError(Exception):
 
 class BaseCommand(object):
     parser: Callable
+    args: List = []
+
+    def __init__(self, *args, **kwargs):
+        self.args = args
 
     def __call__(self, *args, **kwargs):
         self.parser = ArgumentParser(description="Navigator")

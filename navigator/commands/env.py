@@ -6,13 +6,10 @@ import logging
 
 logger = logging.getLogger('Navigator.creator')
 loop = asyncio.get_event_loop()
-OPTS = None
 
 def create_dir(dir, name):
     try:
         path = dir.joinpath(name)
-        if OPTS.debug:
-            cPrint('Creating Directory: {}'.format(path), color=lightcyan)
         path.mkdir(parents=True, exist_ok=True)
     except FileExistsError as exc:
         pass
@@ -38,7 +35,6 @@ class EnvCommand(BaseCommand):
         """
         path = Path(kwargs['project_path']).resolve()
         output = 'Enviroment Done.'
-        OPTS = options
         if options.debug:
             cPrint(':: Creating a New Navigator Enviroment', level='INFO')
             cPrint('= wait a few minutes', level='WARN')

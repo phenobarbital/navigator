@@ -15,11 +15,11 @@ class CommandError(Exception):
 
 class BaseCommand(object):
     parser: Callable
-    def __init__(self):
-        self.parser = ArgumentParser(description="Navigator")
-        self.parser.add_argument('-d', '--debug', action='store_true')
 
     def __call__(self, *args, **kwargs):
+        self.parser = ArgumentParser(description="Navigator")
+        self.parser.add_argument('-d', '--debug', action='store_true')
+        print('Calling')
         options = self.parser.parse_args()
         print(options, args, kwargs)
 

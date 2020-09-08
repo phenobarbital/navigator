@@ -10,7 +10,7 @@ loop = asyncio.get_event_loop()
 
 
 def read_file(path, filename):
-    return open(path.joinpath('templates', filename), 'r')
+    return open(path.joinpath('navigator', 'commands', 'templates', filename), 'r')
 
 def create_dir(dir, name):
     try:

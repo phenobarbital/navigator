@@ -1,2 +1,2 @@
-from .navigator import Application, Response
-__all__ = (Application, Response)
+from .navigator import Application, Response, get_version
+__all__ = (Application, Response, get_version)

@@ -211,39 +211,40 @@ Applications
 INSTALLED_APPS: List = []
 DATABASES: Dict = {}
 
-for item in APP_DIR.iterdir():
-#for item in os.listdir(APPS_DIR):
-    if item.name != '__pycache__':
-        if item.is_dir():
-            name = item.name
-            if not name in INSTALLED_APPS:
-                app_name = 'apps.{}'.format(item.name)
-                path = APP_DIR.joinpath(name)
-                url_file = path.joinpath('urls.py')
-                try:
-                    i = importlib.import_module(app_name, package='apps')
-                    if isinstance(i, ModuleType):
-                        # is a Navigator Program
-                        INSTALLED_APPS += (app_name,)
-                except ImportError as err:
-                    print('ERROR: ', err)
-                    continue
-                # schema configuration
-                DATABASES[item.name] = {
-                    'ENGINE': config.get('DBENGINE'),
-                    'NAME': config.get('DBNAME'),
-                    'USER': config.get('DBUSER'),
-                    'OPTIONS': {
-                        'options': '-c search_path='+item.name+',troc,public',
-                    },
-                    #'PARAMS': {
-                    #    'readonly': True,
-                    #},
-                    'SCHEMA': item.name,
-                    'PASSWORD': config.get('DBPWD'),
-                    'HOST': config.get('DBHOST', fallback='localhost'),
-                    'PORT': config.get('DBPORT'),
-                }
+if APP_DIR.is_dir():
+    for item in APP_DIR.iterdir():
+    #for item in os.listdir(APPS_DIR):
+        if item.name != '__pycache__':
+            if item.is_dir():
+                name = item.name
+                if not name in INSTALLED_APPS:
+                    app_name = 'apps.{}'.format(item.name)
+                    path = APP_DIR.joinpath(name)
+                    url_file = path.joinpath('urls.py')
+                    try:
+                        i = importlib.import_module(app_name, package='apps')
+                        if isinstance(i, ModuleType):
+                            # is a Navigator Program
+                            INSTALLED_APPS += (app_name,)
+                    except ImportError as err:
+                        print('ERROR: ', err)
+                        continue
+                    # schema configuration
+                    DATABASES[item.name] = {
+                        'ENGINE': config.get('DBENGINE'),
+                        'NAME': config.get('DBNAME'),
+                        'USER': config.get('DBUSER'),
+                        'OPTIONS': {
+                            'options': '-c search_path='+item.name+',troc,public',
+                        },
+                        #'PARAMS': {
+                        #    'readonly': True,
+                        #},
+                        'SCHEMA': item.name,
+                        'PASSWORD': config.get('DBPWD'),
+                        'HOST': config.get('DBHOST', fallback='localhost'),
+                        'PORT': config.get('DBPORT'),
+                    }
 
 
 """

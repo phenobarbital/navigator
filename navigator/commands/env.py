@@ -12,14 +12,6 @@ loop = asyncio.get_event_loop()
 def read_file(path, filename):
     return open(path.joinpath('templates', filename), 'r')
 
-env = read_file(path, 'env.tpl')
-ini = read_file(path, 'ini.tpl')
-settings = read_file(path, 'settings.tpl')
-localsettings = read_file(path, 'localsettings.tpl')
-
-run = read_file(path, 'run.tpl')
-app = read_file(path, 'app.tpl')
-
 def create_dir(dir, name):
     try:
         path = dir.joinpath(name)
@@ -50,6 +42,14 @@ class EnvCommand(BaseCommand):
             Create a new Enviroment from scratch
         """
         path = Path(kwargs['project_path']).resolve()
+
+        env = read_file(path, 'env.tpl')
+        ini = read_file(path, 'ini.tpl')
+        settings = read_file(path, 'settings.tpl')
+        localsettings = read_file(path, 'localsettings.tpl')
+        run = read_file(path, 'run.tpl')
+        app = read_file(path, 'app.tpl')
+
         output = 'Enviroment Done.'
         if options.debug:
             cPrint(':: Creating a New Navigator Enviroment', level='INFO')

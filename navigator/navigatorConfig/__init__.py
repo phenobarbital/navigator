@@ -6,6 +6,7 @@ __all__ = (navigatorConfig)
 
 # get Project PATH
 BASE_DIR = Path(os.path.abspath(os.path.dirname(__file__))).resolve().parent.parent
+print(BASE_DIR)
 #BASE_DIR = Path(sys.prefix).resolve().parent
 if not BASE_DIR:
     BASE_DIR = Path(os.path.split(os.environ['VIRTUAL_ENV'])[0])

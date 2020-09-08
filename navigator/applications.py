@@ -200,9 +200,11 @@ class AppHandler(ABC):
             # adding statics
             # TODO: can personalize the path
             static = self.staticdir if self.staticdir else STATIC_DIR
-            self.app.add_routes(
-                [web.static('/static', static, append_version=True)]
-            )
+            print(static)
+            self.app.router.add_static('/static/', path=static, name='static', append_version=True)
+            # self.app.add_routes(
+            #     [web.static('/static', static, append_version=True)]
+            # )
 
     def setup_docs(self) -> None:
         """

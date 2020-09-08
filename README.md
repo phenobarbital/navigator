@@ -1,6 +1,7 @@
 # Navigator (Framework)
 
-T-ROC Navigator Framework (API) is a next-generation framework to build Asynchronous APIs.
+Navigator Framework (API) is a next-generation framework to build Asynchronous APIs.
+The main goal of Navigator is to provide data sources to Navigator-Next (FrontEnd Web App).
 
 ## Quickstart ##
 
@@ -13,7 +14,7 @@ T-ROC Navigator Framework (API) is a next-generation framework to build Asynchro
 
 ### What is AsyncDB? ###
 
-The main goal of Navigator is to provide data sources to Navigator-Next (FrontEnd Web App).
+AsyncDB is a collection of database connectors using asyncio-based technologies like asyncpg, aiomysql or async-redis.
 
 ### Getting Started ###
 

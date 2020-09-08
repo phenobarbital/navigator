@@ -132,7 +132,7 @@ class AppHandler(ABC):
     _middleware: Any = None
     auto_home: bool = True
     enable_aiojobs: bool = False
-    enable_statics: bool = True
+    enable_static: bool = True
     staticdir: str = ''
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
@@ -196,7 +196,7 @@ class AppHandler(ABC):
         if self.enable_aiojobs:
             # Adding setup and support for aiojobs
             setup(self.app)
-        if self.enable_statics:
+        if self.enable_static:
             # adding statics
             # TODO: can personalize the path
             static = self.staticdir if self.staticdir else STATIC_DIR

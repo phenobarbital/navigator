@@ -11,7 +11,7 @@ from navigator.applications import AppHandler
 
 class Main(AppHandler):
     def configure(self):
-        pass
+        super(Main, self).configure()
 
     async def on_startup(self, app):
         """

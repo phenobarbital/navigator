@@ -9,17 +9,16 @@ logger = logging.getLogger('Navigator.creator')
 loop = asyncio.get_event_loop()
 
 
-def read_file(filename):
-    path = Path(sys.prefix).resolve()
+def read_file(path, filename):
     return open(path.joinpath('templates', filename), 'r')
 
-env = read_file('env.tpl')
-ini = read_file('ini.tpl')
-settings = read_file('settings.tpl')
-localsettings = read_file('localsettings.tpl')
+env = read_file(path, 'env.tpl')
+ini = read_file(path, 'ini.tpl')
+settings = read_file(path, 'settings.tpl')
+localsettings = read_file(path, 'localsettings.tpl')
 
-run = read_file('run.tpl')
-app = read_file('app.tpl')
+run = read_file(path, 'run.tpl')
+app = read_file(path, 'app.tpl')
 
 def create_dir(dir, name):
     try:
@@ -77,8 +76,9 @@ class EnvCommand(BaseCommand):
         save_file(path, 'run.py', run)
         save_file(path, 'app.py', app)
         cPrint('* Fifth Step: adding a *home* template')
-        home = read_file('home.html')
-        css = read_file('styles.css')
+        home = read_file(path, 'home.html')
+        css = read_file(path, 'styles.css')
+        js = read_file(path, 'scripts.js')
         save_file(path, 'templates/home.html', home)
         save_file(path, 'static/css/styles.css', css)
         save_file(path, 'static/js/scripts.js', js)

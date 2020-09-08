@@ -9,7 +9,7 @@ logger = logging.getLogger('Navigator.creator')
 loop = asyncio.get_event_loop()
 
 
-def read_file(file):
+def read_file(filename):
     path = Path(sys.prefix).resolve()
     return open(path.joinpath('templates', filename), 'r')
 

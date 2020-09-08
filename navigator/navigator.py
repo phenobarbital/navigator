@@ -105,10 +105,10 @@ class Application(object):
             action='store_true',
             help='Enable Debug'
         )
-        self.parser.parser.add_argument(
+        self.parser.add_argument(
             '--traceback',
             action='store_true',
-            help='Return the Traceback on CommandError'
+            help='Return the Traceback on Error'
         )
         self.parse_arguments()
         if not app:

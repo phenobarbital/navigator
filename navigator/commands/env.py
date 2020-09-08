@@ -11,7 +11,7 @@ loop = asyncio.get_event_loop()
 
 def read_file(file):
     path = Path(sys.prefix).resolve()
-    return open(path.joinpath('files', filename), 'r')
+    return open(path.joinpath('templates', filename), 'r')
 
 env = read_file('env.tpl')
 ini = read_file('ini.tpl')

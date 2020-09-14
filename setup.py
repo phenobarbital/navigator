@@ -4,6 +4,6 @@
 See:
 https://github.com/phenobarbital/navigator-api/tree/master
 """
-from setuptools import setup
+from setuptools import setup, find_packages
 
-setup()
+setup(packages=find_packages())

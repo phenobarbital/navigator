@@ -3,7 +3,7 @@ sudo apt-get install libmemcached-dev zlib1g-dev
 # updating pip
 pip install --upgrade pip
 # first: install framework
-python setup.py develop
+pip install -e navigator
 # second: adding submodules
 mkdir extensions
 cd extensions
@@ -13,5 +13,5 @@ git submodule update --init --recursive --remote
 # installing
 pip install -e asyncdb
 # installing asyncdb requirements
-pip install -r asyncdb/requirements.txt
+pip install --use-feature=2020-resolver -r asyncdb/requirements.txt
 # later: post-requirements of Navigator-API

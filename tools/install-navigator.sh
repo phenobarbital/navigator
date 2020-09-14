@@ -3,7 +3,7 @@ sudo apt-get install libmemcached-dev zlib1g-dev
 # updating pip
 pip install --upgrade pip
 # first: install framework
-pip install -e navigator
+python setup.py develop
 # second: adding submodules
 mkdir extensions
 cd extensions

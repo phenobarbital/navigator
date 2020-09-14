@@ -289,7 +289,7 @@ class AppHandler(ABC):
 
 
 class AppBase(AppHandler):
-    pass
+    _middleware = None
 
 class AppConfig(AppHandler):
     """

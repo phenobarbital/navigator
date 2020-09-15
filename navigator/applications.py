@@ -308,7 +308,8 @@ class AppConfig(AppHandler):
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
         if self.template:
-            template_dir = self.path.joinpath(self.template)
+            template_dir = os.path.join(self.path, self.template)
+            #template_dir = self.path.resolve().joinpath(self.template)
             aiohttp_jinja2.setup(self.app,
                 loader=jinja2.FileSystemLoader(template_dir))
         # set the setup_routes

@@ -12,6 +12,7 @@ from types import ModuleType
 from cryptography import fernet
 from typing import Any, List, Tuple, Dict
 
+print(BASE_DIR)
 """
 Routes
 """

@@ -5,10 +5,10 @@ from .config import navigatorConfig
 __all__ = (navigatorConfig)
 
 # get Project PATH
-BASE_DIR = Path(os.path.abspath(os.path.dirname(__file__))).resolve().parent.parent
-#BASE_DIR = Path(sys.prefix).resolve().parent
+#BASE_DIR = Path(os.path.abspath(os.path.dirname(__file__))).resolve().parent.parent
+BASE_DIR = Path(sys.prefix).resolve().parent
 if not BASE_DIR:
-    BASE_DIR = Path(os.path.split(os.environ['VIRTUAL_ENV'])[0])
+    BASE_DIR = Path(os.path.abspath(os.path.dirname(__file__))).resolve().parent.parent
 
 # extensions dir
 EXTENSION_DIR = BASE_DIR.joinpath('extensions')

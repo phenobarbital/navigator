@@ -22,7 +22,13 @@ async def django_session(request, handler):
             # first: clear session
             session = request.app['session']
             await session.logout() # clear existing session
-            await session.decode(key=id)
+            if not await session.decode(key=id):
+                message = {
+                    'code': 403,
+                    'message': 'Invalid Session',
+                    'reason': str(err)
+                }
+                return web.json_response({'error': message})
         except Exception as err:
             print('Error Decoding Session: {}, {}'.format(err, err.__class__))
             return await handler(request)

@@ -21,11 +21,13 @@ class djangoSession(AbstractSession):
                         r = json.loads(session_data[1])
                         self._parent.set_result(r)
                         self._parent.id(self._session_id)
+                        return True
+                else:
+                    return False
             except Exception as err:
                 print(err)
                 logging.debug('Decoding Error: {}'.format(err))
-            finally:
-                return self._parent
+                return False
 
         async def encode(self, key, data):
             raise NotImplementedError

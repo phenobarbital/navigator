@@ -7,18 +7,45 @@ import sys
 import asyncio
 import json
 import base64
+from aiohttp import web
 from navigator.modules.session.session import AbstractSession
 from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
 from navigator.handlers import nav_exception_handler
 from asyncdb import AsyncDB
 import asyncio
+from navigator.views import BaseView
 
-"""
-navSession
-   Basic Interaction with Session backend of Django
-"""
+class UserSession(BaseView):
+    async def get(self):
+        print('GET')
+        try:
+            session = self.request['session']
+        except KeyError:
+            session = None
+        try:
+            if not session:
+                headers = {
+                    'x-status': 'Empty',
+                    'x-message': 'Invalid User Session'
+                }
+                return self.no_content(headers=headers)
+            else:
+                headers = {
+                    'x-status': 'OK',
+                    'x-message': 'Session OK'
+                }
+                data = session.content()
+                if data:
+                    return self.json_response(response=data, headers=headers)
+        except Exception as err:
+            return self.error(request, exception=err)
+
 
 class navSession(object):
+    """
+    navSession
+       Basic Interaction with Session backend of Django
+    """
     _loop = None
     _redis = None
     _cache = None

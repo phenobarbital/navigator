@@ -20,6 +20,7 @@ async def django_session(request, handler):
     if not id:
         # TODO: authorization
         return await handler(request)
+    print('ID is not none')
     elif id is not None:
         print('ID is not none', id)
         session = None

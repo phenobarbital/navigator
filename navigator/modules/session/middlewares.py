@@ -8,6 +8,7 @@ import ujson as json
 
 @middleware
 async def django_session(request, handler):
+    id = None
     if not check_path(request.path):
         return await handler(request)
     try:
@@ -19,6 +20,7 @@ async def django_session(request, handler):
     if not id:
         # TODO: authorization
         return await handler(request)
+    print('ID is not none', id)
     elif id is not None:
         session = None
         try:

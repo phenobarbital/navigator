@@ -26,7 +26,7 @@ async def django_session(request, handler):
                 message = {
                     'code': 403,
                     'message': 'Invalid Session',
-                    'reason': str(err)
+                    'reason': 'Unknown Session ID'
                 }
                 return web.json_response({'error': message})
         except Exception as err:

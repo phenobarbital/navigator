@@ -10,7 +10,7 @@ import base64
 from navigator.modules.session.session import AbstractSession
 from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
 from navigator.handlers import nav_exception_handler
-from asyncdb import AsyncPool
+from asyncdb import AsyncDB
 import asyncio
 
 """
@@ -34,9 +34,8 @@ class navSession(object):
         self._session_key = ''
         self._session_id = None
         self._loop.set_exception_handler(nav_exception_handler)
-        #set the connector to redis pool
         #TODO: define other session backend
-        self._redis = redis = AsyncPool('redis', dsn=dsn, loop=self._loop)
+        self._cache = redis = AsyncDB('redis', dsn=dsn)
         self._session = session
 
     def cache(self):
@@ -46,17 +45,14 @@ class navSession(object):
         self._result = result
 
     async def connect(self):
-        await self._redis.connect()
-        if self._redis:
-            self._cache = await self._redis.acquire()
+        await self._cache.connection()
+        if self._cache:
             self._session.Backend(self)
 
     async def close(self):
         if self._cache:
             await self._cache.close()
-        await self._redis.close()
-        await self._redis.wait_closed()
-        #self._loop.close()
+            await self._cache.wait_closed()
 
     async def decode(self, key):
         return await self._session.decode(key)
@@ -70,12 +66,13 @@ class navSession(object):
     def session_id(self):
         return self._session_id
 
+    def id(self, id):
+        self._session_id = id
+
     def content(self):
         return self._result
 
     async def get(self, key):
-        if not self._result:
-            await self.decode()
         if key in self._result:
             return self._result[key]
         else:

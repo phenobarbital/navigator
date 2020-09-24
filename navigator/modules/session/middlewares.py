@@ -21,7 +21,6 @@ async def django_session(request, handler):
         # TODO: authorization
         return await handler(request)
     elif id is not None:
-        print('ID is not none', id)
         session = None
         try:
             session = await request.app['session'].decode(key=id)

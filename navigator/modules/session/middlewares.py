@@ -28,7 +28,7 @@ async def django_session(request, handler):
                     'message': 'Invalid Session',
                     'reason': 'Unknown Session ID'
                 }
-                return web.json_response({'error': message})
+                return web.json_response({'error': message}, status=403)
         except Exception as err:
             print('Error Decoding Session: {}, {}'.format(err, err.__class__))
             return await handler(request)
@@ -42,7 +42,7 @@ async def django_session(request, handler):
                 'message': 'Invalid Session or Authentication Error',
                 'reason': str(err)
             }
-            return web.json_response({'error': message})
+            return web.json_response({'error': message}, status=403)
         finally:
             return await handler(request)
     else:

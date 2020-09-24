@@ -11,6 +11,7 @@ from navigator.modules.session.session import AbstractSession
 from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
 from navigator.handlers import nav_exception_handler
 from asyncdb import AsyncPool
+import asyncio
 
 """
 navSession
@@ -24,8 +25,11 @@ class navSession(object):
     _result = {}
     _session = None
 
-    def __init__(self, dsn='', loop=None, session: AbstractSession=None):
-        self._loop = loop
+    def __init__(self, dsn='', session: AbstractSession=None, loop=None):
+        if loop:
+            self._loop = loop
+        else:
+            self._loop = asyncio.get_event_loop()
         self._result = {}
         self._session_key = ''
         self._session_id = None

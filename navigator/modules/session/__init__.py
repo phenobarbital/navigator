@@ -80,6 +80,15 @@ class navSession(object):
             await self._cache.close()
             await self._cache.wait_closed()
 
+    async def logout(self):
+        """
+        logout.
+           Clear all session info
+        """
+        self._session_id = None
+        self._session_key = None
+        self._result = {}
+
     async def decode(self, key):
         return await self._session.decode(key)
 

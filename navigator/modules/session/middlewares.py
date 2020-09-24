@@ -19,7 +19,10 @@ async def django_session(request, handler):
     if id is not None:
         session = None
         try:
-            session = await request.app['session'].decode(key=id)
+            # first: clear session
+            session = request.app['session']
+            await session.logout() # clear existing session
+            await session.decode(key=id)
         except Exception as err:
             print('Error Decoding Session: {}, {}'.format(err, err.__class__))
             return await handler(request)

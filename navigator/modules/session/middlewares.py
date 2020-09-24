@@ -24,6 +24,7 @@ async def django_session(request, handler):
         session = None
         try:
             session = await request.app['session'].decode(key=id)
+            print(session['user_id'])
         except Exception as err:
             print('Error Decoding Session: {}, {}'.format(err, err.__class__))
             return await handler(request)

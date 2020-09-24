@@ -13,11 +13,9 @@ class djangoSession(AbstractSession):
             try:
                 print(SESSION_PREFIX, key)
                 result = await self._backend.get('{}:{}'.format(SESSION_PREFIX, key))
-                print(result)
                 data = base64.b64decode(result)
-                print('==== ')
-                print('======== ', data)
                 session_data = data.decode('utf-8').split(':', 1)
+                print(session_data)
                 self._session_key = key
                 self._session_id = session_data[0]
                 if session_data:

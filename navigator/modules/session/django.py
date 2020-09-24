@@ -12,16 +12,15 @@ class djangoSession(AbstractSession):
         async def decode(self, key: str =None):
             try:
                 result = await self._backend.get('{}:{}'.format(SESSION_PREFIX, key))
-                print('HERE ======')
-                print(result)
-                data = base64.b64decode(result)
-                session_data = data.decode('utf-8').split(':', 1)
-                self._session_key = key
-                self._session_id = session_data[0]
-                if session_data:
-                    r = json.loads(session_data[1])
-                    self._parent.set_result(r)
-                    self._parent.id(self._session_id)
+                if result:
+                    data = base64.b64decode(result)
+                    session_data = data.decode('utf-8').split(':', 1)
+                    self._session_key = key
+                    self._session_id = session_data[0]
+                    if session_data:
+                        r = json.loads(session_data[1])
+                        self._parent.set_result(r)
+                        self._parent.id(self._session_id)
             except Exception as err:
                 print(err)
                 logging.debug('Decoding Error: {}'.format(err))

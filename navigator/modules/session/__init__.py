@@ -17,7 +17,6 @@ from navigator.views import BaseView
 
 class UserSession(BaseView):
     async def get(self):
-        print('GET')
         try:
             session = self.request['session']
         except KeyError:

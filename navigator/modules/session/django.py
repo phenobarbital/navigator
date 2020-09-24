@@ -11,11 +11,9 @@ class djangoSession(AbstractSession):
 
         async def decode(self, key: str =None):
             try:
-                print(SESSION_PREFIX, key)
                 result = await self._backend.get('{}:{}'.format(SESSION_PREFIX, key))
                 data = base64.b64decode(result)
                 session_data = data.decode('utf-8').split(':', 1)
-                print(session_data)
                 self._session_key = key
                 self._session_id = session_data[0]
                 if session_data:

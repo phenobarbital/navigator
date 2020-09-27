@@ -8,6 +8,7 @@ import ujson as json
 
 @middleware
 async def django_session(request, handler):
+    id = None
     if not check_path(request.path):
         return await handler(request)
     try:
@@ -15,28 +16,35 @@ async def django_session(request, handler):
     except Exception as e:
         print(e)
         id = request.headers.get('X-Sessionid', None)
-        print(id)
-    if not id:
-        # TODO: authorization
-        return await handler(request)
-    elif id is not None:
+    if id is not None:
         session = None
         try:
-            session = await request.app['session'].decode(key=id)
+            # first: clear session
+            session = request.app['session']
+            await session.logout() # clear existing session
+            if not await session.decode(key=id):
+                message = {
+                    'code': 403,
+                    'message': 'Invalid Session',
+                    'reason': 'Unknown Session ID'
+                }
+                return web.json_response({'error': message}, status=403)
         except Exception as err:
             print('Error Decoding Session: {}, {}'.format(err, err.__class__))
             return await handler(request)
-        if session is not None:
-            try:
-                request['user_id'] = session['user_id']
-                request['session'] = session
-            except Exception as err:
-                #TODO: response to an auth error
-                message = {
-                    'code': 403,
-                    'message': 'Invalid Session or Authentication Error',
-                    'reason': str(err)
-                }
-                return web.json_response({'error': message})
-            finally:
-                return await handler(request)
+        try:
+            request['user_id'] = session['user_id']
+            request['session'] = session
+        except Exception as err:
+            #TODO: response to an auth error
+            message = {
+                'code': 403,
+                'message': 'Invalid Session or Authentication Error',
+                'reason': str(err)
+            }
+            return web.json_response({'error': message}, status=403)
+        finally:
+            return await handler(request)
+    else:
+        # TODO: authorization
+        return await handler(request)

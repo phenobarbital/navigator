@@ -7,32 +7,61 @@ import sys
 import asyncio
 import json
 import base64
+from aiohttp import web
 from navigator.modules.session.session import AbstractSession
 from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
 from navigator.handlers import nav_exception_handler
-from asyncdb import AsyncPool
+from asyncdb import AsyncDB
+import asyncio
+from navigator.views import BaseView
 
-"""
-navSession
-   Basic Interaction with Session backend of Django
-"""
+class UserSession(BaseView):
+    async def get(self):
+        try:
+            session = self.request['session']
+        except KeyError:
+            session = None
+        try:
+            if not session:
+                headers = {
+                    'x-status': 'Empty',
+                    'x-message': 'Invalid User Session'
+                }
+                return self.no_content(headers=headers)
+            else:
+                headers = {
+                    'x-status': 'OK',
+                    'x-message': 'Session OK'
+                }
+                data = session.content()
+                if data:
+                    return self.json_response(response=data, headers=headers)
+        except Exception as err:
+            return self.error(request, exception=err)
+
 
 class navSession(object):
+    """
+    navSession
+       Basic Interaction with Session backend of Django
+    """
     _loop = None
     _redis = None
     _cache = None
     _result = {}
     _session = None
 
-    def __init__(self, dsn='', loop=None, session: AbstractSession=None):
-        self._loop = loop
+    def __init__(self, dsn='', session: AbstractSession=None, loop=None):
+        if loop:
+            self._loop = loop
+        else:
+            self._loop = asyncio.get_event_loop()
         self._result = {}
         self._session_key = ''
         self._session_id = None
         self._loop.set_exception_handler(nav_exception_handler)
-        #set the connector to redis pool
         #TODO: define other session backend
-        self._redis = redis = AsyncPool('redis', dsn=dsn, loop=self._loop)
+        self._cache = redis = AsyncDB('redis', dsn=dsn)
         self._session = session
 
     def cache(self):
@@ -42,17 +71,23 @@ class navSession(object):
         self._result = result
 
     async def connect(self):
-        await self._redis.connect()
-        if self._redis:
-            self._cache = await self._redis.acquire()
+        await self._cache.connection()
+        if self._cache:
             self._session.Backend(self)
 
     async def close(self):
         if self._cache:
             await self._cache.close()
-        await self._redis.close()
-        await self._redis.wait_closed()
-        #self._loop.close()
+            await self._cache.wait_closed()
+
+    async def logout(self):
+        """
+        logout.
+           Clear all session info
+        """
+        self._session_id = None
+        self._session_key = None
+        self._result = {}
 
     async def decode(self, key):
         return await self._session.decode(key)
@@ -66,12 +101,13 @@ class navSession(object):
     def session_id(self):
         return self._session_id
 
+    def id(self, id):
+        self._session_id = id
+
     def content(self):
         return self._result
 
     async def get(self, key):
-        if not self._result:
-            await self.decode()
         if key in self._result:
             return self._result[key]
         else:

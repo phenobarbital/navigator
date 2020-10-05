@@ -1,5 +1,5 @@
 import sys
-from . import BaseCommand, cPrint
+from . import BaseCommand, CommandError
 from pathlib import Path
 from aiofile import AIOFile
 import asyncio
@@ -33,14 +33,15 @@ def save_file(dir, filename, content):
     return loop.run_until_complete(main(filename, content))
 
 class EnvCommand(BaseCommand):
-    def parse_arguments(self):
-        self.parser.add_argument('--enable-notify')
-        self.parser.add_argument('--process-services')
+    help = 'Enviroment Commands for Navigator'
+
+    def parse_arguments(self, parser):
+        parser.add_argument('--enable-notify', type=bool)
+        parser.add_argument('--process-services', type=bool)
 
     def create(self, options, **kwargs):
         """
-        create.
-            Create a new Enviroment from scratch
+        Create can used to create a new Enviroment from scratch
         """
         path = Path(kwargs['project_path']).resolve()
 
@@ -53,10 +54,10 @@ class EnvCommand(BaseCommand):
 
         output = 'Enviroment Done.'
         if options.debug:
-            cPrint(':: Creating a New Navigator Enviroment', level='INFO')
-            cPrint('= wait a few minutes', level='WARN')
+            self.write(':: Creating a New Navigator Enviroment', level='INFO')
+            self.write('= wait a few minutes', level='WARN')
         #apps, etc, env, services, settings, static/images/js/css, templates
-        cPrint('* First Step: Creating Directory structure')
+        self.write('* First Step: Creating Directory structure')
         create_dir(path, 'apps')
         create_dir(path, 'env/testing')
         create_dir(path, 'etc')
@@ -66,17 +67,17 @@ class EnvCommand(BaseCommand):
         create_dir(path, 'static/js')
         create_dir(path, 'static/css')
         create_dir(path, 'templates')
-        cPrint('* Second Step: Creation of Empty .env File')
+        self.write('* Second Step: Creation of Empty .env File')
         save_file(path, 'env/.env', env)
         save_file(path, 'env/testing/.env', env)
         save_file(path, 'etc/navigator.ini', ini)
-        cPrint('* Third Step: Creation of Empty settings.py File')
+        self.write('* Third Step: Creation of Empty settings.py File')
         save_file(path, 'settings/settings.py', settings)
         save_file(path, 'settings/local_settings.py.example', localsettings)
-        cPrint('* Fourt Step: Creation of a run.py File')
+        self.write('* Fourt Step: Creation of a run.py File')
         save_file(path, 'run.py', run)
         save_file(path, 'app.py', app)
-        cPrint('* Fifth Step: adding a *home* template')
+        self.write('* Fifth Step: adding a *home* template')
         home = read_file(path, 'home.html')
         css = read_file(path, 'styles.css')
         js = read_file(path, 'scripts.js')

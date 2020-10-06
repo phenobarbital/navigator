@@ -144,7 +144,7 @@ class AppHandler(ABC):
         except RuntimeError:
             logger.debug("Couldn't get event loop for current thread. Creating a new event loop to be used!")
             self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
+            asyncio.set_event_loop(self._loop)
         self.app = self.CreateApp()
         # config
         self.app['config'] = context

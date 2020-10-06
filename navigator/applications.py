@@ -26,8 +26,10 @@ import aiohttp_jinja2
 import jinja2
 import uvloop
 # make asyncio use the event loop provided by uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-loop = uvloop.new_event_loop()
+#asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+#loop = uvloop.new_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 # logging system
 import logging

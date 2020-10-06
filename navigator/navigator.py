@@ -7,6 +7,9 @@ import argparse
 import ssl
 import asyncio
 import uvloop
+# make asyncio use the event loop provided by uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
 import logging
 from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, \
   INSTALLED_APPS, LOCAL_DEVELOPMENT, SESSION_STORAGE, SESSION_URL, SESSION_PREFIX
@@ -83,8 +86,6 @@ class Application(object):
     _loop = None
 
     def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
-        # make asyncio use the event loop provided by uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         #configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()

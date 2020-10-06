@@ -86,7 +86,7 @@ class Application(object):
         #configuring asyncio loop
         #self._loop = asyncio.get_event_loop()
         # make asyncio use the event loop provided by uvloop
-        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        #asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         try:
             self._loop = asyncio.get_event_loop()
         except RuntimeError:

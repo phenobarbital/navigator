@@ -83,16 +83,16 @@ class Application(object):
     _loop = None
 
     def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
-        #configuring asyncio loop
-        #self._loop = asyncio.get_event_loop()
+
         # make asyncio use the event loop provided by uvloop
-        #asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        #configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
         except RuntimeError:
             logger.debug("Couldn't get event loop for current thread. Creating a new event loop to be used!")
             self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        asyncio.set_event_loop(self._loop)
         #self._loop.set_exception_handler(nav_exception_handler)
         # May want to catch other signals too
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)

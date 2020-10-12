@@ -10,7 +10,7 @@ from abc import ABC, abstractmethod
 from aiohttp.abc import AbstractView
 from aiojobs.aiohttp import setup, spawn
 from navigator.conf import DEBUG, BASE_DIR, APP_DIR, STATIC_DIR, API_NAME, INSTALLED_APPS, logdir
-from aiohttp_swagger import setup_swagger
+#from aiohttp_swagger import setup_swagger
 from pathlib import Path
 import importlib
 from asyncdb import AsyncPool

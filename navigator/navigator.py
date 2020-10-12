@@ -14,7 +14,7 @@ import logging
 from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, \
   INSTALLED_APPS, LOCAL_DEVELOPMENT, SESSION_STORAGE, SESSION_URL, SESSION_PREFIX
 from navigator.applications import AppHandler, AppBase, app_startup
-from aiohttp_swagger import setup_swagger
+#from aiohttp_swagger import setup_swagger
 import sockjs
 from typing import Callable, Optional, Any
 import inspect
@@ -198,17 +198,17 @@ class Application(object):
         })
         self.app.setup_cors(cors)
         self.app.setup_docs()
-        # auto-configure swagger
-        long_description = """
-        Asynchronous RESTful API for data source connections, REST consumer and Query API, used by Navigator, powered by MobileInsight
-        """
-        setup_swagger(app,
-            api_base_url='/',
-            title='API',
-            api_version='2.0.0',
-            description=long_description,
-            contact=EMAIL_CONTACT,
-            swagger_url="/api/doc")
+        # # auto-configure swagger
+        # long_description = """
+        # Asynchronous RESTful API for data source connections, REST consumer and Query API, used by Navigator, powered by MobileInsight
+        # """
+        # setup_swagger(app,
+        #     api_base_url='/',
+        #     title='API',
+        #     api_version='2.0.0',
+        #     description=long_description,
+        #     contact=EMAIL_CONTACT,
+        #     swagger_url="/api/doc")
         # TODO: configure documentation
         return app
 

@@ -7,7 +7,7 @@ import logging
 import importlib
 import base64
 # Import Config Class
-from navigator.navigatorConfig import config, BASE_DIR, EXTENSION_DIR
+from navconfig import config, BASE_DIR, EXTENSION_DIR
 from types import ModuleType
 from cryptography import fernet
 from typing import Any, List, Tuple, Dict

@@ -19,6 +19,8 @@ if not BASE_DIR:
 # for running DataIntegrator
 SERVICES_DIR = BASE_DIR.joinpath('services')
 SETTINGS_DIR = BASE_DIR.joinpath('settings')
+EXTENSION_DIR = BASE_DIR.joinpath('extensions')
+
 config = navigatorConfig(BASE_DIR)
 ENV = config.ENV
 DEBUG = os.getenv('DEBUG', False)
@@ -30,6 +32,7 @@ LOCAL_DEVELOPMENT = (DEBUG == True and sys.argv[0] == 'run.py')
 sys.path.append(str(BASE_DIR))
 sys.path.append(str(SERVICES_DIR))
 sys.path.append(str(SETTINGS_DIR))
+sys.path.append(str(EXTENSION_DIR))
 
 # get settings
 try:

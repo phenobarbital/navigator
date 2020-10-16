@@ -7,7 +7,7 @@ import logging
 import importlib
 import base64
 # Import Config Class
-from navconfig import config, BASE_DIR, EXTENSION_DIR
+from navconfig import *
 from types import ModuleType
 from cryptography import fernet
 from typing import Any, List, Tuple, Dict
@@ -80,57 +80,28 @@ else:
 # Temp File Path
 files_path = BASE_DIR.joinpath('temp')
 
-"""
-Databases
-"""
-# rethinkdb
-rt_host = config.get('RT_HOST', fallback='localhost')
-rt_port = config.get('RT_PORT', fallback=28015)
-rt_name = config.get('RT_NAME')
-rt_user = config.get('RT_USER')
-rt_password = config.get('RT_PWD')
-use_rt = config.getboolean('USE_RT', fallback=True)
 
-# database
-asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{database_name}'.format(
-    user=config.get('DBUSER'),
-    password=config.get('DBPWD'),
-    host=config.get('DBHOST', fallback='localhost'),
-    port=config.get('DBPORT', fallback=5432),
-    database_name=config.get('DBNAME', fallback='navigator')
-)
-
-# SQL Alchemy
-database_url = 'postgresql://{user}:{password}@{host}:{port}/{database_name}'.format(
-    user=config.get('DBUSER'),
-    password=config.get('DBPWD'),
-    host=config.get('DBHOST', fallback='localhost'),
-    port=config.get('DBPORT', fallback=5432),
-    database_name=config.get('DBNAME', fallback='navigator')
-)
-SQLALCHEMY_DATABASE_URI = database_url
-
-"""
-Cache System
-"""
-# Cache time to live is 15 minutes.
-CACHE_TTL = 60 * 60
-CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
-CACHE_PORT = config.get('CACHEPORT', fallback=6379)
-CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
-REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
-
-"""
-REDIS Session
-"""
-SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
-SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
-CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
-SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
-
-# QuerySet
-QUERYSET_DB = config.get('QUERYSET_DB', fallback=0)
-QUERYSET_REDIS = CACHE_URL+"/"+ str(QUERYSET_DB)
+# """
+# Cache System
+# """
+# # Cache time to live is 15 minutes.
+# CACHE_TTL = 60 * 60
+# CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
+# CACHE_PORT = config.get('CACHEPORT', fallback=6379)
+# CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
+# REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
+#
+# """
+# REDIS Session
+# """
+# SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
+# SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
+# CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
+# SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+#
+# # QuerySet
+# QUERYSET_DB = config.get('QUERYSET_DB', fallback=0)
+# QUERYSET_REDIS = CACHE_URL+"/"+ str(QUERYSET_DB)
 
 """
 Basic Information
@@ -186,19 +157,19 @@ logging_config = dict(
         },
 )
 
-# get settings
-try:
-    from settings.settings import *
-except ImportError:
-    print('Its recommended to use a settings/settings module to customize Navigator Configuration')
-
-"""
-User Local Settings
-"""
-try:
-    from settings.local_settings import *
-except ImportError:
-    pass
+# # get settings
+# try:
+#     from settings.settings import *
+# except ImportError:
+#     print('Its recommended to use a settings/settings module to customize Navigator Configuration')
+#
+# """
+# User Local Settings
+# """
+# try:
+#     from settings.local_settings import *
+# except ImportError:
+#     pass
 
 #######################
 ##

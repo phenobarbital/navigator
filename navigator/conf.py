@@ -7,7 +7,7 @@ import logging
 import importlib
 import base64
 # Import Config Class
-from navconfig import *
+from navconfig import config, BASE_DIR, EXTENSION_DIR, asyncpg_url, QUERYSET_REDIS
 from types import ModuleType
 from cryptography import fernet
 from typing import Any, List, Tuple, Dict

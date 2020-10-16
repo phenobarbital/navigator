@@ -34,6 +34,8 @@ sys.path.append(str(SERVICES_DIR))
 sys.path.append(str(SETTINGS_DIR))
 sys.path.append(str(EXTENSION_DIR))
 
+from .conf import *
+
 # get settings
 try:
     from settings.settings import *

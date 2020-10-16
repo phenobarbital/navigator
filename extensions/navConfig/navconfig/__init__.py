@@ -2,7 +2,7 @@ import sys
 import os
 from pathlib import Path
 from .config import navigatorConfig
-__all__ = (navigatorConfig)
+#__all__ = (navigatorConfig)
 
 
 def is_virtualenv():
@@ -35,20 +35,20 @@ sys.path.append(str(SETTINGS_DIR))
 sys.path.append(str(EXTENSION_DIR))
 
 from .conf import *
-
-# get settings
-try:
-    from settings.settings import *
-except ImportError:
-    try:
-        from settings import *
-    except ImportError:
-        print('Its recommended to use a settings module inside to customize a Service Configuration')
-
-"""
-User Local Settings
-"""
-try:
-    from settings.local_settings import *
-except ImportError:
-    pass
+#
+# # get settings
+# try:
+#     from settings.settings import *
+# except ImportError:
+#     try:
+#         from settings import *
+#     except ImportError:
+#         print('Its recommended to use a settings module inside to customize a Service Configuration')
+#
+# """
+# User Local Settings
+# """
+# try:
+#     from settings.local_settings import *
+# except ImportError:
+#     pass

@@ -80,29 +80,6 @@ else:
 # Temp File Path
 files_path = BASE_DIR.joinpath('temp')
 
-
-# """
-# Cache System
-# """
-# # Cache time to live is 15 minutes.
-# CACHE_TTL = 60 * 60
-# CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
-# CACHE_PORT = config.get('CACHEPORT', fallback=6379)
-# CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
-# REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
-#
-# """
-# REDIS Session
-# """
-# SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
-# SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
-# CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
-# SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
-#
-# # QuerySet
-# QUERYSET_DB = config.get('QUERYSET_DB', fallback=0)
-# QUERYSET_REDIS = CACHE_URL+"/"+ str(QUERYSET_DB)
-
 """
 Basic Information
 """
@@ -157,19 +134,19 @@ logging_config = dict(
         },
 )
 
-# # get settings
-# try:
-#     from settings.settings import *
-# except ImportError:
-#     print('Its recommended to use a settings/settings module to customize Navigator Configuration')
-#
-# """
-# User Local Settings
-# """
-# try:
-#     from settings.local_settings import *
-# except ImportError:
-#     pass
+# get settings
+try:
+    from settings.settings import *
+except ImportError:
+    print('Its recommended to use a settings/settings module to customize Navigator Configuration')
+
+"""
+User Local Settings
+"""
+try:
+    from settings.local_settings import *
+except ImportError:
+    pass
 
 #######################
 ##

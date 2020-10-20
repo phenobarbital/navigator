@@ -1,7 +1,9 @@
-from aiohttp.web import middleware
-from typing import Any
-from aiohttp import web
 import json
+from typing import Any
+
+from aiohttp import web
+from aiohttp.web import middleware
+
 
 class AbstractSession(object):
     _backend = None

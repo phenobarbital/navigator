@@ -1,12 +1,14 @@
+import decimal
+import json
 import os
 import sys
-from datetime import datetime
-import asyncpg
-from enum import Enum
 import uuid
-import decimal
+from datetime import datetime
 from decimal import Decimal
-import json
+from enum import Enum
+
+import asyncpg
+
 
 class DateEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -16,20 +18,22 @@ class DateEncoder(json.JSONEncoder):
             return str(object=obj)
         return json.JSONEncoder.default(self, obj)
 
+
 class IntRangeEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, asyncpg.Range):
             up = obj.upper
             if isinstance(obj.upper, int):
-                up = obj.upper - 1 # discrete representation
+                up = obj.upper - 1  # discrete representation
             return [obj.lower, up]
         else:
             return str(object=obj)
         return json.JSONEncoder.default(self, obj)
 
+
 class DefaultEncoder(json.JSONEncoder):
     def default(self, obj):
-        if hasattr(obj, 'hex'):
+        if hasattr(obj, "hex"):
             return obj.hex
         elif isinstance(obj, Enum):
             if not obj.value:
@@ -42,10 +46,10 @@ class DefaultEncoder(json.JSONEncoder):
             except Exception as e:
                 return obj.hex
         elif isinstance(obj, decimal.Decimal):
-             return float(obj)
+            return float(obj)
         elif isinstance(obj, Decimal):
             return str(obj)
-        elif hasattr(obj, 'isoformat'):
+        elif hasattr(obj, "isoformat"):
             return obj.isoformat()
         elif isinstance(obj, asyncpg.Range):
             return [obj.lower, obj.upper]

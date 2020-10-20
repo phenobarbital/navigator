@@ -2,6 +2,7 @@
 import sys
 import os
 import asyncio
+
 import typing
 from typing import List, Dict, Any, Callable
 from aiohttp import web
@@ -9,7 +10,7 @@ from abc import ABC, abstractmethod
 from aiohttp.abc import AbstractView
 from aiojobs.aiohttp import setup, spawn
 from navigator.conf import DEBUG, BASE_DIR, APP_DIR, STATIC_DIR, API_NAME, INSTALLED_APPS, logdir
-from aiohttp_swagger import setup_swagger
+#from aiohttp_swagger import setup_swagger
 from pathlib import Path
 import importlib
 from asyncdb import AsyncPool
@@ -24,10 +25,6 @@ from navigator.middlewares import basic_middleware
 
 import aiohttp_jinja2
 import jinja2
-import uvloop
-# make asyncio use the event loop provided by uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-loop = uvloop.new_event_loop()
 
 # logging system
 import logging
@@ -138,6 +135,7 @@ class AppHandler(ABC):
     def __init__(self, context: dict, *args: List, **kwargs: dict):
         self._name = type(self).__name__
         self.logger = logging.getLogger(self._name)
+        #configuring asyncio loop
         self._loop = asyncio.get_event_loop()
         self.app = self.CreateApp()
         # config

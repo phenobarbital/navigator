@@ -87,7 +87,7 @@ import sys
 from pathlib import Path
 import logging
 #from navigator.conf import config, DEBUG
-from navigator.navigatorConfig import config, BASE_DIR
+from navconfig import config, BASE_DIR
 
 # Debug
 DEBUG = config.getboolean('DEBUG', fallback=True)
@@ -97,7 +97,7 @@ save_file('settings/settings.py', settings)
 local = """# -*- coding: utf-8 -*-
 import os
 import sys
-from navigator.navigatorConfig import config, BASE_DIR
+from navconfig import config, BASE_DIR
 
 '''
 Example Local Settings

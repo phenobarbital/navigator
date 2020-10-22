@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-from navigator import Application, Response
 from app import Main
+
+from navigator import Application, Response
 
 # define new Application
 app = Application(Main)

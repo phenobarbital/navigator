@@ -5,28 +5,28 @@ See:
 https://bitbucket.org/mobileinsight1/navapi/src/master/
 """
 
-from setuptools import setup, find_packages
+from setuptools import find_packages, setup
 
 setup(
-    name='navconfig',
+    name="navconfig",
     version=open("VERSION").read().strip(),
     python_requires=">=3.7.0",
-    url='https://bitbucket.org/mobileinsight1/navapi/',
-    description='Configuration tool for Navigator Services',
-    long_description='Configuration tool for Navigator Services',
+    url="https://bitbucket.org/mobileinsight1/navapi/",
+    description="Configuration tool for Navigator Services",
+    long_description="Configuration tool for Navigator Services",
     classifiers=[
-        'Development Status :: 3 - Alpha',
-        'Intended Audience :: Developers',
-        'Topic :: Software Development :: Build Tools',
-        'Programming Language :: Python :: 3.7',
+        "Development Status :: 3 - Alpha",
+        "Intended Audience :: Developers",
+        "Topic :: Software Development :: Build Tools",
+        "Programming Language :: Python :: 3.7",
     ],
-    author='Jesus Lara',
-    author_email='jlara@trocglobal.com',
+    author="Jesus Lara",
+    author_email="jlara@trocglobal.com",
     packages=find_packages(),
-    install_requires=['numpy >= 1.11.1', 'asyncio==3.4.3'],
+    install_requires=["numpy >= 1.11.1", "asyncio==3.4.3"],
     project_urls={  # Optional
-        'Source': 'https://bitbucket.org/mobileinsight1/navapi/',
-        'Funding': 'https://paypal.me/phenobarbital',
-        'Say Thanks!': 'https://saythanks.io/to/phenobarbital',
+        "Source": "https://bitbucket.org/mobileinsight1/navapi/",
+        "Funding": "https://paypal.me/phenobarbital",
+        "Say Thanks!": "https://saythanks.io/to/phenobarbital",
     },
 )

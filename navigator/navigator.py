@@ -1,73 +1,85 @@
 #!/usr/bin/env python3
-import typing
-import sys
-from aiohttp import web
-import aiohttp_cors
 import argparse
-import ssl
 import asyncio
+import ssl
+import sys
+import typing
+
+import aiohttp_cors
 import uvloop
+from aiohttp import web
+
 # make asyncio use the event loop provided by uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-import logging
-from navigator.conf import config, SECRET_KEY, APP_DIR, BASE_DIR, EMAIL_CONTACT, STATIC_DIR, Context, \
-  INSTALLED_APPS, LOCAL_DEVELOPMENT, SESSION_STORAGE, SESSION_URL, SESSION_PREFIX
-from navigator.applications import AppHandler, AppBase, app_startup
-#from aiohttp_swagger import setup_swagger
-import sockjs
-from typing import Callable, Optional, Any
 import inspect
-from aiohttp.abc import AbstractView
-from aiohttp import web
+import logging
 import signal
+from concurrent.futures import ThreadPoolExecutor
+from functools import wraps
+from typing import Any, Callable, Optional
 
-from aiohttp_session import setup as setup_session, get_session
+# from aiohttp_swagger import setup_swagger
+import sockjs
+from aiohttp import web
+from aiohttp.abc import AbstractView
+from aiohttp_session import get_session
+from aiohttp_session import setup as setup_session
 from aiohttp_session.redis_storage import RedisStorage
 
-from navigator.resources import WebSocket, channel_handler
-# get the authentication library
-from navigator.modules.auth import AuthHandler, login_required, auth_middleware
+# from apps.setup import app_startup
+from aiohttp_utils import run as runner
+
+from navigator.applications import AppBase, AppHandler, app_startup
+from navigator.conf import (
+    APP_DIR,
+    BASE_DIR,
+    EMAIL_CONTACT,
+    INSTALLED_APPS,
+    LOCAL_DEVELOPMENT,
+    SECRET_KEY,
+    SESSION_PREFIX,
+    SESSION_STORAGE,
+    SESSION_URL,
+    STATIC_DIR,
+    Context,
+    config,
+)
 
 # Exception Handlers
 from navigator.handlers import nav_exception_handler, shutdown
 
-from functools import wraps
-#from apps.setup import app_startup
-from aiohttp_utils import run as runner
+# get the authentication library
+from navigator.modules.auth import AuthHandler, auth_middleware, login_required
+from navigator.resources import WebSocket, channel_handler
 
-from concurrent.futures import ThreadPoolExecutor
+__version__ = "1.0.0.dev0"
 
-
-__version__ = '1.0.0.dev0'
 
 def get_version():
     return __version__
 
+
 def Response(
-        content: Any,
-        text: str='',
-        body: Any=None,
-        status: int=200,
-        headers: dict=None,
-        content_type: str='text/plain',
-        charset: str='utf-8'
-    )-> web.Response:
+    content: Any,
+    text: str = "",
+    body: Any = None,
+    status: int = 200,
+    headers: dict = None,
+    content_type: str = "text/plain",
+    charset: str = "utf-8",
+) -> web.Response:
     """
     Response.
     Web Response Definition for Navigator
     """
-    response = {
-        'content_type': content_type,
-        'charset': charset,
-        'status': status
-    }
+    response = {"content_type": content_type, "charset": charset, "status": status}
     if headers:
-        response['headers'] = headers
+        response["headers"] = headers
     if isinstance(content, str) or text is not None:
-        response['text'] = content if content else text
+        response["text"] = content if content else text
     else:
-        response['body'] = content if content else body
+        response["body"] = content if content else body
     return web.Response(**response)
 
 
@@ -80,42 +92,41 @@ class Application(object):
     _routes: list = []
     _reload = False
     _logger = None
-    path = ''
-    host = '0.0.0.0'
+    path = ""
+    host = "0.0.0.0"
     port = 5000
     _loop = None
 
-    def __init__(self, app: AppHandler = None,  *args : typing.Any, **kwargs : typing.Any):
-        #configuring asyncio loop
+    def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
+        # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
         except RuntimeError:
-            logger.debug("Couldn't get event loop for current thread. Creating a new event loop to be used!")
+            logger.debug(
+                "Couldn't get event loop for current thread. Creating a new event loop to be used!"
+            )
             self._loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self._loop)
-        #self._loop.set_exception_handler(nav_exception_handler)
+        # self._loop.set_exception_handler(nav_exception_handler)
         # May want to catch other signals too
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
             self._loop.add_signal_handler(
-                s, lambda s=s: asyncio.create_task(shutdown(self._loop, s)))
+                s, lambda s=s: asyncio.create_task(shutdown(self._loop, s))
+            )
         self._executor = ThreadPoolExecutor()
-        if 'debug' in kwargs:
-            self.debug = kwargs['debug']
+        if "debug" in kwargs:
+            self.debug = kwargs["debug"]
         self.parser = argparse.ArgumentParser(description="Navigator App")
-        self.parser.add_argument('--path')
-        self.parser.add_argument('--host')
-        self.parser.add_argument('--port')
-        self.parser.add_argument('-r', '--reload', action='store_true')
+        self.parser.add_argument("--path")
+        self.parser.add_argument("--host")
+        self.parser.add_argument("--port")
+        self.parser.add_argument("-r", "--reload", action="store_true")
         self.parser.add_argument(
-            '-d', '--debug',
-            action='store_true',
-            help='Enable Debug'
+            "-d", "--debug", action="store_true", help="Enable Debug"
         )
         self.parser.add_argument(
-            '--traceback',
-            action='store_true',
-            help='Return the Traceback on Error'
+            "--traceback", action="store_true", help="Return the Traceback on Error"
         )
         self.parse_arguments()
         if not app:
@@ -124,7 +135,6 @@ class Application(object):
         else:
             self.app = app(Context)
         self._logger = self.get_logger(self.app.Name)
-
 
     def parse_arguments(self):
         args = self.parser.parse_args()
@@ -135,9 +145,9 @@ class Application(object):
         try:
             self.host = args.host
             if not self.host:
-                self.host = '0.0.0.0'
+                self.host = "0.0.0.0"
         except (KeyError, ValueError, TypeError):
-            self.host = '0.0.0.0'
+            self.host = "0.0.0.0"
         try:
             self.port = args.port
             if not self.port:
@@ -164,11 +174,10 @@ class Application(object):
         logging.basicConfig(
             format=logging_format, level=logging.INFO, datefmt="%Y:%m:%d %H:%M:%S"
         )
-        logging.getLogger('asyncio').setLevel(logging.INFO)
-        logging.getLogger('websockets').setLevel(logging.INFO)
-        logging.getLogger('aiohttp.web').setLevel(logging.INFO)
+        logging.getLogger("asyncio").setLevel(logging.INFO)
+        logging.getLogger("websockets").setLevel(logging.INFO)
+        logging.getLogger("aiohttp.web").setLevel(logging.INFO)
         return logging.getLogger(name)
-
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
@@ -177,25 +186,31 @@ class Application(object):
             type=SESSION_STORAGE,
             name=SESSION_PREFIX,
             url=SESSION_URL,
-            backends=('session', 'hosts', )
+            backends=(
+                "session",
+                "hosts",
+            ),
         )
         self._auth.configure(app)
         # adding middleware for Authorization
         app.middlewares.append(auth_middleware)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
-        app['auth'] = self._auth
+        app["auth"] = self._auth
         # Configure Routes
         self.app.configure()
-        cors = aiohttp_cors.setup(app, defaults={
-            "*": aiohttp_cors.ResourceOptions(
-                allow_credentials=True,
-                expose_headers="*",
-                allow_methods='*',
-                allow_headers="*",
-                max_age=3600
-            )
-        })
+        cors = aiohttp_cors.setup(
+            app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=3600,
+                )
+            },
+        )
         self.app.setup_cors(cors)
         self.app.setup_docs()
         # # auto-configure swagger
@@ -219,19 +234,19 @@ class Application(object):
         """
         app = self.get_app()
         if self.debug:
-            print('Enabling WebSockets')
+            print("Enabling WebSockets")
         # websockets
-        app.router.add_route('GET', '/ws', WebSocket)
+        app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels
-        app.router.add_route('GET', '/ws/{channel}', channel_handler)
+        app.router.add_route("GET", "/ws/{channel}", channel_handler)
 
-    def add_routes(self, routes : list) -> None:
+    def add_routes(self, routes: list) -> None:
         """
         add_route
         description: append a route to routes dict
         """
         # TODO: avoid to add same route different times
-        #self._routes.append(route)
+        # self._routes.append(route)
         self.get_app().add_routes(routes)
 
     def add_static(self, route: str, path: str):
@@ -244,36 +259,48 @@ class Application(object):
     def add_view(self, route: str, handler: Any):
         self.get_app().router.add_view(route, handler)
 
-    def threaded_func(self, func: Callable, threaded: bool =False):
+    def threaded_func(self, func: Callable, threaded: bool = False):
         @wraps(func)
         async def _wrap(request):
             result = None
             try:
                 if threaded:
+
                     def blocking_function():
-                        return asyncio.new_event_loop().run_until_complete(func(request))
-                    result = await self._loop.run_in_executor(self._executor, blocking_function)
+                        return asyncio.new_event_loop().run_until_complete(
+                            func(request)
+                        )
+
+                    result = await self._loop.run_in_executor(
+                        self._executor, blocking_function
+                    )
                 else:
-                    result = (await func(request))
+                    result = await func(request)
                 return result
             except Exception as err:
                 self._logger.exception(err)
+
         return _wrap
 
-    def route(self, route: str, method: str = 'GET', threaded: bool =False):
+    def route(self, route: str, method: str = "GET", threaded: bool = False):
         """
         route.
         description: decorator for register a new HTTP route.
         """
+
         def _decorator(func):
-            self.app.App.router.add_route(method, route, self.threaded_func(func, threaded))
+            self.app.App.router.add_route(
+                method, route, self.threaded_func(func, threaded)
+            )
             return func
+
         return _decorator
 
-    def add_get(self, route: str, threaded: bool =False) -> Callable:
+    def add_get(self, route: str, threaded: bool = False) -> Callable:
         def _decorator(func):
             self.app.App.router.add_get(route, self.threaded_func(func, threaded))
             return func
+
         return _decorator
 
     def Response(self, content: Any) -> web.Response:
@@ -282,16 +309,21 @@ class Application(object):
     def get(self, route: str):
         def _decorator(func):
             self.app.App.router.add_get(route, func)
+
             @wraps(func)
             async def _wrap(request, *args, **kwargs):
                 try:
-                    return f'{func(request, args, **kwargs)}'
+                    return f"{func(request, args, **kwargs)}"
                 except Exception as err:
                     self._logger.exception(err)
+
             return _wrap
+
         return _decorator
 
-    def add_sock_endpoint(self, handler: Callable, name: str, route: str = '/sockjs/') -> None:
+    def add_sock_endpoint(
+        self, handler: Callable, name: str, route: str = "/sockjs/"
+    ) -> None:
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
@@ -303,6 +335,7 @@ class Application(object):
             if LOCAL_DEVELOPMENT:
                 import aiohttp_debugtoolbar
                 from aiohttp_debugtoolbar import toolbar_middleware_factory
+
                 aiohttp_debugtoolbar.setup(app, hosts=[self.host], enabled=True)
             if self._reload:
                 runner(
@@ -310,7 +343,7 @@ class Application(object):
                     app_uri="navigator.runserver:app",
                     reload=True,
                     port=self.port,
-                    host=self.host
+                    host=self.host,
                 )
             else:
                 web.run_app(app, host=self.host, port=self.port)
@@ -318,7 +351,9 @@ class Application(object):
             if self.use_ssl:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 ssl_context.load_cert_chain(SSL_CERT, SSL_KEY)
-                web.run_app(app, host=self.host, port=self.port, ssl_context=ssl_context)
+                web.run_app(
+                    app, host=self.host, port=self.port, ssl_context=ssl_context
+                )
             if self.path:
                 web.run_app(app, path=self.path)
             else:

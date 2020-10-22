@@ -1,20 +1,25 @@
 import asyncio
 import logging
 
+
 async def shutdown(loop, signal=None):
     """Cleanup tasks tied to the service's shutdown."""
     if signal:
         print(f"Received exit signal {signal.name}...")
     try:
-        tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task() and not t.done()]
+        tasks = [
+            t
+            for t in asyncio.all_tasks()
+            if t is not asyncio.current_task() and not t.done()
+        ]
         [task.cancel() for task in tasks]
-        #asyncio.gather(*asyncio.Task.all_tasks()).cancel()
+        # asyncio.gather(*asyncio.Task.all_tasks()).cancel()
         print(f"Cancelling {len(tasks)} outstanding tasks")
         await asyncio.gather(*tasks, return_exceptions=True)
     except asyncio.CancelledError:
-        pass #Nothing to do or see here
+        pass  # Nothing to do or see here
     except Exception as err:
-        print('Generic Error', err)
+        print("Generic Error", err)
 
 
 def nav_exception_handler(loop, context):
@@ -22,17 +27,19 @@ def nav_exception_handler(loop, context):
     # first, handle with default handler
     if context:
         loop.default_exception_handler(context)
-        exception = context.get('exception')
-        #print(exception)
-        #print(context)
+        exception = context.get("exception")
+        # print(exception)
+        # print(context)
         try:
             msg = context.get("exception", context["message"])
             logging.error(f"Caught Exception: {msg}")
         except (TypeError, AttributeError, IndexError):
-            logging.error("Caught Exception: {}, Context: {}".format(str(exception), str(context)))
+            logging.error(
+                "Caught Exception: {}, Context: {}".format(str(exception), str(context))
+            )
         # Canceling pending tasks and stopping the loop
         try:
-            #loop.run_until_complete(shutdown(loop))
+            # loop.run_until_complete(shutdown(loop))
             asyncio.create_task(shutdown(loop))
         except Exception as e:
-            print('Shutdown Error: ', e)
+            print("Shutdown Error: ", e)

@@ -30,7 +30,6 @@ from aiohttp_session.redis_storage import RedisStorage
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 
-from navigator.applications import AppBase, AppHandler, app_startup
 from navigator.conf import (
     APP_DIR,
     BASE_DIR,
@@ -45,6 +44,8 @@ from navigator.conf import (
     Context,
     config,
 )
+
+from navigator.applications import AppBase, AppHandler, app_startup
 
 # Exception Handlers
 from navigator.handlers import nav_exception_handler, shutdown

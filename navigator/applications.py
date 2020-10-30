@@ -299,6 +299,7 @@ class AppConfig(AppHandler):
     template: str = 'templates'
     path: Path = None
     _middleware = None
+    enable_notify: bool = False
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
@@ -334,13 +335,15 @@ class AppConfig(AppHandler):
     async def open_connection(self, pool, app):
         try:
             conn = await pool.acquire()
-            if conn:
-                connection = conn.engine()
-                #print(connection.get_server_version())
-                await connection.add_listener(self._name, self.listener)
-                await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
-        finally:
             app['connection'] = conn
+            if conn:
+                if self.enable_notify:
+                    connection = conn.engine()
+                    #print(connection.get_server_version())
+                    await connection.add_listener(self._name, self.listener)
+                    await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
+        except Exception as err:
+            raise Exception(err)
 
     async def on_shutdown(self, app):
         await self.close_connection(app['connection'])
@@ -352,7 +355,9 @@ class AppConfig(AppHandler):
     async def close_connection(self, conn):
         try:
             if conn:
-                await conn.engine().remove_listener(self._name, self.listener)
+                if self.enable_notify:
+                    await conn.engine().remove_listener(self._name, self.listener)
+                    await asyncio.sleep(1)
                 await conn.close()
         except Exception as err:
             print('Error closing Interface connection {}'.format(err))

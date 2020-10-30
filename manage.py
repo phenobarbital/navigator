@@ -2,7 +2,7 @@
 import os
 import sys
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     PROJECT_ROOT = os.path.abspath(os.path.dirname(__file__))
     sys.path.append(os.path.join(PROJECT_ROOT, "apps"))
     try:

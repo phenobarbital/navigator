@@ -1,38 +1,33 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
 
+import asyncio
+import base64
+import json
 import os
 import sys
 
-import asyncio
-import json
-import base64
 from aiohttp import web
-from navigator.modules.session.session import AbstractSession
-from navigator.conf import config, asyncpg_url, DEBUG, SESSION_URL, SESSION_PREFIX
-from navigator.handlers import nav_exception_handler
 from asyncdb import AsyncDB
-import asyncio
+
+from navigator.conf import DEBUG, SESSION_PREFIX, SESSION_URL, asyncpg_url, config
+from navigator.handlers import nav_exception_handler
+from navigator.modules.session.session import AbstractSession
 from navigator.views import BaseView
+
 
 class UserSession(BaseView):
     async def get(self):
         try:
-            session = self.request['session']
+            session = self.request["session"]
         except KeyError:
             session = None
         try:
             if not session:
-                headers = {
-                    'x-status': 'Empty',
-                    'x-message': 'Invalid User Session'
-                }
+                headers = {"x-status": "Empty", "x-message": "Invalid User Session"}
                 return self.no_content(headers=headers)
             else:
-                headers = {
-                    'x-status': 'OK',
-                    'x-message': 'Session OK'
-                }
+                headers = {"x-status": "OK", "x-message": "Session OK"}
                 data = session.content()
                 if data:
                     return self.json_response(response=data, headers=headers)
@@ -45,23 +40,24 @@ class navSession(object):
     navSession
        Basic Interaction with Session backend of Django
     """
+
     _loop = None
     _redis = None
     _cache = None
     _result = {}
     _session = None
 
-    def __init__(self, dsn='', session: AbstractSession=None, loop=None):
+    def __init__(self, dsn="", session: AbstractSession = None, loop=None):
         if loop:
             self._loop = loop
         else:
             self._loop = asyncio.get_event_loop()
         self._result = {}
-        self._session_key = ''
+        self._session_key = ""
         self._session_id = None
         self._loop.set_exception_handler(nav_exception_handler)
-        #TODO: define other session backend
-        self._cache = redis = AsyncDB('redis', dsn=dsn)
+        # TODO: define other session backend
+        self._cache = redis = AsyncDB("redis", dsn=dsn)
         self._session = session
 
     def cache(self):

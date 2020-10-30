@@ -1,33 +1,36 @@
-import os
 import importlib
+import os
 import sys
 import types
-from configparser import RawConfigParser, ConfigParser
+from configparser import ConfigParser, RawConfigParser
 from pathlib import Path
-from dotenv import load_dotenv
+
 from asyncdb.providers.mcache import mcache
 from asyncdb.providers.mredis import mredis
+from dotenv import load_dotenv
 
 #### TODO: Feature Toggles
+
 
 class navigatorConfig:
     """
     navigatorConfig.
         Class for Navigator configuration
     """
+
     _self = None
     _ini = None
     _mem = None
     _redis = None
-    ENV = ''
-    _path = '/etc/troc/'
-    _conffile = 'navigator.ini'
-    _site_path = ''
+    ENV = ""
+    _path = "/etc/troc/"
+    _conffile = "navigator.ini"
+    _site_path = ""
     _debug = False
 
     # singleton class
     def __new__(cls, site_root=None):
-        if not hasattr(cls, 'instance') or not cls.instance:
+        if not hasattr(cls, "instance") or not cls.instance:
             cls.instance = super().__new__(cls)
         return cls.instance
 
@@ -41,34 +44,34 @@ class navigatorConfig:
             site_root = Path(__file__).resolve().parent.parent
         self._site_path = site_root
         # get the current environment
-        environment = os.getenv('ENV', '')
+        environment = os.getenv("ENV", "")
         self.ENV = environment
         # get the environment file
-        env_path = site_root.joinpath('env', environment, '.env')
+        env_path = site_root.joinpath("env", environment, ".env")
         # load dotenv
         load_dotenv(dotenv_path=env_path)
         # and get the config file declared in the environment file
-        config_file = os.getenv('CONFIG_FILE', '/etc/troc/navigator.ini')
+        config_file = os.getenv("CONFIG_FILE", "/etc/troc/navigator.ini")
         self._ini = ConfigParser()
-        #self._ini = RawConfigParser()
+        # self._ini = RawConfigParser()
         cf = Path(config_file).resolve()
         if not cf.exists():
-            cf = site_root.joinpath('etc', self._conffile)
+            cf = site_root.joinpath("etc", self._conffile)
         try:
-            #with open(cf) as f:
+            # with open(cf) as f:
             self._ini.read(cf)
         except IOError:
             print(cf, "INI file does not exist!")
             raise IOError("INI file does not exist!")
             return None
         # define debug
-        self._debug = os.getenv('DEBUG', False)
+        self._debug = os.getenv("DEBUG", False)
         # get redis connection
         try:
             redis = {
-                "host": os.getenv('CACHEHOST', 'localhost'),
-                "port": os.getenv('CACHEPORT', 6379),
-                "db": os.getenv('QUERYSET_DB', 0),
+                "host": os.getenv("CACHEHOST", "localhost"),
+                "port": os.getenv("CACHEPORT", 6379),
+                "db": os.getenv("QUERYSET_DB", 0),
             }
             self._redis = mredis(params=redis)
             self._redis.connection()
@@ -79,8 +82,8 @@ class navigatorConfig:
         # get memcache SERVER
         try:
             mem_params = {
-                "host": os.getenv('MEMCACHE_HOST', 'localhost'),
-                "port": os.getenv('MEMCACHE_PORT', 11211)
+                "host": os.getenv("MEMCACHE_HOST", "localhost"),
+                "port": os.getenv("MEMCACHE_PORT", 11211),
             }
             self._mem = mcache(params=mem_params)
             self._mem.connection()
@@ -120,7 +123,7 @@ class navigatorConfig:
         if value in os.environ:
             val = os.getenv(value, fallback)
             if val:
-                if val.lower() in self._ini.BOOLEAN_STATES: # Check inf val is Boolean
+                if val.lower() in self._ini.BOOLEAN_STATES:  # Check inf val is Boolean
                     return self._ini.BOOLEAN_STATES[val.lower()]
                 else:
                     return bool(val)
@@ -138,7 +141,7 @@ class navigatorConfig:
 
         # If not val and not section, get from MEMCACHED
         if not val and section == None:
-             #TODO: change to a non-async MEMCACHED connector
+            # TODO: change to a non-async MEMCACHED connector
             val = self._mem.get(value)
 
         # last: check if value exists on ini
@@ -146,7 +149,9 @@ class navigatorConfig:
             try:
                 val = self._ini.get(section, value)
                 if val:
-                    if val.lower() in self._ini.BOOLEAN_STATES: # Check inf val is Boolean
+                    if (
+                        val.lower() in self._ini.BOOLEAN_STATES
+                    ):  # Check inf val is Boolean
                         return self._ini.BOOLEAN_STATES[val.lower()]
             except Exception:
                 continue
@@ -187,7 +192,7 @@ class navigatorConfig:
             try:
                 val = self._ini.get(section, value)
                 if val:
-                    if val.isdigit(): # Check if val is Integer
+                    if val.isdigit():  # Check if val is Integer
                         return int(val)
             except Exception:
                 continue

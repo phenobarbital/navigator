@@ -1,12 +1,17 @@
-import sys
 import os
+import sys
 from pathlib import Path
+
 from .config import navigatorConfig
-__all__ = (navigatorConfig)
+
+__all__ = navigatorConfig
 
 
 def is_virtualenv():
-    return (hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix))
+    return hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    )
+
 
 # get Project PATH
 if is_virtualenv():
@@ -20,8 +25,8 @@ else:
 
 
 # extensions dir
-EXTENSION_DIR = BASE_DIR.joinpath('extensions')
-SERVICES_DIR = BASE_DIR.joinpath('services')
+EXTENSION_DIR = BASE_DIR.joinpath("extensions")
+SERVICES_DIR = BASE_DIR.joinpath("services")
 config = navigatorConfig(BASE_DIR)
 ENV = config.ENV
 

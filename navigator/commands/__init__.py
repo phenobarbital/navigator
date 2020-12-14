@@ -206,7 +206,7 @@ def get_command(
         module = importlib.import_module(classpath, package="commands")
         cls = getattr(module, clsname)
         return cls
-    except ImportError:
+    except (ModuleNotFoundError, ImportError):
         # last resort: direct commands on source
         raise CommandNotFound(
             "Command %s was not found o program doesnt exists" % clsCommand
@@ -236,7 +236,7 @@ def run_command(**kwargs):
                     cls = get_command(command=clsCommand, clsname=clsCommand, pathname=program)
                     # module = importlib.import_module(classpath, package=clsCommand)
                     # cls = getattr(module, clsCommand)
-                except ImportError:
+                except CommandNotFound:
                     raise CommandNotFound(
                         "Command %s for program %s was not found"
                         % (clsCommand, program)
@@ -250,7 +250,7 @@ def run_command(**kwargs):
                     # last resort: direct commands on source
                     try:
                         cls = get_command(command=command, clsname=clsCommand, pathname='')
-                    except ImportError:
+                    except CommandNotFound:
                         raise CommandNotFound(
                             "Command %s was not found o program doesnt exists" % clsCommand
                         )

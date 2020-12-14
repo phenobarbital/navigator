@@ -192,6 +192,28 @@ class BaseCommand(object):
             return output
 
 
+def get_command(
+        command: str = 'troc',
+        clsname: str = '',
+        pathname: str = 'navigator'):
+    try:
+        if pathname:
+            classpath = "{path}.commands.{command}".format(
+                pathname=pathname,
+                command=command)
+        else:
+            classpath = "commands.{command}".format(
+                pathname=pathname,
+                command=command)
+        module = importlib.import_module(classpath, package="commands")
+        cls = getattr(module, clsname)
+        return cls
+    except ImportError:
+        # last resort: direct commands on source
+        raise CommandNotFound(
+            "Command %s was not found o program doesnt exists" % clsCommand
+        )
+
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
@@ -209,12 +231,13 @@ def run_command(**kwargs):
                 if not args:
                     args.append(cmd)
                 clsCommand = "{}Command".format(cmd.capitalize())
-                classpath = "{program}.commands.{provider}".format(
-                    program=program, provider=clsCommand
-                )
+                # classpath = "{program}.commands.{provider}".format(
+                #     program=program, provider=clsCommand
+                # )
                 try:
-                    module = importlib.import_module(classpath, package=clsCommand)
-                    cls = getattr(module, clsCommand)
+                    cls = get_command(command=clsCommand, clsname=clsCommand, pathname=program)
+                    # module = importlib.import_module(classpath, package=clsCommand)
+                    # cls = getattr(module, clsCommand)
                 except ImportError:
                     raise CommandNotFound(
                         "Command %s for program %s was not found"
@@ -224,13 +247,15 @@ def run_command(**kwargs):
                 clsCommand = "{}Command".format(command.capitalize())
                 # check if is a Navigator Command
                 try:
-                    classpath = "navigator.commands.{provider}".format(provider=command)
-                    module = importlib.import_module(classpath, package="commands")
-                    cls = getattr(module, clsCommand)
+                    cls = get_command(command=command, clsname=clsCommand, pathname='navigator')
                 except ImportError:
-                    raise CommandNotFound(
-                        "Command %s was not found o program doesnt exists" % clsCommand
-                    )
+                    # last resort: direct commands on source
+                    try:
+                        cls = get_command(command=command, clsname=clsCommand, pathname='')
+                    except ImportError:
+                        raise CommandNotFound(
+                            "Command %s was not found o program doesnt exists" % clsCommand
+                        )
             try:
                 cmd = cls(args)
                 output = cmd.handle(**kwargs)

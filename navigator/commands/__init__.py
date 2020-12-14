@@ -199,12 +199,10 @@ def get_command(
     try:
         if pathname:
             classpath = "{path}.commands.{command}".format(
-                pathname=pathname,
+                path=pathname,
                 command=command)
         else:
-            classpath = "commands.{command}".format(
-                pathname=pathname,
-                command=command)
+            classpath = "commands.{command}".format(command=command)
         module = importlib.import_module(classpath, package="commands")
         cls = getattr(module, clsname)
         return cls

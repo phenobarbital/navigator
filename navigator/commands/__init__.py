@@ -246,7 +246,7 @@ def run_command(**kwargs):
                 # check if is a Navigator Command
                 try:
                     cls = get_command(command=command, clsname=clsCommand, pathname='navigator')
-                except ImportError:
+                except CommandNotFound:
                     # last resort: direct commands on source
                     try:
                         cls = get_command(command=command, clsname=clsCommand, pathname='')

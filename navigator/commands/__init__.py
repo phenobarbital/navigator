@@ -209,7 +209,7 @@ def get_command(
     except (ModuleNotFoundError, ImportError):
         # last resort: direct commands on source
         raise CommandNotFound(
-            "Command %s was not found o program doesnt exists" % clsCommand
+            f'Command {clsname} was not found on {pathname}'
         )
 
 def run_command(**kwargs):

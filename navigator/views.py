@@ -263,26 +263,26 @@ class BaseView(web.View, BaseHandler, AbstractView):
         self._request = request
 
     async def post_data(self) -> dict:
-        args = {}
+        params = {}
         if self.request.headers.get("Content-Type") == "application/json":
             return await self.request.json()
         try:
-            args = await self.request.post()
-            if not args or len(args) == 0:
+            params = await self.request.post()
+            if not params or len(params) == 0:
                 if self.request.body_exists:
                     body = await self.request.read()
                     body = body.decode("ascii")
                     if body:
                         try:
-                            args = dict(
+                            params = dict(
                                 (k, v if len(v) > 1 else v[0])
                                 for k, v in parse.parse_qs(body).items()
                             )
                         except (KeyError, ValueError):
                             pass
         finally:
-            print(args)
-            return args
+            print(params)
+            return params
 
     def no_content(self, headers: Dict) -> web.Response:
         response = HTTPNoContent(content_type="application/json")

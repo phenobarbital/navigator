@@ -249,7 +249,7 @@ class BaseHandler(CorsViewMixin):
         except Exception as err:
             print(err)
             pass
-        params = {**args, **qry}
+        params = {**params, **qry}
         return params
 
     get_args = get_arguments

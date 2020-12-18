@@ -230,6 +230,29 @@ class BaseHandler(CorsViewMixin):
     async def json_data(self, request):
         return await request.json()
 
+    def get_arguments(self, request: web.Request = None) -> dict:
+        params = {}
+        if not request:
+            rq = self.request
+        else:
+            rq = request
+        for arg in rq.match_info:
+            try:
+                val = rq.match_info.get(arg)
+                object.__setattr__(self, arg, val)
+                params[arg] = val
+            except AttributeError:
+                pass
+        qry = {}
+        try:
+            qry = {key: val for (key, val) in rq.rel_url.query.items()}
+        except Exception as err:
+            print(err)
+            pass
+        params = {**args, **qry}
+        return params
+
+    get_args = get_arguments
 
 class BaseView(web.View, BaseHandler, AbstractView):
     # _allowed: FrozenSet = frozenset()  # {'get', 'post', 'put', 'patch', 'delete', 'option'}
@@ -238,24 +261,6 @@ class BaseView(web.View, BaseHandler, AbstractView):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
-
-    def get_args(self) -> dict:
-        args = {}
-        for arg in self.request.match_info:
-            try:
-                val = self.request.match_info.get(arg)
-                object.__setattr__(self, arg, val)
-                args[arg] = val
-            except AttributeError:
-                pass
-        qry = {}
-        try:
-            qry = {key: val for (key, val) in self.request.rel_url.query.items()}
-        except Exception as err:
-            print(err)
-            pass
-        args = {**args, **qry}
-        return args
 
     async def post_data(self) -> dict:
         args = {}

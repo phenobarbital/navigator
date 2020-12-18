@@ -255,12 +255,34 @@ class BaseHandler(CorsViewMixin):
     get_args = get_arguments
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    # _allowed: FrozenSet = frozenset()  # {'get', 'post', 'put', 'patch', 'delete', 'option'}
+    _mcache: Any = None
+    _connection: Any = None
+    _redis: Any = None
 
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
+
+    def post_init(self, *args, **kwargs):
+        mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
+        self._mcache = memcache(params=mem_params)
+
+    async def connection(self):
+        return self._connection
+
+    async def connect(self, request):
+        await self._mcache.connection()
+        self._connection = await request.app["pool"].acquire()
+        self._redis = request.app["redis"]
+
+    async def close(self):
+        if self._mcache and self._mcache.is_connected():
+            await self._mcache.close()
+            self._mcache = None
+        if self._connection:
+            await self._connection.close()
+            self._connection = None
 
     async def json_data(self):
         return await self.request.json()
@@ -296,29 +318,6 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
 
 class DataView(BaseView):
-    _mcache: Any = None
-    _connection: Any = None
-    _redis: Any = None
-
-    def post_init(self, *args, **kwargs):
-        mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
-        self._mcache = memcache(params=mem_params)
-
-    async def connection(self):
-        return self._connection
-
-    async def connect(self, request):
-        await self._mcache.connection()
-        self._connection = await request.app["pool"].acquire()
-        self._redis = request.app["redis"]
-
-    async def close(self):
-        if self._mcache and self._mcache.is_connected():
-            await self._mcache.close()
-            self._mcache = None
-        if self._connection:
-            await self._connection.close()
-            self._connection = None
 
     async def asyncdb(self, request):
         db = None

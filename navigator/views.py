@@ -262,6 +262,9 @@ class BaseView(web.View, BaseHandler, AbstractView):
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
 
+    async def json_data(self):
+        return await self.request.json()
+
     async def post_data(self) -> dict:
         params = {}
         if self.request.headers.get("Content-Type") == "application/json":

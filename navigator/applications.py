@@ -419,6 +419,10 @@ class AppConfig(AppHandler):
                         r = self.app.router.add_patch(
                             route.url, route.handler, name=route.name
                         )
+                    elif route.method == "put":
+                        r = self.app.router.add_put(
+                            route.url, route.handler, name=route.name
+                        )
                     else:
                         raise (
                             "Unsupported Method for Route {}, program: {}".format(

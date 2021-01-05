@@ -116,6 +116,7 @@ class AppHandler(ABC):
     cors = None
     _middleware: Any = None
     auto_home: bool = True
+    enable_notify: bool = False
     enable_aiojobs: bool = False
     enable_static: bool = True
     staticdir: str = ""

@@ -124,8 +124,7 @@ class AppHandler(ABC):
         self._name = type(self).__name__
         self.logger = logging.getLogger(self._name)
         # configuring asyncio loop
-        self._loop = uvloop.get_event_loop()
-        #self._loop = asyncio.get_event_loop()
+        self._loop = self.get_loop()
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -166,6 +165,14 @@ class AppHandler(ABC):
             },
         )
         return app
+
+    def get_loop(self, new: bool = False):
+        if new is True:
+            loop = uvloop.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
+        else:
+            return asyncio.get_event_loop()
 
     @property
     def App(self) -> web.Application:

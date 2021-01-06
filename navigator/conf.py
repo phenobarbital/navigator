@@ -151,6 +151,32 @@ for program in INSTALLED_APPS:
         pass
 
 """
+Settings and Cache
+"""
+
+"""
+REDIS
+"""
+CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
+CACHE_PORT = config.get('CACHEPORT', fallback=6379)
+CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
+REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
+
+"""
+Session Storage
+"""
+SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
+SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
+CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
+SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+
+"""
+ Memcache
+"""
+MEMCACHE_HOST = config.get('MEMCACHE_HOST', 'localhost')
+MEMCACHE_PORT = config.get('MEMCACHE_PORT', 11211)
+
+"""
 Config dict for aiohttp
 """
 Context = {
@@ -160,6 +186,5 @@ Context = {
     "SECRET_KEY": SECRET_KEY,
     "env": ENV,
     "DATABASES": DATABASES,
-    #"asyncpg_url": asyncpg_url,
-    #"cache_url": QUERYSET_REDIS,
+    "cache_url": CACHE_URL,
 }

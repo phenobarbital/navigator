@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
-import asyncio
-import importlib
-import inspect
-
-# logging system
-import logging
 import os
 import sys
 import typing
 from abc import ABC, abstractmethod
+import importlib
+import inspect
+# logging system
+import logging
 from logging.config import dictConfig
 
 # from aiohttp_swagger import setup_swagger
@@ -33,42 +31,20 @@ from navigator.conf import (
     INSTALLED_APPS,
     STATIC_DIR,
     logdir,
+    logging_config
 )
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
 from navigator.resources import home, ping
 
-loglevel = logging.INFO
+import asyncio
+import uvloop
+# make asyncio use the event loop provided by uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
-logger_config = dict(
-    version=1,
-    formatters={
-        "console": {"format": "%(message)s"},
-        "file": {
-            "format": "%(asctime)s: [%(levelname)s]: %(pathname)s: %(lineno)d: \n%(message)s\n"
-        },
-        "default": {"format": "[%(levelname)s] %(asctime)s %(name)s: %(message)s"},
-    },
-    handlers={
-        "console": {
-            "formatter": "console",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-            "level": loglevel,
-        },
-        "StreamHandler": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-            "level": loglevel,
-        },
-    },
-    root={
-        "handlers": ["StreamHandler"],
-        "level": loglevel,
-    },
-)
-dictConfig(logger_config)
+loglevel = logging.INFO
+dictConfig(logging_config)
 
 #######################
 ##
@@ -140,6 +116,7 @@ class AppHandler(ABC):
     cors = None
     _middleware: Any = None
     auto_home: bool = True
+    enable_notify: bool = False
     enable_aiojobs: bool = False
     enable_static: bool = True
     staticdir: str = ""
@@ -148,7 +125,7 @@ class AppHandler(ABC):
         self._name = type(self).__name__
         self.logger = logging.getLogger(self._name)
         # configuring asyncio loop
-        self._loop = asyncio.get_event_loop()
+        self._loop = self.get_loop()
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -189,6 +166,14 @@ class AppHandler(ABC):
             },
         )
         return app
+
+    def get_loop(self, new: bool = False):
+        if new is True:
+            loop = uvloop.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
+        else:
+            return asyncio.get_event_loop()
 
     @property
     def App(self) -> web.Application:
@@ -259,9 +244,6 @@ class AppHandler(ABC):
     def setup_cors(self, cors):
         for route in list(self.app.router.routes()):
             try:
-                # if DEBUG:
-                #     self.logger.info(f'Adding CORS to {route.method} {route.handler}')
-                # if not isinstance(route.resource, web.StaticResource):
                 if inspect.isclass(route.handler) and issubclass(
                     route.handler, AbstractView
                 ):
@@ -329,6 +311,7 @@ class AppConfig(AppHandler):
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
+        # TODO: using Notify Logic about aiohttp jinja
         if self.template:
             template_dir = os.path.join(self.path, self.template)
             # template_dir = self.path.resolve().joinpath(self.template)
@@ -340,6 +323,12 @@ class AppConfig(AppHandler):
         await app["redis"].close()
 
     async def on_startup(self, app):
+        # redis Pool
+        rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
+        await rd.connection()
+        app["redis"] = rd
+
+    async def create_connection(self, app):
         kwargs = {"server_settings": {"client_min_messages": "notice"}}
         pool = AsyncPool(
             "pg",
@@ -348,33 +337,12 @@ class AppConfig(AppHandler):
             timeout=360000,
             **kwargs
         )
-        await pool.connect()
-        await self.open_connection(pool, app)
-        app["pool"] = pool
-        # redis Pool
-        rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
-        await rd.connection()
-        app["redis"] = rd
-
-    async def open_connection(self, pool, app):
         try:
-            conn = await pool.acquire()
-            app['connection'] = conn
-            if conn:
-                if self.enable_notify:
-                    connection = conn.engine()
-                    #print(connection.get_server_version())
-                    await connection.add_listener(self._name, self.listener)
-                    await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
+            await pool.connect()
+            await self.open_connection(pool, app)
+            app["database"] = pool
         except Exception as err:
             raise Exception(err)
-
-    async def on_shutdown(self, app):
-        await self.close_connection(app["connection"])
-        await app["pool"].wait_close(gracefully=False)
-
-    def listener(conn, pid, channel, payload, *args):
-        print("Notification from {}: {}, {}".format(channel, payload, args))
 
     async def close_connection(self, conn):
         try:
@@ -384,9 +352,30 @@ class AppConfig(AppHandler):
                     await asyncio.sleep(1)
                 await conn.close()
         except Exception as err:
-            print("Error closing Interface connection {}".format(err))
-        # finally:
-        #     print('= Closing {} connections'.format(self._name))
+            logging.error("Error closing Interface connection {}".format(err))
+
+    async def open_connection(self, pool, app, listener: Callable = None):
+        if not listener:
+            listener = self.listener
+        try:
+            conn = await pool.acquire()
+            app['connection'] = conn
+            if conn:
+                if self.enable_notify:
+                    connection = conn.engine()
+                    await connection.add_listener(self._name, listener)
+                    await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
+        except Exception as err:
+            raise Exception(err)
+
+    async def on_shutdown(self, app):
+        try:
+            await app["redis"].close()
+        except Exception as err:
+            raise Exception(err)
+
+    def listener(conn, pid, channel, payload, *args):
+        print("Notification from {}: {}, {}".format(channel, payload, args))
 
     def setup_routes(self):
         # set the urls
@@ -436,6 +425,10 @@ class AppConfig(AppHandler):
                         )
                     elif route.method == "patch":
                         r = self.app.router.add_patch(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "put":
+                        r = self.app.router.add_put(
                             route.url, route.handler, name=route.name
                         )
                     else:

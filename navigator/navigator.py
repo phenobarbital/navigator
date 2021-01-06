@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 import argparse
-import asyncio
 import ssl
 import sys
 import typing
-
 import aiohttp_cors
-import uvloop
 from aiohttp import web
 
 # make asyncio use the event loop provided by uvloop
+import asyncio
+import uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 import inspect
@@ -54,7 +53,7 @@ from navigator.handlers import nav_exception_handler, shutdown
 from navigator.modules.auth import AuthHandler, auth_middleware, login_required
 from navigator.resources import WebSocket, channel_handler
 
-__version__ = "1.0.0.dev0"
+__version__ = "1.2.0"
 
 
 def get_version():
@@ -62,7 +61,7 @@ def get_version():
 
 
 def Response(
-    content: Any,
+    content: Any = None,
     text: str = "",
     body: Any = None,
     status: int = 200,

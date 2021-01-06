@@ -50,8 +50,6 @@ class EnvCommand(BaseCommand):
         Create can used to create a new Enviroment from scratch
         """
         path = Path(kwargs["project_path"]).resolve()
-
-        env = read_file(path, "env.tpl")
         ini = read_file(path, "ini.tpl")
         settings = read_file(path, "settings.tpl")
         localsettings = read_file(path, "localsettings.tpl")

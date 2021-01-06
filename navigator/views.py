@@ -230,67 +230,39 @@ class BaseHandler(CorsViewMixin):
     async def json_data(self, request):
         return await request.json()
 
+    def get_arguments(self, request: web.Request = None) -> dict:
+        params = {}
+        if not request:
+            rq = self.request
+        else:
+            rq = request
+        for arg in rq.match_info:
+            try:
+                val = rq.match_info.get(arg)
+                object.__setattr__(self, arg, val)
+                params[arg] = val
+            except AttributeError:
+                pass
+        qry = {}
+        try:
+            qry = {key: val for (key, val) in rq.rel_url.query.items()}
+        except Exception as err:
+            print(err)
+            pass
+        params = {**params, **qry}
+        return params
+
+    get_args = get_arguments
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    # _allowed: FrozenSet = frozenset()  # {'get', 'post', 'put', 'patch', 'delete', 'option'}
+    _mcache: Any = None
+    _connection: Any = None
+    _redis: Any = None
 
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
-
-    def get_args(self) -> dict:
-        args = {}
-        for arg in self.request.match_info:
-            try:
-                val = self.request.match_info.get(arg)
-                object.__setattr__(self, arg, val)
-                args[arg] = val
-            except AttributeError:
-                pass
-        qry = {}
-        try:
-            qry = {key: val for (key, val) in self.request.rel_url.query.items()}
-        except Exception as err:
-            print(err)
-            pass
-        args = {**args, **qry}
-        return args
-
-    async def post_data(self) -> dict:
-        args = {}
-        if self.request.headers.get("Content-Type") == "application/json":
-            return await self.request.json()
-        try:
-            args = await self.request.post()
-            if not args or len(args) == 0:
-                if self.request.body_exists:
-                    body = await self.request.read()
-                    body = body.decode("ascii")
-                    if body:
-                        try:
-                            args = dict(
-                                (k, v if len(v) > 1 else v[0])
-                                for k, v in parse.parse_qs(body).items()
-                            )
-                        except (KeyError, ValueError):
-                            pass
-        finally:
-            print(args)
-            return args
-
-    def no_content(self, headers: Dict) -> web.Response:
-        response = HTTPNoContent(content_type="application/json")
-        response.headers["Pragma"] = "no-cache"
-        for header, value in headers.items():
-            response.headers[header] = value
-        return response
-
-
-class DataView(BaseView):
-    _mcache: Any = None
-    _connection: Any = None
-    _redis: Any = None
 
     def post_init(self, *args, **kwargs):
         mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
@@ -311,6 +283,41 @@ class DataView(BaseView):
         if self._connection:
             await self._connection.close()
             self._connection = None
+
+    async def json_data(self):
+        return await self.request.json()
+
+    async def post_data(self) -> dict:
+        params = {}
+        if self.request.headers.get("Content-Type") == "application/json":
+            return await self.request.json()
+        try:
+            params = await self.request.post()
+            if not params or len(params) == 0:
+                if self.request.body_exists:
+                    body = await self.request.read()
+                    body = body.decode("ascii")
+                    if body:
+                        try:
+                            params = dict(
+                                (k, v if len(v) > 1 else v[0])
+                                for k, v in parse.parse_qs(body).items()
+                            )
+                        except (KeyError, ValueError):
+                            pass
+        finally:
+            print(params)
+            return params
+
+    def no_content(self, headers: Dict) -> web.Response:
+        response = HTTPNoContent(content_type="application/json")
+        response.headers["Pragma"] = "no-cache"
+        for header, value in headers.items():
+            response.headers[header] = value
+        return response
+
+
+class DataView(BaseView):
 
     async def asyncdb(self, request):
         db = None

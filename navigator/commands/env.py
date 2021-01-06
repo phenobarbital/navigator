@@ -22,7 +22,7 @@ def create_dir(dir, name, touch_init: bool = False):
         path.mkdir(parents=True, exist_ok=True)
         if touch_init is True:
             # create a __init__ file
-            save_file(path, '__init__.py', None)
+            save_file(path, '__init__.py', "#!/usr/bin/env python3")
     except FileExistsError as exc:
         pass
 

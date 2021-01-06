@@ -18,6 +18,7 @@ except ImportError:
 Logging
 """
 logdir = config.get("logdir", section="logging", fallback="/tmp")
+logname = config.dir('logname', section="logging", fallback="navigator")
 if DEBUG:
     loglevel = logging.DEBUG
 else:
@@ -33,20 +34,15 @@ logging_config = dict(
         "default": {"format": "[%(levelname)s] %(asctime)s %(name)s: %(message)s"},
     },
     handlers={
-        "console": {
-            "formatter": "console",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-            "level": loglevel,
-        },
         "StreamHandler": {
             "class": "logging.StreamHandler",
             "formatter": "default",
+            "stream": "ext://sys.stdout",
             "level": loglevel,
         },
         "RotatingFileHandler": {
             "class": "logging.handlers.RotatingFileHandler",
-            "filename": "{0}/{1}.log".format(logdir, "query_api"),
+            "filename": "{0}/{1}.log".format(logdir, logname),
             "maxBytes": (1048576 * 5),
             "backupCount": 2,
             "encoding": "utf-8",

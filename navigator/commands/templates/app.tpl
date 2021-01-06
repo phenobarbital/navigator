@@ -10,12 +10,13 @@ from navigator.applications import AppHandler
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 class Main(AppHandler):
-  """Main Class.
-  """
-  _middleware: List = []
-  auto_home: bool = True
-  enable_notify: bool = False
-  enable_static: bool = True
+    """Main Class.
+    Using this class as a boilerplate for starting new programs.
+    """
+    _middleware: List = []
+    auto_home: bool = True
+    enable_notify: bool = False
+    enable_static: bool = True
 
     def configure(self):
         super(Main, self).configure()

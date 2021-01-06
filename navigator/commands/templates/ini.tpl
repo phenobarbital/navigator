@@ -12,3 +12,4 @@ KEY: /etc/ssl/certs/example.com.key
 
 [logging]
 logdir: /var/log/navigator
+logname: navigator

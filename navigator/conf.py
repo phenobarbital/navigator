@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Tuple
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, QUERYSET_REDIS, asyncpg_url, config
+from navconfig import BASE_DIR, EXTENSION_DIR, config
+# QUERYSET_REDIS, asyncpg_url
 
 """
 Routes
@@ -159,6 +160,6 @@ Context = {
     "SECRET_KEY": SECRET_KEY,
     "env": ENV,
     "DATABASES": DATABASES,
-    "asyncpg_url": asyncpg_url,
-    "cache_url": QUERYSET_REDIS,
+    #"asyncpg_url": asyncpg_url,
+    #"cache_url": QUERYSET_REDIS,
 }

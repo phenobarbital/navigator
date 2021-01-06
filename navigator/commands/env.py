@@ -22,23 +22,22 @@ def create_dir(dir, name, touch_init: bool = False):
         path.mkdir(parents=True, exist_ok=True)
         if touch_init is True:
             # create a __init__ file
-            save_file(path, '__init__.py', "#!/usr/bin/env python3")
+            save_file(path, '__init__.py', content="#!/usr/bin/env python3")
     except FileExistsError as exc:
         pass
 
 
 def save_file(dir, filename, content):
     async def main(filename, content):
-        if content:
+        try:
             path = dir.joinpath(Path(filename).resolve())
             print(path)
             async with AIOFile(path, "w+") as afp:
                 await afp.write(content)
                 await afp.fsync()
             return True
-        else:
+        except Exception as err:
             return False
-
     return loop.run_until_complete(main(filename, content))
 
 

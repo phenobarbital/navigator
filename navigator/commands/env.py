@@ -28,7 +28,7 @@ def create_dir(dir, name, touch_init: bool = False):
 
 
 def save_file(dir, filename, content):
-    async def main(filename, content):
+    async def main(dir, filename, content):
         try:
             path = dir.joinpath(filename)
             async with AIOFile(path, "w+") as afp:

@@ -1,6 +1,7 @@
+import os
+import sys
 import asyncio
 import logging
-import sys
 from pathlib import Path
 
 from aiofile import AIOFile
@@ -27,6 +28,16 @@ def create_dir(dir, name, touch_init: bool = False):
         pass
 
 
+def delete_file(dir, name):
+    path = dir.joinpath(name)
+    try:
+        path.unlink(missing_ok=True)
+        return True
+    except Exception as err:
+        print(err)
+        return False
+
+
 def save_file(dir, filename, content):
     async def main(filename, content):
         try:
@@ -48,6 +59,7 @@ class EnvCommand(BaseCommand):
     def parse_arguments(self, parser):
         parser.add_argument("--enable-notify", type=bool)
         parser.add_argument("--process-services", type=bool)
+        parser.add_argument("--credentials", type=str)
 
     def create(self, options, **kwargs):
         """
@@ -96,3 +108,27 @@ class EnvCommand(BaseCommand):
         save_file(path, "static/css/styles.css", css)
         save_file(path, "static/js/scripts.js", js)
         return output
+
+    def get_env(self, options, **kwargs):
+        """get_env.
+
+        Getting a new environment file from Google Drive.
+        """
+        path = Path(kwargs["project_path"]).resolve()
+        print(kwargs)
+        file_env = options.file_env
+        # first: removing existing credentials
+        delete_file(path, 'env/credentials.txt')
+        # saving the credentials into a new file
+        save_file(path, "env/file_env", file_env)
+        # preparing the environment:
+        # set SITE_ROOT:
+        os.environ['SITE_ROOT'] = str(path)
+        print('SITE ROOT: ', os.getenv('SITE_ROOT'))
+        # set configuration for navconfig
+        os.environ['NAVCONFIG_ENV'] = 'drive'
+        os.environ['NAVCONFIG_DRIVE_CLIENT'] = 'env/credentials.txt'
+        os.environ['NAVCONFIG_DRIVE_ID'] = file_env
+        from navconfig import config
+        config.save_environment('drive')
+        return 'Done.'

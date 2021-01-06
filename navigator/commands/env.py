@@ -28,7 +28,8 @@ def create_dir(dir, name, touch_init: bool = False):
 
 
 def save_file(dir, filename, content):
-    async def main(dir, filename, content):
+    print(dir, filename)
+    async def main(filename, content):
         try:
             path = dir.joinpath(filename)
             async with AIOFile(path, "w+") as afp:
@@ -36,6 +37,8 @@ def save_file(dir, filename, content):
                 await afp.fsync()
             return True
         except Exception as err:
+            print(err)
+            logging.error(err)
             return False
     return loop.run_until_complete(main(filename, content))
 

@@ -67,7 +67,7 @@ class EnvCommand(BaseCommand):
         create_dir(path, "apps", touch_init=True)
         create_dir(path, "env/testing")
         create_dir(path, "etc")
-        create_dir(path, "log")
+        #create_dir(path, "log")
         create_dir(path, "services", touch_init=True)
         create_dir(path, "resources", touch_init=True)
         create_dir(path, "settings", touch_init=True)

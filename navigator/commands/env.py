@@ -28,7 +28,6 @@ def create_dir(dir, name, touch_init: bool = False):
 
 
 def save_file(dir, filename, content):
-    print(dir, filename)
     async def main(filename, content):
         try:
             path = dir.joinpath(filename)

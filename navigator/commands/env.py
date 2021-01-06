@@ -16,10 +16,13 @@ def read_file(path, filename):
     return f.read()
 
 
-def create_dir(dir, name):
+def create_dir(dir, name, touch_init: bool = False):
     try:
         path = dir.joinpath(name)
         path.mkdir(parents=True, exist_ok=True)
+        if touch_init is True:
+            # create a __init__ file
+            save_file(path, '__init__.py', None)
     except FileExistsError as exc:
         pass
 
@@ -62,19 +65,21 @@ class EnvCommand(BaseCommand):
             self.write("= wait a few minutes", level="WARN")
         # apps, etc, env, services, settings, static/images/js/css, templates
         self.write("* First Step: Creating Directory structure")
-        create_dir(path, "apps")
+        create_dir(path, "apps", touch_init=True)
         create_dir(path, "env/testing")
         create_dir(path, "etc")
-        create_dir(path, "services")
-        create_dir(path, "settings")
+        create_dir(path, "services", touch_init=True)
+        create_dir(path, "resources", touch_init=True)
+        create_dir(path, "settings", touch_init=True)
         create_dir(path, "static/images")
         create_dir(path, "static/js")
         create_dir(path, "static/css")
         create_dir(path, "templates")
         self.write("* Second Step: Creation of Empty .env File")
-        save_file(path, "env/.env", env)
-        save_file(path, "env/testing/.env", env)
+        #save_file(path, "env/.env", env)
+        #save_file(path, "env/testing/.env", env)
         save_file(path, "etc/navigator.ini", ini)
+        # TODO: download from Google Drive, if possible
         self.write("* Third Step: Creation of Empty settings.py File")
         save_file(path, "settings/settings.py", settings)
         save_file(path, "settings/local_settings.py.example", localsettings)

@@ -59,7 +59,7 @@ class EnvCommand(BaseCommand):
     def parse_arguments(self, parser):
         parser.add_argument("--enable-notify", type=bool)
         parser.add_argument("--process-services", type=bool)
-        parser.add_argument("--credentials", type=str)
+        parser.add_argument("--file_env", type=str)
 
     def create(self, options, **kwargs):
         """
@@ -117,6 +117,7 @@ class EnvCommand(BaseCommand):
         path = Path(kwargs["project_path"]).resolve()
         print(kwargs)
         file_env = options.file_env
+        print(file_env)
         # first: removing existing credentials
         delete_file(path, 'env/credentials.txt')
         # saving the credentials into a new file

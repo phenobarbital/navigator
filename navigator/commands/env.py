@@ -19,7 +19,6 @@ def read_file(path, filename):
 def create_dir(dir, name, touch_init: bool = False):
     try:
         path = dir.joinpath(name)
-        print(path)
         path.mkdir(parents=True, exist_ok=True)
         if touch_init is True:
             # create a __init__ file
@@ -29,9 +28,12 @@ def create_dir(dir, name, touch_init: bool = False):
 
 
 def save_file(dir, filename, content):
+    print(dir, filename, content)
     async def main(filename, content):
         try:
-            path = dir.joinpath(Path(filename).resolve())
+            f = Path(filename).resolve()
+            print(f)
+            path = dir.joinpath(f)
             print(path)
             async with AIOFile(path, "w+") as afp:
                 await afp.write(content)

@@ -19,6 +19,7 @@ def read_file(path, filename):
 def create_dir(dir, name, touch_init: bool = False):
     try:
         path = dir.joinpath(name)
+        print(path)
         path.mkdir(parents=True, exist_ok=True)
         if touch_init is True:
             # create a __init__ file

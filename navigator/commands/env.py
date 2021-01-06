@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import asyncio
 import logging
 from pathlib import Path
@@ -53,6 +54,25 @@ def save_file(dir, filename, content):
     return loop.run_until_complete(main(filename, content))
 
 
+def drive_permission(
+    client: str,
+    secret: str,
+    project: str = 'navigator') -> str:
+    permission = {
+    	"web": {
+    		"client_id": f"{client!s}.apps.googleusercontent.com",
+    		"project_id": project,
+    		"auth_uri": "https://accounts.google.com/o/oauth2/auth",
+    		"token_uri": "https://oauth2.googleapis.com/token",
+    		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+    		"client_secret": secret,
+    		"redirect_uris": ["http://localhost:8090/"],
+    		"javascript_origins": ["http://localhost:8090"]
+    	}
+    }
+    return json.dumps(permission)
+
+
 class EnvCommand(BaseCommand):
     help = "Enviroment Commands for Navigator"
 
@@ -60,6 +80,9 @@ class EnvCommand(BaseCommand):
         parser.add_argument("--enable-notify", type=bool)
         parser.add_argument("--process-services", type=bool)
         parser.add_argument("--file_env", type=str)
+        parser.add_argument("--client", type=str)
+        parser.add_argument("--secret", type=str)
+        parser.add_argument("--project", type=str)
 
     def create(self, options, **kwargs):
         """
@@ -115,9 +138,7 @@ class EnvCommand(BaseCommand):
         Getting a new environment file from Google Drive.
         """
         path = Path(kwargs["project_path"]).resolve()
-        print(kwargs)
         file_env = options.file_env
-        print(file_env)
         # first: removing existing credentials
         delete_file(path, 'env/credentials.txt')
         # saving the credentials into a new file
@@ -130,6 +151,14 @@ class EnvCommand(BaseCommand):
         os.environ['NAVCONFIG_ENV'] = 'drive'
         os.environ['NAVCONFIG_DRIVE_CLIENT'] = 'env/credentials.txt'
         os.environ['NAVCONFIG_DRIVE_ID'] = file_env
+        # get the drive permission
+        client = options.client
+        secret = options.secret
+        project = options.project
+        content = drive_permission(
+            client, secret, project
+        )
+        save_file(path, 'client_secrets.json', content)
         from navconfig import config
         config.save_environment('drive')
         return 'Done.'

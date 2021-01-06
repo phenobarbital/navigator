@@ -31,6 +31,7 @@ def save_file(dir, filename, content):
     async def main(filename, content):
         if content:
             path = dir.joinpath(Path(filename).resolve())
+            print(path)
             async with AIOFile(path, "w+") as afp:
                 await afp.write(content)
                 await afp.fsync()

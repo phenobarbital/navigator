@@ -4,14 +4,11 @@ sudo apt-get install libmemcached-dev zlib1g-dev
 :: Install Python3.8
 sudo apt-get install python3.8-minimal python3.8-venv python3-pip python3.8-distutils python3.8-config python3.8-dev
 
-:: Install VirtualEnv dependencies
-python3.8 -m pip install --upgrade pip setuptools wheel
-
 :: Create Virtualenv
-python3.8 -m venv env
+python3.8 -m venv .venv
 
 :: Enable Virtualenv
 source .venv/bin/activate
 
-:: Upgrade Pip
-pip install --upgrade pip
+:: Install VirtualEnv dependencies
+pip install --upgrade pip setuptools wheel

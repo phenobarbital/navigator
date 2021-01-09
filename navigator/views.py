@@ -273,7 +273,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
     async def connect(self, request):
         await self._mcache.connection()
-        self._connection = await request.app["pool"].acquire()
+        self._connection = await request.app["database"].acquire()
         self._redis = request.app["redis"]
 
     async def close(self):
@@ -322,7 +322,7 @@ class DataView(BaseView):
     async def asyncdb(self, request):
         db = None
         try:
-            pool = request.app["pool"]
+            pool = request.app["database"]
             if pool.is_connected():
                 conn = await pool.acquire()
                 db = asyncORM(db=conn, loop=self._loop)

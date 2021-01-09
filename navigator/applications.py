@@ -29,10 +29,9 @@ from navigator.conf import (
     BASE_DIR,
     DEBUG,
     INSTALLED_APPS,
-    STATIC_DIR,
-    logdir,
-    logging_config
+    STATIC_DIR
 )
+from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class

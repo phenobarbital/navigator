@@ -13,6 +13,7 @@ from cryptography import fernet
 
 # Import Config Class
 from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig.logging import logdir, loglevel, logging_config
 # QUERYSET_REDIS, asyncpg_url
 
 """

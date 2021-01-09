@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Tuple
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, QUERYSET_REDIS, asyncpg_url, config
+from navconfig import config, BASE_DIR, EXTENSION_DIR, QUERYSET_REDIS, asyncpg_url
 
 """
 Routes

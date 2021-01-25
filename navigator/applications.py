@@ -326,6 +326,8 @@ class AppConfig(AppHandler):
         rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
         await rd.connection()
         app["redis"] = rd
+        # initialize models:
+        
 
     async def create_connection(self, app):
         kwargs = {"server_settings": {"client_min_messages": "notice"}}

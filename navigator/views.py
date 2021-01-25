@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import inspect
 import json
+import rapidjson
 import logging
 import traceback
 from abc import ABC, ABCMeta, abstractmethod, abstractproperty
@@ -91,16 +92,16 @@ class BaseHandler(CorsViewMixin):
             obj.headers[header] = value
         return obj
 
-    def json_response(self, response={}, headers={}, state=200, encoder=None):
-        if encoder is not None:
-            if inspect.isclass(encoder):
+    def json_response(self, response={}, headers={}, state=200, cls=None):
+        if cls is not None:
+            if inspect.isclass(cls):
                 # its a class-based Encoder
-                jsonfn = partial(json.dumps, cls=encoder)
+                jsonfn = partial(json.dumps, cls=cls)
             else:
                 # its a function
-                jsonfn = partial(json.dumps, default=encoder)
+                jsonfn = partial(rapidjson.dumps, default=cls)
         else:
-            jsonfn = json.dumps
+            jsonfn = rapidjson.dumps
         obj = web.json_response(response, status=state, dumps=jsonfn)
         for header, value in headers.items():
             obj.headers[header] = value

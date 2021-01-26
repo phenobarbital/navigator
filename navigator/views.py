@@ -532,7 +532,7 @@ class ModelView(BaseView):
     async def model_response(self, response, headers: list = []):
         # TODO: check if response is empty
         h = {
-                'X-STATUS': 'OK'
+            'X-STATUS': 'OK'
         }
         if headers:
             h = {**h, **headers}
@@ -556,7 +556,7 @@ class ModelView(BaseView):
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
-            return self.model_response(data)
+            return await self.model_response(data)
         except NoDataFound as err:
             print(err)
             headers = {
@@ -586,7 +586,7 @@ class ModelView(BaseView):
             update = await self.model.update(params, **post)
             if update:
                 data = update[0].dict()
-                return self.model_response(data)
+                return await self.model_response(data)
             else:
                 return self.error(
                     response=f'Resource not found: {post}',
@@ -605,7 +605,7 @@ class ModelView(BaseView):
                     if field.default is not None:
                         default = f'{field.default!r}'
                     data[key] = {"type": type, "default": default}
-                return self.model_response(data)
+                return await self.model_response(data)
             except Exception as err:
                 return self.critical(
                     request=self.request,
@@ -634,7 +634,7 @@ class ModelView(BaseView):
                 await qry.save()
                 query = await self.model.get(**params)
                 data = query.dict()
-                return self.model_response(data)
+                return await self.model_response(data)
             else:
                 return self.error(
                     request=self.request,
@@ -674,7 +674,7 @@ class ModelView(BaseView):
                         'X-MESSAGE': f'Table row with {params!s} was deleted',
                         'X-TABLE': self.tablename
                     }
-                    return self.model_response(
+                    return await self.model_response(
                         msg,
                         headers=headers
                     )
@@ -722,7 +722,7 @@ class ModelView(BaseView):
                 result = await self.model.create([parameters])
                 if result:
                     data = [row.dict() for row in result]
-                return self.model_response(data)
+                return await self.model_response(data)
             else:
                 return self.error(
                     request=self.request,

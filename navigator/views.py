@@ -486,6 +486,7 @@ class DataView(BaseView):
 
 class ModelView(BaseView):
     model: Model = None
+    models: list = []
 
     def get_schema(self):
         if not self.Meta.tablename:
@@ -493,7 +494,7 @@ class ModelView(BaseView):
         else:
             table = self.Meta.tablename
         try:
-            return MODELS[table]
+            return self.models[table]
         except KeyError:
             # Model doesn't exists
             raise NoDataFound(f'Model {table} Doesnt Exists')
@@ -501,7 +502,10 @@ class ModelView(BaseView):
     def __init__(self, *args, **kwargs):
         super(ModelView, self).__init__(*args, **kwargs)
         # getting model associated
-        self.model = self.get_schema()
+        try:
+            self.model = self.get_schema()
+        except NoDataFound as err:
+            raise Exception(err)
 
     async def get_data(self, params, args):
         try:

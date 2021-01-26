@@ -542,20 +542,15 @@ class ModelView(BaseView):
 
         Get all parameters from URL or from query string.
         """
-        print('GET PARAMETERS')
         args = self.get_arguments()
         params = self.query_parameters(self.request)
-        print(args, params)
         return [args, params]
 
     async def get(self):
-        print('::: GET')
         args, params = self.get_parameters()
-        print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
-            print(data)
             return self.model_response(data)
         except NoDataFound as err:
             print(err)
@@ -578,7 +573,7 @@ class ModelView(BaseView):
             summary: return the metadata from table or, if we got post
             realizes a partially atomic updated of the query.
         """
-        args, params = await self.get_parameters()
+        args, params = self.get_parameters()
         # try to got post data
         post = await self.json_data()
         if post:
@@ -618,7 +613,7 @@ class ModelView(BaseView):
         post.
             summary: update (or create) a row in table
         """
-        args, params = await self.get_parameters()
+        args, params = self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(
@@ -652,7 +647,7 @@ class ModelView(BaseView):
         delete.
            summary: delete a table object
         """
-        args, params = await self.get_parameters()
+        args, params = self.get_parameters()
         if len(params) > 0:
             qry = self.model(**params)
             if qry:
@@ -705,7 +700,7 @@ class ModelView(BaseView):
         put.
            summary: insert a row in table
         """
-        args, params = await self.get_parameters()
+        args, params = self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(

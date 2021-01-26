@@ -489,15 +489,21 @@ class ModelView(BaseView):
     models: list = []
 
     def get_schema(self):
-        if not self.Meta.tablename:
-            table = type(self).__name__
+        if self.model:
+            return self.model
         else:
-            table = self.Meta.tablename
-        try:
-            return self.models[table]
-        except KeyError:
-            # Model doesn't exists
-            raise NoDataFound(f'Model {table} Doesnt Exists')
+            # TODO: try to discover from Model Name and model declaration
+            # using importlib (from apps.{program}.models import Model)
+            try:
+                table = self.Meta.tablename
+            except Exception as err:
+                print(err)
+                table = type(self).__name__
+            try:
+                return self.models[table]
+            except KeyError:
+                # Model doesn't exists
+                raise NoDataFound(f'Model {table} Doesnt Exists')
 
     def __init__(self, *args, **kwargs):
         super(ModelView, self).__init__(*args, **kwargs)
@@ -523,12 +529,20 @@ class ModelView(BaseView):
         except Exception as err:
             raise Exception(err)
 
-    async def get(self):
+    async def get_parameters(self):
+        """Get Parameters.
+
+        Get all parameters from URL or from query string.
+        """
         args = self.get_arguments()
-        qp = self.query_parameters(self.request)
+        params = self.query_parameters(self.request)
+        return [args, params]
+
+    async def get(self):
+        args, params = await self.get_parameters()
         # TODO: check if QueryParameters are in list of columns in Model
         try:
-            data = await self.get_data(qp, args)
+            data = await self.get_data(params, args)
             return self.json_response(data, cls=BaseEncoder)
         except NoDataFound as err:
             print(err)
@@ -551,7 +565,7 @@ class ModelView(BaseView):
             summary: return the metadata from table or, if we got post
             realizes a partially atomic updated of the query.
         """
-        params = self.get_arguments()
+        args, params = await self.get_parameters()
         # try to got post data
         post = await self.json_data()
         if post:
@@ -591,7 +605,7 @@ class ModelView(BaseView):
         post.
             summary: update (or create) a row in table
         """
-        params = self.get_arguments()
+        args, params = await self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(
@@ -625,7 +639,7 @@ class ModelView(BaseView):
         delete.
            summary: delete a table object
         """
-        params = self.get_arguments()
+        args, params = await self.get_parameters()
         if len(params) > 0:
             qry = self.model(**params)
             if qry:
@@ -679,7 +693,7 @@ class ModelView(BaseView):
         put.
            summary: insert a row in table
         """
-        params = self.get_arguments()
+        args, params = await self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(

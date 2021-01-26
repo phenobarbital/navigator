@@ -535,7 +535,7 @@ class ModelView(BaseView):
                 'X-STATUS': 'OK'
         }
         if headers:
-            h = {**h, headers}
+            h = {**h, **headers}
         return self.json_response(
             response,
             cls=BaseEncoder,

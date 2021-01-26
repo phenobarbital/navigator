@@ -537,7 +537,7 @@ class ModelView(BaseView):
             headers=headers
         )
 
-    async def get_parameters(self):
+    def get_parameters(self):
         """Get Parameters.
 
         Get all parameters from URL or from query string.
@@ -549,8 +549,8 @@ class ModelView(BaseView):
         return [args, params]
 
     async def get(self):
-        print('GET')
-        args, params = await self.get_parameters()
+        print('::: GET')
+        args, params = self.get_parameters()
         print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:

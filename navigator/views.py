@@ -531,15 +531,10 @@ class ModelView(BaseView):
 
     def model_response(self, response, headers: dict = {}):
         # TODO: check if response is empty
-        h = {
-            'X-STATUS': 'OK'
-        }
-        if headers:
-            h = {**h, **headers}
         return self.json_response(
             response,
             cls=BaseEncoder,
-            headers=h
+            headers=headers
         )
 
     async def get_parameters(self):

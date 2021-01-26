@@ -553,9 +553,11 @@ class ModelView(BaseView):
 
     async def get(self):
         args, params = await self.get_parameters()
+        print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
+            print(data)
             return self.model_response(data)
         except NoDataFound as err:
             print(err)

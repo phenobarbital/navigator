@@ -571,9 +571,12 @@ class ModelView(BaseView):
 
         Get all parameters from URL or from query string.
         """
-        if not self.model.Meta.connection:
-            db = await self.request.app['database'].acquire()
-            self.model.Meta.connection = db
+        try:
+            if not self.model.Meta.connection:
+                db = await self.request.app['database'].acquire()
+                self.model.Meta.connection = db
+        except Exception as err:
+            raise Exception(err)
         args = self.get_args()
         params = self.query_parameters(self.request)
         return [args, params]

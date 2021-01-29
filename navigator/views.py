@@ -484,6 +484,22 @@ class DataView(BaseView):
         return self
 
 
+
+async def load_models(app: str, model, tablelist: list = []):
+    db = await app['database'].acquire()
+    name = app['name']
+    for table in tablelist:
+        try:
+            query = await Model.makeModel(
+                name=table,
+                schema=name,
+                db=db
+            )
+            model[table] = query
+        except Exception as err:
+            logging.error(f'Error loading Model {table}: {err!s}')
+
+
 class ModelView(BaseView):
     """ModelView.
 

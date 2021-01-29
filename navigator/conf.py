@@ -98,6 +98,23 @@ from navconfig.conf import *
 ##
 #######################
 """
+Main Database
+"""
+PG_USER = config.get('DBUSER')
+PG_HOST = config.get('DBHOST', fallback='localhost')
+PG_PWD = config.get('DBPWD')
+PG_DATABASE = config.get('DBNAME', fallback='navigator')
+PG_PORT = config.get('DBPORT', fallback=5432)
+
+asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
+    user=PG_USER,
+    password=PG_PWD,
+    host=PG_HOST,
+    port=PG_PORT,
+    db=PG_DATABASE
+)
+
+"""
 Applications
 """
 INSTALLED_APPS: List = []
@@ -123,19 +140,19 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        "ENGINE": config.get("DBENGINE"),
-                        "NAME": config.get("DBNAME"),
-                        "USER": config.get("DBUSER"),
+                        #"ENGINE": config.get("DBENGINE"),
+                        "NAME": PG_DATABASE,
+                        "USER": PG_USER,
                         "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",troc,public",
+                            "options": "-c search_path=" + item.name + ",public",
                         },
                         #'PARAMS': {
                         #    'readonly': True,
                         # },
                         "SCHEMA": item.name,
-                        "PASSWORD": config.get("DBPWD"),
-                        "HOST": config.get("DBHOST", fallback="localhost"),
-                        "PORT": config.get("DBPORT"),
+                        "PASSWORD": PG_PWD,
+                        "HOST": PG_HOST,
+                        "PORT": PG_PORT,
                     }
 
 
@@ -188,4 +205,5 @@ Context = {
     "env": ENV,
     "DATABASES": DATABASES,
     "cache_url": CACHE_URL,
+    "asyncpg_url": asyncpg_url
 }

@@ -364,10 +364,7 @@ class AppConfig(AppHandler):
                 await conn.close()
         except Exception as err:
             logging.error("Error closing Interface connection {}".format(err))
-        try:
-            await app['database'].wait_close(timeout=5)
-        except KeyError:
-            pass
+
 
     async def open_connection(self, pool, app, listener: Callable = None):
         if not listener:
@@ -390,6 +387,10 @@ class AppConfig(AppHandler):
                 await redis.close()
             except KeyError:
                 logging.error('Error closing Redis connection')
+            try:
+                await app['database'].wait_close(timeout=5)
+            except KeyError:
+                pass
         except Exception as err:
             raise Exception(err)
 

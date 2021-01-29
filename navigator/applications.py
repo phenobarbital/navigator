@@ -383,12 +383,12 @@ class AppConfig(AppHandler):
     async def on_shutdown(self, app):
         try:
             try:
-                redis = app["redis"]
-                await redis.close()
-            except KeyError:
+                await app["redis"].close()
+            except Exception:
                 logging.error('Error closing Redis connection')
             try:
-                await app['database'].wait_close(timeout=5)
+                if 'database' in app:
+                    await app['database'].wait_close(timeout=5)
             except KeyError:
                 pass
         except Exception as err:

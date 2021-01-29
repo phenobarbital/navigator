@@ -26,12 +26,12 @@ from aiohttp.web_exceptions import (
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
 from asyncdb.utils.models import Model
-from asyncdb.utils.encoders import BaseEncoder
+from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
 from navconfig.logging import logging_config, loglevel
 
-from navigator.libs.encoders import DefaultEncoder
-from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
+#from navigator.libs.encoders import
+#from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
 
 
 dictConfig(logging_config)
@@ -261,7 +261,7 @@ class BaseHandler(CorsViewMixin):
     get_args = get_arguments
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    _mcache: Any = None
+    #_mcache: Any = None
     _connection: Any = None
     _redis: Any = None
 
@@ -270,22 +270,22 @@ class BaseView(web.View, BaseHandler, AbstractView):
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
 
-    def post_init(self, *args, **kwargs):
-        mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
-        self._mcache = memcache(params=mem_params)
+    # def post_init(self, *args, **kwargs):
+    #     mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
+    #     self._mcache = memcache(params=mem_params)
 
     async def connection(self):
         return self._connection
 
     async def connect(self, request):
-        await self._mcache.connection()
+        #await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
         self._redis = request.app["redis"]
 
     async def close(self):
-        if self._mcache and self._mcache.is_connected():
-            await self._mcache.close()
-            self._mcache = None
+        # if self._mcache and self._mcache.is_connected():
+        #     await self._mcache.close()
+        #     self._mcache = None
         if self._connection:
             await self._connection.close()
             self._connection = None

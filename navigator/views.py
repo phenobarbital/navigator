@@ -28,9 +28,11 @@ from asyncdb.providers.memcache import memcache
 from asyncdb.utils.models import Model
 from asyncdb.utils.encoders import BaseEncoder
 from asyncdb.exceptions import *
+from navconfig.logging import logging_config, loglevel
 
-from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT, logging_config, loglevel
 from navigator.libs.encoders import DefaultEncoder
+from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
+
 
 dictConfig(logging_config)
 

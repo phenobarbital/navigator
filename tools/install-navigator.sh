@@ -22,5 +22,4 @@ pip install --upgrade wheel setuptools pip
 # first: install framework
 pip install -e .
 # second: creating directories
-mkdir extensions
 mkdir static

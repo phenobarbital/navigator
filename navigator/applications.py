@@ -152,6 +152,7 @@ class AppHandler(ABC):
             loop=self._loop,
             **middlewares
         )
+        app['name'] = self._name
         self.cors = aiohttp_cors.setup(
             app,
             defaults={
@@ -307,7 +308,6 @@ class AppConfig(AppHandler):
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
-        print('NAME: ', self._name)
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
@@ -329,12 +329,21 @@ class AppConfig(AppHandler):
         app["redis"] = rd
         # initialize models:
 
-
-    async def create_connection(self, app):
-        kwargs = {"server_settings": {"client_min_messages": "notice"}}
+    async def create_connection(self, app, dsn: str = ''):
+        if not dsn:
+            dsn = app["config"]["asyncpg_url"]
+        kwargs = {
+            'min_size': 10,
+            "server_settings": {
+                'application_name': f'NAV-{self._name!s}',
+                'client_min_messages': 'notice',
+                'jit': 'off',
+                'statement_timeout': '36000'
+            }
+        }
         pool = AsyncPool(
             "pg",
-            dsn=app["config"]["asyncpg_url"],
+            dsn=dsn,
             loop=self._loop,
             timeout=360000,
             **kwargs
@@ -355,6 +364,10 @@ class AppConfig(AppHandler):
                 await conn.close()
         except Exception as err:
             logging.error("Error closing Interface connection {}".format(err))
+        try:
+            await app['database'].wait_close(timeout=5)
+        except KeyError:
+            pass
 
     async def open_connection(self, pool, app, listener: Callable = None):
         if not listener:

@@ -320,7 +320,10 @@ class AppConfig(AppHandler):
         self.setup_routes()
 
     async def on_cleanup(self, app):
-        await app["redis"].close()
+        try:
+            await app["redis"].close()
+        except Exception:
+            logging.error('Error closing Redis connection')
 
     async def on_startup(self, app):
         # redis Pool
@@ -345,21 +348,26 @@ class AppConfig(AppHandler):
             "pg",
             dsn=dsn,
             loop=self._loop,
-            timeout=360000,
+            timeout=36000,
             **kwargs
         )
         try:
             await pool.connect()
-            await self.open_connection(pool, app)
             app["database"] = pool
         except Exception as err:
+            print(err)
             raise Exception(err)
+        if self.enable_notify is True:
+            await self.open_connection(pool, app)
 
     async def close_connection(self, conn):
         try:
-            if conn:
-                if self.enable_notify:
-                    await conn.engine().remove_listener(self._name, self.listener)
+            if self.enable_notify is True:
+                if conn:
+                    await conn.engine().remove_listener(
+                        self._name,
+                        self.listener
+                    )
                     await asyncio.sleep(1)
                 await conn.close()
         except Exception as err:
@@ -382,12 +390,7 @@ class AppConfig(AppHandler):
 
     async def on_shutdown(self, app):
         try:
-            await app["redis"].close()
-        except Exception:
-            logging.error('Error closing Redis connection')
-        try:
-            if 'database' in app:
-                await app['database'].wait_close(timeout=5)
+            await app['database'].wait_close(timeout=5)
         except Exception:
             pass
 

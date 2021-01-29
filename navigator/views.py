@@ -27,12 +27,12 @@ from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
 from asyncdb.utils.models import Model
 
-from querysource.libs.encoders import BaseEncoder
+from asyncdb.libs.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
 
 from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT, logging_config, loglevel
 
-from navigator.libs.encoders import DefaultEncoder
+#from navigator.libs.encoders import
 
 dictConfig(logging_config)
 

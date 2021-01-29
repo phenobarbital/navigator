@@ -307,6 +307,7 @@ class AppConfig(AppHandler):
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
+        print('NAME: ', self._name)
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
@@ -327,7 +328,7 @@ class AppConfig(AppHandler):
         await rd.connection()
         app["redis"] = rd
         # initialize models:
-        
+
 
     async def create_connection(self, app):
         kwargs = {"server_settings": {"client_min_messages": "notice"}}
@@ -371,7 +372,11 @@ class AppConfig(AppHandler):
 
     async def on_shutdown(self, app):
         try:
-            await app["redis"].close()
+            try:
+                redis = app["redis"]
+                await redis.close()
+            except KeyError:
+                logging.error('Error closing Redis connection')
         except Exception as err:
             raise Exception(err)
 

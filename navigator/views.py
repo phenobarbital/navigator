@@ -158,7 +158,7 @@ class BaseHandler(CorsViewMixin):
         if isinstance(response, dict):
             response_obj = {**response_obj, **response}
             args["content_type"] = "application/json"
-            args["text"] = json.dumps(response_obj, cls=DefaultEncoder)
+            args["text"] = json.dumps(response_obj)
         else:
             args["body"] = response
         # defining the error

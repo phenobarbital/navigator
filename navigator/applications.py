@@ -22,6 +22,7 @@ from aiohttp.web import middleware
 from aiojobs.aiohttp import setup, spawn
 from asyncdb import AsyncPool
 from asyncdb.providers.redis import redis
+from navigator.modules.auth import AuthHandler
 
 from navigator.conf import (
     API_NAME,
@@ -118,6 +119,8 @@ class AppHandler(ABC):
     enable_notify: bool = False
     enable_aiojobs: bool = False
     enable_static: bool = True
+    enable_swagger: bool = True
+    auto_doc: bool = False
     staticdir: str = ""
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
@@ -208,32 +211,37 @@ class AppHandler(ABC):
         description: define CORS configuration
         """
         # Configure CORS, swagger and documentation from all routes.
-        for route in list(self.app.router.routes()):
-            fn = route.handler
-            signature = inspect.signature(fn)
-            doc = fn.__doc__
-            if doc is None:
-                # TODO: making more efficiently
-                fnName = fn.__name__
-                if signature.return_annotation:
-                    response = str(signature.return_annotation)
-                else:
-                    response = "unknown"
-                if fnName not in [
-                    "_handle",
-                    "channel_handler",
-                    "WebSocket",
-                    "websocket",
-                ]:
+        if self.auto_doc is True:
+            for route in list(self.app.router.routes()):
+                fn = route.handler
+                signature = inspect.signature(fn)
+                doc = fn.__doc__
+                if doc is None and 'OPTIONS' not in route.method:
+                    # TODO: making more efficiently
+                    fnName = fn.__name__
+                    if fnName in ["_handle", "channel_handler", "WebSocket"]:
+                        continue
+                    if signature.return_annotation:
+                        response = str(signature.return_annotation)
+                    else:
+                        response = aiohttp.web_response.Response
                     doc = """
                     summary: {fnName}
+                    description: Auto-Doc for Function {fnName}
+                    tags:
+                    - Utilities
                     produces:
-                    - text/plain
+                    - application/json
                     responses:
                         "200":
                             description: Successful operation
                             content:
-                                {response}""".format(
+                                {response}
+                        "404":
+                            description: Not found
+                        "405":
+                            description: invalid HTTP Method
+                    """.format(
                         fnName=fnName, response=response
                     )
                     try:
@@ -318,6 +326,17 @@ class AppConfig(AppHandler):
             aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(template_dir))
         # set the setup_routes
         self.setup_routes()
+        if self.enable_swagger is True:
+            from aiohttp_swagger import setup_swagger
+            setup_swagger(
+                self.app,
+                api_base_url=f'/{self._name}',
+                title=f'{self._name} API',
+                api_version=self.__version__,
+                description=self.app_description,
+                swagger_url=f"/api/v1/doc",
+                ui_version=3
+            )
 
     async def on_cleanup(self, app):
         try:
@@ -433,7 +452,10 @@ class AppConfig(AppHandler):
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
-                            route.url, route.handler, name=route.name
+                            route.url,
+                            route.handler,
+                            name=route.name,
+                            allow_head=False
                         )
                     elif route.method == "post":
                         r = self.app.router.add_post(

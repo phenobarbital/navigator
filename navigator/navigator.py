@@ -18,14 +18,12 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Any, Callable, Optional
 
-# from aiohttp_swagger import setup_swagger
 import sockjs
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp_session import get_session
 from aiohttp_session import setup as setup_session
 from aiohttp_session.redis_storage import RedisStorage
-
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 
@@ -96,6 +94,8 @@ class Application(object):
     host = "0.0.0.0"
     port = 5000
     _loop = None
+    version = "0.0.1"
+    enable_swagger: bool = True
 
     def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
         # configuring asyncio loop
@@ -219,18 +219,6 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
-        # # auto-configure swagger
-        # long_description = """
-        # Asynchronous RESTful API for data source connections, REST consumer and Query API, used by Navigator, powered by MobileInsight
-        # """
-        # setup_swagger(app,
-        #     api_base_url='/',
-        #     title='API',
-        #     api_version='2.0.0',
-        #     description=long_description,
-        #     contact=EMAIL_CONTACT,
-        #     swagger_url="/api/doc")
-        # TODO: configure documentation
         return app
 
     def add_websockets(self) -> None:
@@ -304,7 +292,11 @@ class Application(object):
 
     def add_get(self, route: str, threaded: bool = False) -> Callable:
         def _decorator(func):
-            self.app.App.router.add_get(route, self.threaded_func(func, threaded))
+            self.app.App.router.add_get(
+                route,
+                self.threaded_func(func, threaded),
+                allow_head=False
+            )
             return func
 
         return _decorator
@@ -352,6 +344,23 @@ class Application(object):
         # getting the app
         # getting the resource App
         app = self.setup_app()
+        # previous to run, setup swagger:
+        # auto-configure swagger
+        long_description = """
+        Asynchronous RESTful API for data source connections, REST consumer \
+        and Query API, used by Navigator, powered by MobileInsight
+        """
+        if self.enable_swagger is True:
+            from aiohttp_swagger import setup_swagger
+            setup_swagger(
+                app,
+                api_base_url='/',
+                title='Navigator API',
+                api_version=self.version,
+                description=long_description,
+                swagger_url="/api/v1/doc",
+                ui_version=3
+            )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
                 import aiohttp_debugtoolbar

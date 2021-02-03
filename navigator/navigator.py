@@ -166,6 +166,12 @@ class Application(object):
     def get_app(self) -> web.Application:
         return self.app.App
 
+    def __setitem__(self, k, v):
+        self.app.App[k] = v
+
+    def __getitem__(self, k):
+        return self.app.App[k]
+
     def get_logger(self, name="Navigator"):
         logging_format = f"[%(asctime)s] %(levelname)-5s %(name)-{len(name)}s "
         # logging_format += "%(module)-7s::l%(lineno)d: "
@@ -309,6 +315,21 @@ class Application(object):
     def get(self, route: str):
         def _decorator(func):
             self.app.App.router.add_get(route, func)
+
+            @wraps(func)
+            async def _wrap(request, *args, **kwargs):
+                try:
+                    return f"{func(request, args, **kwargs)}"
+                except Exception as err:
+                    self._logger.exception(err)
+
+            return _wrap
+
+        return _decorator
+
+    def post(self, route: str):
+        def _decorator(func):
+            self.app.App.router.add_post(route, func)
 
             @wraps(func)
             async def _wrap(request, *args, **kwargs):

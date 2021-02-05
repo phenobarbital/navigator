@@ -1,6 +1,8 @@
 from typing import Any, Callable, Dict, List, Optional
 
-import ujson as json
+#import ujson as json
+import json
+# TODO: using rapidjson
 from aiohttp import web
 from aiohttp.web import middleware
 

@@ -44,8 +44,8 @@ class Cipher(object):
         else:
             return ""
 
-    def decode(self, passhphrase: Any) -> bytes:
-        msg = codecs.decode(passhphrase, "hex")
+    def decode(self, passphrase: Any) -> bytes:
+        msg = codecs.decode(passphrase, "hex")
         if self.type == "AES":
             try:
                 return self.cipher.decrypt(msg)[len(self.iv) :].decode("utf-8")

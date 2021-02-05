@@ -1,0 +1,29 @@
+sudo: false
+language: python
+
+python:
+  - "3.8"
+  - "3.9"
+
+install:
+  - pip install flake8
+  - pip install pytest-cov
+  - pip install pytest-asyncio
+  - pip install coveralls
+  - pip install pytest-xdist
+  - pip install pytest-assume
+  - pip install -e .
+
+script:
+  - flake8 navigator-api tests
+  - pytest --cov=./navigator-api tests/
+
+after_success:
+  - coveralls
+
+cache:
+  directories:
+    - $HOME/.cache/pip
+
+notifications:
+  email: false

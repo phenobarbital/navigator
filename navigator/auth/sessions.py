@@ -56,6 +56,7 @@ class AbstractSession(ABC):
             user = kwargs['user']
             app["user"] = user
             request.user = user
+            session["user"] = user
         app["session"] = session
         return True
 

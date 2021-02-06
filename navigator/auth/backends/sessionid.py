@@ -11,6 +11,7 @@ import aioredis
 from aiohttp import web
 from .base import BaseAuthHandler
 from datetime import datetime, timedelta
+from aiohttp_session import get_session
 from navigator.conf import (
     SESSION_URL,
     SESSION_TIMEOUT,
@@ -23,7 +24,7 @@ class SessionIDAuth(BaseAuthHandler):
     """Django SessionID Authentication Handler."""
     redis = None
 
-    async def configure(self):
+    def configure(self):
         async def _make_redis():
             try:
                 self.redis = await aioredis.create_redis_pool(
@@ -32,21 +33,19 @@ class SessionIDAuth(BaseAuthHandler):
             except Exception as err:
                 print(err)
                 raise Exception(err)
-        return asyncio.get_event_loop().run_until_complete(
+        asyncio.get_event_loop().run_until_complete(
             _make_redis()
         )
 
 
     async def validate_session(self, key: str = None):
         try:
-            result = self.redis.get("{}:{}".format(SESSION_PREFIX, key))
+            result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
                 return False
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
-            print(session_data)
             user = rapidjson.loads(session_data[1])
-            print(user)
             session = {
                 "key": key,
                 "session_id": session_data[0],
@@ -59,13 +58,14 @@ class SessionIDAuth(BaseAuthHandler):
             return False
 
     async def get_payload(self, request):
+        id = None
         try:
-            id = request.headers.get("sessionid", None)
+            id = request.headers.get("X-Sessionid", None)
         except Exception as e:
             print(e)
-            id = request.headers.get("X-Sessionid", None)
         if not id:
-            return None
+            id = request.headers.get("sessionid", None)
+        return id
 
     async def check_credentials(self, request):
         try:
@@ -77,8 +77,7 @@ class SessionIDAuth(BaseAuthHandler):
         else:
             try:
                 # making validation
-                user = await self.validate_session(request, key=sessionid)
-                print(user)
+                user = await self.validate_session(key=sessionid)
                 return user
             except Exception as err:
                 print(err)
@@ -92,7 +91,13 @@ class SessionIDAuth(BaseAuthHandler):
             sessionid = request.headers.get('X-Sessionid', None)
             if sessionid:
                 session = await get_session(request)
-                if session['key'] != sessionid:
+                try:
+                    user = session['user']
+                except KeyError:
+                    return web.json_response(
+                        {'message': 'Invalid Session information'}, status=400
+                    )
+                if user['key'] != sessionid:
                     return web.json_response(
                         {'message': 'Unauthorized'}, status=403
                     )

@@ -152,7 +152,7 @@ class AuthHandler(object):
         router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
         # backed needs initialization (connection to a redis server, etc)
         try:
-            await self.backend.configure()
+            self.backend.configure()
         except Exception as err:
             print(err)
             logging.exception(f'Error on Auth Backend initialization {err!s}')

@@ -5,6 +5,7 @@ Navigator Authentication using Django Session Backend
 import base64
 import rapidjson
 import logging
+import asyncio
 # redis pool
 import aioredis
 from aiohttp import web
@@ -22,9 +23,19 @@ class SessionIDAuth(BaseAuthHandler):
     """Django SessionID Authentication Handler."""
     redis = None
 
-    async def configure(self, **kwargs):
-        kwargs['timeout'] = 1
-        self.redis = await aioredis.create_redis_pool(SESSION_URL, **kwargs)
+    async def configure(self):
+        async def _make_redis():
+            try:
+                self.redis = await aioredis.create_redis_pool(
+                    SESSION_URL, timeout=1
+                )
+            except Exception as err:
+                print(err)
+                raise Exception(err)
+        return asyncio.get_event_loop().run_until_complete(
+            _make_redis()
+        )
+
 
     async def validate_session(self, key: str = None):
         try:

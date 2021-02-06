@@ -63,3 +63,16 @@ class SessionIDAuth(BaseAuthHandler):
                 return False
             else:
                 return False
+
+    async def auth_middleware(self, app, handler):
+        async def middleware(request):
+            request.user = None
+            sessionid = request.headers.get('X-Sessionid', None)
+            if sessionid:
+                session = await get_session(request)
+                if session['key'] != sessionid:
+                    return web.json_response(
+                        {'message': 'Unauthorized'}, status=403
+                    )
+            return await handler(request)
+        return middleware

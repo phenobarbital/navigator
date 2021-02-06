@@ -181,12 +181,18 @@ CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
 REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 
 """
+Authentication System
+"""
+NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.jwt.JWTAuth')
+
+"""
 Session Storage
 """
 SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
 SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='AIOHTTP').upper())
 SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
 
 """

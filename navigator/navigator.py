@@ -5,12 +5,6 @@ import sys
 import typing
 import aiohttp_cors
 from aiohttp import web
-
-# make asyncio use the event loop provided by uvloop
-import asyncio
-import uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 import inspect
 import logging
 import signal
@@ -33,10 +27,12 @@ from navigator.conf import (
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
+    NAV_AUTH_BACKEND,
     SECRET_KEY,
     SESSION_PREFIX,
     SESSION_STORAGE,
     SESSION_URL,
+    SESSION_NAME,
     STATIC_DIR,
     Context,
     config,
@@ -48,8 +44,15 @@ from navigator.applications import AppBase, AppHandler, app_startup
 from navigator.handlers import nav_exception_handler, shutdown
 
 # get the authentication library
-from navigator.modules.auth import AuthHandler, auth_middleware, login_required
+from navigator.auth import AuthHandler
+
+# websocket resources
 from navigator.resources import WebSocket, channel_handler
+
+# make asyncio use the event loop provided by uvloop
+import asyncio
+import uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 __version__ = "1.2.0"
 
@@ -187,7 +190,15 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        # # # TODO: iterate over modules folder
+        self._auth = AuthHandler(
+            backend=NAV_AUTH_BACKEND,
+            session_type=SESSION_STORAGE,
+            name=SESSION_NAME,
+            prefix=SESSION_PREFIX
+        )
+        # configuring authentication endpoints
+        self._auth.configure(self.app)
+
         # self._auth = AuthHandler(
         #     type=SESSION_STORAGE,
         #     name=SESSION_PREFIX,
@@ -200,6 +211,7 @@ class Application(object):
         # self._auth.configure(app)
         # # adding middleware for Authorization
         # app.middlewares.append(auth_middleware)
+
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         app["auth"] = self._auth

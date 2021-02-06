@@ -44,6 +44,7 @@ class AuthHandler(object):
             backend: str = 'navigator.auth.backends.jwt.JWTAuth',
             session_type: str = "cookie",
             name: str = "AIOHTTP_SESSION",
+            prefix: str = 'NAVIGATOR_SESSION',
             **kwargs
     ):
         self._template = dedent(self._template)

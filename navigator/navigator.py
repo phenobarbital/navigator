@@ -180,26 +180,26 @@ class Application(object):
         logging.basicConfig(
             format=logging_format, level=logging.INFO, datefmt="%Y:%m:%d %H:%M:%S"
         )
-        logging.getLogger("asyncio").setLevel(logging.INFO)
-        logging.getLogger("websockets").setLevel(logging.INFO)
-        logging.getLogger("aiohttp.web").setLevel(logging.INFO)
+        # logging.getLogger("asyncio").setLevel(logging.INFO)
+        # logging.getLogger("websockets").setLevel(logging.INFO)
+        # logging.getLogger("aiohttp.web").setLevel(logging.INFO)
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        # # TODO: iterate over modules folder
-        self._auth = AuthHandler(
-            type=SESSION_STORAGE,
-            name=SESSION_PREFIX,
-            url=SESSION_URL,
-            backends=(
-                "session",
-                "hosts",
-            ),
-        )
-        self._auth.configure(app)
-        # adding middleware for Authorization
-        app.middlewares.append(auth_middleware)
+        # # # TODO: iterate over modules folder
+        # self._auth = AuthHandler(
+        #     type=SESSION_STORAGE,
+        #     name=SESSION_PREFIX,
+        #     url=SESSION_URL,
+        #     backends=(
+        #         "session",
+        #         "hosts",
+        #     ),
+        # )
+        # self._auth.configure(app)
+        # # adding middleware for Authorization
+        # app.middlewares.append(auth_middleware)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         app["auth"] = self._auth

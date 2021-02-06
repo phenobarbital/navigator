@@ -5,10 +5,13 @@ Navigator Authentication using Django Session Backend
 import base64
 import rapidjson
 import logging
+# redis pool
+import aioredis
 from aiohttp import web
 from .base import BaseAuthHandler
 from datetime import datetime, timedelta
 from navigator.conf import (
+    SESSION_URL,
     SESSION_TIMEOUT,
     SECRET_KEY,
     SESSION_PREFIX
@@ -17,6 +20,11 @@ from navigator.conf import (
 
 class SessionIDAuth(BaseAuthHandler):
     """Django SessionID Authentication Handler."""
+    redis = None
+
+    async def configure(self, **kwargs):
+        kwargs['timeout'] = 1
+        self.redis = await aioredis.create_redis_pool(SESSION_URL, **kwargs)
 
     async def validate_session(self, key: str = None):
         try:
@@ -25,6 +33,7 @@ class SessionIDAuth(BaseAuthHandler):
                 return False
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
+            print(session_data)
             user = rapidjson.loads(session_data[1])
             print(user)
             session = {

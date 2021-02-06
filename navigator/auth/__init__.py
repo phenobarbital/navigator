@@ -5,6 +5,7 @@ Navigator Authentication/Authorization system.
 from abc import abstractmethod
 from textwrap import dedent
 import importlib
+import logging
 from aiohttp import web
 
 import aioredis
@@ -150,6 +151,11 @@ class AuthHandler(object):
         router.add_route("POST", "/api/v1/login", self.api_login, name="api_login_post")
         router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
         # backed needs initialization (connection to a redis server, etc)
+        try:
+            await self.backend.configure()
+        except Exception as err:
+            print(err)
+            logging.exception(f'Error on Auth Backend initialization {err!s}')
         # the backend add a middleware to the app
         mdl = app.middlewares
         mdl.append(self.backend.auth_middleware)

@@ -197,7 +197,7 @@ class Application(object):
             prefix=SESSION_PREFIX
         )
         # configuring authentication endpoints
-        self._auth.configure(self.app)
+        self._auth.configure(app)
 
         # self._auth = AuthHandler(
         #     type=SESSION_STORAGE,
@@ -208,13 +208,13 @@ class Application(object):
         #         "hosts",
         #     ),
         # )
-        # self._auth.configure(app)
         # # adding middleware for Authorization
         # app.middlewares.append(auth_middleware)
 
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         app["auth"] = self._auth
+
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(

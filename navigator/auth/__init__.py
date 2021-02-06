@@ -149,6 +149,7 @@ class AuthHandler(object):
         router.add_route("GET", "/api/v1/login", self.api_login, name="api_login_get")
         router.add_route("POST", "/api/v1/login", self.api_login, name="api_login_post")
         router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
+        # backed needs initialization (connection to a redis server, etc)
         # the backend add a middleware to the app
         mdl = app.middlewares
         mdl.append(self.backend.auth_middleware)

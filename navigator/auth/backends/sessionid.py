@@ -27,7 +27,7 @@ class SessionIDAuth(BaseAuthHandler):
             session_data = data.decode("utf-8").split(":", 1)
             session = {
                 "key": key,
-                "session_id": session_data[0]
+                "session_id": session_data[0],
                 "user": rapidjson.loads(session_data[1])
             }
             return session

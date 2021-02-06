@@ -25,10 +25,12 @@ class SessionIDAuth(BaseAuthHandler):
                 return False
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
+            user = rapidjson.loads(session_data[1])
+            print(user)
             session = {
                 "key": key,
                 "session_id": session_data[0],
-                "user": rapidjson.loads(session_data[1])
+                "user": user
             }
             return session
         except Exception as err:

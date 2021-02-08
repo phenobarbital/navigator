@@ -194,23 +194,13 @@ class Application(object):
             backend=NAV_AUTH_BACKEND,
             session_type=SESSION_STORAGE,
             name=SESSION_NAME,
-            prefix=SESSION_PREFIX
+            prefix=SESSION_PREFIX,
+            authorization_backends=(
+                "hosts"
+            )
         )
         # configuring authentication endpoints
         self._auth.configure(app)
-
-        # self._auth = AuthHandler(
-        #     type=SESSION_STORAGE,
-        #     name=SESSION_PREFIX,
-        #     url=SESSION_URL,
-        #     backends=(
-        #         "session",
-        #         "hosts",
-        #     ),
-        # )
-        # # adding middleware for Authorization
-        # app.middlewares.append(auth_middleware)
-
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         app["auth"] = self._auth

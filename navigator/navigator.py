@@ -195,9 +195,9 @@ class Application(object):
             session_type=SESSION_STORAGE,
             name=SESSION_NAME,
             prefix=SESSION_PREFIX,
-            authorization_backends=(
+            authorization_backends=[
                 "hosts"
-            )
+            ]
         )
         # configuring authentication endpoints
         self._auth.configure(app)

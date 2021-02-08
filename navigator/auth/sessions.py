@@ -27,8 +27,15 @@ class AbstractSession(ABC):
     session = None
     session_name: str = 'AIOHTTP_SESSION'
     secret_key: str = None
+    user_property: str = 'user'
 
-    def __init__(self, secret: str = '', name: str = '', **kwargs):
+    def __init__(
+            self,
+            secret: str = '',
+            name: str = '',
+            user_property: str = 'user',
+            **kwargs
+    ):
         if name:
             self.session_name = name
         if not secret:
@@ -36,6 +43,8 @@ class AbstractSession(ABC):
             self.secret_key = base64.urlsafe_b64decode(fernet_key)
         else:
             self.secret_key = secret
+        # user property:
+        self.user_property = user_property
 
     @abstractmethod
     async def configure(self):
@@ -52,11 +61,11 @@ class AbstractSession(ABC):
         session["last_visit"] = time.time()
         session["last_visited"] = "Last visited: {}".format(last_visit)
         # think about saving user data on session when create
-        if 'user' in kwargs:
-            user = kwargs['user']
-            app["user"] = user
+        if self.user_property in kwargs:
+            user = kwargs[self.user_property]
+            app[self.user_property] = user
             request.user = user
-            session["user"] = user
+            session[self.user_property] = user
         app["session"] = session
         return True
 
@@ -65,7 +74,7 @@ class AbstractSession(ABC):
         session.invalidate()
         app = request.app
         try:
-            app["user"] = None
+            app[self.user_property] = None
             request.user = None
         except Exception as err:
             print(err)

@@ -9,7 +9,6 @@ from datetime import datetime, timedelta
 from navigator.conf import (
     PARTNER_KEY,
     CYPHER_TYPE,
-    PARTNER_SESSION_TIMEOUT,
     SESSION_TIMEOUT,
     SECRET_KEY,
     JWT_ALGORITHM

@@ -184,7 +184,7 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 """
 Authentication System
 """
-NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.jwt.JWTAuth')
+NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
 
 """
 Session Storage

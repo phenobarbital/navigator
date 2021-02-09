@@ -21,7 +21,7 @@ class JWTAuth(BaseAuthHandler):
     """Basic JWT Authentication."""
     user_attribute: str = 'user'
     pwd_atrribute: str = 'password'
-    _scheme: str = 'Token'
+    _scheme: str = 'Bearer'
 
     async def validate_session(self, login: str = None, password: str = None):
         # TODO: build validation logic

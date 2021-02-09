@@ -88,6 +88,12 @@ class AuthHandler(object):
         except ImportError:
             raise Exception(f"Error loading Auth Backend {backend}")
 
+    async def close(self):
+        """
+        Cleanup the processes
+        """
+        pass
+
     def get_authorization_backends(self, backends: Iterable) -> tuple:
         b = []
         for backend in backends:

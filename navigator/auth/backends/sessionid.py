@@ -8,9 +8,10 @@ import logging
 import asyncio
 # redis pool
 import aioredis
-from aiohttp import web
+from aiohttp import web, hdrs
 from .base import BaseAuthHandler
 from datetime import datetime, timedelta
+from aiohttp_session import get_session
 from navigator.conf import (
     SESSION_URL,
     SESSION_TIMEOUT,
@@ -22,8 +23,9 @@ from navigator.conf import (
 class SessionIDAuth(BaseAuthHandler):
     """Django SessionID Authentication Handler."""
     redis = None
+    _scheme: str = 'Session'
 
-    async def configure(self):
+    def configure(self):
         async def _make_redis():
             try:
                 self.redis = await aioredis.create_redis_pool(
@@ -32,25 +34,23 @@ class SessionIDAuth(BaseAuthHandler):
             except Exception as err:
                 print(err)
                 raise Exception(err)
-        return asyncio.get_event_loop().run_until_complete(
+        asyncio.get_event_loop().run_until_complete(
             _make_redis()
         )
 
 
     async def validate_session(self, key: str = None):
         try:
-            result = self.redis.get("{}:{}".format(SESSION_PREFIX, key))
+            result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
                 return False
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
-            print(session_data)
             user = rapidjson.loads(session_data[1])
-            print(user)
             session = {
                 "key": key,
                 "session_id": session_data[0],
-                "user": user
+                self.user_property: user
             }
             return session
         except Exception as err:
@@ -59,13 +59,27 @@ class SessionIDAuth(BaseAuthHandler):
             return False
 
     async def get_payload(self, request):
+        id = None
         try:
-            id = request.headers.get("sessionid", None)
+            if 'Authorization' in request.headers:
+                try:
+                    scheme, id = request.headers.get(
+                        'Authorization'
+                    ).strip().split(' ')
+                except ValueError:
+                    raise web.HTTPForbidden(
+                        reason='Invalid authorization Header',
+                    )
+                if scheme != self._scheme:
+                    raise web.HTTPForbidden(
+                        reason='Invalid Session scheme',
+                    )
+            elif 'X-Sessionid' in request.headers:
+                id = request.headers.get('X-Sessionid', None)
         except Exception as e:
             print(e)
-            id = request.headers.get("X-Sessionid", None)
-        if not id:
             return None
+        return id
 
     async def check_credentials(self, request):
         try:
@@ -77,8 +91,7 @@ class SessionIDAuth(BaseAuthHandler):
         else:
             try:
                 # making validation
-                user = await self.validate_session(request, key=sessionid)
-                print(user)
+                user = await self.validate_session(key=sessionid)
                 return user
             except Exception as err:
                 print(err)
@@ -89,12 +102,43 @@ class SessionIDAuth(BaseAuthHandler):
     async def auth_middleware(self, app, handler):
         async def middleware(request):
             request.user = None
-            sessionid = request.headers.get('X-Sessionid', None)
+            authz = await self.authorization_backends(app, handler, request)
+            if authz:
+                return authz
+            if 'Authorization' in request.headers:
+                try:
+                    scheme, sessionid = request.headers.get(
+                        'Authorization'
+                    ).strip().split(' ')
+                except ValueError:
+                    raise web.HTTPForbidden(
+                        reason='Invalid authorization Header',
+                    )
+                if scheme != self._scheme:
+                    raise web.HTTPForbidden(
+                        reason='Invalid Session scheme',
+                    )
+            elif 'X-Sessionid' in request.headers:
+                sessionid = request.headers.get('X-Sessionid', None)
+            else:
+                if self.credentials_required is True:
+                    raise web.HTTPUnauthorized(
+                        reason='Missing Authorization Session',
+                    )
+                else:
+                    sessionid = None
             if sessionid:
                 session = await get_session(request)
-                if session['key'] != sessionid:
-                    return web.json_response(
-                        {'message': 'Unauthorized'}, status=403
-                    )
+                if self.credentials_required is True:
+                    try:
+                        user = session[self.user_property]
+                    except KeyError:
+                        return web.json_response(
+                            {'message': 'Invalid Session Information'}, status=400
+                        )
+                    if user['key'] != sessionid:
+                        return web.json_response(
+                            {'message': 'Unauthorized: Invalid Session'}, status=403
+                        )
             return await handler(request)
         return middleware

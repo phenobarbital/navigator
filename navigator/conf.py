@@ -194,6 +194,7 @@ CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
 SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='AIOHTTP').upper())
 SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
+JWT_ALGORITHM = config.get('JWT_ALGORITHM', fallback='HS256')
 
 """
  Memcache

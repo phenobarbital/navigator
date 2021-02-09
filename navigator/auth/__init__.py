@@ -7,13 +7,14 @@ from textwrap import dedent
 import importlib
 import logging
 from aiohttp import web
-
 import aioredis
-from aiohttp import web
+from typing import List, Iterable
 from .backends import BaseAuthHandler
 # aiohttp session
 from .sessions import CookieSession, RedisSession, MemcacheSession
+from .authorizations import *
 from aiohttp_session import setup as setup_session
+
 from navigator.conf import (
     SECRET_KEY,
     SESSION_URL,
@@ -39,6 +40,8 @@ class AuthHandler(object):
     """
     backend = None
     _session = None
+    _user_property: str = 'user'
+    _required: bool = False
 
     def __init__(
             self,
@@ -46,17 +49,31 @@ class AuthHandler(object):
             session_type: str = "cookie",
             name: str = "AIOHTTP_SESSION",
             prefix: str = 'NAVIGATOR_SESSION',
+            credentials_required: bool = False,
+            user_property: str = 'user',
+            auth_scheme='Bearer',
+            authorization_backends: List = (),
             **kwargs
     ):
         self._template = dedent(self._template)
-
-        self.backend = self.get_backend(backend, **kwargs)
+        self._user_property = user_property
+        authz_backends = self.get_authorization_backends(
+            authorization_backends
+        )
+        args = {
+            "credentials_required": credentials_required,
+            "user_property": self._user_property,
+            "scheme": auth_scheme,
+            "authorization_backends": authz_backends,
+            **kwargs
+        }
+        self.backend = self.get_backend(backend, **args)
         if session_type == "cookie":
-            self._session = CookieSession(secret=SECRET_KEY, name=name)
+            self._session = CookieSession(secret=SECRET_KEY, name=name, **args)
         elif session_type == 'redis':
-            self._session = RedisSession(name=name, **kwargs)
+            self._session = RedisSession(name=name, **args)
         elif session_type == 'memcache':
-            self._session = MemcacheSession(name=name, **kwargs)
+            self._session = MemcacheSession(name=name, **args)
         else:
             raise Exception(f'Unknown Session type {session_type}')
 
@@ -71,10 +88,13 @@ class AuthHandler(object):
         except ImportError:
             raise Exception(f"Error loading Auth Backend {backend}")
 
-    async def check_credentials(self, login: str = None, password: str = None):
-        if login == "phenobarbital":
-            return True
-        return False
+    def get_authorization_backends(self, backends: Iterable) -> tuple:
+        b = []
+        for backend in backends:
+            # TODO: more automagic logic
+            if backend == 'hosts':
+                b.append(authz_hosts())
+        return b
 
     async def login(self, request) -> web.Response:
         response = web.HTTPFound("/")

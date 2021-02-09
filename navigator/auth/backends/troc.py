@@ -57,7 +57,7 @@ class TrocAuth(BaseAuthHandler):
             troctoken = await self.get_payload(request)
         except Exception:
             return False
-        if not sessionid:
+        if not troctoken:
             return False
         else:
             try:
@@ -76,8 +76,6 @@ class TrocAuth(BaseAuthHandler):
                 return {'token': jwt_token}
             except (ValueError):
                 return False
-        else:
-            return False
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):

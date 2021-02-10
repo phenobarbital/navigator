@@ -104,7 +104,7 @@ class SessionIDAuth(BaseAuthHandler):
             request.user = None
             authz = await self.authorization_backends(app, handler, request)
             if authz:
-                return authz
+                return await authz
             if 'Authorization' in request.headers:
                 try:
                     scheme, sessionid = request.headers.get(

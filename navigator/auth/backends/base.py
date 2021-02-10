@@ -36,6 +36,5 @@ class BaseAuthHandler(ABC):
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):
-            request.user = None
             return await handler(request)
         return middleware

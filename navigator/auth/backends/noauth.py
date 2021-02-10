@@ -17,7 +17,7 @@ class NoAuth(BaseAuthHandler):
     async def auth_middleware(self, app, handler):
         async def middleware(request):
             request.user = None
-            authz = self.authorization_backends(app, handler, request)
+            authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return authz
             else:

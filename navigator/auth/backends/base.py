@@ -28,6 +28,7 @@ class BaseAuthHandler(ABC):
             logging.debug(f'Running Authorization backend {backend!s}')
             if await backend.check_authorization(request):
                 return await handler(request)
+                break
         return None
 
     @abstractmethod

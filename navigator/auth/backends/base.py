@@ -25,7 +25,7 @@ class BaseAuthHandler(ABC):
             return handler(request)
         # logic for authorization backends
         for backend in self._authz_backends:
-            logging.debug(f'Running Authorization backend {backend!s}')
+            #logging.debug(f'Running Authorization backend {backend!s}')
             if await backend.check_authorization(request):
                 return handler(request)
         return None

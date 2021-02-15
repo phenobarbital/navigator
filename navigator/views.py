@@ -280,7 +280,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
     async def connect(self, request):
         #await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
-        self._redis = request.app["redis"]
+        self._redis = await request.app["redis"].acquire()
 
     async def close(self):
         # if self._mcache and self._mcache.is_connected():

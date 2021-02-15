@@ -13,11 +13,11 @@ class authz_hosts(BaseAuthzHandler):
 
     async def check_authorization(self, request: web.Request) -> bool:
         if request.host in HOSTS:
-            logging.debug('Authorized based on HOST Authorization')
+            #logging.debug('Authorized based on HOST Authorization')
             return True
         try:
             if request.headers["origin"] in HOSTS:
-                logging.debug('Authorized based on HOST Authorization')
+                #logging.debug('Authorized based on HOST Authorization')
                 return True
         except KeyError:
             return False

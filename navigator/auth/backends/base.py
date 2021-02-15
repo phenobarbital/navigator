@@ -22,12 +22,12 @@ class BaseAuthHandler(ABC):
 
     async def authorization_backends(self, app, handler, request):
         if request.method == hdrs.METH_OPTIONS:
-            return await handler(request)
+            return handler(request)
         # logic for authorization backends
         for backend in self._authz_backends:
-            logging.debug(f'Running Authorization backend {backend!s}')
+            #logging.debug(f'Running Authorization backend {backend!s}')
             if await backend.check_authorization(request):
-                return await handler(request)
+                return handler(request)
         return None
 
     @abstractmethod
@@ -36,6 +36,5 @@ class BaseAuthHandler(ABC):
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):
-            request.user = None
             return await handler(request)
         return middleware

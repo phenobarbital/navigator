@@ -10,7 +10,7 @@ from asyncdb.utils.models import Model, Column
 from typing import Optional, List, Dict, Union, Tuple, Any, Callable
 from dataclasses import InitVar
 from datetime import datetime
-
+from navigator.conf import default_dsn
 
 class User(Model):
     """Basic User notation."""
@@ -36,11 +36,12 @@ class User(Model):
 
     class Meta:
         driver = 'pg'
+        dsn: str = default_dsn
         name = 'auth_user'
         schema = 'public'
-        app_label = 'troc'
         strict = True
         frozen = False
+        connection = None
 
 # TODO: add autoincrement feature, read the last id and plus 1
 class Group(Model):
@@ -49,11 +50,12 @@ class Group(Model):
 
     class Meta:
         driver = 'pg'
+        dsn: str = default_dsn
         name = 'auth_group'
         schema = 'public'
-        app_label = 'troc'
         strict = True
         frozen = False
+        connection = None
 
 # class UserGroup(Model):
 #     member_id: int = Column(required=True, primary_key=True)

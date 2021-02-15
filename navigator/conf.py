@@ -35,6 +35,8 @@ fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+DOMAIN = config.get('DOMAIN', fallback='dev.local')
+
 # Debug
 DEBUG = config.getboolean("DEBUG", fallback=True)
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
@@ -114,6 +116,7 @@ asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
     port=PG_PORT,
     db=PG_DATABASE
 )
+default_dsn = asyncpg_url
 
 """
 Applications
@@ -214,5 +217,6 @@ Context = {
     "env": ENV,
     "DATABASES": DATABASES,
     "cache_url": CACHE_URL,
-    "asyncpg_url": asyncpg_url
+    "asyncpg_url": asyncpg_url,
+    "default_dsn": default_dsn
 }

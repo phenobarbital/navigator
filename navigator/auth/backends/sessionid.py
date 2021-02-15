@@ -52,7 +52,6 @@ class SessionIDAuth(BaseAuthHandler):
                 "session_id": session_data[0],
                 self.user_property: user
             }
-            print('SESSION: ', session)
             return session
         except Exception as err:
             print(err)
@@ -83,7 +82,6 @@ class SessionIDAuth(BaseAuthHandler):
         return id
 
     async def check_credentials(self, request):
-        print(hdrs.AUTHORIZATION)
         try:
             sessionid = await self.get_payload(request)
         except Exception:
@@ -107,6 +105,8 @@ class SessionIDAuth(BaseAuthHandler):
             authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return await authz
+            # auth_header = request.headers.get(hdrs.AUTHORIZATION)
+            # if auth_header:
             if 'Authorization' in request.headers:
                 try:
                     scheme, sessionid = request.headers.get(

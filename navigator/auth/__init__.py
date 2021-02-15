@@ -10,16 +10,19 @@ from aiohttp import web
 import aioredis
 from typing import List, Iterable
 from .backends import BaseAuthHandler
+import rapidjson
 # aiohttp session
 from .sessions import CookieSession, RedisSession, MemcacheSession
 from .authorizations import *
 from aiohttp_session import setup as setup_session
-
+from asyncdb.utils.encoders import BaseEncoder
 from navigator.conf import (
     SECRET_KEY,
     SESSION_URL,
     SESSION_NAME
 )
+from navigator.functions import json_response
+
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""
@@ -51,6 +54,7 @@ class AuthHandler(object):
             prefix: str = 'NAVIGATOR_SESSION',
             credentials_required: bool = False,
             user_property: str = 'user',
+            user_attribute: str = 'user_id',
             auth_scheme='Bearer',
             authorization_backends: List = (),
             **kwargs
@@ -63,6 +67,7 @@ class AuthHandler(object):
         args = {
             "credentials_required": credentials_required,
             "user_property": self._user_property,
+            "user_attribute": user_attribute,
             "scheme": auth_scheme,
             "authorization_backends": authz_backends,
             **kwargs
@@ -107,8 +112,9 @@ class AuthHandler(object):
         form = await request.post()
         login = form.get("login")
         password = form.get("password")
-        if await self.check_credentials(login, password):
-            #await self.create_session(request, login)
+        if user := await self.check_credentials(login, password):
+            # if state, save user data in session
+            state = await self._session.create_session(request, user=user)
             raise response
         else:
             template = self._template.format(
@@ -145,27 +151,31 @@ class AuthHandler(object):
 
     async def api_login(self, request: web.Request) -> web.Response:
         try:
-            user = await self.backend.check_credentials(request)
-            if not user:
+            dump = await self.backend.check_credentials(request)
+            if not dump:
                 raise web.HTTPUnauthorized(
                     reason='Unauthorized'
                 )
-            # first: get user from model
-            print('USER ', user)
             # if state, save user data in session
-            state = await self._session.create_session(request, user=user)
-            # third: a callback when session was created
-            if state:
-                return web.json_response(user, status=200)
-            else:
+            try:
+                session = await self._session.create_session(request, session=dump)
+            except Exception as err:
+                raise web.HTTPServerError(reason=err)
+            try:
+                return json_response(session, state=200)
+            except Exception as err:
+                print(err)
                 # failed to create session for User
                 raise web.HTTPUnauthorized(
-                    reason='Failed to create Session for User'
+                    reason=f'Failed to create Session for User: {err!s}'
                 )
         except ValueError:
             raise web.HTTPUnauthorized(
                 reason='Unauthorized'
             )
+        except Exception as err:
+            print(err)
+            raise web.HTTPUnauthorized(reason=err, status=403)
 
     def configure(self, app: web.Application) -> web.Application:
         # configure session:

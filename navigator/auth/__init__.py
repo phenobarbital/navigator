@@ -151,8 +151,10 @@ class AuthHandler(object):
                     reason='Unauthorized'
                 )
             # first: get user from model
+            print('USER ', user)
             # if state, save user data in session
             state = await self._session.create_session(request, user=user)
+            # third: a callback when session was created
             if state:
                 return web.json_response(user, status=200)
             else:

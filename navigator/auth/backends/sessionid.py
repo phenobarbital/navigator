@@ -52,6 +52,7 @@ class SessionIDAuth(BaseAuthHandler):
                 "session_id": session_data[0],
                 self.user_property: user
             }
+            print('SESSION: ', session)
             return session
         except Exception as err:
             print(err)
@@ -82,6 +83,7 @@ class SessionIDAuth(BaseAuthHandler):
         return id
 
     async def check_credentials(self, request):
+        print(hdrs.AUTHORIZATION)
         try:
             sessionid = await self.get_payload(request)
         except Exception:

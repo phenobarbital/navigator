@@ -37,7 +37,7 @@ from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
 from navigator.resources import home, ping
-
+from navigator.functions import cPrint
 import asyncio
 import uvloop
 # make asyncio use the event loop provided by uvloop
@@ -111,6 +111,7 @@ class AppHandler(ABC):
     _loop = None
     debug = False
     app: web.Application = None
+    app_name: str = ''
     __version__: str = "0.0.1"
     app_description: str = ""
     cors = None
@@ -144,7 +145,11 @@ class AppHandler(ABC):
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
-            print("SETUP NEW APPLICATION: {}".format(self._name))
+            if not self.app_name:
+                name = self._name
+            else:
+                name = self.app_name
+            cPrint(f"SETUP APPLICATION: {name!s}", level='SUCCESS')
         middlewares = {}
         self.cors = None
         if self._middleware:

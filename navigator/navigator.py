@@ -20,6 +20,7 @@ from aiohttp_session import setup as setup_session
 from aiohttp_session.redis_storage import RedisStorage
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
+#from navigator.commands import cPrint
 
 from navigator.conf import (
     APP_DIR,
@@ -344,6 +345,7 @@ class Application(object):
 
     def run(self):
         # getting the app
+        print(f'== STARTING ==')
         # getting the resource App
         app = self.setup_app()
         # previous to run, setup swagger:

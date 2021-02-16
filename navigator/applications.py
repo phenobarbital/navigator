@@ -22,7 +22,6 @@ from aiohttp.web import middleware
 from aiojobs.aiohttp import setup, spawn
 from asyncdb import AsyncPool
 from asyncdb.providers.redis import redis
-from navigator.modules.auth import AuthHandler
 
 from navigator.conf import (
     API_NAME,

@@ -344,8 +344,6 @@ class Application(object):
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
     def run(self):
-        # getting the app
-        print(f'== STARTING ==')
         # getting the resource App
         app = self.setup_app()
         # previous to run, setup swagger:

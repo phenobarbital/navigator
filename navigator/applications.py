@@ -8,8 +8,6 @@ import inspect
 # logging system
 import logging
 from logging.config import dictConfig
-
-# from aiohttp_swagger import setup_swagger
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 

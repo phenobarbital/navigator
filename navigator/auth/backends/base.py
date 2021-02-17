@@ -147,6 +147,7 @@ class BaseAuthBackend(ABC):
         """ Get user data from session."""
         pass
 
+    @abstractmethod
     async def auth_middleware(self, app, handler):
         """ Base Middleware for Authentication Backend."""
         async def middleware(request):

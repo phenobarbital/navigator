@@ -10,7 +10,7 @@ from asyncdb.utils.models import Model, Column
 from typing import Optional, List, Dict, Union, Tuple, Any, Callable
 from dataclasses import InitVar
 from datetime import datetime
-from navigator.conf import default_dsn
+from navigator.conf import default_dsn, USERS_TABLE
 
 class User(Model):
     """Basic User notation."""
@@ -37,7 +37,7 @@ class User(Model):
     class Meta:
         driver = 'pg'
         dsn: str = default_dsn
-        name = 'auth_user'
+        name = USERS_TABLE
         schema = 'public'
         strict = True
         frozen = False

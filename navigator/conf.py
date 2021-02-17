@@ -193,7 +193,7 @@ CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
 NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
 NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
 USER_MAPPING = {
-    "user_id": "id",
+    "user_id": "user_id",
     "username": "username",
     "password": "password",
     "first_name": "first_name",
@@ -204,6 +204,7 @@ USER_MAPPING = {
     "last_login": "last_login",
     "title": "title"
 }
+USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
 
 """
 Session Storage

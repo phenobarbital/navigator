@@ -66,16 +66,9 @@ class AbstractSession(ABC):
             try:
                 u = await User.get(**{"id": user[self.user_attribute]})
                 if u:
-                    user = {
-                        "first_name": u.first_name,
-                        "last_name": u.last_name,
-                        "email": u.email,
-                        "last_login": u.last_login,
-                        "username": u.username,
-                        "is_superuser": u.is_superuser,
-                        "is_staff": u.is_staff,
-                        "title": u.title
-                    }
+                    user = []
+                    for name, item in self.user_mapping.items():
+                        user[name] = u[item]
                     return [u, user]
             except Exception as err:
                 print('ERR ', err)

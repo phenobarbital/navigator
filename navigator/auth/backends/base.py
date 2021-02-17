@@ -12,7 +12,7 @@ from navigator.conf import (
     SECRET_KEY,
     JWT_ALGORITHM
 )
-from navigator.auth.sessions import CookieSession, RedisSession, MemcacheSession
+from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
 
 JWT_SECRET = SECRET_KEY
 JWT_ALGORITHM = JWT_ALGORITHM
@@ -81,6 +81,8 @@ class BaseAuthBackend(ABC):
             raise Exception(f'Unknown Session type {session_type}')
 
     def configure(self, app, router):
+        """ Base configuration for Auth Backends, need to be extended
+        to create Session Object."""
         try:
             # configuring Session Object
             self._session.configure()
@@ -89,9 +91,6 @@ class BaseAuthBackend(ABC):
         except Exception as err:
             print(err)
             raise Exception(err)
-
-    def session(self):
-        return self._session
 
     async def authorization_backends(self, app, handler, request):
         # avoid authorization backend on excluded methods:

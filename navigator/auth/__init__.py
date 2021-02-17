@@ -2,24 +2,14 @@
 
 Navigator Authentication/Authorization system.
 """
-from abc import abstractmethod
 from textwrap import dedent
 import importlib
 import logging
 from aiohttp import web
-import aioredis
 from typing import List, Iterable
 from .backends import BaseAuthBackend
-import rapidjson
 # aiohttp session
 from .authorizations import *
-from asyncdb.utils.encoders import BaseEncoder
-from navigator.conf import (
-    USER_MAPPING,
-    SECRET_KEY,
-    SESSION_URL,
-    SESSION_NAME
-)
 from navigator.functions import json_response
 
 

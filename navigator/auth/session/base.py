@@ -1,31 +1,20 @@
-"""Session System for Navigator Auth backend."""
+""" Abstract Class for create Session Objects."""
+import time
 import asyncio
-import rapidjson
 import logging
 import base64
+from functools import wraps, partial
 from cryptography import fernet
-import time
 from abc import ABC, abstractmethod
-from functools import wraps
-# redis pool
-import aioredis
-# memcached
-import aiomcache
-from functools import partial
-from .models import User
 # aiohttp session
 from aiohttp_session import get_session, new_session
-from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from aiohttp_session.redis_storage import RedisStorage
-from aiohttp_session.memcached_storage import MemcachedStorage
+from navigator.auth.models import User
 from navigator.conf import (
     DOMAIN,
     SESSION_URL,
     SESSION_NAME,
     SESSION_PREFIX,
     USER_MAPPING,
-    MEMCACHE_HOST,
-    MEMCACHE_PORT,
     SESSION_TIMEOUT
 )
 
@@ -51,6 +40,8 @@ class AbstractSession(ABC):
     ):
         if name:
             self.session_name = name
+        else:
+            self.session_name = SESSION_NAME
         if not secret:
             fernet_key = fernet.Fernet.generate_key()
             self.secret_key = base64.urlsafe_b64decode(fernet_key)
@@ -139,76 +130,3 @@ class AbstractSession(ABC):
             print(err)
         app["session"] = None
         self._session_obj = None
-
-
-class CookieSession(AbstractSession):
-    """Encrypted Cookie Session Storage."""
-
-    def configure(self):
-        self.session = EncryptedCookieStorage(
-            self.secret_key,
-            cookie_name=self.session_name,
-            domain=DOMAIN,
-            max_age=SESSION_TIMEOUT
-        )
-        return self.session
-
-
-class RedisSession(AbstractSession):
-    """Session Storage based on Redis."""
-    _pool = None
-
-    async def get_redis(self, **kwargs):
-        kwargs['timeout'] = 1
-        return await aioredis.create_redis_pool(SESSION_URL, **kwargs)
-
-    def configure(self, **kwargs):
-        async def _make_redis():
-            try:
-                self._pool = await self.get_redis()
-                _encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
-                self.session = RedisStorage(
-                    self._pool,
-                    cookie_name=self.session_name,
-                    encoder=_encoder,
-                    decoder=rapidjson.loads,
-                    domain=DOMAIN,
-                    max_age=int(SESSION_TIMEOUT)
-                )
-                return self.session
-            except Exception as err:
-                print('ERR: ', err)
-                return False
-        return asyncio.get_event_loop().run_until_complete(
-            _make_redis()
-        )
-
-
-class MemcacheSession(AbstractSession):
-    """Session Storage based on Memcache."""
-    _pool = None
-
-    async def get_mcache(self, **kwargs):
-        loop = asyncio.get_event_loop()
-        return aiomcache.Client(MEMCACHE_HOST, MEMCACHE_PORT, loop=loop)
-
-    def configure(self, **kwargs):
-        #jsondumps = partial(json.dumps, cls=cls)
-        async def _make_mcache():
-            try:
-                self._pool = await self.get_mcache()
-                self.session = MemcachedStorage(
-                    self._pool,
-                    cookie_name=self.session_name,
-                    encoder=rapidjson.dumps,
-                    decoder=rapidjson.loads,
-                    domain=DOMAIN,
-                    max_age=int(SESSION_TIMEOUT)
-                )
-                return self.session
-            except Exception as err:
-                print(err)
-                return False
-        return asyncio.get_event_loop().run_until_complete(
-            _make_mcache()
-        )

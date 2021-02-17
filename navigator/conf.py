@@ -189,6 +189,21 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
+NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
+USER_MAPPING = {
+    "user_id": "id",
+    "username": "username",
+    "password": "password",
+    "first_name": "first_name",
+    "last_name": "last_name",
+    "email": "email",
+    "enabled": "is_active",
+    "superuser": "is_superuser",
+    "last_login": "last_login",
+    "title": "title"
+}
 
 """
 Session Storage

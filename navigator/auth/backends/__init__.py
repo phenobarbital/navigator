@@ -2,10 +2,13 @@
 
 Authentication Backends.
 """
-from .base import BaseAuthHandler
-from .troc import TrocAuth
-from .jwt import JWTAuth
-from .sessionid import SessionIDAuth
+from .base import BaseAuthBackend
 from .noauth import NoAuth
 
-__all__ = [ "BaseAuthHandler", "NoAuth", "TrocAuth", "JWTAuth", "SessionIDAuth" ]
+# from .troc import TrocAuth
+# from .jwt import JWTAuth
+# from .sessionid import SessionIDAuth
+
+
+# __all__ = [ "BaseAuthBackend", "NoAuth", "TrocAuth", "JWTAuth", "SessionIDAuth" ]
+__all__ = ["BaseAuthBackend", "NoAuth"]

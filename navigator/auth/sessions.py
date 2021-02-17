@@ -21,6 +21,9 @@ from aiohttp_session.memcached_storage import MemcachedStorage
 from navigator.conf import (
     DOMAIN,
     SESSION_URL,
+    SESSION_NAME,
+    SESSION_PREFIX,
+    USER_MAPPING,
     MEMCACHE_HOST,
     MEMCACHE_PORT,
     SESSION_TIMEOUT
@@ -34,6 +37,8 @@ class AbstractSession(ABC):
     secret_key: str = None
     user_property: str = 'user'
     user_attribute: str = 'user_id'
+    username_attribute: str = 'username'
+    user_mapping: dict = {'user_id': 'id','username': 'username'}
 
     def __init__(
             self,
@@ -41,6 +46,7 @@ class AbstractSession(ABC):
             name: str = '',
             user_property: str = 'user',
             user_attribute: str = 'user_id',
+            username_attribute: str = 'username',
             **kwargs
     ):
         if name:
@@ -53,6 +59,9 @@ class AbstractSession(ABC):
         # user property:
         self.user_property = user_property
         self.user_attribute = user_attribute
+        self.username_attribute = username_attribute
+        if USER_MAPPING:
+            self.user_mapping = USER_MAPPING
 
     @abstractmethod
     async def configure(self):

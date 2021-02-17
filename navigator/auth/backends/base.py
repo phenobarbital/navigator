@@ -2,6 +2,21 @@ import logging
 from typing import List, Iterable
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
+from datetime import datetime, timedelta
+from aiohttp_session import setup as setup_session
+from navigator.conf import (
+    DOMAIN,
+    SESSION_NAME,
+    SESSION_STORAGE,
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    JWT_ALGORITHM
+)
+from navigator.auth.sessions import CookieSession, RedisSession, MemcacheSession
+
+JWT_SECRET = SECRET_KEY
+JWT_ALGORITHM = JWT_ALGORITHM
+JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 
 exclude_list = (
     '/api/v1/login',
@@ -11,24 +26,72 @@ exclude_list = (
 )
 
 
-class BaseAuthHandler(ABC):
+class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
+    _session = None
+    user_model: str = 'navigator.auth.models.User',
+    group_model: str = 'navigator.auth.models.Group',
+    user_property: str = 'user',
+    user_attribute: str = 'user_id',
+    username_attribute: str = 'username'
+    user_mapping: dict = {'user_id': 'id','username': 'username'}
     credentials_required: bool = False
-    user_property: str = 'user'
-    user_attribute: str = 'user_id'
     _scheme: str = 'Bearer'
     _authz_backends: List = {}
 
-    def __init__(self, credentials_required: bool = False, authorization_backends: tuple = (), **kwargs):
+    def __init__(
+            self,
+            user_model: str = 'navigator.auth.models.User',
+            group_model: str = 'navigator.auth.models.Group',
+            user_property: str = 'user',
+            user_attribute: str = 'user_id',
+            username_attribute: str = 'username',
+            credentials_required: bool = False,
+            authorization_backends: tuple = (),
+            session_type: str = 'cookie',
+            **kwargs
+    ):
+        # force using of credentials
         self.credentials_required = credentials_required
-        self.user_property = kwargs['user_property']
-        self.user_attribute = kwargs['user_attribute']
+        self.user_property = user_property
+        self.user_attribute = user_attribute
+        self.username_attribute = username_attribute
+        # authentication scheme
         self._scheme = kwargs['scheme']
         # configuration Authorization Backends:
         self._authz_backends = authorization_backends
+        # user and group models
+        self.user_model = user_model
+        self.group_model = group_model
+        # getting User and Group Models
+        # getting Session Object:
+        args = {
+            "user_property": user_property,
+            "user_attribute": user_attribute,
+            "username_attribute": username_attribute,
+            **kwargs
+        }
+        if SESSION_STORAGE == "cookie":
+            self._session = CookieSession(secret=SECRET_KEY, name=SESSION_NAME, **args)
+        elif SESSION_STORAGE == 'redis':
+            self._session = RedisSession(name=SESSION_NAME, **args)
+        elif SESSION_STORAGE == 'memcache':
+            self._session = MemcacheSession(name=SESSION_NAME, **args)
+        else:
+            raise Exception(f'Unknown Session type {session_type}')
 
-    def configure(self):
-        pass
+    def configure(self, app, router):
+        try:
+            # configuring Session Object
+            self._session.configure()
+            # configure the aiohttp session
+            setup_session(app, self._session.session)
+        except Exception as err:
+            print(err)
+            raise Exception(err)
+
+    def session(self):
+        return self._session
 
     async def authorization_backends(self, app, handler, request):
         # avoid authorization backend on excluded methods:
@@ -38,16 +101,55 @@ class BaseAuthHandler(ABC):
             return handler(request)
         # logic for authorization backends
         for backend in self._authz_backends:
-            #logging.debug(f'Running Authorization backend {backend!s}')
             if await backend.check_authorization(request):
                 return handler(request)
         return None
 
+    def create_jwt(self, audience: str = None, issuer: str = None, expiration: int = None, data: dict = None) -> str:
+        """ Creation of JWT tokens based on basic parameters.
+        audience: if not set, using current domain name
+        issuer: for default, urn:Navigator
+        expiration: in seconds
+        **kwargs: data to put in payload
+        """
+        if not expiration:
+            expiration = JWT_EXP_DELTA_SECONDS
+        if not issuer:
+            issuer = 'urn:Navigator'
+        if not audience:
+            audience = DOMAIN
+        payload = {
+            'exp': datetime.utcnow() + timedelta(seconds=expiration),
+            "iat": datetime.utcnow(),
+            "nbf": datetime.utcnow(),
+            "iss": issuer,
+            "aud": audience,
+            **data
+        }
+        jwt_token = jwt.encode(
+            payload,
+            JWT_SECRET,
+            JWT_ALGORITHM,
+        )
+        return jwt_token
+
     @abstractmethod
     async def check_credentials(self, request):
+        """ Authenticate against user credentials (token, user/password)."""
+        pass
+
+    @abstractmethod
+    async def authenticate(self, request):
+        """ Authenticate, refresh or return the user credentials."""
+        pass
+
+    @abstractmethod
+    async def get_session(self, request):
+        """ Get user data from session."""
         pass
 
     async def auth_middleware(self, app, handler):
+        """ Base Middleware for Authentication Backend."""
         async def middleware(request):
             return await handler(request)
         return middleware

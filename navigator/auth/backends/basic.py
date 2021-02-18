@@ -6,12 +6,14 @@ import jwt
 from aiohttp import web
 from .base import BaseAuthBackend
 from datetime import datetime, timedelta
+from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
     JWT_ALGORITHM
 )
 import hashlib
+import base64
 import secrets
 
 JWT_SECRET = SECRET_KEY
@@ -38,20 +40,30 @@ class BasicAuth(BaseAuthBackend):
         search = {
             self.username_attribute: login
         }
-        U = await self.user_model.get(**search)
-        print(U)
+        try:
+            U = await self.user_model.get(**search)
+        except Exception as err:
+            raise Exception(err)
         # if not exists, return error of missing
-        # later, check the password
-        # TODO: build validation logic
-        if login == "jesuslara":
-            return True
-        return False
+        if not U:
+            raise UserDoesntExists(f'User {login} doesnt exists')
+        try:
+            # later, check the password
+            pwd = U[self.pwd_atrribute]
+            if self.check_password(pwd, password):
+                # return the user Object
+                return U
+            else:
+                raise InvalidAuth('Invalid Credentials')
+        except Exception as err:
+            raise Exception(err)
+        return None
 
     def set_password(
             self,
             password,
-            token_num: int = 8,
-            iterations: int = 150000,
+            token_num: int = 6,
+            iterations: int = 80000,
             salt: str = None
     ):
         if not salt:
@@ -67,7 +79,7 @@ class BasicAuth(BaseAuthBackend):
         return f'{PWD_ALGORITHM}${iterations}${salt}${hash}'
 
     def check_password(self, current_password, password):
-        algorithm, iterations, salt, hash = password.split('$', 3)
+        algorithm, iterations, salt, hash = current_password.split('$', 3)
         assert algorithm == PWD_ALGORITHM
         iterations = int(iterations)
         compare_hash = self.set_password(
@@ -80,7 +92,6 @@ class BasicAuth(BaseAuthBackend):
 
     async def get_payload(self, request):
         ctype = request.content_type
-        print(ctype)
         if request.method == 'GET':
             try:
                 user = request.query.get(self.user_attribute, None)
@@ -99,10 +110,8 @@ class BasicAuth(BaseAuthBackend):
         elif ctype == 'application/json':
             try:
                 data = await request.json()
-                print(data, self.user_attribute, self.pwd_atrribute)
                 user = data[self.user_attribute]
                 password = data[self.pwd_atrribute]
-                print(user, password)
                 return [user, password]
             except Exception:
                 return None
@@ -113,23 +122,30 @@ class BasicAuth(BaseAuthBackend):
         try:
             user, pwd = await self.get_payload(request)
         except Exception:
-            return False
+            raise NavException(err, state=400)
         if not pwd and not user:
-            return False
+            raise InvalidAuth('Invalid Credentials', state=401)
         else:
             # making validation
-            if await self.validate_user(login=user, password=pwd):
-                try:
-                    payload = {
-                        self.user_property: user,
-                        'user_id': user
-                    }
-                    token = self.create_jwt(data=payload)
-                    return {'token': token}
-                except Exception as err:
-                    print(err)
-                    return False
-            else:
+            try:
+                user = await self.validate_user(login=user, password=pwd)
+            except UserDoesntExists as err:
+                raise UserDoesntExists(err)
+            except InvalidAuth as err:
+                raise InvalidAuth(err, state=401)
+            except Exception as err:
+                raise NavException(err, state=500)
+            try:
+                print(user)
+                # Create the User session and returned.
+                payload = {
+                    self.user_property: user.user_id,
+                    'user_id': user.user_id
+                }
+                token = self.create_jwt(data=payload)
+                return {'token': token}
+            except Exception as err:
+                print(err)
                 return False
 
     async def authenticate(self, request):

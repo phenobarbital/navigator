@@ -29,6 +29,9 @@ class User(Model):
     reset_pwd_key: str = Column(equired=False, max=512)
     avatar: str = Column(max=512)
 
+    def __getitem__(self, item):
+        return getattr(self, item)
+
     @property
     def display_name(self):
         return f"{self.first_name} {self.last_name}"

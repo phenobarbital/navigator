@@ -29,12 +29,21 @@ KEY_LENGTH = 64
 class BasicAuth(BaseAuthBackend):
     """Basic User/pasword with JWT Authentication."""
     user_attribute: str = 'user'
+    username_attribute: str = 'username'
     pwd_atrribute: str = 'password'
     _scheme: str = 'Bearer'
 
-    async def validate_session(self, login: str = None, password: str = None):
+    async def validate_user(self, login: str = None, password: str = None):
+        # get the user based on Model
+        search = {
+            self.username_attribute: login
+        }
+        U = await self.user_model.get(**search)
+        print(U)
+        # if not exists, return error of missing
+        # later, check the password
         # TODO: build validation logic
-        if login == "phenobarbital":
+        if login == "jesuslara":
             return True
         return False
 
@@ -71,6 +80,7 @@ class BasicAuth(BaseAuthBackend):
 
     async def get_payload(self, request):
         ctype = request.content_type
+        print(ctype)
         if request.method == 'GET':
             try:
                 user = request.query.get(self.user_attribute, None)
@@ -89,8 +99,10 @@ class BasicAuth(BaseAuthBackend):
         elif ctype == 'application/json':
             try:
                 data = await request.json()
+                print(data, self.user_attribute, self.pwd_atrribute)
                 user = data[self.user_attribute]
                 password = data[self.pwd_atrribute]
+                print(user, password)
                 return [user, password]
             except Exception:
                 return None
@@ -106,7 +118,7 @@ class BasicAuth(BaseAuthBackend):
             return False
         else:
             # making validation
-            if await self.validate_session(login=user, password=pwd):
+            if await self.validate_user(login=user, password=pwd):
                 try:
                     payload = {
                         self.user_property: user,

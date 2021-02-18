@@ -1,11 +1,16 @@
 import logging
+import jwt
+import importlib
 from typing import List, Iterable
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
+from asyncdb.utils.models import Model
 from aiohttp_session import setup as setup_session
 from navigator.conf import (
     DOMAIN,
+    NAV_AUTH_USER,
+    NAV_AUTH_GROUP,
     SESSION_NAME,
     SESSION_STORAGE,
     SESSION_TIMEOUT,
@@ -29,22 +34,22 @@ exclude_list = (
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
     _session = None
-    user_model: str = 'navigator.auth.models.User',
-    group_model: str = 'navigator.auth.models.Group',
-    user_property: str = 'user',
-    user_attribute: str = 'user_id',
+    user_model: Model = None
+    group_model: Model = None
+    user_property: str = 'user'
+    user_attribute: str = 'user'
+    userid_attribute: str = 'user_id'
     username_attribute: str = 'username'
-    user_mapping: dict = {'user_id': 'id','username': 'username'}
+    user_mapping: dict = {'user_id': 'id', 'username': 'username'}
     credentials_required: bool = False
     _scheme: str = 'Bearer'
     _authz_backends: List = {}
 
     def __init__(
             self,
-            user_model: str = 'navigator.auth.models.User',
-            group_model: str = 'navigator.auth.models.Group',
             user_property: str = 'user',
-            user_attribute: str = 'user_id',
+            user_attribute: str = 'user',
+            userid_attribute: str = 'user_id',
             username_attribute: str = 'username',
             credentials_required: bool = False,
             authorization_backends: tuple = (),
@@ -55,15 +60,16 @@ class BaseAuthBackend(ABC):
         self.credentials_required = credentials_required
         self.user_property = user_property
         self.user_attribute = user_attribute
+        self.userid_attribute = userid_attribute
         self.username_attribute = username_attribute
         # authentication scheme
         self._scheme = kwargs['scheme']
         # configuration Authorization Backends:
         self._authz_backends = authorization_backends
         # user and group models
-        self.user_model = user_model
-        self.group_model = group_model
         # getting User and Group Models
+        self.user_model = self.get_model(NAV_AUTH_USER)
+        self.group_model = self.get_model(NAV_AUTH_GROUP)
         # getting Session Object:
         args = {
             "user_property": user_property,
@@ -79,6 +85,17 @@ class BaseAuthBackend(ABC):
             self._session = MemcacheSession(name=SESSION_NAME, **args)
         else:
             raise Exception(f'Unknown Session type {session_type}')
+
+    def get_model(self, model, **kwargs):
+        try:
+            parts = model.split('.')
+            name = parts[-1]
+            classpath = '.'.join(parts[:-1])
+            module = importlib.import_module(classpath, package=name)
+            obj = getattr(module, name)
+            return obj
+        except ImportError:
+            raise Exception(f"Error loading Auth Model {model}")
 
     def configure(self, app, router):
         """ Base configuration for Auth Backends, need to be extended

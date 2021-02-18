@@ -14,7 +14,7 @@ from navigator.conf import default_dsn, USERS_TABLE
 
 class User(Model):
     """Basic User notation."""
-    id: int = Column(required=False, primary_key=True)
+    user_id: int = Column(required=False, primary_key=True)
     first_name: str
     last_name: str
     email: str = Column(required=False, max=254)
@@ -22,7 +22,6 @@ class User(Model):
     last_login: datetime = Column(required=False)
     username: str = Column(required=False)
     is_superuser: bool = Column(required=True, default=False)
-    is_staff: bool = Column(required=True, default=False)
     is_active: bool = Column(required=True, default=True)
     is_new: bool = Column(required=True, default=True)
     title: str = Column(equired=False, max=90)

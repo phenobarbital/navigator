@@ -37,7 +37,7 @@ class AuthHandler(object):
 
     def __init__(
             self,
-            backend: str = 'navigator.auth.backends.jwt.JWTAuth',
+            backend: str = 'navigator.auth.backends.NoAuth',
             credentials_required: bool = False,
             auth_scheme='Bearer',
             authorization_backends: List = (),
@@ -130,19 +130,20 @@ class AuthHandler(object):
                 raise web.HTTPUnauthorized(
                     reason='Unauthorized'
                 )
-            # if state, save user data in session
-            try:
-                session = await self._session.create_session(request, session=user)
-            except Exception as err:
-                raise web.HTTPServerError(reason=err)
-            try:
-                return json_response(session, state=200)
-            except Exception as err:
-                print(err)
-                # failed to create session for User
-                raise web.HTTPUnauthorized(
-                    reason=f'Failed to create Session for User: {err!s}'
-                )
+            return json_response(user, state=200)
+            # # if state, save user data in session
+            # try:
+            #     session = await self._session.create_session(request, session=user)
+            # except Exception as err:
+            #     raise web.HTTPServerError(reason=err)
+            # try:
+            #     return json_response(session, state=200)
+            # except Exception as err:
+            #     print(err)
+            #     # failed to create session for User
+            #     raise web.HTTPUnauthorized(
+            #         reason=f'Failed to create Session for User: {err!s}'
+            #     )
         except ValueError:
             raise web.HTTPUnauthorized(
                 reason='Unauthorized'

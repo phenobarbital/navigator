@@ -33,7 +33,7 @@ class BasicAuth(BaseAuthBackend):
     user_attribute: str = 'user'
     username_attribute: str = 'username'
     pwd_atrribute: str = 'password'
-    _scheme: str = 'Bearer'
+    scheme: str = 'Basic'
 
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
@@ -173,48 +173,24 @@ class BasicAuth(BaseAuthBackend):
             authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return await authz
-            jwt_token = None
-            if 'Authorization' in request.headers:
-                try:
-                    scheme, jwt_token = request.headers.get(
-                        'Authorization'
-                    ).strip().split(' ')
-                except ValueError:
-                    raise web.HTTPForbidden(
-                        reason='Invalid authorization Header',
-                    )
-                if scheme != self._scheme:
-                    raise web.HTTPForbidden(
-                        reason='Invalid Session scheme',
-                    )
-            if jwt_token:
-                try:
-                    payload = jwt.decode(
-                        jwt_token,
-                        JWT_SECRET,
-                        algorithms=[JWT_ALGORITHM],
-                        leeway=30
-                    )
-                    print(payload)
-                except (jwt.DecodeError) as err:
-                    print(err)
-                    return web.json_response(
-                        {'message': 'Invalid Token'}, status=400
-                    )
-                except jwt.InvalidTokenError as err:
-                    print(err)
-                    return web.json_response(
-                        {'message': f'Invalid authorization token {err!s}'}, status=403
-                    )
-                except (jwt.ExpiredSignatureError) as err:
-                    print(err)
-                    return web.json_response(
-                        {'message': f'Token Expired {err!s}'}, status=403
-                    )
-            else:
-                if self.credentials_required is True:
-                    raise web.HTTPUnauthorized(
-                        reason='Unauthorized', status=403
-                    )
+            try:
+                jwt_token = self.decode_token(request)
+            except NavException as err:
+                print('Error HERE: ', err, err.state)
+                response = {
+                    "message": "Token Error",
+                    "error": err.message,
+                    "status": err.state
+                }
+                print(response)
+                return web.json_response(response, status=err.state)
+            except Exception as err:
+                raise web.HTTPBadRequest(
+                    body=f'Bad Request: {err!s}'
+                )
+            if self.credentials_required is True:
+                raise web.HTTPUnauthorized(
+                    body='Unauthorized'
+                )
             return await handler(request)
         return middleware

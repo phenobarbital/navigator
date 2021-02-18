@@ -44,7 +44,7 @@ class BaseAuthBackend(ABC):
     username_attribute: str = 'username'
     user_mapping: dict = {'user_id': 'id', 'username': 'username'}
     credentials_required: bool = False
-    _scheme: str = 'Bearer'
+    scheme: str = 'Bearer'
     _authz_backends: List = []
     user_mapping: dict = {}
 
@@ -154,17 +154,55 @@ class BaseAuthBackend(ABC):
         payload = {
             'exp': datetime.utcnow() + timedelta(seconds=expiration),
             "iat": datetime.utcnow(),
-            "nbf": datetime.utcnow(),
             "iss": issuer,
-            "aud": audience,
             **data
         }
+        logging.debug(f'Generated Token: {payload!s}')
         jwt_token = jwt.encode(
             payload,
             JWT_SECRET,
             JWT_ALGORITHM,
         )
         return jwt_token
+
+    def decode_token(self, request, audience: str = None, issuer: str = None):
+        payload = None
+        if not issuer:
+            issuer = 'urn:Navigator'
+        if not audience:
+            audience = DOMAIN
+        if 'Authorization' in request.headers:
+            try:
+                scheme, jwt_token = request.headers.get(
+                    'Authorization'
+                ).strip().split(' ')
+            except ValueError as err:
+                print(err)
+                raise NavException('Invalid authorization Header', state=401)
+            if scheme != self.scheme:
+                print('HERE')
+                raise NavException('Invalid Session scheme', state=401)
+            try:
+                payload = jwt.decode(
+                    jwt_token,
+                    JWT_SECRET,
+                    algorithms=[JWT_ALGORITHM],
+                    iss=issuer,
+                    leeway=30
+                )
+                logging.debug(f'Decoded Token: {payload!s}')
+                return payload
+            except (jwt.DecodeError) as err:
+                raise NavException(f'Token Decoding Error: {err}', state=400)
+            except jwt.InvalidTokenError as err:
+                print(err)
+                raise NavException(f'Invalid authorization token {err!s}')
+            except (jwt.ExpiredSignatureError) as err:
+                print(err)
+                raise NavException(f'Token Expired {err!s}', state=403)
+            except Exception as err:
+                print(err, err.__class__.__name__)
+                raise NavException(err, state=501)
 
     async def forgot_session(self, request: web.Request):
         await self._session.forgot_session(request)

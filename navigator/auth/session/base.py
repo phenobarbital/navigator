@@ -14,7 +14,6 @@ from navigator.conf import (
     SESSION_URL,
     SESSION_NAME,
     SESSION_PREFIX,
-    USER_MAPPING,
     SESSION_TIMEOUT
 )
 
@@ -51,8 +50,6 @@ class AbstractSession(ABC):
         self.user_property = user_property
         self.user_attribute = user_attribute
         self.username_attribute = username_attribute
-        if USER_MAPPING:
-            self.user_mapping = USER_MAPPING
 
     @abstractmethod
     async def configure(self):

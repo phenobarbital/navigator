@@ -41,18 +41,17 @@ class BasicAuth(BaseAuthBackend):
             self.username_attribute: login
         }
         try:
-            U = await self.user_model.get(**search)
+            user = await self.get_user(**search)
+        except UserDoesntExists as err:
+            raise UserDoesntExists(f'User {login} doesnt exists')
         except Exception as err:
             raise Exception(err)
-        # if not exists, return error of missing
-        if not U:
-            raise UserDoesntExists(f'User {login} doesnt exists')
         try:
             # later, check the password
-            pwd = U[self.pwd_atrribute]
+            pwd = user[self.pwd_atrribute]
             if self.check_password(pwd, password):
                 # return the user Object
-                return U
+                return user
             else:
                 raise InvalidAuth('Invalid Credentials')
         except Exception as err:
@@ -118,6 +117,12 @@ class BasicAuth(BaseAuthBackend):
         else:
             return None
 
+    def get_userdata(self, user):
+        userdata = {}
+        for name, item in self.user_mapping.items():
+            userdata[name] = user[item]
+        return userdata
+
     async def check_credentials(self, request):
         try:
             user, pwd = await self.get_payload(request)
@@ -136,12 +141,14 @@ class BasicAuth(BaseAuthBackend):
             except Exception as err:
                 raise NavException(err, state=500)
             try:
-                print(user)
+                userdata = self.get_userdata(user)
                 # Create the User session and returned.
                 payload = {
-                    self.user_property: user.user_id,
-                    'user_id': user.user_id
+                    self.user_property: user[self.userid_attribute],
+                    self.username_attribute: user[self.username_attribute],
+                    'user_id': user[self.userid_attribute]
                 }
+                print(payload)
                 token = self.create_jwt(data=payload)
                 return {'token': token}
             except Exception as err:

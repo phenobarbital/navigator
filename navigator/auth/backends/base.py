@@ -15,9 +15,11 @@ from navigator.conf import (
     SESSION_STORAGE,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    JWT_ALGORITHM
+    JWT_ALGORITHM,
+    USER_MAPPING
 )
 from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
+from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 
 JWT_SECRET = SECRET_KEY
 JWT_ALGORITHM = JWT_ALGORITHM
@@ -43,7 +45,8 @@ class BaseAuthBackend(ABC):
     user_mapping: dict = {'user_id': 'id', 'username': 'username'}
     credentials_required: bool = False
     _scheme: str = 'Bearer'
-    _authz_backends: List = {}
+    _authz_backends: List = []
+    user_mapping: dict = {}
 
     def __init__(
             self,
@@ -70,6 +73,7 @@ class BaseAuthBackend(ABC):
         # getting User and Group Models
         self.user_model = self.get_model(NAV_AUTH_USER)
         self.group_model = self.get_model(NAV_AUTH_GROUP)
+        self.user_mapping = USER_MAPPING
         # getting Session Object:
         args = {
             "user_property": user_property,
@@ -96,6 +100,19 @@ class BaseAuthBackend(ABC):
             return obj
         except ImportError:
             raise Exception(f"Error loading Auth Model {model}")
+
+    async def get_user(self, **search):
+        """Getting User Object."""
+        # TODO: getting Groups based on User
+        try:
+            user = await self.user_model.get(**search)
+        except Exception as err:
+            logging.error(f'Error getting User {search!s}')
+            raise Exception(err)
+        # if not exists, return error of missing
+        if not user:
+            raise UserDoesntExists(f'User doesnt exists')
+        return user
 
     def configure(self, app, router):
         """ Base configuration for Auth Backends, need to be extended

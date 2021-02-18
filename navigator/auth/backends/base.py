@@ -6,7 +6,6 @@ from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.utils.models import Model
-from aiohttp_session import setup as setup_session
 from navigator.conf import (
     DOMAIN,
     NAV_AUTH_USER,
@@ -20,6 +19,7 @@ from navigator.conf import (
 )
 from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
+from navigator.functions import json_response
 
 JWT_SECRET = SECRET_KEY
 JWT_ALGORITHM = JWT_ALGORITHM
@@ -40,6 +40,7 @@ class BaseAuthBackend(ABC):
     group_model: Model = None
     user_property: str = 'user'
     user_attribute: str = 'user'
+    password_attribute: str = 'password'
     userid_attribute: str = 'user_id'
     username_attribute: str = 'username'
     user_mapping: dict = {'user_id': 'id', 'username': 'username'}
@@ -82,7 +83,7 @@ class BaseAuthBackend(ABC):
             **kwargs
         }
         if SESSION_STORAGE == "cookie":
-            self._session = CookieSession(secret=SECRET_KEY, name=SESSION_NAME, **args)
+            self._session = CookieSession(name=SESSION_NAME, secret=SECRET_KEY, **args)
         elif SESSION_STORAGE == 'redis':
             self._session = RedisSession(name=SESSION_NAME, **args)
         elif SESSION_STORAGE == 'memcache':
@@ -114,14 +115,19 @@ class BaseAuthBackend(ABC):
             raise UserDoesntExists(f'User doesnt exists')
         return user
 
+    def get_userdata(self, user):
+        userdata = {}
+        for name, item in self.user_mapping.items():
+            if name != self.password_attribute:
+                userdata[name] = user[item]
+        return userdata
+
     def configure(self, app, router):
         """ Base configuration for Auth Backends, need to be extended
         to create Session Object."""
         try:
             # configuring Session Object
-            self._session.configure()
-            # configure the aiohttp session
-            setup_session(app, self._session.session)
+            self._session.configure_session(app)
         except Exception as err:
             print(err)
             raise Exception(err)
@@ -138,9 +144,8 @@ class BaseAuthBackend(ABC):
                 return handler(request)
         return None
 
-    def create_jwt(self, audience: str = None, issuer: str = None, expiration: int = None, data: dict = None) -> str:
+    def create_jwt(self, issuer: str = None, expiration: int = None, data: dict = None) -> str:
         """ Creation of JWT tokens based on basic parameters.
-        audience: if not set, using current domain name
         issuer: for default, urn:Navigator
         expiration: in seconds
         **kwargs: data to put in payload
@@ -149,15 +154,12 @@ class BaseAuthBackend(ABC):
             expiration = JWT_EXP_DELTA_SECONDS
         if not issuer:
             issuer = 'urn:Navigator'
-        if not audience:
-            audience = DOMAIN
         payload = {
             'exp': datetime.utcnow() + timedelta(seconds=expiration),
             "iat": datetime.utcnow(),
             "iss": issuer,
             **data
         }
-        logging.debug(f'Generated Token: {payload!s}')
         jwt_token = jwt.encode(
             payload,
             JWT_SECRET,
@@ -165,22 +167,18 @@ class BaseAuthBackend(ABC):
         )
         return jwt_token
 
-    def decode_token(self, request, audience: str = None, issuer: str = None):
+    def decode_token(self, request, issuer: str = None):
         payload = None
         if not issuer:
             issuer = 'urn:Navigator'
-        if not audience:
-            audience = DOMAIN
         if 'Authorization' in request.headers:
             try:
                 scheme, jwt_token = request.headers.get(
                     'Authorization'
                 ).strip().split(' ')
             except ValueError as err:
-                print(err)
                 raise NavException('Invalid authorization Header', state=401)
             if scheme != self.scheme:
-                print('HERE')
                 raise NavException('Invalid Session scheme', state=401)
             try:
                 payload = jwt.decode(
@@ -217,10 +215,30 @@ class BaseAuthBackend(ABC):
         """ Authenticate, refresh or return the user credentials."""
         pass
 
-    @abstractmethod
     async def get_session(self, request):
         """ Get user data from session."""
-        pass
+        app = request.app
+        session = await self._session.get_session(request)
+        if not session.new:
+            # user has existing session
+            userdata = session.get(self.user_property)
+        else:
+            try:
+                payload = self.decode_token(request)
+            except NavException as err:
+                raise NavException(err)
+            if payload:
+                userdata = payload
+        if userdata:
+            data = {
+                self.user_property: userdata
+            }
+            print(data)
+            return data
+        else:
+            return None
+
+
 
     @abstractmethod
     async def auth_middleware(self, app, handler):

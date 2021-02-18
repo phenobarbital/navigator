@@ -5,6 +5,7 @@ from functools import wraps, partial
 # memcached
 import aiomcache
 from aiohttp_session.memcached_storage import MemcachedStorage
+from aiohttp_session import setup as setup_session
 from .base import AbstractSession
 from navigator.conf import (
     DOMAIN,
@@ -23,20 +24,21 @@ class MemcacheSession(AbstractSession):
         loop = asyncio.get_event_loop()
         return aiomcache.Client(MEMCACHE_HOST, MEMCACHE_PORT, loop=loop)
 
-    def configure(self, **kwargs):
-        #jsondumps = partial(json.dumps, cls=cls)
+    def configure_session(self, app, **kwargs):
         async def _make_mcache():
+            _encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
             try:
                 self._pool = await self.get_mcache()
-                self.session = MemcachedStorage(
-                    self._pool,
-                    cookie_name=self.session_name,
-                    encoder=rapidjson.dumps,
-                    decoder=rapidjson.loads,
-                    domain=DOMAIN,
-                    max_age=int(SESSION_TIMEOUT)
+                setup_session(
+                    app,
+                    MemcachedStorage(
+                        self._pool,
+                        cookie_name=self.session_name,
+                        encoder=_encoder,
+                        decoder=rapidjson.loads,
+                        max_age=int(SESSION_TIMEOUT)
+                    )
                 )
-                return self.session
             except Exception as err:
                 print(err)
                 return False

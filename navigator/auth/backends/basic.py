@@ -6,6 +6,7 @@ import jwt
 from aiohttp import web
 from .base import BaseAuthBackend
 from datetime import datetime, timedelta
+from aiohttp_session import get_session, new_session
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from navigator.conf import (
     SESSION_TIMEOUT,
@@ -117,12 +118,6 @@ class BasicAuth(BaseAuthBackend):
         else:
             return None
 
-    def get_userdata(self, user):
-        userdata = {}
-        for name, item in self.user_mapping.items():
-            userdata[name] = user[item]
-        return userdata
-
     async def check_credentials(self, request):
         try:
             user, pwd = await self.get_payload(request)
@@ -161,10 +156,6 @@ class BasicAuth(BaseAuthBackend):
 
     async def authenticate(self, request):
         """ Authenticate, refresh or return the user credentials."""
-        pass
-
-    async def get_session(self, request):
-        """ Get user data from session."""
         pass
 
     async def auth_middleware(self, app, handler):

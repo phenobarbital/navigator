@@ -155,7 +155,21 @@ class AuthHandler(object):
 
     async def get_session(self, request: web.Request) -> web.Response:
         """ return Session Data from user."""
-        pass
+        try:
+            dump = await self.backend.get_session(request)
+            print('DATA> ', dump)
+        except NavException as err:
+            print('Error HERE: ', err, err.state)
+            response = {
+                "message": "Session Error",
+                "error": err.message,
+                "status": err.state
+            }
+            return web.json_response(response, status=err.state)
+        if dump:
+            return json_response(dump)
+        else:
+            raise web.HTTPForbidden()
 
     def configure(self, app: web.Application) -> web.Application:
         router = app.router
@@ -169,7 +183,8 @@ class AuthHandler(object):
         router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
         router.add_route("GET", "/api/v1/authenticate/{program}", self.authenticate, name="api_authenticate_program")
         router.add_route("GET", "/api/v1/authenticate", self.authenticate, name="api_authenticate")
-        router.add_route("GET", "/api/v1/session/{program}", self.get_session, name="api_session")
+        router.add_route("GET", "/api/v1/session/{program}", self.get_session, name="api_session_tenant")
+        router.add_route("GET", "/api/v1/session", self.get_session, name="api_session")
         # backed needs initialization (connection to a redis server, etc)
         try:
             self.backend.configure(app, router)

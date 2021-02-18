@@ -20,13 +20,11 @@ from navigator.conf import (
 class AbstractSession(ABC):
     """Abstract Base Session."""
     session = None
-    _session_obj = None
-    session_name: str = 'AIOHTTP_SESSION'
+    session_name: str = 'NAVIGATOR_SESSION'
     secret_key: str = None
     user_property: str = 'user'
     user_attribute: str = 'user_id'
     username_attribute: str = 'username'
-    user_mapping: dict = {'user_id': 'id','username': 'username'}
 
     def __init__(
             self,
@@ -52,28 +50,28 @@ class AbstractSession(ABC):
         self.username_attribute = username_attribute
 
     @abstractmethod
-    async def configure(self):
+    async def configure_session(self, app):
         pass
 
-    def get_session(self):
-        return self._session_obj
+    async def get_session(self, request):
+        return await get_session(request)
 
     async def create_session(self, request, user, userdata):
         app = request.app
-        session = None
         try:
-            self._session_obj = await new_session(request)
+            session = await new_session(request)
         except Exception as err:
             print(err)
             return False
-        last_visit = self._session_obj["last_visit"] if "last_visit" in self._session_obj else "Never"
-        self._session_obj["last_visit"] = time.time()
-        self._session_obj["last_visited"] = "Last visited: {}".format(last_visit)
+        last_visit = session["last_visit"] if "last_visit" in session else None
+        session["last_visit"] = time.time()
+        session["last_visited"] = "Last visited: {}".format(last_visit)
         # think about saving user data on session when create
         app['User'] = user
         app[self.user_property] = userdata
-        self._session_obj[self.user_property] = userdata
+        session[self.user_property] = userdata
         app["session"] = self.session
+        logging.debug('Creating Session: {}'.format(session))
         return session
 
     async def forgot_session(self, request):
@@ -87,4 +85,3 @@ class AbstractSession(ABC):
         except Exception as err:
             print(err)
         app["session"] = None
-        self._session_obj = None

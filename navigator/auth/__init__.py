@@ -11,7 +11,7 @@ from .backends import BaseAuthBackend
 # aiohttp session
 from .authorizations import *
 from navigator.functions import json_response
-
+from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""
@@ -120,7 +120,7 @@ class AuthHandler(object):
     #     raise web.HTTPSeeOther(location="/")
 
     async def api_logout(self, request: web.Request) -> web.Response:
-        await self._session.forgot_session(request)
+        await self.backend.forgot_session(request)
         return web.json_response({"message": "logout successful"}, status=200)
 
     async def api_login(self, request: web.Request) -> web.Response:
@@ -128,22 +128,15 @@ class AuthHandler(object):
             user = await self.backend.check_credentials(request)
             if not user:
                 raise web.HTTPUnauthorized(
-                    reason='Unauthorized'
+                    reason='Unauthorized',
+                    status=403
                 )
             return json_response(user, state=200)
-            # # if state, save user data in session
-            # try:
-            #     session = await self._session.create_session(request, session=user)
-            # except Exception as err:
-            #     raise web.HTTPServerError(reason=err)
-            # try:
-            #     return json_response(session, state=200)
-            # except Exception as err:
-            #     print(err)
-            #     # failed to create session for User
-            #     raise web.HTTPUnauthorized(
-            #         reason=f'Failed to create Session for User: {err!s}'
-            #     )
+        except (NavException, UserDoesntExists, InvalidAuth) as err:
+            raise web.HTTPUnauthorized(
+                reason=err,
+                status=err.state
+            )
         except ValueError:
             raise web.HTTPUnauthorized(
                 reason='Unauthorized'

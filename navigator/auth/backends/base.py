@@ -166,6 +166,9 @@ class BaseAuthBackend(ABC):
         )
         return jwt_token
 
+    async def forgot_session(self, request: web.Request):
+        await self._session.forgot_session(request)
+
     @abstractmethod
     async def check_credentials(self, request):
         """ Authenticate against user credentials (token, user/password)."""

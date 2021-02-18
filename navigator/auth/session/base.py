@@ -58,23 +58,7 @@ class AbstractSession(ABC):
     def get_session(self):
         return self._session_obj
 
-    async def get_user(self, user) -> User:
-        if self.user_attribute in user:
-            try:
-                u = await User.get(**{"id": user[self.user_attribute]})
-                if u:
-                    user = []
-                    for name, item in self.user_mapping.items():
-                        user[name] = u[item]
-                    return [u, user]
-            except Exception as err:
-                print('ERR ', err)
-                logging.error(f'Error getting User {err!s}')
-                return None
-        else:
-            return None
-
-    async def create_session(self, request, **kwargs):
+    async def create_session(self, request, user, userdata):
         app = request.app
         session = None
         try:
@@ -86,26 +70,9 @@ class AbstractSession(ABC):
         self._session_obj["last_visit"] = time.time()
         self._session_obj["last_visited"] = "Last visited: {}".format(last_visit)
         # think about saving user data on session when create
-        if 'session' in kwargs:
-            # dump of session data
-            session = kwargs['session']
-            self._session_obj['session'] = session
-            try:
-                user = session[self.user_property]
-                app[self.user_property] = user
-                self._session_obj[self.user_property] = user
-                # getting user:
-                try:
-                    u, user = await self.get_user(user)
-                    app['User'] = u
-                    # self._session_obj['User'] = user
-                    session['User'] = user
-                except Exception as err:
-                    print(err)
-                    logging.error(err)
-            except (KeyError, ValueError) as err:
-                logging.error(f'Missing User Information in session: {err!s}')
-        # saving session object in App
+        app['User'] = user
+        app[self.user_property] = userdata
+        self._session_obj[self.user_property] = userdata
         app["session"] = self.session
         return session
 
@@ -114,6 +81,7 @@ class AbstractSession(ABC):
         session = await get_session(request)
         session.invalidate()
         try:
+            app['User'] = None
             app[self.user_property] = None
             request.user = None
         except Exception as err:

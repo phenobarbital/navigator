@@ -143,12 +143,16 @@ class BasicAuth(BaseAuthBackend):
             try:
                 userdata = self.get_userdata(user)
                 # Create the User session and returned.
+                session = await self._session.create_session(
+                    request,
+                    user,
+                    userdata
+                )
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     'user_id': user[self.userid_attribute]
                 }
-                print(payload)
                 token = self.create_jwt(data=payload)
                 return {'token': token}
             except Exception as err:

@@ -233,7 +233,6 @@ class BaseAuthBackend(ABC):
             data = {
                 self.user_property: userdata
             }
-            print(data)
             return data
         else:
             return None

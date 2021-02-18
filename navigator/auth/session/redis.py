@@ -21,21 +21,27 @@ class RedisSession(AbstractSession):
 
     async def get_redis(self, **kwargs):
         kwargs['timeout'] = 1
-        return await aioredis.create_redis_pool(SESSION_URL, **kwargs)
+        loop = asyncio.get_event_loop()
+        return await aioredis.create_redis_pool(SESSION_URL, loop=loop, **kwargs)
 
     def configure_session(self, app, **kwargs):
-        self._pool = asyncio.get_event_loop().run_until_complete(
-            self.get_redis()
-        )
-        _encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
-        setup_session(
-            app,
-            RedisStorage(
-                self._pool,
-                cookie_name=self.session_name,
-                encoder=json.dumps,
-                decoder=json.loads,
-                domain=DOMAIN,
-                max_age=int(SESSION_TIMEOUT)
-            )
+        async def _make_mredis():
+            _encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
+            try:
+                self._pool = await self.get_redis()
+                setup_session(
+                    app,
+                    RedisStorage(
+                        self._pool,
+                        cookie_name=self.session_name,
+                        encoder=_encoder,
+                        decoder=rapidjson.loads,
+                        max_age=int(SESSION_TIMEOUT)
+                    )
+                )
+            except Exception as err:
+                print(err)
+                return False
+        return asyncio.get_event_loop().run_until_complete(
+            _make_mredis()
         )

@@ -157,7 +157,6 @@ class AuthHandler(object):
         """ return Session Data from user."""
         try:
             dump = await self.backend.get_session(request)
-            print('DATA> ', dump)
         except NavException as err:
             print('Error HERE: ', err, err.state)
             response = {

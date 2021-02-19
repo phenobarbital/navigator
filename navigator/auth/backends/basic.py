@@ -10,16 +10,11 @@ from aiohttp_session import get_session, new_session
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from navigator.conf import (
     SESSION_TIMEOUT,
-    SECRET_KEY,
-    JWT_ALGORITHM
+    SECRET_KEY
 )
 import hashlib
 import base64
 import secrets
-
-JWT_SECRET = SECRET_KEY
-JWT_ALGORITHM = JWT_ALGORITHM
-JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 
 # credentials algorithm
 PWD_ALGORITHM = "pbkdf2_sha256"

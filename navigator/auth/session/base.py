@@ -71,7 +71,7 @@ class AbstractSession(ABC):
         app[self.user_property] = userdata
         session[self.user_property] = userdata
         app["session"] = self.session
-        logging.debug('Creating Session: {}'.format(session))
+        # logging.debug('Creating Session: {}'.format(session))
         return session
 
     async def forgot_session(self, request):

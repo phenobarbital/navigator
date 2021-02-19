@@ -38,7 +38,6 @@ class SessionIDAuth(BaseAuthHandler):
             _make_redis()
         )
 
-
     async def validate_session(self, key: str = None):
         try:
             result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
@@ -57,6 +56,20 @@ class SessionIDAuth(BaseAuthHandler):
             print(err)
             logging.debug("Django Session Decoding Error: {}".format(err))
             return False
+
+    async def validate_user(self, login: str = None):
+        # get the user based on Model
+        search = {
+            self.username_attribute: login
+        }
+        try:
+            user = await self.get_user(**search)
+            return user
+        except UserDoesntExists as err:
+            raise UserDoesntExists(f'User {login} doesnt exists')
+        except Exception as err:
+            raise Exception(err)
+        return None
 
     async def get_payload(self, request):
         id = None

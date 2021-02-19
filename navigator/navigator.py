@@ -29,11 +29,8 @@ from navigator.conf import (
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
     NAV_AUTH_BACKEND,
+    CREDENTIALS_REQUIRED,
     SECRET_KEY,
-    SESSION_PREFIX,
-    SESSION_STORAGE,
-    SESSION_URL,
-    SESSION_NAME,
     STATIC_DIR,
     Context,
     config,
@@ -193,9 +190,7 @@ class Application(object):
         app = self.get_app()
         self._auth = AuthHandler(
             backend=NAV_AUTH_BACKEND,
-            session_type=SESSION_STORAGE,
-            name=SESSION_NAME,
-            prefix=SESSION_PREFIX,
+            credentials_required=CREDENTIALS_REQUIRED,
             authorization_backends=[
                 "hosts"
             ]

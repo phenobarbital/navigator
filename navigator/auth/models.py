@@ -10,11 +10,11 @@ from asyncdb.utils.models import Model, Column
 from typing import Optional, List, Dict, Union, Tuple, Any, Callable
 from dataclasses import InitVar
 from datetime import datetime
-from navigator.conf import default_dsn
+from navigator.conf import default_dsn, USERS_TABLE
 
 class User(Model):
     """Basic User notation."""
-    id: int = Column(required=False, primary_key=True)
+    user_id: int = Column(required=False, primary_key=True)
     first_name: str
     last_name: str
     email: str = Column(required=False, max=254)
@@ -22,13 +22,15 @@ class User(Model):
     last_login: datetime = Column(required=False)
     username: str = Column(required=False)
     is_superuser: bool = Column(required=True, default=False)
-    is_staff: bool = Column(required=True, default=False)
     is_active: bool = Column(required=True, default=True)
     is_new: bool = Column(required=True, default=True)
     title: str = Column(equired=False, max=90)
     registration_key: str = Column(equired=False, max=512)
     reset_pwd_key: str = Column(equired=False, max=512)
     avatar: str = Column(max=512)
+
+    def __getitem__(self, item):
+        return getattr(self, item)
 
     @property
     def display_name(self):
@@ -37,7 +39,7 @@ class User(Model):
     class Meta:
         driver = 'pg'
         dsn: str = default_dsn
-        name = 'auth_user'
+        name = USERS_TABLE
         schema = 'public'
         strict = True
         frozen = False

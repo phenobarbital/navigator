@@ -189,6 +189,22 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
+NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
+USER_MAPPING = {
+    "user_id": "user_id",
+    "username": "username",
+    "password": "password",
+    "first_name": "first_name",
+    "last_name": "last_name",
+    "email": "email",
+    "enabled": "is_active",
+    "superuser": "is_superuser",
+    "last_login": "last_login",
+    "title": "title"
+}
+USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
 
 """
 Session Storage
@@ -197,7 +213,7 @@ SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
 SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
-SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='AIOHTTP').upper())
+SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='NAVIGATOR').upper())
 SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
 JWT_ALGORITHM = config.get('JWT_ALGORITHM', fallback='HS256')
 

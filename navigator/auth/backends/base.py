@@ -143,7 +143,6 @@ class BaseAuthBackend(ABC):
             return handler(request)
         # logic for authorization backends
         for backend in self._authz_backends:
-            print(backend)
             if await backend.check_authorization(request):
                 return handler(request)
         return None

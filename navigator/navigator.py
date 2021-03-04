@@ -122,6 +122,7 @@ class Application(object):
             self.debug = kwargs["debug"]
         else:
             self.debug = DEBUG
+        print('DEBUG ', self.debug)
         self.parser = argparse.ArgumentParser(description="Navigator App")
         self.parser.add_argument("--path")
         self.parser.add_argument("--host")

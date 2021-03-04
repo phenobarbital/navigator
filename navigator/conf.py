@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Tuple
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig import BASE_DIR, EXTENSION_DIR, config, DEBUG
 from navconfig.logging import logdir, loglevel, logging_config
 # QUERYSET_REDIS, asyncpg_url
 
@@ -39,9 +39,12 @@ HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split
 DOMAIN = config.get('DOMAIN', fallback='dev.local')
 
 # Debug
-DEBUG = config.getboolean("DEBUG", fallback=True)
+if not DEBUG:
+    DEBUG = config.getboolean("DEBUG", fallback=True)
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
+
+print('HERE>',sys.argv[0], DEBUG, LOCAL_DEVELOPMENT)
 
 """
 Timezone
@@ -65,7 +68,6 @@ if DEBUG and LOCAL_DEVELOPMENT:
     ENABLE_TOKEN_APP = False
 else:
     CREDENTIALS_REQUIRED = True
-    ENABLE_TOKEN_APP = True
     if PRODUCTION == False and DEBUG == True:
         ENV = "development"
         CSRF_ENABLED = False
@@ -189,6 +191,7 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
 CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
 NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
 NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')

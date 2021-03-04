@@ -20,6 +20,7 @@ from navigator.conf import (
 from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from navigator.functions import json_response
+from aiohttp.web_urldispatcher import SystemRoute
 
 JWT_SECRET = SECRET_KEY
 JWT_ALGORITHM = JWT_ALGORITHM
@@ -133,6 +134,8 @@ class BaseAuthBackend(ABC):
             raise Exception(err)
 
     async def authorization_backends(self, app, handler, request):
+        if isinstance(request.match_info.route, SystemRoute):  # eg. 404
+            return await handler(request)
         # avoid authorization backend on excluded methods:
         if request.path in exclude_list:
             return handler(request)

@@ -2,6 +2,7 @@ import asyncio
 import datetime
 import inspect
 import json
+import rapidjson
 import logging
 import traceback
 from abc import ABC, ABCMeta, abstractmethod, abstractproperty
@@ -24,9 +25,14 @@ from aiohttp.web_exceptions import (
 )
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
-from settings.settings import MEMCACHE_HOST, MEMCACHE_PORT, logging_config, loglevel
+from asyncdb.utils.models import Model
+from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
+from asyncdb.exceptions import *
+from navconfig.logging import logging_config, loglevel
 
-from navigator.libs.encoders import DefaultEncoder
+#from navigator.libs.encoders import
+#from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
+
 
 dictConfig(logging_config)
 
@@ -91,16 +97,16 @@ class BaseHandler(CorsViewMixin):
             obj.headers[header] = value
         return obj
 
-    def json_response(self, response={}, headers={}, state=200, encoder=None):
-        if encoder is not None:
-            if inspect.isclass(encoder):
+    def json_response(self, response={}, headers={}, state=200, cls=None):
+        if cls is not None:
+            if inspect.isclass(cls):
                 # its a class-based Encoder
-                jsonfn = partial(json.dumps, cls=encoder)
+                jsonfn = partial(json.dumps, cls=cls)
             else:
                 # its a function
-                jsonfn = partial(json.dumps, default=encoder)
+                jsonfn = partial(rapidjson.dumps, default=cls)
         else:
-            jsonfn = json.dumps
+            jsonfn = rapidjson.dumps
         obj = web.json_response(response, status=state, dumps=jsonfn)
         for header, value in headers.items():
             obj.headers[header] = value
@@ -152,7 +158,7 @@ class BaseHandler(CorsViewMixin):
         if isinstance(response, dict):
             response_obj = {**response_obj, **response}
             args["content_type"] = "application/json"
-            args["text"] = json.dumps(response_obj, cls=DefaultEncoder)
+            args["text"] = json.dumps(response_obj)
         else:
             args["body"] = response
         # defining the error
@@ -255,7 +261,7 @@ class BaseHandler(CorsViewMixin):
     get_args = get_arguments
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    _mcache: Any = None
+    #_mcache: Any = None
     _connection: Any = None
     _redis: Any = None
 
@@ -264,22 +270,22 @@ class BaseView(web.View, BaseHandler, AbstractView):
         BaseHandler.__init__(self, *args, **kwargs)
         self._request = request
 
-    def post_init(self, *args, **kwargs):
-        mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
-        self._mcache = memcache(params=mem_params)
+    # def post_init(self, *args, **kwargs):
+    #     mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
+    #     self._mcache = memcache(params=mem_params)
 
     async def connection(self):
         return self._connection
 
     async def connect(self, request):
-        await self._mcache.connection()
+        #await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
-        self._redis = request.app["redis"]
+        self._redis = await request.app["redis"].acquire()
 
     async def close(self):
-        if self._mcache and self._mcache.is_connected():
-            await self._mcache.close()
-            self._mcache = None
+        # if self._mcache and self._mcache.is_connected():
+        #     await self._mcache.close()
+        #     self._mcache = None
         if self._connection:
             await self._connection.close()
             self._connection = None
@@ -476,3 +482,309 @@ class DataView(BaseView):
                     q=sentence, ordering=", ".join(ordering)
                 )
         return self
+
+
+
+async def load_models(app: str, model, tablelist: list = []):
+    db = await app['database'].acquire()
+    name = app['name']
+    for table in tablelist:
+        try:
+            query = await Model.makeModel(
+                name=table,
+                schema=name,
+                db=db
+            )
+            model[table] = query
+        except Exception as err:
+            logging.error(f'Error loading Model {table}: {err!s}')
+
+
+class ModelView(BaseView):
+    """ModelView.
+
+    description: API View using AsyncDB Models.
+    tags:
+      - Model
+      - AsyncDB Model
+    parameters:
+      - name: model
+        in: Model
+        type: Model
+        required: true
+        description: DB Model using asyncdb Model.
+    """
+    model: Model = None
+    models: list = []
+
+    def get_schema(self):
+        if self.model:
+            return self.model
+        else:
+            # TODO: try to discover from Model Name and model declaration
+            # using importlib (from apps.{program}.models import Model)
+            try:
+                table = self.Meta.tablename
+            except Exception as err:
+                print(err)
+                table = type(self).__name__
+                self.Meta.tablename = table
+            try:
+                return self.models[table]
+            except KeyError:
+                # Model doesn't exists
+                raise NoDataFound(f'Model {table} Doesnt Exists')
+
+    def __init__(self, *args, **kwargs):
+        super(ModelView, self).__init__(*args, **kwargs)
+        # getting model associated
+        try:
+            self.model = self.get_schema()
+        except NoDataFound as err:
+            raise Exception(err)
+
+    async def get_data(self, params, args):
+        try:
+            if len(params) > 0:
+                query = await self.model.filter(**params)
+            elif len(args) > 0:
+                query = await self.model.get(**args)
+                return query.dict()
+            else:
+                query = await self.model.all()
+            if query:
+                return [row.dict() for row in query]
+            else:
+                raise NoDataFound
+        except Exception as err:
+            raise Exception(err)
+
+    def model_response(self, response, headers: dict = {}):
+        # TODO: check if response is empty
+        return self.json_response(
+            response,
+            cls=BaseEncoder,
+            headers=headers
+        )
+
+    def get_args(self, request: web.Request = None) -> dict:
+        params = {}
+        if not request:
+            rq = self.request
+        else:
+            rq = request
+        for arg in rq.match_info:
+            try:
+                val = rq.match_info.get(arg)
+                object.__setattr__(self, arg, val)
+                params[arg] = val
+            except AttributeError:
+                pass
+        return params
+
+    async def get_parameters(self):
+        """Get Parameters.
+
+        Get all parameters from URL or from query string.
+        """
+        try:
+            if not self.model.Meta.connection:
+                db = await self.request.app['database'].acquire()
+                self.model.Meta.connection = db
+        except Exception as err:
+            raise Exception(err)
+        args = self.get_args()
+        params = self.query_parameters(self.request)
+        return [args, params]
+
+    async def get(self):
+        args, params = await self.get_parameters()
+        # TODO: check if QueryParameters are in list of columns in Model
+        try:
+            data = await self.get_data(params, args)
+            return self.model_response(data)
+        except NoDataFound as err:
+            print(err)
+            headers = {
+                    'X-STATUS': 'EMPTY',
+                    'X-MESSAGE': f'Data on {self.Meta.tablename} not Found'
+                }
+            return self.no_content(headers=headers)
+        except Exception as err:
+            print('ERROR ', err)
+            return self.critical(
+                request=self.request,
+                exception=err,
+                traceback=''
+            )
+
+    async def patch(self):
+        """
+        patch.
+            summary: return the metadata from table or, if we got post
+            realizes a partially atomic updated of the query.
+        """
+        args, params = await self.get_parameters()
+        # try to got post data
+        post = await self.json_data()
+        if post:
+            # trying to update the model
+            update = await self.model.update(args, **post)
+            if update:
+                data = update[0].dict()
+                return self.model_response(data)
+            else:
+                return self.error(
+                    response=f'Resource not found: {post}',
+                    request=self.request,
+                    state=404
+                )
+        else:
+            try:
+                # getting metadata of Model
+                qry = self.model(**args)
+                data = {}
+                for name, field in qry.columns().items():
+                    key = field.name
+                    type = field.db_type()
+                    default = None
+                    if field.default is not None:
+                        default = f'{field.default!r}'
+                    data[key] = {"type": type, "default": default}
+                return self.model_response(data)
+            except Exception as err:
+                return self.critical(
+                    request=self.request,
+                    exception=err,
+                    traceback=''
+                )
+
+    async def post(self):
+        """
+        post.
+            summary: update (or create) a row in table
+        """
+        args, params = await self.get_parameters()
+        post = await self.json_data()
+        if not post:
+            return self.error(
+                request=self.request,
+                response="Cannot Update row without JSON Data",
+                exception=err,
+                state=406
+            )
+        if len(args) > 0:
+            parameters = {**args, **post}
+            try:
+                # check if exists first:
+                query = await self.model.get(**args)
+                if not query:
+                    # object doesnt exists, need to be created:
+                    result = await self.model.create([parameters])
+                    query = await self.model.get(**parameters)
+                    data = query.dict()
+                    return self.model_response(data)
+            except Exception as err:
+                print(err)
+                pass
+        # I need to use post data only
+        try:
+            qry = self.model(**post)
+            if qry.is_valid():
+                await qry.save()
+                query = await qry.fetch(**args)
+                data = query.dict()
+                return self.model_response(data)
+            else:
+                return self.error(
+                    request=self.request,
+                    response=f'Invalid data for Schema {self.Meta.tablename}'
+                )
+        except Exception as err:
+            return self.critical(
+                request=self.request,
+                exception=err,
+                traceback=''
+            )
+
+    async def delete(self):
+        """"
+        delete.
+           summary: delete a table object
+        """
+        args, params = await self.get_parameters()
+        try:
+            result = None
+            if len(args) > 0:
+                # need to delete one
+                result = await self.model.remove(args)
+            elif len(params) > 0:
+                result = await self.model.remove(params)
+        except Exception as err:
+            return self.error(
+                request=self.request,
+                response='Error Deleting Object',
+                exception=err,
+                state=400
+            )
+        if result is not None:
+            msg = {
+                "result": result
+            }
+            headers = {
+                'X-STATUS': 'OK',
+                'X-MESSAGE': f'Table row was deleted',
+                'X-TABLE': self.Meta.tablename
+            }
+            return self.model_response(
+                msg,
+                headers=headers
+            )
+        else:
+            headers = {
+                    'X-STATUS': 'Error',
+                    'X-MESSAGE': f'Row in Table {self.Meta.tablename} not deleted'
+            }
+            return self.error(
+                response=f'Row in Table {self.Meta.tablename} not deleted',
+                headers=headers,
+                state=404
+            )
+
+    async def put(self):
+        """"
+        put.
+           summary: insert a row in table
+        """
+        args, params = await self.get_parameters()
+        post = await self.json_data()
+        if not post:
+            return self.error(
+                request=self.request,
+                response="Cannot Insert a row without post data",
+                exception=err,
+                state=406
+            )
+        parameters = {**params, **post}
+        try:
+            qry = self.model(**parameters)
+            if qry.is_valid():
+                # TODO: if insert fails in constraint, trigger POST (UPDATE)
+                result = await self.model.create([parameters])
+                if result:
+                    data = [row.dict() for row in result]
+                return self.model_response(data)
+            else:
+                return self.error(
+                    request=self.request,
+                    response=f'Invalid data for Schema {self.Meta.tablename}'
+                )
+        except Exception as err:
+            return self.critical(
+                request=self.request,
+                exception=err,
+                traceback=''
+            )
+
+    class Meta:
+        tablename: str = ''

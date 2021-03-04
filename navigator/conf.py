@@ -13,6 +13,7 @@ from cryptography import fernet
 
 # Import Config Class
 from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig.logging import logdir, loglevel, logging_config
 # QUERYSET_REDIS, asyncpg_url
 
 """
@@ -32,7 +33,11 @@ Security and debugging
 PRODUCTION = config.getboolean("PRODUCTION", fallback=True)
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
+# SECRET_KEY = config.get('TROC_KEY')
+CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+DOMAIN = config.get('DOMAIN', fallback='dev.local')
+
 # Debug
 DEBUG = config.getboolean("DEBUG", fallback=True)
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
@@ -97,6 +102,24 @@ from navconfig.conf import *
 ##
 #######################
 """
+Main Database
+"""
+PG_USER = config.get('DBUSER')
+PG_HOST = config.get('DBHOST', fallback='localhost')
+PG_PWD = config.get('DBPWD')
+PG_DATABASE = config.get('DBNAME', fallback='navigator')
+PG_PORT = config.get('DBPORT', fallback=5432)
+
+asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
+    user=PG_USER,
+    password=PG_PWD,
+    host=PG_HOST,
+    port=PG_PORT,
+    db=PG_DATABASE
+)
+default_dsn = asyncpg_url
+
+"""
 Applications
 """
 INSTALLED_APPS: List = []
@@ -122,19 +145,19 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        "ENGINE": config.get("DBENGINE"),
-                        "NAME": config.get("DBNAME"),
-                        "USER": config.get("DBUSER"),
+                        #"ENGINE": config.get("DBENGINE"),
+                        "NAME": PG_DATABASE,
+                        "USER": PG_USER,
                         "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",troc,public",
+                            "options": "-c search_path=" + item.name + ",public",
                         },
                         #'PARAMS': {
                         #    'readonly': True,
                         # },
                         "SCHEMA": item.name,
-                        "PASSWORD": config.get("DBPWD"),
-                        "HOST": config.get("DBHOST", fallback="localhost"),
-                        "PORT": config.get("DBPORT"),
+                        "PASSWORD": PG_PWD,
+                        "HOST": PG_HOST,
+                        "PORT": PG_PORT,
                     }
 
 
@@ -163,12 +186,36 @@ CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
 REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 
 """
+Authentication System
+"""
+NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
+NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
+USER_MAPPING = {
+    "user_id": "user_id",
+    "username": "username",
+    "password": "password",
+    "first_name": "first_name",
+    "last_name": "last_name",
+    "email": "email",
+    "enabled": "is_active",
+    "superuser": "is_superuser",
+    "last_login": "last_login",
+    "title": "title"
+}
+USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
+
+"""
 Session Storage
 """
 SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
 SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='NAVIGATOR').upper())
+SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
+JWT_ALGORITHM = config.get('JWT_ALGORITHM', fallback='HS256')
 
 """
  Memcache
@@ -187,4 +234,6 @@ Context = {
     "env": ENV,
     "DATABASES": DATABASES,
     "cache_url": CACHE_URL,
+    "asyncpg_url": asyncpg_url,
+    "default_dsn": default_dsn
 }

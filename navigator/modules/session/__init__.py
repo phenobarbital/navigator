@@ -10,7 +10,7 @@ import sys
 from aiohttp import web
 from asyncdb import AsyncDB
 
-from navigator.conf import DEBUG, SESSION_PREFIX, SESSION_URL, asyncpg_url, config
+from navigator.conf import DEBUG, SESSION_PREFIX, SESSION_URL, config
 from navigator.handlers import nav_exception_handler
 from navigator.modules.session.session import AbstractSession
 from navigator.views import BaseView

@@ -19,7 +19,10 @@ python3.8 -m venv .venv
 # updating pip
 source .venv/bin/activate -m
 pip install --upgrade wheel setuptools pip
-# first: install framework
+# first: install dependencies:
+pip install git+https://github.com/phenobarbital/asyncdb.git#egg=asyncdb
+pip install git+https://github.com/phenobarbital/NavConfig.git@main#egg=navconfig
+# second: install framework
 pip install -e .
-# second: creating directories
+# third: creating directories
 mkdir static

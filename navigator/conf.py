@@ -34,6 +34,7 @@ PRODUCTION = config.getboolean("PRODUCTION", fallback=True)
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 # SECRET_KEY = config.get('TROC_KEY')
+PARTNER_KEY = config.get('PARTNER_KEY')
 CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get('DOMAIN', fallback='dev.local')

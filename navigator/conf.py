@@ -44,8 +44,6 @@ if not DEBUG:
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
 
-print('HERE>',sys.argv[0], DEBUG, LOCAL_DEVELOPMENT)
-
 """
 Timezone
 """
@@ -208,7 +206,9 @@ USER_MAPPING = {
     "title": "title"
 }
 USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
-
+ALLOWED_HOSTS = [
+    e.strip() for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+]
 """
 Session Storage
 """

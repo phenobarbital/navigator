@@ -79,6 +79,8 @@ class AuthHandler(object):
             # TODO: more automagic logic
             if backend == 'hosts':
                 b.append(authz_hosts())
+            elif backend == 'allow_hosts':
+                b.append(authz_allow_hosts())
         return b
 
     # async def login(self, request) -> web.Response:

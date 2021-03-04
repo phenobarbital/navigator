@@ -229,7 +229,7 @@ class Application(object):
         """
         app = self.get_app()
         if self.debug:
-            print("Enabling WebSockets")
+            logging.debug("Enabling WebSockets")
         # websockets
         app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels
@@ -361,10 +361,8 @@ class Application(object):
                 swagger_url="/api/v1/doc",
                 ui_version=3
             )
-        print('START: ', self.debug, LOCAL_DEVELOPMENT)
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
-                print('START DEBUG TOOLBAR')
                 import aiohttp_debugtoolbar
                 from aiohttp_debugtoolbar import toolbar_middleware_factory
                 aiohttp_debugtoolbar.setup(

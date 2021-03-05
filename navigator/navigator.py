@@ -23,12 +23,14 @@ from aiohttp_utils import run as runner
 #from navigator.commands import cPrint
 
 from navigator.conf import (
+    DEBUG,
     APP_DIR,
     BASE_DIR,
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
     NAV_AUTH_BACKEND,
+    AUTHORIZATION_BACKENDS,
     CREDENTIALS_REQUIRED,
     SECRET_KEY,
     STATIC_DIR,
@@ -118,6 +120,9 @@ class Application(object):
         self._executor = ThreadPoolExecutor()
         if "debug" in kwargs:
             self.debug = kwargs["debug"]
+        else:
+            self.debug = DEBUG
+        print('DEBUG ', self.debug)
         self.parser = argparse.ArgumentParser(description="Navigator App")
         self.parser.add_argument("--path")
         self.parser.add_argument("--host")
@@ -156,7 +161,8 @@ class Application(object):
         except (KeyError, ValueError, TypeError):
             self.port = 5000
         try:
-            self.debug = args.debug
+            if args.debug:
+                self.debug = args.debug
         except (KeyError, ValueError, TypeError):
             pass
         try:
@@ -191,9 +197,7 @@ class Application(object):
         self._auth = AuthHandler(
             backend=NAV_AUTH_BACKEND,
             credentials_required=CREDENTIALS_REQUIRED,
-            authorization_backends=[
-                "hosts"
-            ]
+            authorization_backends=AUTHORIZATION_BACKENDS
         )
         # configuring authentication endpoints
         self._auth.configure(app)
@@ -226,7 +230,7 @@ class Application(object):
         """
         app = self.get_app()
         if self.debug:
-            print("Enabling WebSockets")
+            logging.debug("Enabling WebSockets")
         # websockets
         app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels
@@ -362,8 +366,12 @@ class Application(object):
             if LOCAL_DEVELOPMENT:
                 import aiohttp_debugtoolbar
                 from aiohttp_debugtoolbar import toolbar_middleware_factory
-
-                aiohttp_debugtoolbar.setup(app, hosts=[self.host], enabled=True)
+                aiohttp_debugtoolbar.setup(
+                    app,
+                    hosts=[self.host,'127.0.0.1', '::1'],
+                    enabled=True,
+                    path_prefix='/_debug'
+                )
             if self._reload:
                 runner(
                     app=app,

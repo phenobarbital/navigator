@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python3
 import base64
 import importlib
 import logging
@@ -30,10 +29,11 @@ SERVICES_DIR = BASE_DIR.joinpath("services")
 Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
-PRODUCTION = config.getboolean("PRODUCTION", fallback=True)
+PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=True))
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 # SECRET_KEY = config.get('TROC_KEY')
+PARTNER_KEY = config.get('PARTNER_KEY')
 CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get('DOMAIN', fallback='dev.local')
@@ -65,7 +65,6 @@ if DEBUG and LOCAL_DEVELOPMENT:
     ENABLE_TOKEN_APP = False
 else:
     CREDENTIALS_REQUIRED = True
-    ENABLE_TOKEN_APP = True
     if PRODUCTION == False and DEBUG == True:
         ENV = "development"
         CSRF_ENABLED = False
@@ -189,6 +188,7 @@ REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
 Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
 CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
 NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
 NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
@@ -205,7 +205,9 @@ USER_MAPPING = {
     "title": "title"
 }
 USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
-
+ALLOWED_HOSTS = [
+    e.strip() for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+]
 """
 Session Storage
 """

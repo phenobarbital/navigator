@@ -29,7 +29,6 @@ SERVICES_DIR = BASE_DIR.joinpath("services")
 Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
-PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=True))
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 # SECRET_KEY = config.get('TROC_KEY')
@@ -40,6 +39,7 @@ DOMAIN = config.get('DOMAIN', fallback='dev.local')
 
 # Debug
 DEBUG = config.getboolean("DEBUG", fallback=True)
+PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
 
@@ -189,7 +189,8 @@ Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
 AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
-CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+if not CREDENTIALS_REQUIRED:
+    CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
 NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
 NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
 USER_MAPPING = {

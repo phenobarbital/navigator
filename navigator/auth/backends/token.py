@@ -187,8 +187,8 @@ class TokenAuth(BaseAuthBackend):
                     logging.debug(f'Decoded Token: {payload!s}')
                     result = await self.check_token_info(request, tenant, payload)
                     if not result:
-                        raise web.HTTPUnauthorized(
-                            body='Not Authorized',
+                        raise web.HTTPForbidden(
+                            reason='Not Authorized',
                         )
                     else:
                         session = await self._session.get_session(request)
@@ -216,8 +216,9 @@ class TokenAuth(BaseAuthBackend):
                     )
             else:
                 if self.credentials_required is True:
+                    print('Missing Token information')
                     raise web.HTTPUnauthorized(
-                        body='Missing Authorization Session',
+                        reason='Not Authorized',
                     )
             return await handler(request)
         return middleware

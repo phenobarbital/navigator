@@ -72,92 +72,72 @@ class TokenAuth(BaseAuthBackend):
             return None
         return [tenant, token]
 
-    async def validate_session(self, key: str = None):
-        try:
-            result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
-            if not result:
-                return False
-            data = base64.b64decode(result)
-            session_data = data.decode("utf-8").split(":", 1)
-            user = rapidjson.loads(session_data[1])
-            session = {
-                "key": key,
-                "session_id": session_data[0],
-                self.user_property: user
-            }
-            return session
-        except Exception as err:
-            print(err)
-            logging.debug("Django Session Decoding Error: {}".format(err))
-            return False
-
     async def reconnect(self):
         if not self.connection or not self.connection.is_connected():
             await self.connection.connection()
 
-    async def validate_user(self, login: str = None):
-        # get the user based on Model
-        search = {
-            self.userid_attribute: login
-        }
-        try:
-            user = await self.get_user(**search)
-            return user
-        except UserDoesntExists as err:
-            raise UserDoesntExists(f'User {login} doesnt exists')
-        except Exception as err:
-            raise Exception(err)
-        return None
-
     async def check_credentials(self, request):
         try:
-            sessionid = await self.get_payload(request)
-            logging.debug(f'Session ID: {sessionid}')
-        except Exception:
+            tenant, token = await self.get_payload(request)
+            logging.debug(f'Tenant ID: {tenant}')
+        except Exception as err:
             raise NavException(err, state=400)
-        if not sessionid:
+        if not token:
             raise InvalidAuth('Invalid Credentials', state=401)
         else:
-            # getting user information
-            # TODO: making the validation of token and expiration
-            try:
-                data = await self.validate_session(key=sessionid)
-            except Exception as err:
+            payload = jwt.decode(
+                token,
+                PARTNER_KEY,
+                algorithms=[JWT_ALGORITHM],
+                leeway=30
+            )
+            logging.debug(f'Decoded Token: {payload!s}')
+            data = await self.check_token_info(request, tenant, payload)
+            if not data:
                 raise InvalidAuth(f'Invalid Session: {err!s}', state=401)
+            # getting user information
             # making validation
             try:
-                u = data[self.user_property]
-                username = u[self.userid_attribute]
+                u = data['name']
+                username = data['partner']
+                grants = data['grants']
+                programs = data['programs']
             except KeyError as err:
                 print(err)
                 raise InvalidAuth(
-                    f'Missing {self.userid_attribute} attribute: {err!s}',
+                    f'Missing attributes for Partner Token: {err!s}',
                     state=401
                 )
+            # TODO: Validate that partner (tenants table):
+            # try:
+            #     user = await self.validate_user(
+            #         login=username
+            #     )
+            # except UserDoesntExists as err:
+            #     raise UserDoesntExists(err)
+            # except Exception as err:
+            #     raise NavException(err, state=500)
             try:
-                user = await self.validate_user(
-                    login=username
-                )
-            except UserDoesntExists as err:
-                raise UserDoesntExists(err)
-            except Exception as err:
-                raise NavException(err, state=500)
-            try:
-                userdata = self.get_userdata(user)
-                userdata['session'] = data
+                user = {
+                  'name': data['name'],
+                  'partner': username,
+                  'issuer': 'Mobileinsight',
+                  'programs': programs,
+                  'grants': grants,
+                  'tenant': tenant
+                }
+                userdata = dict(data)
                 # Create the User session and returned.
                 session = await self._session.create_session(
                     request,
                     user,
                     userdata
                 )
-                payload = {
-                    self.user_property: user[self.userid_attribute],
-                    self.username_attribute: user[self.username_attribute],
-                    'user_id': user[self.userid_attribute]
-                }
-                token = self.create_jwt(data=payload)
-                return {'token': token}
+                session['partner'] = username
+                session['tenant'] = tenant
+                session['programs'] = programs
+                token = self.create_jwt(data=user)
+                return {'token': f'{tenant}:{token}'}
             except Exception as err:
                 print(err)
                 return False
@@ -166,27 +146,28 @@ class TokenAuth(BaseAuthBackend):
         """ Authenticate, refresh or return the user credentials."""
         pass
 
-    async def get_token_info(self, request, tenant, payload):
+    async def check_token_info(self, request, tenant, payload):
+        if not self.connection:
+            await self.reconnect()
         try:
             name = payload['name']
             partner = payload['partner']
         except KeyError as err:
-            return [False, False]
+            return False
         sql = f"""
-        SELECT grants FROM troc.api_keys
+        SELECT name, partner, grants, programs FROM troc.api_keys
         WHERE name='{name}' AND partner='{partner}'
         AND enabled = TRUE AND revoked = FALSE AND '{tenant}'= ANY(programs)
         """
         try:
             result, error = await self.connection.queryrow(sql)
             if error or not result:
-                return [False, False]
+                return False
             else:
-                grants = result['grants']
-                return [partner, grants]
+                return result
         except Exception as err:
             logging.exception(err)
-            return [False, False]
+            return False
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):
@@ -204,15 +185,15 @@ class TokenAuth(BaseAuthBackend):
                         leeway=30
                     )
                     logging.debug(f'Decoded Token: {payload!s}')
-                    partner, grants = await self.get_token_info(request, tenant, payload)
-                    if not partner:
+                    result = await self.check_token_info(request, tenant, payload)
+                    if not result:
                         raise web.HTTPUnauthorized(
                             body='Not Authorized',
                         )
                     else:
                         session = await self._session.get_session(request)
-                        session['grants'] = grants
-                        session['partner'] = partner
+                        session['grants'] = result['grants']
+                        session['partner'] = result['partner']
                         session['tenant'] = tenant
                 except (jwt.DecodeError) as err:
                     raise web.HTTPBadRequest(

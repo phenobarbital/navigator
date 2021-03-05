@@ -38,6 +38,7 @@ HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split
 DOMAIN = config.get('DOMAIN', fallback='dev.local')
 
 # Debug
+#
 DEBUG = config.getboolean("DEBUG", fallback=True)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
@@ -61,10 +62,8 @@ if DEBUG and LOCAL_DEVELOPMENT:
     SSL_CERT = None
     SSL_KEY = None
     PREFERRED_URL_SCHEME = "http"
-    CREDENTIALS_REQUIRED = False
     ENABLE_TOKEN_APP = False
 else:
-    CREDENTIALS_REQUIRED = True
     if PRODUCTION == False and DEBUG == True:
         ENV = "development"
         CSRF_ENABLED = False
@@ -189,8 +188,7 @@ Authentication System
 """
 NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
 AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
-if not CREDENTIALS_REQUIRED:
-    CREDENTIALS_REQUIRED = config.get('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+CREDENTIALS_REQUIRED = config.getboolean('AUTH_CREDENTIALS_REQUIRED', fallback=False)
 NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
 NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
 USER_MAPPING = {
@@ -232,6 +230,7 @@ Config dict for aiohttp
 Context = {
     "DEBUG": DEBUG,
     "DEVELOPMENT": (not PRODUCTION),
+    "LOCAL_DEVELOPMENT": LOCAL_DEVELOPMENT,
     "PRODUCTION": PRODUCTION,
     "SECRET_KEY": SECRET_KEY,
     "env": ENV,

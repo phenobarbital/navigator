@@ -17,7 +17,6 @@ import jinja2
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web import middleware
-from aiojobs.aiohttp import setup, spawn
 from asyncdb import AsyncPool
 from asyncdb.providers.redis import redis
 
@@ -115,7 +114,6 @@ class AppHandler(ABC):
     _middleware: Any = None
     auto_home: bool = True
     enable_notify: bool = False
-    enable_aiojobs: bool = False
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
@@ -193,9 +191,6 @@ class AppHandler(ABC):
         configure.
             making configuration of routes
         """
-        if self.enable_aiojobs:
-            # Adding setup and support for aiojobs
-            setup(self.app)
         if self.enable_static:
             # adding statics
             # TODO: can personalize the path

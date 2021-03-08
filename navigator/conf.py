@@ -29,7 +29,6 @@ SERVICES_DIR = BASE_DIR.joinpath("services")
 Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
-PRODUCTION = config.getboolean("PRODUCTION", fallback=True)
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 # SECRET_KEY = config.get('TROC_KEY')
@@ -41,6 +40,7 @@ DOMAIN = config.get('DOMAIN', fallback='dev.local')
 # Debug
 #
 DEBUG = config.getboolean("DEBUG", fallback=True)
+PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
 

@@ -27,10 +27,14 @@ JWT_ALGORITHM = JWT_ALGORITHM
 JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 
 exclude_list = (
+    '/static/',
     '/api/v1/login',
     '/api/v1/logout',
     '/login',
-    '/logout'
+    '/logout',
+    '/signin',
+    '/signout',
+    '/_debug/'
 )
 
 
@@ -136,9 +140,10 @@ class BaseAuthBackend(ABC):
     async def authorization_backends(self, app, handler, request):
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
             return await handler(request)
-        # avoid authorization backend on excluded methods:
+        # avoid authorization on exclude list
         if request.path in exclude_list:
             return handler(request)
+        # avoid authorization backend on excluded methods:
         if request.method == hdrs.METH_OPTIONS:
             return handler(request)
         # logic for authorization backends

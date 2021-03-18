@@ -99,8 +99,13 @@ class Application(object):
     _loop = None
     version = "0.0.1"
     enable_swagger: bool = True
+    disable_debugtoolbar: bool = True
 
-    def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
+    def __init__(
+        self, app: AppHandler = None,
+        *args: typing.Any,
+        **kwargs: typing.Any
+    ):
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -363,14 +368,15 @@ class Application(object):
             )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
-                import aiohttp_debugtoolbar
-                from aiohttp_debugtoolbar import toolbar_middleware_factory
-                aiohttp_debugtoolbar.setup(
-                    app,
-                    hosts=[self.host,'127.0.0.1', '::1'],
-                    enabled=True,
-                    path_prefix='/_debug'
-                )
+                if self.disable_debugtoolbar is False:
+                    import aiohttp_debugtoolbar
+                    from aiohttp_debugtoolbar import toolbar_middleware_factory
+                    aiohttp_debugtoolbar.setup(
+                        app,
+                        hosts=[self.host,'127.0.0.1', '::1'],
+                        enabled=True,
+                        path_prefix='/_debug'
+                    )
             if self._reload:
                 runner(
                     app=app,

@@ -25,14 +25,13 @@ from aiohttp.web_exceptions import (
 )
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
+from asyncdb.meta import asyncORM
 from asyncdb.utils.models import Model
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
 from navconfig.logging import logging_config, loglevel
 
-#from navigator.libs.encoders import
-#from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
-
+from navigator.libs import SafeDict
 
 dictConfig(logging_config)
 
@@ -134,9 +133,9 @@ class BaseHandler(CorsViewMixin):
             **kwargs,
         }
         if state == 500:  # bad request
-            obj = HTTPInternalServerError(**args)
+            obj = web.HTTPInternalServerError(**args)
         else:
-            obj = HTTPServerError(**args)
+            obj = web.HTTPServerError(**args)
         for header, value in headers.items():
             obj.headers[header] = value
         return obj
@@ -670,7 +669,6 @@ class ModelView(BaseView):
             return self.error(
                 request=self.request,
                 response="Cannot Update row without JSON Data",
-                exception=err,
                 state=406
             )
         if len(args) > 0:
@@ -762,7 +760,6 @@ class ModelView(BaseView):
             return self.error(
                 request=self.request,
                 response="Cannot Insert a row without post data",
-                exception=err,
                 state=406
             )
         parameters = {**params, **post}

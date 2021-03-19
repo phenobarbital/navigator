@@ -94,7 +94,7 @@ class TokenAuth(BaseAuthBackend):
             logging.debug(f'Decoded Token: {payload!s}')
             data = await self.check_token_info(request, tenant, payload)
             if not data:
-                raise InvalidAuth(f'Invalid Session: {err!s}', state=401)
+                raise InvalidAuth(f'Invalid Session: {token!s}', state=401)
             # getting user information
             # making validation
             try:

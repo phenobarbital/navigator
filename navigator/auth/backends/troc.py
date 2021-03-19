@@ -98,7 +98,7 @@ class TrocAuth(BaseAuthBackend):
     async def check_credentials(self, request):
         try:
             troctoken = await self.get_payload(request)
-        except Exception:
+        except Exception as err:
             raise NavException(err, state=400)
         if not troctoken:
             raise InvalidAuth('Invalid Credentials', state=401)

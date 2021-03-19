@@ -4,6 +4,7 @@ import json
 from functools import wraps
 from pathlib import Path
 
+import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 from aiohttp.http_exceptions import HttpBadRequest
 from aiohttp.web import Request, Response
@@ -26,6 +27,7 @@ async def channel_handler(request):
     print("Websocket connection starting for channel {}".format(channel))
     ws = web.WebSocketResponse()
     await ws.prepare(request)
+    #TODO: connection is not defined, I dont understand this code
     socket = {"ws": ws, "conn": connection}
     request.app["websockets"].append(socket)
     print(socket)

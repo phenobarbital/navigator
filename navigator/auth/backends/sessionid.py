@@ -101,7 +101,7 @@ class SessionIDAuth(BaseAuthBackend):
         try:
             sessionid = await self.get_payload(request)
             logging.debug(f'Session ID: {sessionid}')
-        except Exception:
+        except Exception as err:
             raise NavException(err, state=400)
         if not sessionid:
             raise InvalidAuth('Invalid Credentials', state=401)

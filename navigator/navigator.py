@@ -36,6 +36,8 @@ from navigator.conf import (
     STATIC_DIR,
     Context,
     config,
+    SSL_CERT,
+    SSL_KEY
 )
 
 from navigator.applications import AppBase, AppHandler, app_startup
@@ -110,7 +112,7 @@ class Application(object):
         try:
             self._loop = asyncio.get_event_loop()
         except RuntimeError:
-            logger.debug(
+            logging.error(
                 "Couldn't get event loop for current thread. Creating a new event loop to be used!"
             )
             self._loop = asyncio.new_event_loop()

@@ -14,6 +14,8 @@ from typing import Any, Callable, Dict, List
 import aiohttp_cors
 import aiohttp_jinja2
 import jinja2
+
+import aiohttp
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web import middleware

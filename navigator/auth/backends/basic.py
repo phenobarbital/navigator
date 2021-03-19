@@ -97,8 +97,8 @@ class BasicAuth(BaseAuthBackend):
         elif ctype in ('multipart/mixed', 'application/x-www-form-urlencoded'):
             data = await request.post()
             if len(data) > 0:
-                user = post.get(self.user_attribute, None)
-                password = post.get(self.pwd_atrribute, None)
+                user = data.get(self.user_attribute, None)
+                password = data.get(self.pwd_atrribute, None)
                 return [user, password]
             else:
                 return None
@@ -116,7 +116,7 @@ class BasicAuth(BaseAuthBackend):
     async def check_credentials(self, request):
         try:
             user, pwd = await self.get_payload(request)
-        except Exception:
+        except Exception as err:
             raise NavException(err, state=400)
         if not pwd and not user:
             raise InvalidAuth('Invalid Credentials', state=401)

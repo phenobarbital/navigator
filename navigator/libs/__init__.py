@@ -2,15 +2,8 @@ import os
 import sys
 from datetime import datetime
 from pathlib import Path
-
-import asyncpg
-
 from navigator.conf import BASE_DIR
-
-try:
-    import ujson as json
-except ImportError:
-    import json
+import json
 
 
 class SafeDict(dict):

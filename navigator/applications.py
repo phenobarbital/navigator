@@ -88,7 +88,11 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             app_class = importlib.import_module(app_name, package="apps")
             obj = getattr(app_class, name)
             instance = obj(context, **kwargs)
-            app.add_subapp("/{}/".format(name), instance.App)
+            domain = getattr(instance, 'domain', None)
+            if domain:
+                app.add_domain(domain, instance.App)
+            else:
+                app.add_subapp("/{}/".format(name), instance.App)
             # TODO: build automatic documentation
         except ImportError as err:
             print(err)
@@ -312,6 +316,7 @@ class AppConfig(AppHandler):
     path: Path = None
     _middleware = None
     enable_notify: bool = False
+    domain: str = ''
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
@@ -358,8 +363,9 @@ class AppConfig(AppHandler):
             "server_settings": {
                 'application_name': f'NAV-{self._name!s}',
                 'client_min_messages': 'notice',
+                'max_parallel_workers': '24',
                 'jit': 'off',
-                'statement_timeout': '36000'
+                'statement_timeout': '3600000'
             }
         }
         pool = AsyncPool(
@@ -427,6 +433,7 @@ class AppConfig(AppHandler):
             print(err)
             return False
         for route in routes:
+            # print(route, route.method)
             if inspect.isclass(route.handler) and issubclass(
                 route.handler, AbstractView
             ):
@@ -438,16 +445,18 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                self.cors.add(r, webview=True)
+                if route.method != 'OPTIONS':
+                    self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
                 self.cors.add(r, webview=True)
             else:
+                # print('HERE', route.url, route.handler, route.name, route.method)
                 if not route.method:
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r)
+                    # self.cors.add(r)
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
@@ -479,4 +488,4 @@ class AppConfig(AppHandler):
                             )
                         )
                         return False
-                    self.cors.add(r)
+                    # self.cors.add(r)

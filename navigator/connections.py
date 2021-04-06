@@ -138,7 +138,7 @@ class PostgresPool(AbstractConnection):
         # passing the configuration
         self.conn.setup_func = self.configure
 
-    async def configure(self):
+    async def configure(self, conn):
         try:
             def _encoder(value):
                 val = bytes(json.dumps(value, cls=BaseEncoder).encode('utf-8'))

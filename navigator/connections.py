@@ -19,11 +19,11 @@ class AbstractConnection(object):
     def __init__(
         self,
         driver: str = 'pg',
-        dsn: str,
+        dsn: str = '',
+        name: str = '',
         init: Callable = None,
         startup: Callable = None,
         shutdown: Callable = None,
-        name: str = '',
         **kwargs
     ):
         self.driver = driver

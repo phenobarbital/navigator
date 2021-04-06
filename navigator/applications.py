@@ -30,6 +30,7 @@ from navigator.conf import (
     INSTALLED_APPS,
     STATIC_DIR
 )
+from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
@@ -358,31 +359,38 @@ class AppConfig(AppHandler):
     async def create_connection(self, app, dsn: str = ''):
         if not dsn:
             dsn = app["config"]["asyncpg_url"]
-        kwargs = {
-            'min_size': 10,
-            "server_settings": {
-                'application_name': f'NAV-{self._name!s}',
-                'client_min_messages': 'notice',
-                'max_parallel_workers': '24',
-                'jit': 'off',
-                'statement_timeout': '3600000'
-            }
-        }
-        pool = AsyncPool(
-            "pg",
+        # kwargs = {
+        #     'min_size': 10,
+        #     "server_settings": {
+        #         'application_name': ,
+        #         'client_min_messages': 'notice',
+        #         'max_parallel_workers': '24',
+        #         'jit': 'on',
+        #         'statement_timeout': '3600000'
+        #     }
+        # }
+        pool = PostgresPool(
             dsn=dsn,
-            loop=self._loop,
-            timeout=36000,
-            **kwargs
+            name=f'NAV-{self._name!s}',
+            loop=self._loop
         )
+        # pool = AsyncPool(
+        #     "pg",
+        #     dsn=dsn,
+        #     loop=self._loop,
+        #     timeout=36000,
+        #     **kwargs
+        # )
         try:
-            await pool.connect()
-            app["database"] = pool
+            await pool.startup(app=app)
+            app['database'] = pool.connection()
+            # await pool.connect()
+            # app["database"] = pool
         except Exception as err:
             print(err)
             raise Exception(err)
         if self.enable_notify is True:
-            await self.open_connection(pool, app)
+            await self.open_connection(app)
 
     async def close_connection(self, conn):
         try:
@@ -398,11 +406,11 @@ class AppConfig(AppHandler):
             logging.error("Error closing Interface connection {}".format(err))
 
 
-    async def open_connection(self, pool, app, listener: Callable = None):
+    async def open_connection(self, app, listener: Callable = None):
         if not listener:
             listener = self.listener
         try:
-            conn = await pool.acquire()
+            conn = await app["database"].acquire()
             app['connection'] = conn
             if conn:
                 if self.enable_notify:

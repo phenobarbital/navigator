@@ -359,33 +359,14 @@ class AppConfig(AppHandler):
     async def create_connection(self, app, dsn: str = ''):
         if not dsn:
             dsn = app["config"]["asyncpg_url"]
-        # kwargs = {
-        #     'min_size': 10,
-        #     "server_settings": {
-        #         'application_name': ,
-        #         'client_min_messages': 'notice',
-        #         'max_parallel_workers': '24',
-        #         'jit': 'on',
-        #         'statement_timeout': '3600000'
-        #     }
-        # }
         pool = PostgresPool(
             dsn=dsn,
             name=f'NAV-{self._name!s}',
             loop=self._loop
         )
-        # pool = AsyncPool(
-        #     "pg",
-        #     dsn=dsn,
-        #     loop=self._loop,
-        #     timeout=36000,
-        #     **kwargs
-        # )
         try:
             await pool.startup(app=app)
             app['database'] = pool.connection()
-            # await pool.connect()
-            # app["database"] = pool
         except Exception as err:
             print(err)
             raise Exception(err)

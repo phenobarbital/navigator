@@ -1,0 +1,136 @@
+"""Connection Manager for Navigator."""
+
+import logging
+
+from asyncdb import AsyncPool
+from asyncdb.providers import BasePool, BaseProvider
+from typing import Dict, List, Callable, Optional, Iterable
+
+from settings.settings import (
+    TIMEZONE
+)
+
+class AbstractConnection(object):
+    driver: str = 'pg'
+    pool_based: bool = True
+    _loop = None
+    timeout: int = 60
+
+    def __init__(
+        self,
+        driver: str = 'pg',
+        dsn: str,
+        init: Callable = None,
+        startup: Callable = None,
+        shutdown: Callable = None,
+        name: str = '',
+        **kwargs
+    ):
+        self.driver = driver
+        if 'loop' in kwargs:
+            self._loop = kwargs['loop']
+            del kwargs['loop']
+        if init:
+            self._init = init
+        if startup:
+            self._startup = startup
+        if shutdown:
+            self._shutdown = shutdown
+
+        if self.pool_based:
+            self.conn = AsyncPool(
+                self.driver,
+                dsn=dsn,
+                timeout=self.timeout,
+                **kwargs
+            )
+        else:
+            self.conn = AsyncDB(
+                self.driver,
+                dsn=dsn,
+                timeout=self.timeout,
+                **kwargs
+            )
+        # configure connection
+        self.configure()
+
+    def connection(self):
+        return self.conn
+
+    def configure(self):
+        if self._init and self.pool_based:
+            self.conn.setup_func = self._init
+
+    def is_connected(self):
+        return bool(self._connected)
+
+    async def startup(self, **kwargs):
+        if 'app' in kwargs:
+            app = kwargs['app']
+            if app is not None:
+                if 'database' in app:
+                    # re-use the database connection
+                    self.conn = app['database']
+        if self.pool_based:
+            await self.conn.connect()
+        else:
+            await self.conn.connection()
+        if self._startup:
+            await self._startup(self.conn, **kwargs)
+        self._connected = True
+
+    async def shutdown(self, **kwargs):
+        if self._shutdown:
+            await self._shutdown(self.conn, **kwargs)
+        logging.debug('Closing all connections')
+        if self.pool_based:
+            logging.debug('Closing DB Pool')
+            await self.conn.wait_close(gracefully=False, timeout=5)
+        else:
+            await self.conn.close()
+        logging.debug('Exiting ...')
+
+
+class PostgresPool(AbstractConnection):
+    driver: str = 'pg'
+    pool_based: bool = True
+    timeout: int = 3600
+
+    def __init__(
+        self,
+        dsn: str,
+        name: str = '',
+        init: Callable = None,
+        startup: Callable = None,
+        shutdown: Callable = None,
+        **kwargs
+    ):
+        kwargs = {
+            'min_size': 10,
+            "server_settings": {
+                'application_name': name,
+                'client_min_messages': 'notice',
+                'max_parallel_workers': '24',
+                'jit': 'on',
+                'statement_timeout': '3600000',
+                'timezone': TIMEZONE
+            }
+        }
+        if 'loop' in kwargs:
+            self._loop = kwargs['loop']
+            del kwargs['loop']
+        if init:
+            self._init = init
+        if startup:
+            self._startup = startup
+        if shutdown:
+            self._shutdown = shutdown
+
+        self.conn = AsyncPool(
+            self.driver,
+            dsn=dsn,
+            timeout=self.timeout,
+            **kwargs
+        )
+        if self._init:
+            self.conn.setup_func = self._init

@@ -18,6 +18,9 @@ class AbstractConnection(object):
     pool_based: bool = True
     _loop = None
     timeout: int = 60
+    _init: Callable = None
+    _startup: Callable = None
+    _shutdown: Callable = None
 
     def __init__(
         self,

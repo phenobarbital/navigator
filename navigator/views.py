@@ -295,7 +295,10 @@ class BaseView(web.View, BaseHandler, AbstractView):
     async def connect(self, request):
         #await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
-        self._redis = await request.app["redis"].acquire()
+        try:
+            self._redis = await request.app["redis"].acquire()
+        except Exception as err:
+            logger.debug(err)
 
     async def close(self):
         # if self._mcache and self._mcache.is_connected():

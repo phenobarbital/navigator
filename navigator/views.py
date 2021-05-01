@@ -112,7 +112,7 @@ class BaseHandler(CorsViewMixin):
                 # its a function
                 jsonfn = partial(rapidjson.dumps, default=cls)
         else:
-            jsonfn = rapidjson.dumps
+            jsonfn = partial(json.dumps, cls=BaseEncoder)
         obj = web.json_response(response, status=state, dumps=jsonfn)
         for header, value in headers.items():
             obj.headers[header] = value

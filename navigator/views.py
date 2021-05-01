@@ -70,8 +70,13 @@ class BaseHandler(CorsViewMixin):
 
     # function returns
     def no_content(
-        self, request, headers, content_type: str = "application/json"
+        self,
+        request: web.Request = None,
+        headers: dict = {},
+        content_type: str = "application/json"
     ) -> web.Response:
+        if not request:
+            request = self.request
         response = HTTPNoContent(content_type=content_type)
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
@@ -80,12 +85,14 @@ class BaseHandler(CorsViewMixin):
 
     def response(
         self,
-        request: web.Request,
+        request: web.Request = None,
         response: str = "",
         state: int = 200,
         headers: dict = {},
         **kwargs
     ) -> web.Response:
+        if not request:
+            request = self.request
         args = {"status": state, "content_type": "application/json", **kwargs}
         if isinstance(response, dict):
             args["text"] = json.dumps(response, cls=DefaultEncoder)
@@ -113,7 +120,7 @@ class BaseHandler(CorsViewMixin):
 
     def critical(
         self,
-        request: web.Request,
+        request: web.Request = None,
         exception: Exception = None,
         traceback=None,
         state: int = 500,
@@ -121,6 +128,8 @@ class BaseHandler(CorsViewMixin):
         **kwargs
     ) -> web.Response:
         # TODO: process the exception object
+        if not request:
+            request = self.request
         response_obj = {
             "status": "Failed",
             "reason": str(exception),
@@ -142,7 +151,7 @@ class BaseHandler(CorsViewMixin):
 
     def error(
         self,
-        request: dict,
+        request: web.Request = None,
         response: dict = {},
         exception: Exception = None,
         state: int = 400,
@@ -151,6 +160,8 @@ class BaseHandler(CorsViewMixin):
     ) -> web.Response:
         # TODO: process the exception object
         response_obj = {"status": "Failed"}
+        if not request:
+            request = self.request
         if exception:
             response_obj["reason"] = str(exception)
         args = {**kwargs}
@@ -191,12 +202,14 @@ class BaseHandler(CorsViewMixin):
 
     def not_allowed(
         self,
-        request: web.Request,
+        request: web.Request = None,
         response: dict = {},
         headers: dict = {},
         allowed: dict = {},
         **kwargs
     ) -> web.Response:
+        if not request:
+            request = self.request
         if not allowed:
             allow = self._allowed
         else:
@@ -232,7 +245,9 @@ class BaseHandler(CorsViewMixin):
         finally:
             return body
 
-    async def json_data(self, request):
+    async def json_data(self, request: web.Request = None):
+        if not request:
+            request = self.request
         return await request.json()
 
     def get_arguments(self, request: web.Request = None) -> dict:
@@ -258,6 +273,7 @@ class BaseHandler(CorsViewMixin):
         return params
 
     get_args = get_arguments
+
 
 class BaseView(web.View, BaseHandler, AbstractView):
     #_mcache: Any = None
@@ -289,8 +305,8 @@ class BaseView(web.View, BaseHandler, AbstractView):
             await self._connection.close()
             self._connection = None
 
-    async def json_data(self):
-        return await self.request.json()
+    # async def json_data(self):
+    #     return await self.request.json()
 
     async def post_data(self) -> dict:
         params = {}
@@ -314,12 +330,12 @@ class BaseView(web.View, BaseHandler, AbstractView):
             print(params)
             return params
 
-    def no_content(self, headers: Dict) -> web.Response:
-        response = HTTPNoContent(content_type="application/json")
-        response.headers["Pragma"] = "no-cache"
-        for header, value in headers.items():
-            response.headers[header] = value
-        return response
+    # def no_content(self, headers: Dict) -> web.Response:
+    #     response = HTTPNoContent(content_type="application/json")
+    #     response.headers["Pragma"] = "no-cache"
+    #     for header, value in headers.items():
+    #         response.headers[header] = value
+    #     return response
 
 
 class DataView(BaseView):

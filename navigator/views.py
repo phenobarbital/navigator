@@ -298,7 +298,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
         try:
             self._redis = await request.app["redis"].acquire()
         except Exception as err:
-            logger.debug(err)
+            self.logger.debug(err)
 
     async def close(self):
         # if self._mcache and self._mcache.is_connected():

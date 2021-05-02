@@ -257,6 +257,20 @@ class BaseHandler(CorsViewMixin):
             request = self.request
         return await request.json()
 
+    def match_parameters(self, request: web.Request = None) -> dict:
+        params = {}
+        if not request:
+            request = self.request
+        for arg in request.match_info:
+            try:
+                val = request.match_info.get(arg)
+                object.__setattr__(self, arg, val)
+                params[arg] = val
+            except AttributeError:
+                pass
+        return params
+
+
     def get_arguments(self, request: web.Request = None) -> dict:
         params = {}
         if not request:
@@ -358,13 +372,6 @@ class BaseView(web.View, BaseHandler, AbstractView):
         finally:
             print(params)
             return params
-
-    # def no_content(self, headers: Dict) -> web.Response:
-    #     response = HTTPNoContent(content_type="application/json")
-    #     response.headers["Pragma"] = "no-cache"
-    #     for header, value in headers.items():
-    #         response.headers[header] = value
-    #     return response
 
 
 class DataView(BaseView):

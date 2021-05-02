@@ -35,7 +35,7 @@ from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
-from navigator.resources import home, ping
+from navigator.resources import home  # ping
 from navigator.functions import cPrint
 import asyncio
 import uvloop
@@ -79,7 +79,7 @@ class path(object):
 
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
     # Configure the main App
-    app.router.add_route("GET", "/ping", ping)
+    # app.router.add_route("GET", "/ping", ping)
     # index
     app.router.add_get("/", home)
     for app_name in app_list:
@@ -142,7 +142,7 @@ class AppHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         # TODO: making automatic discovery of routes
         if self.auto_home:
-            self.app.router.add_route("GET", "/ping", ping)
+            # self.app.router.add_route("GET", "/ping", ping)
             self.app.router.add_route("GET", "/", home)
 
     def CreateApp(self) -> web.Application:
@@ -264,7 +264,7 @@ class AppHandler(ABC):
                 else:
                     cors.add(route)
             except ValueError as err:
-                # logging.warning(f"Warning on Adding CORS: {err!r}")
+                logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
     async def on_prepare(self, request, response):
@@ -333,7 +333,7 @@ class AppConfig(AppHandler):
         # set the setup_routes
         self.setup_routes()
         # setup cors:
-        # self.setup_cors(self.cors)
+        self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
             setup_swagger(
@@ -433,22 +433,12 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r, webview=True)
                 elif route.method == "*":
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                # if route.method != 'OPTIONS':
-                #     try:
-                #         self.cors.add(r, webview=True)
-                #     except Exception as err:
-                #         print(err)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
-                try:
-                    self.cors.add(r, webview=True)
-                except Exception as err:
-                    print(err)
             else:
                 # print('HERE', route.url, route.handler, route.name, route.method)
                 if not route.method:
@@ -487,4 +477,4 @@ class AppConfig(AppHandler):
                             )
                         )
                         return False
-                    self.cors.add(r)
+                    # self.cors.add(r)

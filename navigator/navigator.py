@@ -52,6 +52,9 @@ from navigator.handlers import nav_exception_handler, shutdown
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 
+# get the authentication library
+from navigator.auth import AuthHandler
+
 __version__ = "1.2.0"
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -193,8 +196,6 @@ class Application(object):
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
-        # get the authentication library
-        from navigator.auth import AuthHandler
         app = self.get_app()
         self._auth = AuthHandler(
             backend=NAV_AUTH_BACKEND,

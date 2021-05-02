@@ -19,7 +19,7 @@ async def django_middleware(app, handler):
             session = request.headers.get("Sessionid", None)
         if session:
             try:
-                ss = get_session(request)
+                ss = await get_session(request)
                 print(ss)
             except Exception as err:
                 print(err)

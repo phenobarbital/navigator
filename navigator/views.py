@@ -398,7 +398,7 @@ class DataView(BaseView):
                 if error:
                     result = None
             except Exception as err:
-                print(err)
+                raise Exception(err)
             finally:
                 return result
 

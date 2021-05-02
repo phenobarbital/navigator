@@ -377,6 +377,7 @@ class DataView(BaseView):
     async def query(self, sql):
         result = None
         if self._connection:
+            self._lasterr = None
             try:
                 result, error = await self._connection.query(sql)
                 if error:
@@ -393,11 +394,14 @@ class DataView(BaseView):
     async def queryrow(self, sql):
         result = None
         if self._connection:
+            self._lasterr = None
             try:
                 result, error = await self._connection.queryrow(sql)
                 if error:
                     result = None
+                    self._lasterr = error
             except Exception as err:
+                self._lasterr = error
                 raise Exception(err)
             finally:
                 return result
@@ -405,6 +409,7 @@ class DataView(BaseView):
     async def execute(self, sql):
         result = None
         if self._connection:
+            self._lasterr = None
             try:
                 result, error = await self._connection.execute(sql)
                 if error:

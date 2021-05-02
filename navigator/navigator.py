@@ -8,19 +8,23 @@ from aiohttp import web
 import inspect
 import logging
 import signal
+import sockjs
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Any, Callable, Optional
 
-import sockjs
+# make asyncio use the event loop provided by uvloop
+import asyncio
+import uvloop
 from aiohttp import web
 from aiohttp.abc import AbstractView
+
+# Aiohttp Session
 from aiohttp_session import get_session
 from aiohttp_session import setup as setup_session
 from aiohttp_session.redis_storage import RedisStorage
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
-#from navigator.commands import cPrint
 
 from navigator.conf import (
     DEBUG,
@@ -45,18 +49,11 @@ from navigator.applications import AppBase, AppHandler, app_startup
 # Exception Handlers
 from navigator.handlers import nav_exception_handler, shutdown
 
-# get the authentication library
-from navigator.auth import AuthHandler
-
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 
-# make asyncio use the event loop provided by uvloop
-import asyncio
-import uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 __version__ = "1.2.0"
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 def get_version():
@@ -193,12 +190,11 @@ class Application(object):
         logging.basicConfig(
             format=logging_format, level=logging.INFO, datefmt="%Y:%m:%d %H:%M:%S"
         )
-        # logging.getLogger("asyncio").setLevel(logging.INFO)
-        # logging.getLogger("websockets").setLevel(logging.INFO)
-        # logging.getLogger("aiohttp.web").setLevel(logging.INFO)
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
+        # get the authentication library
+        from navigator.auth import AuthHandler
         app = self.get_app()
         self._auth = AuthHandler(
             backend=NAV_AUTH_BACKEND,

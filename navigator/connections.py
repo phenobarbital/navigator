@@ -9,9 +9,14 @@ from asyncdb import AsyncPool
 from asyncdb.providers import BasePool, BaseProvider
 from typing import Dict, List, Callable, Optional, Iterable
 
-from settings.settings import (
-    TIMEZONE
-)
+try:
+    from settings.settings import (
+        TIMEZONE
+    )
+except ImportError:
+    # Timezone (For parsedate)
+    TIMEZONE = 'America/New_York'
+
 
 class AbstractConnection(object):
     driver: str = 'pg'

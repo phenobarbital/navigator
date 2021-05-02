@@ -2,7 +2,6 @@ import base64
 import rapidjson
 from aiohttp import web
 from datetime import datetime, timedelta
-from aiohttp_session import get_session, new_session
 from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
@@ -18,11 +17,6 @@ async def django_middleware(app, handler):
             print(e)
             session = request.headers.get("Sessionid", None)
         if session:
-            try:
-                ss = await get_session(request)
-                print(ss)
-            except Exception as err:
-                print(err)
             redis = app['redis']
             try:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, session))

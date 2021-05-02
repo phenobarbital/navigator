@@ -415,8 +415,10 @@ class DataView(BaseView):
                 result, error = await self._connection.execute(sql)
                 if error:
                     result = None
+                    self._lasterr = err
             except Exception as err:
                 print(err)
+                self._lasterr = err
             finally:
                 return result
 

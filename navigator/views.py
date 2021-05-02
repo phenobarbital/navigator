@@ -43,6 +43,7 @@ class BaseHandler(CorsViewMixin):
     _loop = None
     logger: logging.Logger
     _lasterr = None
+    _allowed = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -216,7 +217,7 @@ class BaseHandler(CorsViewMixin):
             allow = allowed
         args = {
             "method": request.method,
-            "text": json.dumps(response),
+            "text": json.dumps(response, cls=BaseEncoder),
             "reason": "Method not Allowed",
             "content_type": "application/json",
             "allowed_methods": allow,

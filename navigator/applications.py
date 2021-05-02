@@ -162,6 +162,7 @@ class AppHandler(ABC):
             loop=self._loop,
             **middlewares
         )
+        # print(app)
         app['name'] = self._name
         self.cors = aiohttp_cors.setup(
             app,
@@ -263,7 +264,7 @@ class AppHandler(ABC):
                 else:
                     cors.add(route)
             except ValueError as err:
-                logging.warning("Warning Adding CORS: ", err)
+                # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
     async def on_prepare(self, request, response):
@@ -331,6 +332,8 @@ class AppConfig(AppHandler):
             aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(template_dir))
         # set the setup_routes
         self.setup_routes()
+        # setup cors:
+        # self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
             setup_swagger(
@@ -430,22 +433,29 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
+                    self.cors.add(r, webview=True)
                 elif route.method == "*":
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                if route.method != 'OPTIONS':
-                    self.cors.add(r, webview=True)
+                # if route.method != 'OPTIONS':
+                #     try:
+                #         self.cors.add(r, webview=True)
+                #     except Exception as err:
+                #         print(err)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
-                self.cors.add(r, webview=True)
+                try:
+                    self.cors.add(r, webview=True)
+                except Exception as err:
+                    print(err)
             else:
                 # print('HERE', route.url, route.handler, route.name, route.method)
                 if not route.method:
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r)
+                    # self.cors.add(r)
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(

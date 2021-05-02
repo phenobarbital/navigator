@@ -435,10 +435,7 @@ class AppConfig(AppHandler):
                         "*", route.url, route.handler, name=route.name
                     )
                 if route.method != 'OPTIONS':
-                    try:
-                        self.cors.add(r, webview=True)
-                    except ValueError:
-                        pass
+                    self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
                 self.cors.add(r, webview=True)
@@ -448,7 +445,7 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    # self.cors.add(r)
+                    self.cors.add(r)
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
@@ -480,4 +477,4 @@ class AppConfig(AppHandler):
                             )
                         )
                         return False
-                    # self.cors.add(r)
+                    self.cors.add(r)

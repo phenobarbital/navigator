@@ -274,6 +274,25 @@ class BaseHandler(CorsViewMixin):
 
     get_args = get_arguments
 
+    def data(self, request: web.Request = None) -> dict:
+        # only get post Data
+        params = {}
+        if not request:
+            request = self.request
+        try:
+            params = request.json()
+        except json.decoder.JSONDecodeError as err:
+            raise Exception(f'Invalid POST DATA: {err!s}')
+        # if any, mix with match_info data:
+        for arg in request.match_info:
+            try:
+                val = request.match_info.get(arg)
+                # object.__setattr__(self, arg, val)
+                params[arg] = val
+            except AttributeError:
+                pass
+        return params
+
 
 class BaseView(web.View, BaseHandler, AbstractView):
     #_mcache: Any = None

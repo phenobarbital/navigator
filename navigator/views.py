@@ -274,13 +274,13 @@ class BaseHandler(CorsViewMixin):
 
     get_args = get_arguments
 
-    def data(self, request: web.Request = None) -> dict:
+    async def data(self, request: web.Request = None) -> dict:
         # only get post Data
         params = {}
         if not request:
             request = self.request
         try:
-            params = request.json()
+            params = await request.json()
         except json.decoder.JSONDecodeError as err:
             raise Exception(f'Invalid POST DATA: {err!s}')
         # if any, mix with match_info data:

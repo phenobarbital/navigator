@@ -147,33 +147,6 @@ class PostgresPool(AbstractConnection):
         self.conn.setup_func = self.configure
 
     async def configure(self, conn):
-        # try:
-        #     def _encoder(value):
-        #         val = bytes(json.dumps(value, cls=BaseEncoder).encode('utf-8'))
-        #         val = b'\x01' + val
-        #         return val
-        #
-        #     def _decoder(value):
-        #         return json.loads(value[1:].decode('utf-8'))
-        #
-        #     await conn.set_type_codec(
-        #         'jsonb', encoder=_encoder, decoder=_decoder, schema='pg_catalog',format='binary'
-        #     )
-        #     await conn.set_type_codec(
-        #         'json', encoder=_encoder, decoder=_decoder, schema='pg_catalog',format='binary'
-        #     )
-        #     def _uuid_encoder(value):
-        #         if value:
-        #             val = uuid.UUID(value).bytes
-        #         else:
-        #             val = b''
-        #         return val
-        #
-        #     await conn.set_type_codec(
-        #         "uuid", encoder=_uuid_encoder, decoder=lambda u: pgproto.UUID(u), schema='pg_catalog', format='binary'
-        #     )
-        # except Exception as err:
-        #     raise Exception('Error configuring pgConnection: {}'.format(str(err)))
         # also, if exists this init connection, run
         if self._init:
             await self._init(conn)

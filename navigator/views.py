@@ -401,8 +401,9 @@ class DataView(BaseView):
                     result = None
                     self._lasterr = error
             except Exception as err:
-                self._lasterr = error
-                raise Exception(err)
+                print(err)
+                self._lasterr = err
+                # raise Exception(err)
             finally:
                 return result
 

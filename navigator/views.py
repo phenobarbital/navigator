@@ -181,8 +181,14 @@ class BaseHandler(CorsViewMixin):
             obj = web.HTTPForbidden(**args)
         elif state == 404:  # not found
             obj = web.HTTPNotFound(**args)
+        elif state == 406:
+            obj = web.HTTPNotAcceptable(**args)
+        elif state == 412:
+            obj = web.HTTPPreconditionFailed(**args)
+        elif state == 428:
+            obj = web.HTTPPreconditionRequired(**args)
         else:
-            obj = web.HTTPClientError(**args)
+            obj = web.HTTPBadRequest(**args)
         for header, value in headers.items():
             obj.headers[header] = value
         return obj

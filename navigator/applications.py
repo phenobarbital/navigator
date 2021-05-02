@@ -333,7 +333,7 @@ class AppConfig(AppHandler):
         # set the setup_routes
         self.setup_routes()
         # setup cors:
-        self.setup_cors(self.cors)
+        # self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
             setup_swagger(
@@ -414,6 +414,7 @@ class AppConfig(AppHandler):
         print("Notification from {}: {}, {}".format(channel, payload, args))
 
     def setup_routes(self):
+        """Setup Routes (URLS) pointing to paths on AppConfig."""
         # set the urls
         # TODO: automatic module loader
         try:
@@ -431,21 +432,51 @@ class AppConfig(AppHandler):
             ):
                 if not route.method:
                     r = self.app.router.add_view(
-                        route.url, route.handler, name=route.name
+                        route.url, route.handler
                     )
+                    # self.cors.add(r, webview=True)
                 elif route.method == "*":
                     r = self.app.router.add_route(
-                        "*", route.url, route.handler, name=route.name
+                        "*", route.url, route.handler
                     )
+                    # self.cors.add(r, webview=True)
+                else:
+                    if route.method == 'get':
+                        r = self.app.router.add_get(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == 'post':
+                        r = self.app.router.add_post(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == 'delete':
+                        r = self.app.router.add_post(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "patch":
+                        r = self.app.router.add_patch(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "put":
+                        r = self.app.router.add_put(
+                            route.url, route.handler, name=route.name
+                        )
+                    else:
+                        raise (
+                            "Unsupported Method for Route {}, program: {}".format(
+                                route.method, self._name
+                            )
+                        )
+                        return False
+                    self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
+                self.cors.add(r, webview=True)
             else:
-                # print('HERE', route.url, route.handler, route.name, route.method)
                 if not route.method:
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    # self.cors.add(r)
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
@@ -477,4 +508,4 @@ class AppConfig(AppHandler):
                             )
                         )
                         return False
-                    # self.cors.add(r)
+                    self.cors.add(r)

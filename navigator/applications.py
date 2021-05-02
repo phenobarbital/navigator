@@ -264,7 +264,7 @@ class AppHandler(ABC):
                 else:
                     cors.add(route)
             except ValueError as err:
-                logging.warning(f"Warning on Adding CORS: {err!r}")
+                # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
     async def on_prepare(self, request, response):

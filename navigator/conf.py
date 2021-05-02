@@ -7,13 +7,10 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, List, Tuple
-
 from cryptography import fernet
-
 # Import Config Class
 from navconfig import BASE_DIR, EXTENSION_DIR, config
 from navconfig.logging import logdir, loglevel, logging_config
-# QUERYSET_REDIS, asyncpg_url
 
 """
 Routes
@@ -102,6 +99,7 @@ from navconfig.conf import *
 """
 Main Database
 """
+TIMEZONE = config.get('TIMEZONE', fallback='America/New_York')
 PG_USER = config.get('DBUSER')
 PG_HOST = config.get('DBHOST', fallback='localhost')
 PG_PWD = config.get('DBPWD')
@@ -118,61 +116,7 @@ asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
 default_dsn = asyncpg_url
 
 """
-Applications
-"""
-INSTALLED_APPS: List = []
-DATABASES: Dict = {}
-
-if APP_DIR.is_dir():
-    for item in APP_DIR.iterdir():
-        # for item in os.listdir(APPS_DIR):
-        if item.name != "__pycache__":
-            if item.is_dir():
-                name = item.name
-                if not name in INSTALLED_APPS:
-                    app_name = "apps.{}".format(item.name)
-                    path = APP_DIR.joinpath(name)
-                    url_file = path.joinpath("urls.py")
-                    try:
-                        i = importlib.import_module(app_name, package="apps")
-                        if isinstance(i, ModuleType):
-                            # is a Navigator Program
-                            INSTALLED_APPS += (app_name,)
-                    except ImportError as err:
-                        print("ERROR: ", err)
-                        continue
-                    # schema configuration
-                    DATABASES[item.name] = {
-                        #"ENGINE": config.get("DBENGINE"),
-                        "NAME": PG_DATABASE,
-                        "USER": PG_USER,
-                        "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",public",
-                        },
-                        #'PARAMS': {
-                        #    'readonly': True,
-                        # },
-                        "SCHEMA": item.name,
-                        "PASSWORD": PG_PWD,
-                        "HOST": PG_HOST,
-                        "PORT": PG_PORT,
-                    }
-
-
-"""
-Per-Program Settings
-"""
-program: str
-for program in INSTALLED_APPS:
-    settings = "apps.{}.settings".format(program)
-    try:
-        i = importlib.import_module(settings)
-        globals()[program] = i
-    except ImportError as err:
-        pass
-
-"""
-Settings and Cache
+Auth and Cache
 """
 
 """
@@ -225,7 +169,7 @@ MEMCACHE_HOST = config.get('MEMCACHE_HOST', 'localhost')
 MEMCACHE_PORT = config.get('MEMCACHE_PORT', 11211)
 
 """
-Config dict for aiohttp
+Final: Config dict for aiohttp
 """
 Context = {
     "DEBUG": DEBUG,
@@ -234,8 +178,62 @@ Context = {
     "PRODUCTION": PRODUCTION,
     "SECRET_KEY": SECRET_KEY,
     "env": ENV,
-    "DATABASES": DATABASES,
     "cache_url": CACHE_URL,
     "asyncpg_url": asyncpg_url,
     "default_dsn": default_dsn
 }
+
+"""
+Applications
+"""
+INSTALLED_APPS: List = []
+DATABASES: Dict = {}
+
+if APP_DIR.is_dir():
+    for item in APP_DIR.iterdir():
+        # for item in os.listdir(APPS_DIR):
+        if item.name != "__pycache__":
+            if item.is_dir():
+                name = item.name
+                if not name in INSTALLED_APPS:
+                    app_name = "apps.{}".format(item.name)
+                    path = APP_DIR.joinpath(name)
+                    url_file = path.joinpath("urls.py")
+                    try:
+                        i = importlib.import_module(app_name, package="apps")
+                        if isinstance(i, ModuleType):
+                            # is a Navigator Program
+                            INSTALLED_APPS += (app_name,)
+                    except ImportError as err:
+                        print("ERROR: ", err)
+                        continue
+                    # schema configuration
+                    DATABASES[item.name] = {
+                        #"ENGINE": config.get("DBENGINE"),
+                        "NAME": PG_DATABASE,
+                        "USER": PG_USER,
+                        "OPTIONS": {
+                            "options": "-c search_path=" + item.name + ",public",
+                        },
+                        #'PARAMS': {
+                        #    'readonly': True,
+                        # },
+                        "SCHEMA": item.name,
+                        "PASSWORD": PG_PWD,
+                        "HOST": PG_HOST,
+                        "PORT": PG_PORT,
+                    }
+
+Context['DATABASES'] = DATABASES
+
+"""
+Per-Program Settings
+"""
+program: str
+for program in INSTALLED_APPS:
+    settings = "apps.{}.settings".format(program)
+    try:
+        i = importlib.import_module(settings)
+        globals()[program] = i
+    except ImportError as err:
+        pass

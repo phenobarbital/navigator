@@ -434,12 +434,10 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r, webview=True)
                 elif route.method == "*":
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r, webview=True)
                 else:
                     if route.method == 'get':
                         r = self.app.router.add_get(

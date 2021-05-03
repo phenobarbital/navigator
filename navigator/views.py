@@ -503,7 +503,7 @@ class DataView(BaseView):
                 #    where_string = ' AND %s' % (' AND '.join(where_cond))
                 # else:
                 where_string = " WHERE %s" % (" AND ".join(where_cond))
-                print("WHERE cond is %s" % where_string)
+                # print("WHERE cond is %s" % where_string)
                 sql = sentence.format_map(SafeDict(where_cond=where_string))
             elif type(where) == str:
                 where_string = where

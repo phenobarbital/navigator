@@ -43,7 +43,7 @@ class BaseHandler(CorsViewMixin):
     _loop = None
     logger: logging.Logger
     _lasterr = None
-    _allowed = ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+    _allowed = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(

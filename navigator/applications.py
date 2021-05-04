@@ -430,7 +430,12 @@ class AppConfig(AppHandler):
             if inspect.isclass(route.handler) and issubclass(
                 route.handler, AbstractView
             ):
-                if not route.method:
+                if route.method is None:
+                    r = self.app.router.add_view(
+                        route.url, route.handler, name=route.name
+                    )
+                    self.cors.add(r, webview=True)
+                elif not route.method:
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
@@ -448,7 +453,7 @@ class AppConfig(AppHandler):
                             route.url, route.handler, name=route.name
                         )
                     elif route.method == 'delete':
-                        r = self.app.router.add_post(
+                        r = self.app.router.add_delete(
                             route.url, route.handler, name=route.name
                         )
                     elif route.method == "patch":

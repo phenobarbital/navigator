@@ -755,26 +755,12 @@ class ModelView(BaseView):
             try:
                 # check if exists first:
                 query = await self.model.get(**args)
-                print('AQUI: ', query)
-                # if not query:
-                #     # object doesnt exists, need to be created:
-                #     result = await self.model.create([parameters])
-                #     query = await self.model.get(**parameters)
-                #     data = query.dict()
-                #     return self.model_response(data)
-                # else:
-                #     # update the existing:
-                #     qry = self.model(**post)
-                #     if qry.is_valid():
-                #         await qry.save()
-                #         query = await qry.fetch(**args)
-                #         data = query.dict()
-                #         return self.model_response(data)
-                #     else:
-                #         return self.error(
-                #             request=self.request,
-                #             response=f'Invalid data for Schema {self.Meta.tablename}'
-                #         )
+                if not query:
+                    # object doesnt exists, need to be created:
+                    result = await self.model.create([parameters])
+                    query = await self.model.get(**parameters)
+                    data = query.dict()
+                    return self.model_response(data)
             except Exception as err:
                 print(err)
                 return self.error(

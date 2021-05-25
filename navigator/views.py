@@ -604,21 +604,27 @@ class ModelView(BaseView):
     async def get_data(self, params, args):
         try:
             if len(params) > 0:
+                print('FILTER')
                 query = await self.model.filter(**params)
             elif len(args) > 0:
+                print('GET')
                 query = await self.model.get(**args)
                 return query.dict()
             else:
+                print('ALL')
                 query = await self.model.all()
             if query:
                 return [row.dict() for row in query]
             else:
                 raise NoDataFound
-        except Exception as err:
-            raise Exception(err)
+        except Exception:
+            raise
 
     def model_response(self, response, headers: dict = {}):
         # TODO: check if response is empty
+        if not response:
+            return self.no_content(headers=headers)
+        # return data only
         return self.json_response(
             response,
             cls=BaseEncoder,
@@ -657,12 +663,12 @@ class ModelView(BaseView):
 
     async def get(self):
         args, params = await self.get_parameters()
+        # print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
             return self.model_response(data)
-        except NoDataFound as err:
-            print(err)
+        except NoDataFound:
             headers = {
                     'X-STATUS': 'EMPTY',
                     'X-MESSAGE': f'Data on {self.Meta.tablename} not Found'

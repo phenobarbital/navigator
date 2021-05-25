@@ -736,20 +736,51 @@ class ModelView(BaseView):
                 response="Cannot Update row without JSON Data",
                 state=406
             )
+        # updating several at the same time:
+        if type(post) == list:
+            # mass-update using arguments:
+            try:
+                result = self.model.update(args, **post)
+                data = [row.dict() for row in result]
+                return self.model_response(data)
+            except Exception as err:
+                trace = traceback.format_exc()
+                return self.critical(
+                    request=self.request,
+                    exception=err,
+                    traceback=trace
+                )
         if len(args) > 0:
             parameters = {**args, **post}
             try:
                 # check if exists first:
                 query = await self.model.get(**args)
-                if not query:
-                    # object doesnt exists, need to be created:
-                    result = await self.model.create([parameters])
-                    query = await self.model.get(**parameters)
-                    data = query.dict()
-                    return self.model_response(data)
+                print('AQUI: ', query)
+                # if not query:
+                #     # object doesnt exists, need to be created:
+                #     result = await self.model.create([parameters])
+                #     query = await self.model.get(**parameters)
+                #     data = query.dict()
+                #     return self.model_response(data)
+                # else:
+                #     # update the existing:
+                #     qry = self.model(**post)
+                #     if qry.is_valid():
+                #         await qry.save()
+                #         query = await qry.fetch(**args)
+                #         data = query.dict()
+                #         return self.model_response(data)
+                #     else:
+                #         return self.error(
+                #             request=self.request,
+                #             response=f'Invalid data for Schema {self.Meta.tablename}'
+                #         )
             except Exception as err:
                 print(err)
-                pass
+                return self.error(
+                    request=self.request,
+                    response=f'Error Saving Data {err!s}'
+                )
         # I need to use post data only
         try:
             qry = self.model(**post)
@@ -764,10 +795,12 @@ class ModelView(BaseView):
                     response=f'Invalid data for Schema {self.Meta.tablename}'
                 )
         except Exception as err:
+            print(err)
+            trace = traceback.format_exc()
             return self.critical(
                 request=self.request,
                 exception=err,
-                traceback=''
+                traceback=trace
             )
 
     async def delete(self):

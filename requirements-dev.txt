@@ -1,4 +1,4 @@
-pytest
+pytest==6.2.4
 pytest-cov
 pytest-asyncio
 pytest-xdist

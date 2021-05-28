@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python3
 import base64
 import importlib
 import logging
@@ -8,11 +7,10 @@ import sys
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, List, Tuple
-
 from cryptography import fernet
-
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, QUERYSET_REDIS, asyncpg_url, config
+from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig.logging import logdir, loglevel, logging_config
 
 """
 Routes
@@ -28,12 +26,18 @@ SERVICES_DIR = BASE_DIR.joinpath("services")
 Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
-PRODUCTION = config.getboolean("PRODUCTION", fallback=True)
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
+# SECRET_KEY = config.get('TROC_KEY')
+PARTNER_KEY = config.get('PARTNER_KEY')
+CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+DOMAIN = config.get('DOMAIN', fallback='dev.local')
+
 # Debug
+#
 DEBUG = config.getboolean("DEBUG", fallback=True)
+PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
 
@@ -55,11 +59,8 @@ if DEBUG and LOCAL_DEVELOPMENT:
     SSL_CERT = None
     SSL_KEY = None
     PREFERRED_URL_SCHEME = "http"
-    CREDENTIALS_REQUIRED = False
     ENABLE_TOKEN_APP = False
 else:
-    CREDENTIALS_REQUIRED = True
-    ENABLE_TOKEN_APP = True
     if PRODUCTION == False and DEBUG == True:
         ENV = "development"
         CSRF_ENABLED = False
@@ -96,6 +97,93 @@ from navconfig.conf import *
 ##
 #######################
 """
+Main Database
+"""
+TIMEZONE = config.get('TIMEZONE', fallback='America/New_York')
+PG_USER = config.get('DBUSER')
+PG_HOST = config.get('DBHOST', fallback='localhost')
+PG_PWD = config.get('DBPWD')
+PG_DATABASE = config.get('DBNAME', fallback='navigator')
+PG_PORT = config.get('DBPORT', fallback=5432)
+
+asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
+    user=PG_USER,
+    password=PG_PWD,
+    host=PG_HOST,
+    port=PG_PORT,
+    db=PG_DATABASE
+)
+default_dsn = asyncpg_url
+
+"""
+Auth and Cache
+"""
+
+"""
+REDIS
+"""
+CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
+CACHE_PORT = config.get('CACHEPORT', fallback=6379)
+CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
+REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
+
+"""
+Authentication System
+"""
+NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
+AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
+CREDENTIALS_REQUIRED = config.getboolean('AUTH_CREDENTIALS_REQUIRED', fallback=False)
+NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
+NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
+USER_MAPPING = {
+    "user_id": "user_id",
+    "username": "username",
+    "password": "password",
+    "first_name": "first_name",
+    "last_name": "last_name",
+    "email": "email",
+    "enabled": "is_active",
+    "superuser": "is_superuser",
+    "last_login": "last_login",
+    "title": "title"
+}
+USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
+ALLOWED_HOSTS = [
+    e.strip() for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+]
+"""
+Session Storage
+"""
+SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
+SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
+CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
+SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='NAVIGATOR').upper())
+SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
+JWT_ALGORITHM = config.get('JWT_ALGORITHM', fallback='HS256')
+
+"""
+ Memcache
+"""
+MEMCACHE_HOST = config.get('MEMCACHE_HOST', 'localhost')
+MEMCACHE_PORT = config.get('MEMCACHE_PORT', 11211)
+
+"""
+Final: Config dict for aiohttp
+"""
+Context = {
+    "DEBUG": DEBUG,
+    "DEVELOPMENT": (not PRODUCTION),
+    "LOCAL_DEVELOPMENT": LOCAL_DEVELOPMENT,
+    "PRODUCTION": PRODUCTION,
+    "SECRET_KEY": SECRET_KEY,
+    "env": ENV,
+    "cache_url": CACHE_URL,
+    "asyncpg_url": asyncpg_url,
+    "default_dsn": default_dsn
+}
+
+"""
 Applications
 """
 INSTALLED_APPS: List = []
@@ -121,21 +209,22 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        "ENGINE": config.get("DBENGINE"),
-                        "NAME": config.get("DBNAME"),
-                        "USER": config.get("DBUSER"),
+                        #"ENGINE": config.get("DBENGINE"),
+                        "NAME": PG_DATABASE,
+                        "USER": PG_USER,
                         "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",troc,public",
+                            "options": "-c search_path=" + item.name + ",public",
                         },
                         #'PARAMS': {
                         #    'readonly': True,
                         # },
                         "SCHEMA": item.name,
-                        "PASSWORD": config.get("DBPWD"),
-                        "HOST": config.get("DBHOST", fallback="localhost"),
-                        "PORT": config.get("DBPORT"),
+                        "PASSWORD": PG_PWD,
+                        "HOST": PG_HOST,
+                        "PORT": PG_PORT,
                     }
 
+Context['DATABASES'] = DATABASES
 
 """
 Per-Program Settings
@@ -148,17 +237,3 @@ for program in INSTALLED_APPS:
         globals()[program] = i
     except ImportError as err:
         pass
-
-"""
-Config dict for aiohttp
-"""
-Context = {
-    "DEBUG": DEBUG,
-    "DEVELOPMENT": (not PRODUCTION),
-    "PRODUCTION": PRODUCTION,
-    "SECRET_KEY": SECRET_KEY,
-    "env": ENV,
-    "DATABASES": DATABASES,
-    "asyncpg_url": asyncpg_url,
-    "cache_url": QUERYSET_REDIS,
-}

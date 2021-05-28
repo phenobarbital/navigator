@@ -1,6 +1,8 @@
 from typing import Any, Callable, Dict, List, Optional
 
-import ujson as json
+#import ujson as json
+import json
+# TODO: using rapidjson
 from aiohttp import web
 from aiohttp.web import middleware
 
@@ -23,7 +25,7 @@ async def django_session(request, handler):
         session = None
         try:
             # first: clear session
-            session = request.app["session"]
+            session = request.app["django_session"]
             await session.logout()  # clear existing session
             if not await session.decode(key=id):
                 message = {

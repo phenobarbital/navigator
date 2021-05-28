@@ -1,48 +1,47 @@
 #!/usr/bin/env python3
 import argparse
-import asyncio
 import ssl
 import sys
 import typing
-
 import aiohttp_cors
-import uvloop
 from aiohttp import web
-
-# make asyncio use the event loop provided by uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 import inspect
 import logging
 import signal
+import sockjs
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
 from typing import Any, Callable, Optional
 
-# from aiohttp_swagger import setup_swagger
-import sockjs
+# make asyncio use the event loop provided by uvloop
+import asyncio
+import uvloop
 from aiohttp import web
 from aiohttp.abc import AbstractView
+
+# Aiohttp Session
 from aiohttp_session import get_session
 from aiohttp_session import setup as setup_session
 from aiohttp_session.redis_storage import RedisStorage
-
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 
 from navigator.conf import (
+    DEBUG,
     APP_DIR,
     BASE_DIR,
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
+    NAV_AUTH_BACKEND,
+    AUTHORIZATION_BACKENDS,
+    CREDENTIALS_REQUIRED,
     SECRET_KEY,
-    SESSION_PREFIX,
-    SESSION_STORAGE,
-    SESSION_URL,
     STATIC_DIR,
     Context,
     config,
+    SSL_CERT,
+    SSL_KEY
 )
 
 from navigator.applications import AppBase, AppHandler, app_startup
@@ -50,11 +49,14 @@ from navigator.applications import AppBase, AppHandler, app_startup
 # Exception Handlers
 from navigator.handlers import nav_exception_handler, shutdown
 
-# get the authentication library
-from navigator.modules.auth import AuthHandler, auth_middleware, login_required
+# websocket resources
 from navigator.resources import WebSocket, channel_handler
 
-__version__ = "1.0.0.dev0"
+# get the authentication library
+from navigator.auth import AuthHandler
+
+__version__ = "1.2.0"
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
 def get_version():
@@ -62,7 +64,7 @@ def get_version():
 
 
 def Response(
-    content: Any,
+    content: Any = None,
     text: str = "",
     body: Any = None,
     status: int = 200,
@@ -97,13 +99,20 @@ class Application(object):
     host = "0.0.0.0"
     port = 5000
     _loop = None
+    version = "0.0.1"
+    enable_swagger: bool = True
+    disable_debugtoolbar: bool = True
 
-    def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
+    def __init__(
+        self, app: AppHandler = None,
+        *args: typing.Any,
+        **kwargs: typing.Any
+    ):
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
         except RuntimeError:
-            logger.debug(
+            logging.error(
                 "Couldn't get event loop for current thread. Creating a new event loop to be used!"
             )
             self._loop = asyncio.new_event_loop()
@@ -118,6 +127,8 @@ class Application(object):
         self._executor = ThreadPoolExecutor()
         if "debug" in kwargs:
             self.debug = kwargs["debug"]
+        else:
+            self.debug = DEBUG
         self.parser = argparse.ArgumentParser(description="Navigator App")
         self.parser.add_argument("--path")
         self.parser.add_argument("--host")
@@ -156,7 +167,8 @@ class Application(object):
         except (KeyError, ValueError, TypeError):
             self.port = 5000
         try:
-            self.debug = args.debug
+            if args.debug:
+                self.debug = args.debug
         except (KeyError, ValueError, TypeError):
             pass
         try:
@@ -167,6 +179,12 @@ class Application(object):
     def get_app(self) -> web.Application:
         return self.app.App
 
+    def __setitem__(self, k, v):
+        self.app.App[k] = v
+
+    def __getitem__(self, k):
+        return self.app.App[k]
+
     def get_logger(self, name="Navigator"):
         logging_format = f"[%(asctime)s] %(levelname)-5s %(name)-{len(name)}s "
         # logging_format += "%(module)-7s::l%(lineno)d: "
@@ -175,29 +193,21 @@ class Application(object):
         logging.basicConfig(
             format=logging_format, level=logging.INFO, datefmt="%Y:%m:%d %H:%M:%S"
         )
-        logging.getLogger("asyncio").setLevel(logging.INFO)
-        logging.getLogger("websockets").setLevel(logging.INFO)
-        logging.getLogger("aiohttp.web").setLevel(logging.INFO)
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        # # TODO: iterate over modules folder
         self._auth = AuthHandler(
-            type=SESSION_STORAGE,
-            name=SESSION_PREFIX,
-            url=SESSION_URL,
-            backends=(
-                "session",
-                "hosts",
-            ),
+            backend=NAV_AUTH_BACKEND,
+            credentials_required=CREDENTIALS_REQUIRED,
+            authorization_backends=AUTHORIZATION_BACKENDS
         )
+        # configuring authentication endpoints
         self._auth.configure(app)
-        # adding middleware for Authorization
-        app.middlewares.append(auth_middleware)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         app["auth"] = self._auth
+
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(
@@ -214,18 +224,6 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
-        # # auto-configure swagger
-        # long_description = """
-        # Asynchronous RESTful API for data source connections, REST consumer and Query API, used by Navigator, powered by MobileInsight
-        # """
-        # setup_swagger(app,
-        #     api_base_url='/',
-        #     title='API',
-        #     api_version='2.0.0',
-        #     description=long_description,
-        #     contact=EMAIL_CONTACT,
-        #     swagger_url="/api/doc")
-        # TODO: configure documentation
         return app
 
     def add_websockets(self) -> None:
@@ -235,7 +233,7 @@ class Application(object):
         """
         app = self.get_app()
         if self.debug:
-            print("Enabling WebSockets")
+            logging.debug("Enabling WebSockets")
         # websockets
         app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels
@@ -299,7 +297,11 @@ class Application(object):
 
     def add_get(self, route: str, threaded: bool = False) -> Callable:
         def _decorator(func):
-            self.app.App.router.add_get(route, self.threaded_func(func, threaded))
+            self.app.App.router.add_get(
+                route,
+                self.threaded_func(func, threaded),
+                allow_head=False
+            )
             return func
 
         return _decorator
@@ -322,6 +324,21 @@ class Application(object):
 
         return _decorator
 
+    def post(self, route: str):
+        def _decorator(func):
+            self.app.App.router.add_post(route, func)
+
+            @wraps(func)
+            async def _wrap(request, *args, **kwargs):
+                try:
+                    return f"{func(request, args, **kwargs)}"
+                except Exception as err:
+                    self._logger.exception(err)
+
+            return _wrap
+
+        return _decorator
+
     def add_sock_endpoint(
         self, handler: Callable, name: str, route: str = "/sockjs/"
     ) -> None:
@@ -329,15 +346,36 @@ class Application(object):
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
     def run(self):
-        # getting the app
         # getting the resource App
         app = self.setup_app()
+        # previous to run, setup swagger:
+        # auto-configure swagger
+        long_description = """
+        Asynchronous RESTful API for data source connections, REST consumer \
+        and Query API, used by Navigator, powered by MobileInsight
+        """
+        if self.enable_swagger is True:
+            from aiohttp_swagger import setup_swagger
+            setup_swagger(
+                app,
+                api_base_url='/',
+                title='Navigator API',
+                api_version=self.version,
+                description=long_description,
+                swagger_url="/api/v1/doc",
+                ui_version=3
+            )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
-                import aiohttp_debugtoolbar
-                from aiohttp_debugtoolbar import toolbar_middleware_factory
-
-                aiohttp_debugtoolbar.setup(app, hosts=[self.host], enabled=True)
+                if self.disable_debugtoolbar is False:
+                    import aiohttp_debugtoolbar
+                    from aiohttp_debugtoolbar import toolbar_middleware_factory
+                    aiohttp_debugtoolbar.setup(
+                        app,
+                        hosts=[self.host,'127.0.0.1', '::1'],
+                        enabled=True,
+                        path_prefix='/_debug'
+                    )
             if self._reload:
                 runner(
                     app=app,

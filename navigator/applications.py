@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
-import asyncio
-import importlib
-import inspect
-
-# logging system
-import logging
 import os
 import sys
 import typing
 from abc import ABC, abstractmethod
+import importlib
+import inspect
+# logging system
+import logging
 from logging.config import dictConfig
-
-# from aiohttp_swagger import setup_swagger
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
 import aiohttp_cors
 import aiohttp_jinja2
 import jinja2
+
+import aiohttp
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web import middleware
-from aiojobs.aiohttp import setup, spawn
 from asyncdb import AsyncPool
 from asyncdb.providers.redis import redis
 
@@ -31,44 +28,22 @@ from navigator.conf import (
     BASE_DIR,
     DEBUG,
     INSTALLED_APPS,
-    STATIC_DIR,
-    logdir,
+    STATIC_DIR
 )
+from navigator.connections import PostgresPool
+from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
-from navigator.resources import home, ping
+from navigator.resources import home  # ping
+from navigator.functions import cPrint
+import asyncio
+import uvloop
+# make asyncio use the event loop provided by uvloop
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 loglevel = logging.INFO
-
-logger_config = dict(
-    version=1,
-    formatters={
-        "console": {"format": "%(message)s"},
-        "file": {
-            "format": "%(asctime)s: [%(levelname)s]: %(pathname)s: %(lineno)d: \n%(message)s\n"
-        },
-        "default": {"format": "[%(levelname)s] %(asctime)s %(name)s: %(message)s"},
-    },
-    handlers={
-        "console": {
-            "formatter": "console",
-            "class": "logging.StreamHandler",
-            "stream": "ext://sys.stdout",
-            "level": loglevel,
-        },
-        "StreamHandler": {
-            "class": "logging.StreamHandler",
-            "formatter": "default",
-            "level": loglevel,
-        },
-    },
-    root={
-        "handlers": ["StreamHandler"],
-        "level": loglevel,
-    },
-)
-dictConfig(logger_config)
+dictConfig(logging_config)
 
 #######################
 ##
@@ -104,7 +79,7 @@ class path(object):
 
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
     # Configure the main App
-    app.router.add_route("GET", "/ping", ping)
+    # app.router.add_route("GET", "/ping", ping)
     # index
     app.router.add_get("/", home)
     for app_name in app_list:
@@ -114,7 +89,11 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             app_class = importlib.import_module(app_name, package="apps")
             obj = getattr(app_class, name)
             instance = obj(context, **kwargs)
-            app.add_subapp("/{}/".format(name), instance.App)
+            domain = getattr(instance, 'domain', None)
+            if domain:
+                app.add_domain(domain, instance.App)
+            else:
+                app.add_subapp("/{}/".format(name), instance.App)
             # TODO: build automatic documentation
         except ImportError as err:
             print(err)
@@ -135,20 +114,23 @@ class AppHandler(ABC):
     _loop = None
     debug = False
     app: web.Application = None
+    app_name: str = ''
     __version__: str = "0.0.1"
     app_description: str = ""
     cors = None
     _middleware: Any = None
     auto_home: bool = True
-    enable_aiojobs: bool = False
+    enable_notify: bool = False
     enable_static: bool = True
+    enable_swagger: bool = True
+    auto_doc: bool = False
     staticdir: str = ""
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
         self._name = type(self).__name__
         self.logger = logging.getLogger(self._name)
         # configuring asyncio loop
-        self._loop = asyncio.get_event_loop()
+        self._loop = self.get_loop()
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -160,12 +142,16 @@ class AppHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         # TODO: making automatic discovery of routes
         if self.auto_home:
-            self.app.router.add_route("GET", "/ping", ping)
+            # self.app.router.add_route("GET", "/ping", ping)
             self.app.router.add_route("GET", "/", home)
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
-            print("SETUP NEW APPLICATION: {}".format(self._name))
+            if not self.app_name:
+                name = self._name
+            else:
+                name = self.app_name
+            cPrint(f"SETUP APPLICATION: {name!s}", level='SUCCESS')
         middlewares = {}
         self.cors = None
         if self._middleware:
@@ -176,6 +162,8 @@ class AppHandler(ABC):
             loop=self._loop,
             **middlewares
         )
+        # print(app)
+        app['name'] = self._name
         self.cors = aiohttp_cors.setup(
             app,
             defaults={
@@ -190,6 +178,14 @@ class AppHandler(ABC):
         )
         return app
 
+    def get_loop(self, new: bool = False):
+        if new is True:
+            loop = uvloop.new_event_loop()
+            asyncio.set_event_loop(loop)
+            return loop
+        else:
+            return asyncio.get_event_loop()
+
     @property
     def App(self) -> web.Application:
         return self.app
@@ -203,9 +199,6 @@ class AppHandler(ABC):
         configure.
             making configuration of routes
         """
-        if self.enable_aiojobs:
-            # Adding setup and support for aiojobs
-            setup(self.app)
         if self.enable_static:
             # adding statics
             # TODO: can personalize the path
@@ -223,32 +216,37 @@ class AppHandler(ABC):
         description: define CORS configuration
         """
         # Configure CORS, swagger and documentation from all routes.
-        for route in list(self.app.router.routes()):
-            fn = route.handler
-            signature = inspect.signature(fn)
-            doc = fn.__doc__
-            if doc is None:
-                # TODO: making more efficiently
-                fnName = fn.__name__
-                if signature.return_annotation:
-                    response = str(signature.return_annotation)
-                else:
-                    response = "unknown"
-                if fnName not in [
-                    "_handle",
-                    "channel_handler",
-                    "WebSocket",
-                    "websocket",
-                ]:
+        if self.auto_doc is True:
+            for route in list(self.app.router.routes()):
+                fn = route.handler
+                signature = inspect.signature(fn)
+                doc = fn.__doc__
+                if doc is None and 'OPTIONS' not in route.method:
+                    # TODO: making more efficiently
+                    fnName = fn.__name__
+                    if fnName in ["_handle", "channel_handler", "WebSocket"]:
+                        continue
+                    if signature.return_annotation:
+                        response = str(signature.return_annotation)
+                    else:
+                        response = aiohttp.web_response.Response
                     doc = """
                     summary: {fnName}
+                    description: Auto-Doc for Function {fnName}
+                    tags:
+                    - Utilities
                     produces:
-                    - text/plain
+                    - application/json
                     responses:
                         "200":
                             description: Successful operation
                             content:
-                                {response}""".format(
+                                {response}
+                        "404":
+                            description: Not found
+                        "405":
+                            description: invalid HTTP Method
+                    """.format(
                         fnName=fnName, response=response
                     )
                     try:
@@ -259,9 +257,6 @@ class AppHandler(ABC):
     def setup_cors(self, cors):
         for route in list(self.app.router.routes()):
             try:
-                # if DEBUG:
-                #     self.logger.info(f'Adding CORS to {route.method} {route.handler}')
-                # if not isinstance(route.resource, web.StaticResource):
                 if inspect.isclass(route.handler) and issubclass(
                     route.handler, AbstractView
                 ):
@@ -269,7 +264,7 @@ class AppHandler(ABC):
                 else:
                     cors.add(route)
             except ValueError as err:
-                print("Error on Adding CORS: ", err)
+                # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
     async def on_prepare(self, request, response):
@@ -323,72 +318,103 @@ class AppConfig(AppHandler):
     path: Path = None
     _middleware = None
     enable_notify: bool = False
+    domain: str = ''
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
+        # TODO: using Notify Logic about aiohttp jinja
         if self.template:
             template_dir = os.path.join(self.path, self.template)
             # template_dir = self.path.resolve().joinpath(self.template)
             aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(template_dir))
         # set the setup_routes
         self.setup_routes()
+        # setup cors:
+        # self.setup_cors(self.cors)
+        if self.enable_swagger is True:
+            from aiohttp_swagger import setup_swagger
+            setup_swagger(
+                self.app,
+                api_base_url=f'/{self._name}',
+                title=f'{self._name} API',
+                api_version=self.__version__,
+                description=self.app_description,
+                swagger_url=f"/api/v1/doc",
+                ui_version=3
+            )
 
     async def on_cleanup(self, app):
-        await app["redis"].close()
+        try:
+            await app["redis"].close()
+        except Exception:
+            logging.error('Error closing Redis connection')
 
     async def on_startup(self, app):
-        kwargs = {"server_settings": {"client_min_messages": "notice"}}
-        pool = AsyncPool(
-            "pg",
-            dsn=app["config"]["asyncpg_url"],
-            loop=self._loop,
-            timeout=360000,
-            **kwargs
-        )
-        await pool.connect()
-        await self.open_connection(pool, app)
-        app["pool"] = pool
         # redis Pool
         rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
         await rd.connection()
         app["redis"] = rd
+        # initialize models:
 
-    async def open_connection(self, pool, app):
+    async def create_connection(self, app, dsn: str = ''):
+        if not dsn:
+            dsn = app["config"]["asyncpg_url"]
+        pool = PostgresPool(
+            dsn=dsn,
+            name=f'NAV-{self._name!s}',
+            loop=self._loop
+        )
         try:
-            conn = await pool.acquire()
+            await pool.startup(app=app)
+            app['database'] = pool.connection()
+        except Exception as err:
+            print(err)
+            raise Exception(err)
+        if self.enable_notify is True:
+            await self.open_connection(app)
+
+    async def close_connection(self, conn):
+        try:
+            if self.enable_notify is True:
+                if conn:
+                    await conn.engine().remove_listener(
+                        self._name,
+                        self.listener
+                    )
+                    await asyncio.sleep(1)
+                await conn.close()
+        except Exception as err:
+            logging.error("Error closing Interface connection {}".format(err))
+
+
+    async def open_connection(self, app, listener: Callable = None):
+        if not listener:
+            listener = self.listener
+        try:
+            conn = await app["database"].acquire()
             app['connection'] = conn
             if conn:
                 if self.enable_notify:
                     connection = conn.engine()
-                    #print(connection.get_server_version())
-                    await connection.add_listener(self._name, self.listener)
+                    await connection.add_listener(self._name, listener)
                     await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
         except Exception as err:
             raise Exception(err)
 
     async def on_shutdown(self, app):
-        await self.close_connection(app["connection"])
-        await app["pool"].wait_close(gracefully=False)
+        try:
+            await app['database'].wait_close(timeout=5)
+        except Exception:
+            pass
 
     def listener(conn, pid, channel, payload, *args):
         print("Notification from {}: {}, {}".format(channel, payload, args))
 
-    async def close_connection(self, conn):
-        try:
-            if conn:
-                if self.enable_notify:
-                    await conn.engine().remove_listener(self._name, self.listener)
-                    await asyncio.sleep(1)
-                await conn.close()
-        except Exception as err:
-            print("Error closing Interface connection {}".format(err))
-        # finally:
-        #     print('= Closing {} connections'.format(self._name))
-
     def setup_routes(self):
+        """Setup Routes (URLS) pointing to paths on AppConfig."""
         # set the urls
         # TODO: automatic module loader
         try:
@@ -400,10 +426,16 @@ class AppConfig(AppHandler):
             print(err)
             return False
         for route in routes:
+            # print(route, route.method)
             if inspect.isclass(route.handler) and issubclass(
                 route.handler, AbstractView
             ):
-                if not route.method:
+                if route.method is None:
+                    r = self.app.router.add_view(
+                        route.url, route.handler, name=route.name
+                    )
+                    self.cors.add(r, webview=True)
+                elif not route.method:
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
@@ -411,7 +443,35 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                self.cors.add(r, webview=True)
+                else:
+                    if route.method == 'get':
+                        r = self.app.router.add_get(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == 'post':
+                        r = self.app.router.add_post(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == 'delete':
+                        r = self.app.router.add_delete(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "patch":
+                        r = self.app.router.add_patch(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "put":
+                        r = self.app.router.add_put(
+                            route.url, route.handler, name=route.name
+                        )
+                    else:
+                        raise (
+                            "Unsupported Method for Route {}, program: {}".format(
+                                route.method, self._name
+                            )
+                        )
+                        return False
+                    self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
                 self.cors.add(r, webview=True)
@@ -420,11 +480,13 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_route(
                         "*", route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r)
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
-                            route.url, route.handler, name=route.name
+                            route.url,
+                            route.handler,
+                            name=route.name,
+                            allow_head=False
                         )
                     elif route.method == "post":
                         r = self.app.router.add_post(
@@ -436,6 +498,10 @@ class AppConfig(AppHandler):
                         )
                     elif route.method == "patch":
                         r = self.app.router.add_patch(
+                            route.url, route.handler, name=route.name
+                        )
+                    elif route.method == "put":
+                        r = self.app.router.add_put(
                             route.url, route.handler, name=route.name
                         )
                     else:

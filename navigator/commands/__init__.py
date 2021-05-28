@@ -10,83 +10,12 @@ from typing import Any, Callable, Dict, List
 
 from navigator import get_version
 from navigator.conf import INSTALLED_APPS
-
-
-class colors:
-    """
-    Colors class.
-
-       reset all colors with colors.reset;
-       Use as colors.subclass.colorname.
-    i.e. colors.fg.red or colors.fg.greenalso, the generic bold, disable,
-    underline, reverse, strike through,
-    and invisible work with the main class i.e. colors.bold
-    """
-
-    reset = "\033[0m"
-    bold = "\033[01m"
-    disable = "\033[02m"
-    underline = "\033[04m"
-    reverse = "\033[07m"
-    strikethrough = "\033[09m"
-    invisible = "\033[08m"
-
-    class fg:
-        """
-        colors.fg.
-
-        Foreground Color subClass
-        """
-
-        black = "\033[30m"
-        red = "\033[31m"
-        green = "\033[32m"
-        orange = "\033[33m"
-        blue = "\033[34m"
-        purple = "\033[35m"
-        cyan = "\033[36m"
-        lightgrey = "\033[37m"
-        darkgrey = "\033[90m"
-        lightred = "\033[91m"
-        lightgreen = "\033[92m"
-        yellow = "\033[93m"
-        lightblue = "\033[94m"
-        pink = "\033[95m"
-        lightcyan = "\033[96m"
-
-
-def cPrint(msg, color=None, level="INFO"):
-    try:
-        if color is not None:
-            coloring = colors.bold + getattr(colors.fg, color)
-        elif level:
-            if level == "INFO":
-                coloring = colors.bold + colors.fg.green
-            elif level == "SUCCESS":
-                coloring = colors.bold + colors.fg.lightgreen
-            elif level == "NOTICE":
-                coloring = colors.fg.blue
-            elif level == "DEBUG":
-                coloring = colors.fg.lightblue
-            elif level == "WARN":
-                coloring = colors.bold + colors.fg.yellow
-            elif level == "ERROR":
-                coloring = colors.fg.lightred
-            elif level == "CRITICAL":
-                coloring = colors.bold + colors.fg.red
-        else:
-            coloring = colors.reset
-    except Exception as err:
-        print("Wrong color schema {}, error: {}".format(color, str(err)))
-        coloring = colors.reset
-    print(coloring + msg, colors.reset)
-
+from navigator.functions import cPrint
 
 class CommandError(Exception):
     """
     Exception Base Class for raise problems in the execution of a Command
     """
-
     pass
 
 
@@ -94,7 +23,6 @@ class CommandNotFound(Exception):
     """
     Exception Base Class for raise problems in the execution of a Command
     """
-
     pass
 
 
@@ -192,6 +120,26 @@ class BaseCommand(object):
             return output
 
 
+def get_command(
+        command: str = 'troc',
+        clsname: str = '',
+        pathname: str = 'navigator'):
+    try:
+        if pathname:
+            classpath = "{path}.commands.{command}".format(
+                path=pathname,
+                command=command)
+        else:
+            classpath = "commands.{command}".format(command=command)
+        module = importlib.import_module(classpath, package="commands")
+        cls = getattr(module, clsname)
+        return cls
+    except (ModuleNotFoundError, ImportError):
+        # last resort: direct commands on source
+        raise CommandNotFound(
+            f'Command {clsname} was not found on {pathname}'
+        )
+
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
@@ -209,13 +157,14 @@ def run_command(**kwargs):
                 if not args:
                     args.append(cmd)
                 clsCommand = "{}Command".format(cmd.capitalize())
-                classpath = "{program}.commands.{provider}".format(
-                    program=program, provider=clsCommand
-                )
+                # classpath = "{program}.commands.{provider}".format(
+                #     program=program, provider=clsCommand
+                # )
                 try:
-                    module = importlib.import_module(classpath, package=clsCommand)
-                    cls = getattr(module, clsCommand)
-                except ImportError:
+                    cls = get_command(command=clsCommand, clsname=clsCommand, pathname=program)
+                    # module = importlib.import_module(classpath, package=clsCommand)
+                    # cls = getattr(module, clsCommand)
+                except CommandNotFound:
                     raise CommandNotFound(
                         "Command %s for program %s was not found"
                         % (clsCommand, program)
@@ -224,13 +173,15 @@ def run_command(**kwargs):
                 clsCommand = "{}Command".format(command.capitalize())
                 # check if is a Navigator Command
                 try:
-                    classpath = "navigator.commands.{provider}".format(provider=command)
-                    module = importlib.import_module(classpath, package="commands")
-                    cls = getattr(module, clsCommand)
-                except ImportError:
-                    raise CommandNotFound(
-                        "Command %s was not found o program doesnt exists" % clsCommand
-                    )
+                    cls = get_command(command=command, clsname=clsCommand, pathname='navigator')
+                except CommandNotFound:
+                    # last resort: direct commands on source
+                    try:
+                        cls = get_command(command=command, clsname=clsCommand, pathname='')
+                    except CommandNotFound:
+                        raise CommandNotFound(
+                            "Command %s was not found o program doesnt exists" % clsCommand
+                        )
             try:
                 cmd = cls(args)
                 output = cmd.handle(**kwargs)

@@ -1,5 +1,5 @@
 pytest==6.2.4
-pytest-cov
+pytest-cov==2.12.1
 pytest-asyncio
 pytest-xdist
 pytest-assume

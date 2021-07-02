@@ -105,7 +105,7 @@ class AbstractConnection(object):
 class PostgresPool(AbstractConnection):
     driver: str = 'pg'
     pool_based: bool = True
-    timeout: int = 3600
+    timeout: int = 360000
 
     def __init__(
         self,

@@ -124,7 +124,7 @@ class PostgresPool(AbstractConnection):
                 'max_parallel_workers': '24',
                 'jit': 'on',
                 'statement_timeout': '3600000',
-                'timezone': TIMEZONE
+                # 'timezone': TIMEZONE
             }
         }
         if 'loop' in kwargs:

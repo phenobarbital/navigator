@@ -29,7 +29,7 @@ class SessionIDAuth(BaseAuthBackend):
     def configure(self, app, router):
         async def _make_redis():
             try:
-                self.redis = await aioredis.create_redis_pool(
+                self.redis = await aioredis.from_url(
                     SESSION_URL, timeout=1
                 )
             except Exception as err:

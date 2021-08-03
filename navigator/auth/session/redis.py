@@ -22,7 +22,9 @@ class RedisSession(AbstractSession):
     async def get_redis(self, **kwargs):
         kwargs['timeout'] = 1
         loop = asyncio.get_event_loop()
-        return await aioredis.create_redis_pool(SESSION_URL, loop=loop, **kwargs)
+        return aioredis.ConnectionPool.from_url(
+            SESSION_URL, decode_responses=True, **kwargs
+        )
 
     def configure_session(self, app, **kwargs):
         async def _make_mredis():

@@ -604,21 +604,27 @@ class ModelView(BaseView):
     async def get_data(self, params, args):
         try:
             if len(params) > 0:
+                print('FILTER')
                 query = await self.model.filter(**params)
             elif len(args) > 0:
+                print('GET')
                 query = await self.model.get(**args)
                 return query.dict()
             else:
+                print('ALL')
                 query = await self.model.all()
             if query:
                 return [row.dict() for row in query]
             else:
                 raise NoDataFound
-        except Exception as err:
-            raise Exception(err)
+        except Exception:
+            raise
 
     def model_response(self, response, headers: dict = {}):
         # TODO: check if response is empty
+        if not response:
+            return self.no_content(headers=headers)
+        # return data only
         return self.json_response(
             response,
             cls=BaseEncoder,
@@ -657,12 +663,12 @@ class ModelView(BaseView):
 
     async def get(self):
         args, params = await self.get_parameters()
+        # print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
             return self.model_response(data)
-        except NoDataFound as err:
-            print(err)
+        except NoDataFound:
             headers = {
                     'X-STATUS': 'EMPTY',
                     'X-MESSAGE': f'Data on {self.Meta.tablename} not Found'
@@ -730,6 +736,20 @@ class ModelView(BaseView):
                 response="Cannot Update row without JSON Data",
                 state=406
             )
+        # updating several at the same time:
+        if type(post) == list:
+            # mass-update using arguments:
+            try:
+                result = self.model.update(args, **post)
+                data = [row.dict() for row in result]
+                return self.model_response(data)
+            except Exception as err:
+                trace = traceback.format_exc()
+                return self.critical(
+                    request=self.request,
+                    exception=err,
+                    traceback=trace
+                )
         if len(args) > 0:
             parameters = {**args, **post}
             try:
@@ -743,7 +763,10 @@ class ModelView(BaseView):
                     return self.model_response(data)
             except Exception as err:
                 print(err)
-                pass
+                return self.error(
+                    request=self.request,
+                    response=f'Error Saving Data {err!s}'
+                )
         # I need to use post data only
         try:
             qry = self.model(**post)
@@ -758,10 +781,12 @@ class ModelView(BaseView):
                     response=f'Invalid data for Schema {self.Meta.tablename}'
                 )
         except Exception as err:
+            print(err)
+            trace = traceback.format_exc()
             return self.critical(
                 request=self.request,
                 exception=err,
-                traceback=''
+                traceback=trace
             )
 
     async def delete(self):

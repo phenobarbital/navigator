@@ -105,7 +105,7 @@ class AbstractConnection(object):
 class PostgresPool(AbstractConnection):
     driver: str = 'pg'
     pool_based: bool = True
-    timeout: int = 3600
+    timeout: int = 360000
 
     def __init__(
         self,
@@ -124,7 +124,7 @@ class PostgresPool(AbstractConnection):
                 'max_parallel_workers': '24',
                 'jit': 'on',
                 'statement_timeout': '3600000',
-                'timezone': TIMEZONE
+                # 'timezone': TIMEZONE
             }
         }
         if 'loop' in kwargs:

@@ -50,7 +50,7 @@ class AuthHandler(AbstractHandler):
         **kwargs
     ):
         async def make_redis_pool(url, **kwargs: dict):
-            kwargs['timeout'] = 1
+            kwargs["timeout"] = 1
             return await aioredis.create_pool(url, **kwargs)
 
         if type == "redis":

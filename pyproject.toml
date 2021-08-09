@@ -1,3 +1,15 @@
+[project]
+name = "navigator"
+authors = [
+    {name = "Jesus Lara G.", email = "jesuslarag@gmail.com"},
+]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: BSD License",
+]
+requires-python = ">=3.8"
+dynamic = ['version', 'description']
+
 [build-system]
 requires = [
     "setuptools>=47",

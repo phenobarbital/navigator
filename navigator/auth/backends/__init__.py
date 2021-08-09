@@ -10,7 +10,10 @@ from .sessionid import SessionIDAuth
 from .token import TokenAuth
 
 __all__ = [
-    "BaseAuthBackend", "NoAuth",
-    "BasicAuth", "TrocAuth",
-    "SessionIDAuth", "TokenAuth"
+    "BaseAuthBackend",
+    "NoAuth",
+    "BasicAuth",
+    "TrocAuth",
+    "SessionIDAuth",
+    "TokenAuth",
 ]

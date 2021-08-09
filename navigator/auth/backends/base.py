@@ -15,7 +15,7 @@ from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
     JWT_ALGORITHM,
-    USER_MAPPING
+    USER_MAPPING,
 )
 from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
@@ -27,43 +27,44 @@ JWT_ALGORITHM = JWT_ALGORITHM
 JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 
 exclude_list = (
-    '/static/',
-    '/api/v1/login',
-    '/api/v1/logout',
-    '/login',
-    '/logout',
-    '/signin',
-    '/signout',
-    '/_debug/'
+    "/static/",
+    "/api/v1/login",
+    "/api/v1/logout",
+    "/login",
+    "/logout",
+    "/signin",
+    "/signout",
+    "/_debug/",
 )
 
 
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
+
     _session = None
     user_model: Model = None
     group_model: Model = None
-    user_property: str = 'user'
-    user_attribute: str = 'user'
-    password_attribute: str = 'password'
-    userid_attribute: str = 'user_id'
-    username_attribute: str = 'username'
-    user_mapping: dict = {'user_id': 'id', 'username': 'username'}
+    user_property: str = "user"
+    user_attribute: str = "user"
+    password_attribute: str = "password"
+    userid_attribute: str = "user_id"
+    username_attribute: str = "username"
+    user_mapping: dict = {"user_id": "id", "username": "username"}
     credentials_required: bool = False
-    scheme: str = 'Bearer'
+    scheme: str = "Bearer"
     _authz_backends: List = []
     user_mapping: dict = {}
 
     def __init__(
-            self,
-            user_property: str = 'user',
-            user_attribute: str = 'user',
-            userid_attribute: str = 'user_id',
-            username_attribute: str = 'username',
-            credentials_required: bool = False,
-            authorization_backends: tuple = (),
-            session_type: str = 'cookie',
-            **kwargs
+        self,
+        user_property: str = "user",
+        user_attribute: str = "user",
+        userid_attribute: str = "user_id",
+        username_attribute: str = "username",
+        credentials_required: bool = False,
+        authorization_backends: tuple = (),
+        session_type: str = "cookie",
+        **kwargs,
     ):
         # force using of credentials
         self.credentials_required = credentials_required
@@ -72,7 +73,7 @@ class BaseAuthBackend(ABC):
         self.userid_attribute = userid_attribute
         self.username_attribute = username_attribute
         # authentication scheme
-        self._scheme = kwargs['scheme']
+        self._scheme = kwargs["scheme"]
         # configuration Authorization Backends:
         self._authz_backends = authorization_backends
         # user and group models
@@ -85,22 +86,22 @@ class BaseAuthBackend(ABC):
             "user_property": user_property,
             "user_attribute": user_attribute,
             "username_attribute": username_attribute,
-            **kwargs
+            **kwargs,
         }
         if SESSION_STORAGE == "cookie":
             self._session = CookieSession(name=SESSION_NAME, secret=SECRET_KEY, **args)
-        elif SESSION_STORAGE == 'redis':
+        elif SESSION_STORAGE == "redis":
             self._session = RedisSession(name=SESSION_NAME, **args)
-        elif SESSION_STORAGE == 'memcache':
+        elif SESSION_STORAGE == "memcache":
             self._session = MemcacheSession(name=SESSION_NAME, **args)
         else:
-            raise Exception(f'Unknown Session type {session_type}')
+            raise Exception(f"Unknown Session type {session_type}")
 
     def get_model(self, model, **kwargs):
         try:
-            parts = model.split('.')
+            parts = model.split(".")
             name = parts[-1]
-            classpath = '.'.join(parts[:-1])
+            classpath = ".".join(parts[:-1])
             module = importlib.import_module(classpath, package=name)
             obj = getattr(module, name)
             return obj
@@ -113,11 +114,11 @@ class BaseAuthBackend(ABC):
         try:
             user = await self.user_model.get(**search)
         except Exception as err:
-            logging.error(f'Error getting User {search!s}')
+            logging.error(f"Error getting User {search!s}")
             raise Exception(err)
         # if not exists, return error of missing
         if not user:
-            raise UserDoesntExists(f'User doesnt exists')
+            raise UserDoesntExists(f"User doesnt exists")
         return user
 
     def get_userdata(self, user):
@@ -128,7 +129,7 @@ class BaseAuthBackend(ABC):
         return userdata
 
     def configure(self, app, router):
-        """ Base configuration for Auth Backends, need to be extended
+        """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
         try:
             # configuring Session Object
@@ -152,8 +153,10 @@ class BaseAuthBackend(ABC):
                 return handler(request)
         return None
 
-    def create_jwt(self, issuer: str = None, expiration: int = None, data: dict = None) -> str:
-        """ Creation of JWT tokens based on basic parameters.
+    def create_jwt(
+        self, issuer: str = None, expiration: int = None, data: dict = None
+    ) -> str:
+        """Creation of JWT tokens based on basic parameters.
         issuer: for default, urn:Navigator
         expiration: in seconds
         **kwargs: data to put in payload
@@ -161,12 +164,12 @@ class BaseAuthBackend(ABC):
         if not expiration:
             expiration = JWT_EXP_DELTA_SECONDS
         if not issuer:
-            issuer = 'urn:Navigator'
+            issuer = "urn:Navigator"
         payload = {
-            'exp': datetime.utcnow() + timedelta(seconds=expiration),
+            "exp": datetime.utcnow() + timedelta(seconds=expiration),
             "iat": datetime.utcnow(),
             "iss": issuer,
-            **data
+            **data,
         }
         jwt_token = jwt.encode(
             payload,
@@ -178,34 +181,34 @@ class BaseAuthBackend(ABC):
     def decode_token(self, request, issuer: str = None):
         payload = None
         if not issuer:
-            issuer = 'urn:Navigator'
-        if 'Authorization' in request.headers:
+            issuer = "urn:Navigator"
+        if "Authorization" in request.headers:
             try:
-                scheme, jwt_token = request.headers.get(
-                    'Authorization'
-                ).strip().split(' ')
+                scheme, jwt_token = (
+                    request.headers.get("Authorization").strip().split(" ")
+                )
             except ValueError as err:
-                raise NavException('Invalid authorization Header', state=401)
+                raise NavException("Invalid authorization Header", state=401)
             if scheme != self.scheme:
-                raise NavException('Invalid Session scheme', state=401)
+                raise NavException("Invalid Session scheme", state=401)
             try:
                 payload = jwt.decode(
                     jwt_token,
                     JWT_SECRET,
                     algorithms=[JWT_ALGORITHM],
                     iss=issuer,
-                    leeway=30
+                    leeway=30,
                 )
-                logging.debug(f'Decoded Token: {payload!s}')
+                logging.debug(f"Decoded Token: {payload!s}")
                 return payload
             except (jwt.DecodeError) as err:
-                raise NavException(f'Token Decoding Error: {err}', state=400)
+                raise NavException(f"Token Decoding Error: {err}", state=400)
             except jwt.InvalidTokenError as err:
                 print(err)
-                raise NavException(f'Invalid authorization token {err!s}')
+                raise NavException(f"Invalid authorization token {err!s}")
             except (jwt.ExpiredSignatureError) as err:
                 print(err)
-                raise NavException(f'Token Expired {err!s}', state=403)
+                raise NavException(f"Token Expired {err!s}", state=403)
             except Exception as err:
                 print(err, err.__class__.__name__)
                 raise NavException(err, state=501)
@@ -238,18 +241,16 @@ class BaseAuthBackend(ABC):
             if payload:
                 userdata = payload
         if userdata:
-            data = {
-                self.user_property: userdata
-            }
+            data = {self.user_property: userdata}
             return data
         else:
             return None
 
-
-
     @abstractmethod
     async def auth_middleware(self, app, handler):
         """ Base Middleware for Authentication Backend."""
+
         async def middleware(request):
             return await handler(request)
+
         return middleware

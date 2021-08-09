@@ -12,8 +12,10 @@ from dataclasses import InitVar
 from datetime import datetime
 from navigator.conf import default_dsn, USERS_TABLE
 
+
 class User(Model):
     """Basic User notation."""
+
     user_id: int = Column(required=False, primary_key=True)
     first_name: str
     last_name: str
@@ -37,13 +39,14 @@ class User(Model):
         return f"{self.first_name} {self.last_name}"
 
     class Meta:
-        driver = 'pg'
+        driver = "pg"
         dsn: str = default_dsn
         name = USERS_TABLE
-        schema = 'public'
+        schema = "public"
         strict = True
         frozen = False
         connection = None
+
 
 # TODO: add autoincrement feature, read the last id and plus 1
 class Group(Model):
@@ -51,13 +54,14 @@ class Group(Model):
     name: int = Column(required=True)
 
     class Meta:
-        driver = 'pg'
+        driver = "pg"
         dsn: str = default_dsn
-        name = 'auth_group'
-        schema = 'public'
+        name = "auth_group"
+        schema = "public"
         strict = True
         frozen = False
         connection = None
+
 
 # class UserGroup(Model):
 #     member_id: int = Column(required=True, primary_key=True)

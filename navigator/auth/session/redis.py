@@ -2,25 +2,23 @@
 import asyncio
 import json
 import rapidjson
+
 # redis pool
 import aioredis
 from functools import wraps, partial
 from aiohttp_session.redis_storage import RedisStorage
 from aiohttp_session import setup as setup_session
 from .base import AbstractSession
-from navigator.conf import (
-    DOMAIN,
-    SESSION_URL,
-    SESSION_TIMEOUT
-)
+from navigator.conf import DOMAIN, SESSION_URL, SESSION_TIMEOUT
 
 
 class RedisSession(AbstractSession):
     """Session Storage based on Redis."""
+
     _pool = None
 
     async def get_redis(self, **kwargs):
-        kwargs['timeout'] = 1
+        kwargs["timeout"] = 1
         loop = asyncio.get_event_loop()
         return aioredis.ConnectionPool.from_url(
             SESSION_URL, decode_responses=True, **kwargs
@@ -38,12 +36,11 @@ class RedisSession(AbstractSession):
                         cookie_name=self.session_name,
                         encoder=_encoder,
                         decoder=rapidjson.loads,
-                        max_age=int(SESSION_TIMEOUT)
-                    )
+                        max_age=int(SESSION_TIMEOUT),
+                    ),
                 )
             except Exception as err:
                 print(err)
                 return False
-        return asyncio.get_event_loop().run_until_complete(
-            _make_mredis()
-        )
+
+        return asyncio.get_event_loop().run_until_complete(_make_mredis())

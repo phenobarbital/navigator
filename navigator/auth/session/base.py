@@ -6,6 +6,7 @@ import base64
 from functools import wraps, partial
 from cryptography import fernet
 from abc import ABC, abstractmethod
+
 # aiohttp session
 from aiohttp_session import get_session, new_session
 from navigator.auth.models import User
@@ -14,26 +15,28 @@ from navigator.conf import (
     SESSION_URL,
     SESSION_NAME,
     SESSION_PREFIX,
-    SESSION_TIMEOUT
+    SESSION_TIMEOUT,
 )
+
 
 class AbstractSession(ABC):
     """Abstract Base Session."""
+
     session = None
-    session_name: str = 'NAVIGATOR_SESSION'
+    session_name: str = "NAVIGATOR_SESSION"
     secret_key: str = None
-    user_property: str = 'user'
-    user_attribute: str = 'user_id'
-    username_attribute: str = 'username'
+    user_property: str = "user"
+    user_attribute: str = "user_id"
+    username_attribute: str = "username"
 
     def __init__(
-            self,
-            secret: str = '',
-            name: str = '',
-            user_property: str = 'user',
-            user_attribute: str = 'user_id',
-            username_attribute: str = 'username',
-            **kwargs
+        self,
+        secret: str = "",
+        name: str = "",
+        user_property: str = "user",
+        user_attribute: str = "user_id",
+        username_attribute: str = "username",
+        **kwargs
     ):
         if name:
             self.session_name = name
@@ -67,7 +70,7 @@ class AbstractSession(ABC):
         session["last_visit"] = time.time()
         session["last_visited"] = "Last visited: {}".format(last_visit)
         # think about saving user data on session when create
-        app['User'] = user
+        app["User"] = user
         app[self.user_property] = userdata
         session[self.user_property] = userdata
         app["session"] = self.session
@@ -79,7 +82,7 @@ class AbstractSession(ABC):
         session = await get_session(request)
         session.invalidate()
         try:
-            app['User'] = None
+            app["User"] = None
             app[self.user_property] = None
             request.user = None
         except Exception as err:

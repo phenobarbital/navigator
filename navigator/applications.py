@@ -95,6 +95,7 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             if domain:
                 app.add_domain(domain, instance.App)
             else:
+                print(app._loop, instance.App._loop)
                 app.add_subapp("/{}/".format(name), instance.App)
             # TODO: build automatic documentation
         except ImportError as err:
@@ -131,8 +132,6 @@ class AppHandler(ABC):
     def __init__(self, context: dict, *args: List, **kwargs: dict):
         self._name = type(self).__name__
         self.logger = logging.getLogger(self._name)
-        # configuring asyncio loop
-        self._loop = self.get_loop()
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -182,7 +181,7 @@ class AppHandler(ABC):
 
     def get_loop(self, new: bool = False):
         if new is True:
-            loop = uvloop.new_event_loop()
+            loop = asyncio.get_event_loop()
             asyncio.set_event_loop(loop)
             return loop
         else:

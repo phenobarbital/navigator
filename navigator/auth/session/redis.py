@@ -9,26 +9,34 @@ from functools import wraps, partial
 from aiohttp_session.redis_storage import RedisStorage
 from aiohttp_session import setup as setup_session
 from .base import AbstractSession
-from navigator.conf import DOMAIN, SESSION_URL, SESSION_TIMEOUT
+from navigator.conf import (
+    DOMAIN,
+    SESSION_URL,
+    SESSION_TIMEOUT
+)
 
 
 class RedisSession(AbstractSession):
     """Session Storage based on Redis."""
 
-    _pool = None
 
-    async def get_redis(self, **kwargs):
-        kwargs["timeout"] = 1
-        loop = asyncio.get_event_loop()
-        return aioredis.ConnectionPool.from_url(
-            SESSION_URL, decode_responses=True, **kwargs
-        )
+async def setup_redis(app):
+    redis = aioredis.ConnectionPool.from_url(
+            SESSION_URL,
+            decode_responses=True,
+            encoding='utf-8'
+    )
+    async def close_redis(app):
+        print('CLOSING REDIS CONNECTION')
+        await redis.disconnect(inuse_connections = True)
+    app.on_cleanup.append(close_redis)
+    return redis
 
     def configure_session(self, app, **kwargs):
         async def _make_mredis():
             _encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
             try:
-                self._pool = await self.get_redis()
+                self._pool = await self.setup_redis(app)
                 setup_session(
                     app,
                     RedisStorage(

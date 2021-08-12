@@ -17,6 +17,10 @@ import aiohttp_jinja2
 import jinja2
 
 import aiohttp
+import rapidjson
+from functools import wraps, partial
+
+# AioHTTP
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web import middleware
@@ -30,6 +34,7 @@ from navigator.conf import (
     DEBUG,
     INSTALLED_APPS,
     STATIC_DIR,
+    DOMAIN
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
@@ -95,9 +100,13 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             if domain:
                 app.add_domain(domain, instance.App)
             else:
-                print(app._loop, instance.App._loop)
                 app.add_subapp("/{}/".format(name), instance.App)
             # TODO: build automatic documentation
+            # Debug session:
+            print('SUBAPP > ', instance.App.middlewares)
+            previous = instance.App.middlewares[0]
+            name = getattr(previous, "__qualname__", repr(previous))
+            print('FIRST SUBAPP MIDDLEWARE: ', name)
         except ImportError as err:
             print(err)
             continue
@@ -155,16 +164,22 @@ class AppHandler(ABC):
             cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
-        if self._middleware:
-            middlewares = {"middlewares": self._middleware}
+        # add first the aiohttp-session middleware:
+        # if self._middleware:
+        #     middlewares = {"middlewares": self._middleware}
         app = web.Application(
             logger=self.logger,
             client_max_size=(1024 * 1024) * 1024,
             loop=self._loop,
-            **middlewares,
+            # **middlewares,
         )
-        # print(app)
         app["name"] = self._name
+        # add the aiohttp_session to the subApp:
+        # self.setup_session(app)
+        for middleware in self._middleware:
+            app.middlewares.append(
+                middleware
+            )
         self.cors = aiohttp_cors.setup(
             app,
             defaults={

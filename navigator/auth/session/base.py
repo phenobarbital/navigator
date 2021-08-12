@@ -61,8 +61,10 @@ class AbstractSession(ABC):
 
     async def create_session(self, request, user, userdata):
         app = request.app
+        print('SESSION CREATE: ')
         try:
             session = await new_session(request)
+            print('SESSION: ', session)
         except Exception as err:
             print(err)
             return False

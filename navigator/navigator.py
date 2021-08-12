@@ -19,11 +19,6 @@ import uvloop
 from aiohttp import web
 from aiohttp.abc import AbstractView
 
-# Aiohttp Session
-from aiohttp_session import get_session
-from aiohttp_session import setup as setup_session
-from aiohttp_session.redis_storage import RedisStorage
-
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 
@@ -56,7 +51,7 @@ from navigator.resources import WebSocket, channel_handler
 # get the authentication library
 from navigator.auth import AuthHandler
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 
@@ -221,6 +216,10 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
+        print('HERE> ', app.middlewares)
+        previous = app.middlewares[0]
+        name = getattr(previous, "__qualname__", repr(previous))
+        print('FIRST MIDDLEWARE: ', name)
         return app
 
     def add_websockets(self) -> None:

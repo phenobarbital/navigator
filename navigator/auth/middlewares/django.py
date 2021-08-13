@@ -4,6 +4,7 @@ from aiohttp import web
 from datetime import datetime, timedelta
 from navigator.conf import SESSION_TIMEOUT, SECRET_KEY, SESSION_PREFIX
 from aiohttp_session import get_session
+import logging
 
 async def django_middleware(app, handler):
     async def middleware(request):
@@ -12,6 +13,7 @@ async def django_middleware(app, handler):
             sessionid = request.headers.get("X-Sessionid")
         except Exception as e:
             sessionid = request.headers.get("Sessionid", None)
+            logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
         redis = app["redis"]
         session = await get_session(request)
         if sessionid in session:

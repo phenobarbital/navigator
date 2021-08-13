@@ -1,7 +1,8 @@
 """Django Session Backend.
 
 Navigator Authentication using Django Session Backend
-description: read the Django session from Redis Backend and decrypt.
+description: read the Django session from Redis Backend
+and decrypt, after that, a session will be created.
 """
 import base64
 import rapidjson
@@ -12,26 +13,39 @@ import asyncio
 import aioredis
 from aiohttp import web, hdrs
 from .base import BaseAuthBackend
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
+from navigator.exceptions import (
+    NavException,
+    UserDoesntExists,
+    InvalidAuth
+)
 from datetime import datetime, timedelta
-from navigator.conf import SESSION_URL, SESSION_TIMEOUT, SECRET_KEY, SESSION_PREFIX
+from navigator.conf import (
+    SESSION_URL,
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    SESSION_PREFIX
+)
 
 
-class SessionIDAuth(BaseAuthBackend):
+class DjangoSession(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
     redis = None
     _scheme: str = "Bearer"
 
     def configure(self, app, router):
-        async def _make_redis():
-            try:
-                self.redis = await aioredis.from_url(SESSION_URL, timeout=1)
-            except Exception as err:
-                print(err)
-                raise Exception(err)
+        async def _setup_redis(self, app):
+            self.redis = aioredis.ConnectionPool.from_url(
+                    SESSION_URL,
+                    decode_responses=True,
+                    encoding='utf-8'
+            )
+            async def _close_redis(app):
+                await self.redis.disconnect(inuse_connections = True)
+            app.on_cleanup.append(_close_redis)
+            return redis
 
-        asyncio.get_event_loop().run_until_complete(_make_redis())
+        asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
         super(SessionIDAuth, self).configure(app, router)
 
@@ -82,7 +96,7 @@ class SessionIDAuth(BaseAuthBackend):
             user = await self.get_user(**search)
             return user
         except UserDoesntExists as err:
-            raise UserDoesntExists(f"User {login} doesnt exists")
+            raise UserDoesntExists(f"User {login} doesn\'t exists")
         except Exception as err:
             raise Exception(err)
         return None
@@ -94,7 +108,10 @@ class SessionIDAuth(BaseAuthBackend):
         except Exception as err:
             raise NavException(err, state=400)
         if not sessionid:
-            raise InvalidAuth("Invalid Credentials", state=401)
+            raise InvalidAuth(
+                "Invalid Credentials",
+                state=401
+            )
         else:
             # getting user information
             # TODO: making the validation of token and expiration
@@ -121,7 +138,12 @@ class SessionIDAuth(BaseAuthBackend):
                 userdata = self.get_userdata(user)
                 userdata["session"] = data
                 # Create the User session and returned.
-                session = await self._session.create_session(request, user, userdata)
+                session = await self._session.create_session(
+                    request,
+                    user,
+                    userdata
+                )
+                session[sessionid] = userdata
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
@@ -146,6 +168,7 @@ class SessionIDAuth(BaseAuthBackend):
             if "Authorization" in request.headers:
                 try:
                     jwt_token = self.decode_token(request)
+                    return await handler(request)
                 except NavException as err:
                     response = {
                         "message": "Session ID Failure",
@@ -172,5 +195,4 @@ class SessionIDAuth(BaseAuthBackend):
                         reason="Missing Authorization Session",
                     )
             return await handler(request)
-
         return middleware

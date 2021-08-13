@@ -74,7 +74,6 @@ class DjangoSession(BaseAuthBackend):
         try:
             async with await self.redis as redis:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
-            # result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
                 return False
             data = base64.b64decode(result)

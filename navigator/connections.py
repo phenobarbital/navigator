@@ -105,14 +105,14 @@ class PostgresPool(AbstractConnection):
         **kwargs
     ):
         kwargs = {
-            "min_size": 10,
+            "min_size": 5,
             "server_settings": {
                 "application_name": name,
                 "client_min_messages": "notice",
-                "max_parallel_workers": "24",
-                "jit": "on",
+                "max_parallel_workers": "48",
+                "jit": "off",
                 "statement_timeout": "3600000",
-                # 'timezone': TIMEZONE
+                "effective_cache_size": "2147483647"
             },
         }
         if "loop" in kwargs:
@@ -125,7 +125,12 @@ class PostgresPool(AbstractConnection):
         if shutdown:
             self._shutdown = shutdown
 
-        self.conn = AsyncPool(self.driver, dsn=dsn, timeout=self.timeout, **kwargs)
+        self.conn = AsyncPool(
+            self.driver,
+            dsn=dsn,
+            timeout=self.timeout,
+            **kwargs
+        )
         # passing the configuration
         self.conn.setup_func = self.configure
 

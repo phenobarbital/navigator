@@ -34,20 +34,20 @@ class DjangoSession(BaseAuthBackend):
     _scheme: str = "Bearer"
 
     def configure(self, app, router):
-        async def _setup_redis(self, app):
-            self.redis = aioredis.ConnectionPool.from_url(
+        async def _setup_redis(app):
+            self.redis = aioredis.from_url(
                     SESSION_URL,
                     decode_responses=True,
                     encoding='utf-8'
             )
             async def _close_redis(app):
-                await self.redis.disconnect(inuse_connections = True)
+                await self.redis.close()
             app.on_cleanup.append(_close_redis)
-            return redis
+            return self.redis
 
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
-        super(SessionIDAuth, self).configure(app, router)
+        super(DjangoSession, self).configure(app, router)
 
     async def get_payload(self, request):
         id = None
@@ -72,7 +72,9 @@ class DjangoSession(BaseAuthBackend):
 
     async def validate_session(self, key: str = None):
         try:
-            result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
+            async with await self.redis as redis:
+                result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
+            # result = await self.redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
                 return False
             data = base64.b64decode(result)

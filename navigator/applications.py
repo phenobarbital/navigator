@@ -265,7 +265,7 @@ class AppHandler(ABC):
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except ValueError as err:
+            except (Exception, ValueError) as err:
                 # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
@@ -335,7 +335,7 @@ class AppConfig(AppHandler):
         # set the setup_routes
         self.setup_routes()
         # setup cors:
-        # self.setup_cors(self.cors)
+        self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
 

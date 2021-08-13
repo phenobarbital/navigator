@@ -265,7 +265,7 @@ class AppHandler(ABC):
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except ValueError as err:
+            except (Exception, ValueError) as err:
                 # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
@@ -335,7 +335,7 @@ class AppConfig(AppHandler):
         # set the setup_routes
         self.setup_routes()
         # setup cors:
-        # self.setup_cors(self.cors)
+        self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
 
@@ -363,6 +363,8 @@ class AppConfig(AppHandler):
         # initialize models:
 
     async def create_connection(self, app, dsn: str = ""):
+        if 'database' in app:
+            return True
         if not dsn:
             dsn = app["config"]["asyncpg_url"]
         pool = PostgresPool(dsn=dsn, name=f"NAV-{self._name!s}", loop=self._loop)
@@ -374,8 +376,12 @@ class AppConfig(AppHandler):
             raise Exception(err)
         if self.enable_notify is True:
             await self.open_connection(app)
+        return pool.connection()
 
     async def close_connection(self, conn):
+        if 'database' in app:
+            # can't close the connection of a shared connection
+            return True
         try:
             if self.enable_notify is True:
                 if conn:

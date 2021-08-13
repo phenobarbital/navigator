@@ -200,11 +200,11 @@ class Application(object):
             authorization_backends=AUTHORIZATION_BACKENDS,
         )
         # configuring authentication endpoints
+        # TODO: support multi-auth methods
         self._auth.configure(app)
+        app["auth"] = self._auth
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
-        app["auth"] = self._auth
-
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(
@@ -275,7 +275,6 @@ class Application(object):
                 return result
             except Exception as err:
                 self._logger.exception(err)
-
         return _wrap
 
     def route(self, route: str, method: str = "GET", threaded: bool = False):

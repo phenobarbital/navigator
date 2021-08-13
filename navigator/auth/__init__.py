@@ -128,11 +128,18 @@ class AuthHandler(object):
     async def api_login(self, request: web.Request) -> web.Response:
         try:
             user = await self.backend.check_credentials(request)
+            print('USER: ', user)
             if not user:
-                raise web.HTTPUnauthorized(reason="Unauthorized", status=403)
+                raise web.HTTPUnauthorized(
+                    reason="Unauthorized",
+                    status=403
+                )
             return json_response(user, state=200)
         except (NavException, UserDoesntExists, InvalidAuth) as err:
-            raise web.HTTPUnauthorized(reason=err, status=err.state)
+            raise web.HTTPUnauthorized(
+                reason=err,
+                status=err.state
+            )
         except ValueError:
             raise web.HTTPUnauthorized(reason="Unauthorized")
         except Exception as err:
@@ -182,22 +189,33 @@ class AuthHandler(object):
         router.add_route("GET", "/api/v1/login", self.api_login, name="api_login_get")
         router.add_route("POST", "/api/v1/login", self.api_login, name="api_login_post")
         router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
+        # new route: authenticate against a especific program:
         router.add_route(
             "GET",
             "/api/v1/authenticate/{program}",
             self.authenticate,
             name="api_authenticate_program",
         )
+        # refresh or reconfigure authentication
         router.add_route(
-            "GET", "/api/v1/authenticate", self.authenticate, name="api_authenticate"
+            "GET", "/api/v1/authenticate",
+            self.authenticate,
+            name="api_authenticate"
         )
+        # get the session information for a program (only)
         router.add_route(
             "GET",
             "/api/v1/session/{program}",
             self.get_session,
             name="api_session_tenant",
         )
-        router.add_route("GET", "/api/v1/session", self.get_session, name="api_session")
+        # get all user information
+        router.add_route(
+            "GET",
+            "/api/v1/session",
+            self.get_session,
+            name="api_session"
+        )
         # backed needs initialization (connection to a redis server, etc)
         try:
             self.backend.configure(app, router)

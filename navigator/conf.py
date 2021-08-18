@@ -164,7 +164,7 @@ SESSION_PREFIX = "{}_session".format(CACHE_PREFIX)
 SESSION_NAME = "{}_SESSION".format(
     config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 )
-SESSION_TIMEOUT = config.get("SESSION_TIMEOUT", fallback=3600)
+SESSION_TIMEOUT = config.get("SESSION_TIMEOUT", fallback=36000)
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
 
 """

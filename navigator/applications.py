@@ -182,7 +182,7 @@ class AppHandler(ABC):
 
     def get_loop(self, new: bool = False):
         if new is True:
-            loop = uvloop.new_event_loop()
+            loop = uvloop.get_event_loop()
             asyncio.set_event_loop(loop)
             return loop
         else:

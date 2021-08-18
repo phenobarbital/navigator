@@ -3,7 +3,7 @@ import rapidjson
 from aiohttp import web
 from datetime import datetime, timedelta
 from navigator.conf import SESSION_TIMEOUT, SECRET_KEY, SESSION_PREFIX
-from aiohttp_session import get_session
+from aiohttp_session import get_session, new_session
 import logging
 import time
 
@@ -28,6 +28,7 @@ async def django_middleware(app, handler):
             # this session already exists:
             return await handler(request)
         try:
+            session = await new_session(request)
             redis = app["redis"]
             result = await redis.get("{}:{}".format(SESSION_PREFIX, sessionid))
             if not result:

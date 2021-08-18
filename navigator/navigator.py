@@ -34,10 +34,6 @@ from navigator.conf import (
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
-    NAV_AUTH_BACKEND,
-    AUTHORIZATION_BACKENDS,
-    CREDENTIALS_REQUIRED,
-    SECRET_KEY,
     STATIC_DIR,
     Context,
     config,
@@ -52,9 +48,6 @@ from navigator.handlers import nav_exception_handler, shutdown
 
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
-
-# get the authentication library
-from navigator.auth import AuthHandler
 
 __version__ = "1.2.0"
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -194,15 +187,6 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        self._auth = AuthHandler(
-            backend=NAV_AUTH_BACKEND,
-            credentials_required=CREDENTIALS_REQUIRED,
-            authorization_backends=AUTHORIZATION_BACKENDS,
-        )
-        # configuring authentication endpoints
-        # TODO: support multi-auth methods
-        self._auth.configure(app)
-        app["auth"] = self._auth
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes

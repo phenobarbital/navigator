@@ -30,6 +30,10 @@ from navigator.conf import (
     DEBUG,
     INSTALLED_APPS,
     STATIC_DIR,
+    NAV_AUTH_BACKEND,
+    AUTHORIZATION_BACKENDS,
+    CREDENTIALS_REQUIRED,
+    SESSION_TIMEOUT
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
@@ -43,6 +47,9 @@ import uvloop
 
 # make asyncio use the event loop provided by uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+# get the authentication library
+from navigator.auth import AuthHandler
 
 loglevel = logging.INFO
 dictConfig(logging_config)
@@ -156,16 +163,33 @@ class AppHandler(ABC):
             cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
-        if self._middleware:
-            middlewares = {"middlewares": self._middleware}
         app = web.Application(
             logger=self.logger,
             client_max_size=(1024 * 1024) * 1024,
             loop=self._loop,
-            **middlewares,
+            # **middlewares,
         )
         # print(app)
         app["name"] = self._name
+        # Setup Authentication:
+        if NAV_AUTH_BACKEND:
+            self._auth = AuthHandler(
+                backend=NAV_AUTH_BACKEND,
+                credentials_required=CREDENTIALS_REQUIRED,
+                authorization_backends=AUTHORIZATION_BACKENDS,
+                session_timeout=SESSION_TIMEOUT
+            )
+            # configuring authentication endpoints
+            # TODO: support multi-auth methods
+            self._auth.configure(app)
+            app["auth"] = self._auth
+        # add the other middlewares:
+        try:
+            for middleware in self._middleware:
+                app.middlewares.append(middleware)
+        except (ValueError, TypeError):
+            pass
+        # CORS
         self.cors = aiohttp_cors.setup(
             app,
             defaults={

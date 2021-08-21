@@ -17,9 +17,12 @@ async def django_middleware(app, handler):
             logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
         try:
             session = await get_session(request)
+            id = session['id']
+            if id != sessionid:
+                session = await new_session(request)
         except Exception as e:
             print(e)
-            session = {}
+            session = await new_session(request)
         if sessionid in session:
             data = session[sessionid]
             session['id'] = sessionid
@@ -28,7 +31,6 @@ async def django_middleware(app, handler):
             # this session already exists:
             return await handler(request)
         try:
-            session = await new_session(request)
             redis = app["redis"]
             result = await redis.get("{}:{}".format(SESSION_PREFIX, sessionid))
             if not result:
@@ -39,11 +41,13 @@ async def django_middleware(app, handler):
                 data = base64.b64decode(result)
                 session_data = data.decode("utf-8").split(":", 1)
                 user = rapidjson.loads(session_data[1])
+                print('DATA: ', data)
                 data = {
                     "key": sessionid,
                     "session_id": session_data[0],
                     **user
                 }
+                print(data)
                 request["user_id"] = user["user_id"]
                 request["session"] = data
                 session['id'] = sessionid

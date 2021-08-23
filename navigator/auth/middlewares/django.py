@@ -2,7 +2,12 @@ import base64
 import rapidjson
 from aiohttp import web
 from datetime import datetime, timedelta
-from navigator.conf import SESSION_TIMEOUT, SECRET_KEY, SESSION_PREFIX
+from navigator.conf import (
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    SESSION_PREFIX,
+    CREDENTIALS_REQUIRED
+)
 from aiohttp_session import get_session, new_session
 import logging
 import time
@@ -58,8 +63,11 @@ async def django_middleware(app, handler):
                     {"message": "Error Decoding Django Session"}, status=400
                 )
         except Exception as err:
-            print('ERROR: ', err)
-            return web.json_response({"message": "Invalid Session"}, status=400)
+            if CREDENTIALS_REQUIRED is True:
+                return web.json_response(
+                    {"error:": str(err), "message": "Invalid Session"},
+                    status=400
+                )
         return await handler(request)
 
     return middleware

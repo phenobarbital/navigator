@@ -21,7 +21,8 @@ async def django_middleware(app, handler):
             sessionid = request.headers.get("Sessionid", None)
             logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
         if not sessionid:
-            await new_session(request)
+            session = await get_session(request)
+            session.invalidate()
             if CREDENTIALS_REQUIRED is True:
                 return web.json_response(
                     {"error:": str(err), "message": "Missing Session and Auth Required"},

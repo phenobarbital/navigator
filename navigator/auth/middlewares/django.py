@@ -31,12 +31,15 @@ async def django_middleware(app, handler):
             return await handler(request)
         try:
             session = await get_session(request)
-            id = session['id']
-            if id != sessionid:
-                session = await new_session(request)
         except Exception as e:
             print(e)
             session = await new_session(request)
+        try:
+            id = session['id']
+            if id != sessionid:
+                session = await new_session(request)
+        except KeyError:
+            pass # new session
         if sessionid in session:
             data = session[sessionid]
             session['id'] = sessionid
@@ -55,13 +58,12 @@ async def django_middleware(app, handler):
                 data = base64.b64decode(result)
                 session_data = data.decode("utf-8").split(":", 1)
                 user = rapidjson.loads(session_data[1])
-                print('DATA: ', data)
                 data = {
                     "key": sessionid,
                     "session_id": session_data[0],
                     **user
                 }
-                print(data)
+                print('DATA DUMP: ', data)
                 request["user_id"] = user["user_id"]
                 request["session"] = data
                 session['id'] = sessionid
@@ -72,6 +74,7 @@ async def django_middleware(app, handler):
                     {"message": "Error Decoding Django Session"}, status=400
                 )
         except Exception as err:
+            print(err)
             if CREDENTIALS_REQUIRED is True:
                 return web.json_response(
                     {"error:": str(err), "message": "Invalid Session"},

@@ -335,7 +335,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
         # await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
         try:
-            self._redis = await request.app["redis"].acquire()
+            self._redis = request.app["redis"]
         except Exception as err:
             self.logger.debug(err)
 

@@ -32,23 +32,40 @@ class UserHandler(BaseView):
     async def get(self):
         session = None
         try:
-            session = await get_session(request)
-            print(session)
+            session = await get_session(self.request)
         except Exception as err:
-            raise NavException(err, state=501)
+            print(err)
+            return self.critical(
+                request=self.request,
+                exception=err
+            )
         try:
             if not session:
                 headers = {"x-status": "Empty", "x-message": "Invalid User Session"}
                 return self.no_content(headers=headers)
             else:
+                try:
+                    sessionid = session['id']
+                except KeyError:
+                    return self.error('Invalid Session, missing Session ID')
                 headers = {"x-status": "OK", "x-message": "Session OK"}
-                data = session
+                data = {
+                    "key": sessionid,
+                    "session_id": sessionid,
+                    **session[sessionid]
+                }
                 if data:
-                    return self.json_response(response=data, headers=headers)
+                    return self.json_response(
+                        response=data,
+                        headers=headers
+                    )
         except Exception as err:
-            return self.error(request, exception=err)
+            return self.error(
+                self.request,
+                exception=err
+            )
 
-    async def logout(self):
+    async def logout(self, request):
         app = request.app
         router = app.router
         auth = app["auth"]
@@ -62,4 +79,4 @@ class UserHandler(BaseView):
         return web.HTTPFound(router["login"].url_for())
 
     async def delete(self):
-        return await self.logout()
+        return await self.logout(self.request)

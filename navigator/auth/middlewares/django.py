@@ -63,7 +63,7 @@ async def django_middleware(app, handler):
                     "session_id": session_data[0],
                     **user
                 }
-                print('DATA DUMP: ', data)
+                # print('DATA DUMP: ', data)
                 request["user_id"] = user["user_id"]
                 request["session"] = data
                 session['id'] = sessionid

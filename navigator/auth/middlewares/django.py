@@ -12,14 +12,17 @@ from aiohttp_session import get_session, new_session
 import logging
 import time
 
+def get_sessionid(request):
+    sessionid = request.headers.get("X-Sessionid")
+    if not sessionid:
+        sessionid = request.headers.get("sessionid", None)
+        logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
+    return sessionid
+
 async def django_middleware(app, handler):
     async def middleware(request):
         request.user = None
-        try:
-            sessionid = request.headers.get("X-Sessionid")
-        except Exception as e:
-            sessionid = request.headers.get("Sessionid", None)
-            logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
+        sessionid = get_sessionid(request)
         if not sessionid:
             session = await get_session(request)
             session.invalidate()

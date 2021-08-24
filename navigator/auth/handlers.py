@@ -34,6 +34,8 @@ class UserHandler(BaseView):
         try:
             session = await get_session(request)
             print(session)
+        except Exception as err:
+            raise NavException(err, state=501)
         try:
             if not session:
                 headers = {"x-status": "Empty", "x-message": "Invalid User Session"}

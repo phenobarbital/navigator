@@ -31,7 +31,7 @@ class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
     redis = None
-    _scheme: str = "Bearer"
+    _scheme: str = "SessionID"
 
     def configure(self, app, router):
         async def _setup_redis(app):
@@ -102,7 +102,8 @@ class DjangoAuth(BaseAuthBackend):
             raise Exception(err)
         return None
 
-    async def check_credentials(self, request):
+    async def authenticate(self, request):
+        """ Authenticate against user credentials (django session id)."""
         try:
             sessionid = await self.get_payload(request)
             logging.debug(f"Session ID: {sessionid}")
@@ -114,8 +115,6 @@ class DjangoAuth(BaseAuthBackend):
                 state=401
             )
         else:
-            # getting user information
-            # TODO: making the validation of token and expiration
             try:
                 data = await self.validate_session(key=sessionid)
             except Exception as err:
@@ -138,27 +137,21 @@ class DjangoAuth(BaseAuthBackend):
             try:
                 userdata = self.get_userdata(user)
                 userdata["session"] = data
-                # Create the User session and returned.
-                session = await self._session.create_session(
-                    request,
-                    user,
-                    userdata
-                )
-                session[sessionid] = userdata
+                userdata['id'] = sessionid
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
+                    "sessionid": sessionid
                 }
                 token = self.create_jwt(data=payload)
-                return {"token": token}
+                return {
+                    "token": token,
+                    **userdata
+                }
             except Exception as err:
                 print(err)
                 return False
-
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
-        pass
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):

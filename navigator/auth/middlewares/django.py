@@ -20,9 +20,12 @@ def get_sessionid(request):
     return sessionid
 
 async def django_middleware(app, handler):
+    print('APP ', app, handler)
     async def middleware(request):
+        print('HOLA MUNDO')
         request.user = None
         sessionid = get_sessionid(request)
+        print('SESSION ID: ', sessionid)
         if not sessionid:
             session = await get_session(request)
             session.invalidate()

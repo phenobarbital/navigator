@@ -196,41 +196,12 @@ class BaseAuthBackend(ABC):
                 print(err, err.__class__.__name__)
                 raise NavException(err, state=501)
 
-    @abstractmethod
-    async def check_credentials(self, request):
-        """ Authenticate against user credentials (token, user/password)."""
-        pass
+    # @abstractmethod
+    # async def check_credentials(self, request):
+    #     """ Authenticate against user credentials (token, user/password)."""
+    #     pass
 
     @abstractmethod
     async def authenticate(self, request):
         """ Authenticate, refresh or return the user credentials."""
         pass
-
-    # async def get_session(self, request):
-    #     """ Get user data from session."""
-    #     app = request.app
-    #     session = await self._session.get_session(request)
-    #     if not session.new:
-    #         # user has existing session
-    #         userdata = session.get(self.user_property)
-    #     else:
-    #         try:
-    #             payload = self.decode_token(request)
-    #         except NavException as err:
-    #             raise NavException(err)
-    #         if payload:
-    #             userdata = payload
-    #     if userdata:
-    #         data = {self.user_property: userdata}
-    #         return data
-    #     else:
-    #         return None
-
-    @abstractmethod
-    async def auth_middleware(self, app, handler):
-        """ Base Middleware for Authentication Backend."""
-
-        async def middleware(request):
-            return await handler(request)
-
-        return middleware

@@ -13,7 +13,6 @@ import importlib
 import logging
 from aiohttp import web
 from typing import List, Iterable
-from .backends import BaseAuthBackend
 from .authorizations import *
 from navigator.functions import json_response
 from navigator.auth.session import (
@@ -325,5 +324,5 @@ class AuthHandler(object):
         # at last: add other middleware support
         if self._middlewares:
             mdl.append(self._middlewares)
-        print(mdl)
+        # print(mdl)
         return app

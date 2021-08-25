@@ -6,4 +6,9 @@ from .redis import RedisSession
 from .memcache import MemcacheSession
 
 
-__all__ = ["AbstractSession", "CookieSession", "RedisSession", "MemcacheSession"]
+__all__ = [
+    "AbstractSession",
+    "CookieSession",
+    "RedisSession",
+    "MemcacheSession"
+]

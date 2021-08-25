@@ -18,6 +18,5 @@ class CookieSession(AbstractSession):
                 self.secret_key,
                 cookie_name=self.session_name,
                 max_age=SESSION_TIMEOUT
-                # domain=DOMAIN,
             ),
         )

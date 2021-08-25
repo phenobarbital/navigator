@@ -39,6 +39,7 @@ from navigator.conf import (
     SECRET_KEY,
     JWT_ALGORITHM
 )
+from aiohttp_session import get_session, new_session
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""
@@ -204,10 +205,17 @@ class AuthHandler(object):
         if not auth:
             raise web.HTTPUnauthorized(reason="User not Authorized")
 
+    # Session Methods:
+    async def forgot_session(self, request: web.Request):
+        await self._session.forgot(request)
+
+    async def create_session(self, request: web.Request):
+        return await self._session.create(request)
+
     async def get_session(self, request: web.Request) -> web.Response:
-        """ return Session Data from user."""
+        """ Get user data from session."""
         try:
-            dump = await self.backend.get_session(request)
+            session = await self._session.get_session(request)
         except NavException as err:
             print("Error HERE: ", err, err.state)
             response = {
@@ -216,10 +224,14 @@ class AuthHandler(object):
                 "status": err.state,
             }
             return web.json_response(response, status=err.state)
-        if dump:
-            return json_response(dump)
-        else:
-            raise web.HTTPForbidden()
+        if not session:
+            try:
+                session = await get_session(request)
+            except Exception as e:
+                print(e)
+                # always return a null session for user:
+                session = await new_session(request)
+        return session
 
     def configure(self, app: web.Application) -> web.Application:
         router = app.router

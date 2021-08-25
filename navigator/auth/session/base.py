@@ -59,25 +59,23 @@ class AbstractSession(ABC):
     async def get_session(self, request):
         return await get_session(request)
 
-    async def create_session(self, request, user, userdata):
+    async def create(self, request, userdata):
         app = request.app
         try:
             session = await new_session(request)
         except Exception as err:
-            print(err)
+            logging.error(f'Create Session: {err}')
             return False
         last_visit = session["last_visit"] if "last_visit" in session else None
         session["last_visit"] = time.time()
         session["last_visited"] = "Last visited: {}".format(last_visit)
         # think about saving user data on session when create
-        app["User"] = user
-        app[self.user_property] = userdata
         session[self.user_property] = userdata
         app["session"] = self.session
-        # logging.debug('Creating Session: {}'.format(session))
+        logging.debug('Creating Session: {}'.format(session))
         return session
 
-    async def forgot_session(self, request):
+    async def forgot(self, request):
         app = request.app
         session = await get_session(request)
         session.invalidate()

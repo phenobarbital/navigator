@@ -111,7 +111,7 @@ class DjangoAuth(BaseAuthBackend):
             raise NavException(err, state=400)
         if not sessionid:
             raise InvalidAuth(
-                "Invalid Credentials",
+                "Auth: Invalid Credentials",
                 state=401
             )
         else:
@@ -120,6 +120,8 @@ class DjangoAuth(BaseAuthBackend):
             except Exception as err:
                 raise InvalidAuth(f"Invalid Session: {err!s}", state=401)
             # making validation
+            if not data:
+                raise InvalidAuth("Missing User Information", state=403)
             try:
                 u = data[self.user_property]
                 username = u[self.userid_attribute]

@@ -239,9 +239,15 @@ class AuthHandler(object):
                     )
                 return json_response(userdata, state=200)
             except UserDoesntExists as err:
-                pass
+                raise web.HTTPUnauthorized(
+                    reason="Unauthorized: User Doesn't exists",
+                    status=403
+                )
             except Exception as err:
-                pass
+                raise web.HTTPUnauthorized(
+                    reason=f"Unauthorized Error {err!s}",
+                    status=403
+                )
         else:
             # second: if no backend declared, will iterate over all backends
             userdata = None
@@ -249,12 +255,14 @@ class AuthHandler(object):
                 try:
                     # check credentials for all backends
                     userdata = await backend.authenticate(request)
-                    if not userdata:
-                        continue
+                    if userdata:
+                        break
                 except (NavException, UserDoesntExists, InvalidAuth) as err:
-                    raise web.HTTPUnauthorized(
+                    continue
+                except Exception as err:
+                    return web.HTTPUnauthorized(
                         reason=err,
-                        status=err.state
+                        status=401
                     )
             # if not userdata, then raise an not Authorized
             if not userdata:
@@ -268,18 +276,12 @@ class AuthHandler(object):
                     session = await self._session.create(request, userdata)
                     session['id'] = userdata['id']
                 except Exception as err:
-                    raise web.HTTPUnauthorized(
+                    print(err)
+                    return web.HTTPUnauthorized(
                         reason=f"Error Creating User Session: {err!s}",
                         status=403
                     )
                 return json_response(userdata, state=200)
-
-
-    async def authenticate(self, request: web.Request) -> web.Response:
-        """ Authentication method to refresh credentials for Registration."""
-        auth = await self.backend.check_authorization(request)
-        if not auth:
-            raise web.HTTPUnauthorized(reason="User not Authorized")
 
     # Session Methods:
     async def forgot_session(self, request: web.Request):
@@ -329,19 +331,6 @@ class AuthHandler(object):
             self.api_logout,
             name="api_logout"
         )
-        # new route: authenticate against a especific program:
-        router.add_route(
-            "GET",
-            "/api/v1/authenticate/{program}",
-            self.authenticate,
-            name="api_authenticate_program",
-        )
-        # refresh or reconfigure authentication
-        router.add_route(
-            "GET", "/api/v1/authenticate",
-            self.authenticate,
-            name="api_authenticate"
-        )
         # get the session information for a program (only)
         router.add_route(
             "GET",
@@ -352,7 +341,7 @@ class AuthHandler(object):
         # get all user information
         router.add_route(
             "GET",
-            "/api/v1/session",
+            "/api/v1/user/session",
             self.get_session,
             name="api_session"
         )

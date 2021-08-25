@@ -19,10 +19,16 @@ class NoAuth(BaseAuthBackend):
         return True
 
     async def authenticate(self, request):
-        return True
-
-    async def get_session(self, request):
-        return {}
+        payload = {
+            self.user_property: None,
+            self.username_attribute: "Anonymous"
+        }
+        token = self.create_jwt(data=payload)
+        return {
+            "token": token,
+            "id": uuid.uuid4().hex,
+            "username": "Anonymous"
+        }
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):

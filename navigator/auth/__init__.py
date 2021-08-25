@@ -134,7 +134,21 @@ class AuthHandler(object):
         return b
 
     def get_authorization_middlewares(self, backends: Iterable) -> tuple:
-        pass
+        b = []
+        for backend in backends:
+            try:
+                parts = backend.split(".")
+                bkname = parts[-1]
+                classpath = ".".join(parts[:-1])
+                module = importlib.import_module(classpath, package=bkname)
+                obj = getattr(module, bkname)
+                b.append(obj)
+            except ImportError:
+                raise Exception(
+                    f"Error loading Authz Middleware {backend}"
+                )
+        return b
+
 
     # async def login(self, request) -> web.Response:
     #     response = web.HTTPFound("/")

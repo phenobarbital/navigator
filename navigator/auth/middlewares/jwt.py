@@ -12,11 +12,15 @@ async def jwt_middleware(app, handler):
     async def middleware(request):
         request.user = None
         jwt_token = request.headers.get("Authorization", None)
-        print(jwt_token)
         if jwt_token:
             try:
-                payload = jwt.decode(jwt_token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+                payload = jwt.decode(
+                    jwt_token,
+                    JWT_SECRET,
+                    algorithms=[JWT_ALGORITHM]
+                )
                 print(payload)
+                request.user = payload
             except (jwt.DecodeError, jwt.ExpiredSignatureError) as err:
                 print(err)
                 return web.json_response({"message": "Invalid Token"}, status=400)

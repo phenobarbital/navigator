@@ -7,18 +7,19 @@ from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.utils.models import Model
 from navigator.conf import (
-    DOMAIN,
     NAV_AUTH_USER,
     NAV_AUTH_GROUP,
-    SESSION_NAME,
-    SESSION_STORAGE,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     JWT_ALGORITHM,
     USER_MAPPING,
+    SECRET_KEY,
+    SESSION_TIMEOUT
 )
-from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
+
+from navigator.exceptions import (
+    NavException,
+    UserDoesntExists,
+    InvalidAuth
+)
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 
@@ -63,7 +64,6 @@ class BaseAuthBackend(ABC):
         username_attribute: str = "username",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
-        session_type: str = "cookie",
         **kwargs,
     ):
         # force using of credentials
@@ -81,21 +81,6 @@ class BaseAuthBackend(ABC):
         self.user_model = self.get_model(NAV_AUTH_USER)
         self.group_model = self.get_model(NAV_AUTH_GROUP)
         self.user_mapping = USER_MAPPING
-        # getting Session Object:
-        args = {
-            "user_property": user_property,
-            "user_attribute": user_attribute,
-            "username_attribute": username_attribute,
-            **kwargs,
-        }
-        if SESSION_STORAGE == "cookie":
-            self._session = CookieSession(name=SESSION_NAME, secret=SECRET_KEY, **args)
-        elif SESSION_STORAGE == "redis":
-            self._session = RedisSession(name=SESSION_NAME, **args)
-        elif SESSION_STORAGE == "memcache":
-            self._session = MemcacheSession(name=SESSION_NAME, **args)
-        else:
-            raise Exception(f"Unknown Session type {session_type}")
 
     def get_model(self, model, **kwargs):
         try:
@@ -131,12 +116,7 @@ class BaseAuthBackend(ABC):
     def configure(self, app, router):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
-        try:
-            # configuring Session Object
-            self._session.configure_session(app)
-        except Exception as err:
-            print(err)
-            raise Exception(err)
+        pass
 
     async def authorization_backends(self, app, handler, request):
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
@@ -154,7 +134,10 @@ class BaseAuthBackend(ABC):
         return None
 
     def create_jwt(
-        self, issuer: str = None, expiration: int = None, data: dict = None
+        self,
+        issuer: str = None,
+        expiration: int = None,
+        data: dict = None
     ) -> str:
         """Creation of JWT tokens based on basic parameters.
         issuer: for default, urn:Navigator

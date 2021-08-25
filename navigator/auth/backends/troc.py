@@ -19,7 +19,7 @@ import secrets
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
 
 
-class TrocAuth(BaseAuthBackend):
+class TrocToken(BaseAuthBackend):
     """TROC authentication Header."""
 
     user_attribute: str = "user"
@@ -34,7 +34,6 @@ class TrocAuth(BaseAuthBackend):
         username_attribute: str = "email",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
-        session_type: str = "cookie",
         **kwargs,
     ):
         super().__init__(
@@ -44,7 +43,6 @@ class TrocAuth(BaseAuthBackend):
             username_attribute,
             credentials_required,
             authorization_backends,
-            session_type,
             **kwargs,
         )
         # forcing to use Email as Username Attribute

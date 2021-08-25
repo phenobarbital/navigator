@@ -27,7 +27,7 @@ from navigator.conf import (
 )
 
 
-class DjangoSession(BaseAuthBackend):
+class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
     redis = None
@@ -47,7 +47,7 @@ class DjangoSession(BaseAuthBackend):
 
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
-        super(DjangoSession, self).configure(app, router)
+        super(DjangoAuth, self).configure(app, router)
 
     async def get_payload(self, request):
         id = None

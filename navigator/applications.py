@@ -30,9 +30,6 @@ from navigator.conf import (
     DEBUG,
     INSTALLED_APPS,
     STATIC_DIR,
-    NAV_AUTH_BACKEND,
-    AUTHORIZATION_BACKENDS,
-    CREDENTIALS_REQUIRED,
     SESSION_TIMEOUT
 )
 from navigator.connections import PostgresPool
@@ -133,6 +130,7 @@ class AppHandler(ABC):
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
+    enable_auth: bool = True
     staticdir: str = ""
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
@@ -172,17 +170,16 @@ class AppHandler(ABC):
         # print(app)
         app["name"] = self._name
         # Setup Authentication:
-        if NAV_AUTH_BACKEND:
+        if self.enable_auth is True:
             self._auth = AuthHandler(
-                backend=NAV_AUTH_BACKEND,
-                credentials_required=CREDENTIALS_REQUIRED,
-                authorization_backends=AUTHORIZATION_BACKENDS,
                 session_timeout=SESSION_TIMEOUT
             )
             # configuring authentication endpoints
             # TODO: support multi-auth methods
             self._auth.configure(app)
             app["auth"] = self._auth
+            # cleanup operations over authentication backend
+            app.on_cleanup.append(self._auth.on_cleanup)
         # add the other middlewares:
         try:
             for middleware in self._middleware:

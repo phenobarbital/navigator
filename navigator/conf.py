@@ -127,7 +127,7 @@ REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 """
 Authentication System
 """
-NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
+# NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -154,6 +154,7 @@ ALLOWED_HOSTS = [
     e.strip()
     for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
 ]
+
 """
 Session Storage
 """

@@ -268,7 +268,12 @@ class AuthHandler(object):
                     userdata = await backend.authenticate(request)
                     if userdata:
                         break
-                except (NavException, UserDoesntExists, InvalidAuth) as err:
+                except (
+                    NavException,
+                    UserDoesntExists,
+                    InvalidAuth,
+                    FailedAuth
+                ) as err:
                     continue
                 except Exception as err:
                     return web.HTTPUnauthorized(

@@ -9,6 +9,7 @@ from .django import DjangoAuth
 from .token import TokenAuth
 from .google import GoogleAuth
 from .okta import OktaAuth
+from .adfs import ADFSAuth
 
 __all__ = [
     "NoAuth",
@@ -17,5 +18,6 @@ __all__ = [
     "DjangoAuth",
     "TokenAuth",
     "GoogleAuth",
-    "OktaAuth"
+    "OktaAuth",
+    "ADFSAuth"
 ]

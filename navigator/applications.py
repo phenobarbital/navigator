@@ -37,7 +37,7 @@ from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
-from navigator.resources import home  # ping
+from navigator.resources import home, ping
 from navigator.functions import cPrint
 import asyncio
 import uvloop
@@ -84,10 +84,7 @@ class path(object):
 
 
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
-    # Configure the main App
-    # app.router.add_route("GET", "/ping", ping)
-    # index
-    app.router.add_get("/", home)
+    """ Initialize all Apps in the existing Installation."""
     for app_name in app_list:
         obj = None
         try:
@@ -149,7 +146,6 @@ class AppHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         # TODO: making automatic discovery of routes
         if self.auto_home:
-            # self.app.router.add_route("GET", "/ping", ping)
             self.app.router.add_route("GET", "/", home)
 
     def CreateApp(self) -> web.Application:
@@ -167,6 +163,8 @@ class AppHandler(ABC):
             loop=self._loop,
             # **middlewares,
         )
+        app.router.add_route("GET", "/ping", ping, name="ping")
+        app.router.add_get("/", home, name="home")
         # print(app)
         app["name"] = self._name
         # Setup Authentication:

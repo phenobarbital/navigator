@@ -141,7 +141,6 @@ class OktaAuth(BaseAuthBackend):
                 base_uri=self.base_uri,
                 query_params=requests.compat.urlencode(query_params)
             )
-            logging.basicConfig(level=logging.DEBUG)
             # Step A: redirect
             logging.debug(f'Okta URI: {uri}')
             return web.HTTPFound(uri)

@@ -40,6 +40,29 @@ from aiohttp_session import new_session
 
 AZURE_AD_SERVER = "login.microsoftonline.com"
 
+def load_certs():
+    """Extract token signing certificates."""
+    xml_tree = ElementTree.fromstring(response.content)
+    cert_nodes = xml_tree.findall(
+            "./{urn:oasis:names:tc:SAML:2.0:metadata}RoleDescriptor"
+            "[@{http://www.w3.org/2001/XMLSchema-instance}type='fed:SecurityTokenServiceType']"
+            "/{urn:oasis:names:tc:SAML:2.0:metadata}KeyDescriptor[@use='signing']"
+            "/{http://www.w3.org/2000/09/xmldsig#}KeyInfo"
+            "/{http://www.w3.org/2000/09/xmldsig#}X509Data"
+            "/{http://www.w3.org/2000/09/xmldsig#}X509Certificate"
+    )
+    signing_certificates = [node.text for node in cert_nodes]
+    new_keys = []
+    for cert in signing_certificates:
+        logging.debug("Loading public key from certificate: %s", cert)
+        cert_obj = load_der_x509_certificate(
+            base64.b64decode(cert), backend
+        )
+        new_keys.append(
+            cert_obj.public_key()
+        )
+    return new_keys
+
 class ADFSAuth(BaseAuthBackend):
     """ADFSAuth.
 

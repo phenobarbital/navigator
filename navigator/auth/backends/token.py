@@ -9,7 +9,7 @@ import logging
 import asyncio
 import jwt
 from aiohttp import web, hdrs
-from asyncdb import AsyncDB
+from asyncdb import AsyncPool
 from .base import BaseAuthBackend
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from datetime import datetime, timedelta
@@ -27,14 +27,29 @@ from navigator.conf import (
 class TokenAuth(BaseAuthBackend):
     """API Token Authentication Handler."""
 
-    connection = None
+    _pool = None
     _scheme: str = "Bearer"
 
     def configure(self, app, router):
         async def _make_connection():
             try:
-                self.connection = AsyncDB("pg", dsn=default_dsn)
-                await self.connection.connection()
+                kwargs = {
+                    "min_size": 1,
+                    "server_settings": {
+                        "application_name": 'AUTH-NAV',
+                        "client_min_messages": "notice",
+                        "max_parallel_workers": "48",
+                        "jit": "off",
+                        "statement_timeout": "3600",
+                        "effective_cache_size": "2147483647"
+                    },
+                }
+                self._pool = AsyncPool(
+                    "pg",
+                    dsn=default_dsn,
+                    **kwargs
+                )
+                await self._pool.connect()
             except Exception as err:
                 print(err)
                 raise Exception(err)
@@ -134,8 +149,6 @@ class TokenAuth(BaseAuthBackend):
         pass
 
     async def check_token_info(self, request, tenant, payload):
-        if not self.connection:
-            await self.reconnect()
         try:
             name = payload["name"]
             partner = payload["partner"]
@@ -147,7 +160,9 @@ class TokenAuth(BaseAuthBackend):
         AND enabled = TRUE AND revoked = FALSE AND '{tenant}'= ANY(programs)
         """
         try:
-            result, error = await self.connection.queryrow(sql)
+            result = None
+            async with await self._pool.acquire() as conn:
+                result, error = await conn.queryrow(sql)
             if error or not result:
                 return False
             else:

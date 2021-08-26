@@ -118,38 +118,11 @@ class GoogleAuth(BaseAuthBackend):
             )
             # Step A: redirect
             logging.debug(f'Google URI: {uri!s}')
-            raise web.HTTPFound(uri)
+            return web.HTTPFound(uri)
         else:
             raise NavException(
                 "Client doesn't have info for Authentication"
             )
-        # try:
-        #     user = await self.validate_user(login=user, password=pwd)
-        # except FailedAuth:
-        #     raise
-        # except UserDoesntExists as err:
-        #     raise UserDoesntExists(err)
-        # except InvalidAuth as err:
-        #     raise InvalidAuth(err, state=401)
-        # except Exception as err:
-        #     raise NavException(err, state=500)
-        # try:
-        #     userdata = self.get_userdata(user)
-        #     userdata['id'] = user[self.userid_attribute]
-        #     payload = {
-        #         self.user_property: user[self.userid_attribute],
-        #         self.username_attribute: user[self.username_attribute],
-        #         "user_id": user[self.userid_attribute]
-        #     }
-        #     # Create the User session and returned.
-        #     token = self.create_jwt(data=payload)
-        #     return {
-        #         "token": token,
-        #         **userdata
-        #     }
-        # except Exception as err:
-        #     print(err)
-        #     return False
 
     async def finish_auth(self, request):
         try:

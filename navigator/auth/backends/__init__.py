@@ -8,6 +8,7 @@ from .troc import TrocToken
 from .django import DjangoAuth
 from .token import TokenAuth
 from .google import GoogleAuth
+from .okta import OktaAuth
 
 __all__ = [
     "NoAuth",
@@ -15,5 +16,6 @@ __all__ = [
     "TrocToken",
     "DjangoAuth",
     "TokenAuth",
-    "GoogleAuth"
+    "GoogleAuth",
+    "OktaAuth"
 ]

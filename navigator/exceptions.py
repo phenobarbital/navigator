@@ -24,3 +24,6 @@ class UserDoesntExists(NavException):
 
 class InvalidAuth(NavException):
     state: int = 401
+
+class FailedAuth(NavException):
+    state: int = 403

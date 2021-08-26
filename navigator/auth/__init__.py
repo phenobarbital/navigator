@@ -23,7 +23,8 @@ from navigator.auth.session import (
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
-    InvalidAuth
+    InvalidAuth,
+    FailedAuth
 )
 from navigator.conf import (
     AUTHORIZATION_BACKENDS,
@@ -238,6 +239,16 @@ class AuthHandler(object):
                         status=403
                     )
                 return json_response(userdata, state=200)
+            except FailedAuth as err:
+                raise web.HTTPUnauthorized(
+                    reason="Authentication Error: Bad Credentials",
+                    status=err.state
+                )
+            except InvalidAuth as err:
+                raise web.HTTPUnauthorized(
+                    reason="Authentication Error: Invalid Authentication",
+                    status=403
+                )
             except UserDoesntExists as err:
                 raise web.HTTPUnauthorized(
                     reason="Unauthorized: User Doesn't exists",

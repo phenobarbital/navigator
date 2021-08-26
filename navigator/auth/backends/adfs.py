@@ -110,13 +110,13 @@ class ADFSAuth(BaseAuthBackend):
         # creating the Paths
         router.add_route(
             "GET",
-            "/auth/complete/adfs/",
+            "/oauth2/callback",
             self.finish_auth,
             name="adfs_complete_login"
         )
         router.add_route(
             "GET",
-            "/api/v1/auth/adfs/",
+            "/oauth2/login",
             self.authenticate,
             name="adfs_api_login"
         )
@@ -174,7 +174,7 @@ class ADFSAuth(BaseAuthBackend):
         # print('URL: ', absolute_uri)
         domain_url = absolute_uri.replace(str(request.rel_url), '')
         # print('DOMAIN: ', domain_url)
-        self.end_authorization_endpoint = f"{domain_url}/auth/complete/adfs/"
+        self.end_authorization_endpoint = f"{domain_url}/oauth2/callback"
         try:
             self.redirect_uri = "{}{}".format(
                 domain_url,

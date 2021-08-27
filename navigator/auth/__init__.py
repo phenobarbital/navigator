@@ -308,6 +308,7 @@ class AuthHandler(object):
 
     async def get_session(self, request: web.Request) -> web.Response:
         """ Get user data from session."""
+        session = None
         try:
             session = await self._session.get_session(request)
         except NavException as err:
@@ -320,12 +321,13 @@ class AuthHandler(object):
             return web.json_response(response, status=err.state)
         if not session:
             try:
-                session = await get_session(request)
+                session = await self._session.get_session(request)
             except Exception as e:
                 print(e)
                 # always return a null session for user:
-                session = await new_session(request)
-        return session
+                session = await self._session.create(request, {})
+        userdata = dict(session)
+        return web.json_response(userdata, status=200)
 
     def configure(self, app: web.Application) -> web.Application:
         router = app.router
@@ -361,22 +363,23 @@ class AuthHandler(object):
             self.get_session,
             name="api_session"
         )
+        # the backend add a middleware to the app
+        mdl = app.middlewares
+        # configuring Session Object
+        self._session.configure_session(app)
         # if a backend needs initialization
         # (connection to a redis server, etc)
         for name, backend in self.backends.items():
             try:
                 backend.configure(app, router)
+                if hasattr(backend, "auth_middleware"):
+                    # add the middleware for Basic Authentication
+                    mdl.append(backend.auth_middleware)
             except Exception as err:
                 print(err)
                 logging.exception(
                     f"Error on Auth Backend {name} init: {err!s}"
                 )
-        # the backend add a middleware to the app
-        mdl = app.middlewares
-        # configuring Session Object
-        self._session.configure_session(app)
-        # add the middleware for Basic Authentication
-        # mdl.append(self.backend.auth_middleware)
         # at last: add other middleware support
         if self._middlewares:
             for mid in self._middlewares:

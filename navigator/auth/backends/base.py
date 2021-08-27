@@ -12,7 +12,8 @@ from navigator.conf import (
     JWT_ALGORITHM,
     USER_MAPPING,
     SECRET_KEY,
-    SESSION_TIMEOUT
+    SESSION_TIMEOUT,
+    CREDENTIALS_REQUIRED
 )
 
 from navigator.exceptions import (
@@ -200,8 +201,3 @@ class BaseAuthBackend(ABC):
     # async def check_credentials(self, request):
     #     """ Authenticate against user credentials (token, user/password)."""
     #     pass
-
-    @abstractmethod
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
-        pass

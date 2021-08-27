@@ -148,30 +148,38 @@ class BasicAuth(BaseAuthBackend):
                 print(err)
                 return False
 
-    # async def check_credentials(self, request):
-    #     pass
+    async def check_credentials(self, request):
+        """ Using for check the user credentials to the backend."""
+        pass
 
     async def auth_middleware(self, app, handler):
+        """
+         Auth Middleware.
+         Description: Basic Authentication Middleware for JWT.
+        """
         async def middleware(request):
             request.user = None
             authz = await self.authorization_backends(app, handler, request)
             if authz:
+                # Authorization Exception
                 return await authz
             try:
                 jwt_token = self.decode_token(request)
+                print(jwt_token)
             except NavException as err:
-                print("Error HERE: ", err, err.state)
                 response = {
                     "message": "Token Error",
                     "error": err.message,
                     "status": err.state,
                 }
-                print(response)
                 return web.json_response(response, status=err.state)
             except Exception as err:
                 raise web.HTTPBadRequest(body=f"Bad Request: {err!s}")
-            if self.credentials_required is True:
+            if not jwt_token and CREDENTIALS_REQUIRED is True:
                 raise web.HTTPUnauthorized(body="Unauthorized")
+            else:
+                # processing the token and recover the user session
+                pass
             return await handler(request)
 
         return middleware

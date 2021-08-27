@@ -137,26 +137,3 @@ class TrocToken(BaseAuthBackend):
 
     # async def check_credentials(self, request):
     #     pass
-
-    async def auth_middleware(self, app, handler):
-        async def middleware(request):
-            request.user = None
-            authz = await self.authorization_backends(app, handler, request)
-            if authz:
-                return await authz
-            try:
-                jwt_token = self.decode_token(request)
-            except NavException as err:
-                response = {
-                    "message": "TROC Token Error",
-                    "error": err.message,
-                    "status": err.state,
-                }
-                return web.json_response(response, status=err.state)
-            except Exception as err:
-                raise web.HTTPBadRequest(body=f"Bad Request: {err!s}")
-            if self.credentials_required is True:
-                raise web.HTTPUnauthorized(body="Unauthorized")
-            return await handler(request)
-
-        return middleware

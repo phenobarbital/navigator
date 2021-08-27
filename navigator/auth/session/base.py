@@ -57,7 +57,9 @@ class AbstractSession(ABC):
         pass
 
     async def get_session(self, request):
-        return await get_session(request)
+        session = await get_session(request)
+        session["last_visit"] = time.time()
+        return session
 
     async def create(self, request, userdata):
         app = request.app

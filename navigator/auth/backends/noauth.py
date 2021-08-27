@@ -29,9 +29,3 @@ class NoAuth(BaseAuthBackend):
             "id": uuid.uuid4().hex,
             "username": "Anonymous"
         }
-
-    async def auth_middleware(self, app, handler):
-        async def middleware(request):
-            return await handler(request)
-
-        return middleware

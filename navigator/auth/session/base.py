@@ -6,6 +6,7 @@ import base64
 from functools import wraps, partial
 from cryptography import fernet
 from abc import ABC, abstractmethod
+
 # aiohttp session
 from aiohttp_session import get_session, new_session
 from navigator.auth.models import User
@@ -14,26 +15,28 @@ from navigator.conf import (
     SESSION_URL,
     SESSION_NAME,
     SESSION_PREFIX,
-    SESSION_TIMEOUT
+    SESSION_TIMEOUT,
 )
+
 
 class AbstractSession(ABC):
     """Abstract Base Session."""
+
     session = None
-    session_name: str = 'NAVIGATOR_SESSION'
+    session_name: str = "NAVIGATOR_SESSION"
     secret_key: str = None
-    user_property: str = 'user'
-    user_attribute: str = 'user_id'
-    username_attribute: str = 'username'
+    user_property: str = "user"
+    user_attribute: str = "user_id"
+    username_attribute: str = "username"
 
     def __init__(
-            self,
-            secret: str = '',
-            name: str = '',
-            user_property: str = 'user',
-            user_attribute: str = 'user_id',
-            username_attribute: str = 'username',
-            **kwargs
+        self,
+        secret: str = "",
+        name: str = "",
+        user_property: str = "user",
+        user_attribute: str = "user_id",
+        username_attribute: str = "username",
+        **kwargs
     ):
         if name:
             self.session_name = name
@@ -54,34 +57,39 @@ class AbstractSession(ABC):
         pass
 
     async def get_session(self, request):
-        return await get_session(request)
+        session = await get_session(request)
+        session["last_visit"] = time.time()
+        return session
 
-    async def create_session(self, request, user, userdata):
+    async def create(self, request, userdata):
         app = request.app
         try:
             session = await new_session(request)
         except Exception as err:
-            print(err)
+            logging.error(f'Error creating Session: {err}')
             return False
         last_visit = session["last_visit"] if "last_visit" in session else None
         session["last_visit"] = time.time()
         session["last_visited"] = "Last visited: {}".format(last_visit)
-        # think about saving user data on session when create
-        app['User'] = user
-        app[self.user_property] = userdata
-        session[self.user_property] = userdata
-        app["session"] = self.session
-        # logging.debug('Creating Session: {}'.format(session))
+        for key,data in userdata.items():
+            session[key] = data
+        request["session"] = session
+        request['User'] = userdata
+        try:
+            request[self.user_property] = userdata[self.user_property]
+        except KeyError:
+            pass
         return session
 
-    async def forgot_session(self, request):
+    async def forgot(self, request):
         app = request.app
         session = await get_session(request)
         session.invalidate()
         try:
-            app['User'] = None
-            app[self.user_property] = None
+            request["User"] = None
+            request[self.user_property] = None
             request.user = None
+            del request[self.user_property]
         except Exception as err:
             print(err)
-        app["session"] = None
+        request["session"] = None

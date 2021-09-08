@@ -7,10 +7,11 @@ develop:
 	source .venv/bin/activate && make setup dev
 	echo 'start develop Navigator'
 
-venv: .venv
+venv:
+	source .venv/bin/activate
 
 setup:
-	python -m pip install -Ur docs/requirements-dev.txt
+	python -m pip install -Ur requirements/requirements-dev.txt
 
 dev:
 	flit install --symlink

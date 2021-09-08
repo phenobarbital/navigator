@@ -43,7 +43,7 @@ class BaseHandler(CorsViewMixin):
     _loop = None
     logger: logging.Logger
     _lasterr = None
-    _allowed = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+    _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -74,7 +74,7 @@ class BaseHandler(CorsViewMixin):
         self,
         request: web.Request = None,
         headers: dict = {},
-        content_type: str = "application/json"
+        content_type: str = "application/json",
     ) -> web.Response:
         if not request:
             request = self.request
@@ -90,7 +90,7 @@ class BaseHandler(CorsViewMixin):
         response: str = "",
         state: int = 200,
         headers: dict = {},
-        **kwargs
+        **kwargs,
     ) -> web.Response:
         if not request:
             request = self.request
@@ -126,7 +126,7 @@ class BaseHandler(CorsViewMixin):
         traceback=None,
         state: int = 500,
         headers: dict = {},
-        **kwargs
+        **kwargs,
     ) -> web.Response:
         # TODO: process the exception object
         if not request:
@@ -157,7 +157,7 @@ class BaseHandler(CorsViewMixin):
         exception: Exception = None,
         state: int = 400,
         headers: dict = {},
-        **kwargs
+        **kwargs,
     ) -> web.Response:
         # TODO: process the exception object
         response_obj = {"status": "Failed"}
@@ -213,7 +213,7 @@ class BaseHandler(CorsViewMixin):
         response: dict = {},
         headers: dict = {},
         allowed: dict = {},
-        **kwargs
+        **kwargs,
     ) -> web.Response:
         if not request:
             request = self.request
@@ -270,7 +270,6 @@ class BaseHandler(CorsViewMixin):
                 pass
         return params
 
-
     def get_arguments(self, request: web.Request = None) -> dict:
         params = {}
         if not request:
@@ -303,7 +302,7 @@ class BaseHandler(CorsViewMixin):
         try:
             params = await request.json()
         except json.decoder.JSONDecodeError as err:
-            raise Exception(f'Invalid POST DATA: {err!s}')
+            raise Exception(f"Invalid POST DATA: {err!s}")
         # if any, mix with match_info data:
         for arg in request.match_info:
             try:
@@ -316,7 +315,7 @@ class BaseHandler(CorsViewMixin):
 
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    #_mcache: Any = None
+    # _mcache: Any = None
     _connection: Any = None
     _redis: Any = None
 
@@ -333,10 +332,10 @@ class BaseView(web.View, BaseHandler, AbstractView):
         return self._connection
 
     async def connect(self, request):
-        #await self._mcache.connection()
+        # await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
         try:
-            self._redis = await request.app["redis"].acquire()
+            self._redis = request.app["redis"]
         except Exception as err:
             self.logger.debug(err)
 
@@ -375,7 +374,6 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
 
 class DataView(BaseView):
-
     async def asyncdb(self, request):
         db = None
         try:
@@ -542,20 +540,15 @@ class DataView(BaseView):
         return self
 
 
-
 async def load_models(app: str, model, tablelist: list = []):
-    db = await app['database'].acquire()
-    name = app['name']
+    db = await app["database"].acquire()
+    name = app["name"]
     for table in tablelist:
         try:
-            query = await Model.makeModel(
-                name=table,
-                schema=name,
-                db=db
-            )
+            query = await Model.makeModel(name=table, schema=name, db=db)
             model[table] = query
         except Exception as err:
-            logging.error(f'Error loading Model {table}: {err!s}')
+            logging.error(f"Error loading Model {table}: {err!s}")
 
 
 class ModelView(BaseView):
@@ -572,6 +565,7 @@ class ModelView(BaseView):
         required: true
         description: DB Model using asyncdb Model.
     """
+
     model: Model = None
     models: list = []
 
@@ -591,7 +585,7 @@ class ModelView(BaseView):
                 return self.models[table]
             except KeyError:
                 # Model doesn't exists
-                raise NoDataFound(f'Model {table} Doesnt Exists')
+                raise NoDataFound(f"Model {table} Doesnt Exists")
 
     def __init__(self, *args, **kwargs):
         super(ModelView, self).__init__(*args, **kwargs)
@@ -604,26 +598,28 @@ class ModelView(BaseView):
     async def get_data(self, params, args):
         try:
             if len(params) > 0:
+                print("FILTER")
                 query = await self.model.filter(**params)
             elif len(args) > 0:
+                print("GET")
                 query = await self.model.get(**args)
                 return query.dict()
             else:
+                print("ALL")
                 query = await self.model.all()
             if query:
                 return [row.dict() for row in query]
             else:
                 raise NoDataFound
-        except Exception as err:
-            raise Exception(err)
+        except Exception:
+            raise
 
     def model_response(self, response, headers: dict = {}):
         # TODO: check if response is empty
-        return self.json_response(
-            response,
-            cls=BaseEncoder,
-            headers=headers
-        )
+        if not response:
+            return self.no_content(headers=headers)
+        # return data only
+        return self.json_response(response, cls=BaseEncoder, headers=headers)
 
     def get_args(self, request: web.Request = None) -> dict:
         params = {}
@@ -647,7 +643,7 @@ class ModelView(BaseView):
         """
         try:
             if not self.model.Meta.connection:
-                db = await self.request.app['database'].acquire()
+                db = await self.request.app["database"].acquire()
                 self.model.Meta.connection = db
         except Exception as err:
             raise Exception(err)
@@ -657,24 +653,20 @@ class ModelView(BaseView):
 
     async def get(self):
         args, params = await self.get_parameters()
+        # print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
             return self.model_response(data)
-        except NoDataFound as err:
-            print(err)
+        except NoDataFound:
             headers = {
-                    'X-STATUS': 'EMPTY',
-                    'X-MESSAGE': f'Data on {self.Meta.tablename} not Found'
-                }
+                "X-STATUS": "EMPTY",
+                "X-MESSAGE": f"Data on {self.Meta.tablename} not Found",
+            }
             return self.no_content(headers=headers)
         except Exception as err:
-            print('ERROR ', err)
-            return self.critical(
-                request=self.request,
-                exception=err,
-                traceback=''
-            )
+            print("ERROR ", err)
+            return self.critical(request=self.request, exception=err, traceback="")
 
     async def patch(self):
         """
@@ -693,9 +685,9 @@ class ModelView(BaseView):
                 return self.model_response(data)
             else:
                 return self.error(
-                    response=f'Resource not found: {post}',
+                    response=f"Resource not found: {post}",
                     request=self.request,
-                    state=404
+                    state=404,
                 )
         else:
             try:
@@ -707,15 +699,11 @@ class ModelView(BaseView):
                     type = field.db_type()
                     default = None
                     if field.default is not None:
-                        default = f'{field.default!r}'
+                        default = f"{field.default!r}"
                     data[key] = {"type": type, "default": default}
                 return self.model_response(data)
             except Exception as err:
-                return self.critical(
-                    request=self.request,
-                    exception=err,
-                    traceback=''
-                )
+                return self.critical(request=self.request, exception=err, traceback="")
 
     async def post(self):
         """
@@ -728,8 +716,20 @@ class ModelView(BaseView):
             return self.error(
                 request=self.request,
                 response="Cannot Update row without JSON Data",
-                state=406
+                state=406,
             )
+        # updating several at the same time:
+        if type(post) == list:
+            # mass-update using arguments:
+            try:
+                result = self.model.update(args, **post)
+                data = [row.dict() for row in result]
+                return self.model_response(data)
+            except Exception as err:
+                trace = traceback.format_exc()
+                return self.critical(
+                    request=self.request, exception=err, traceback=trace
+                )
         if len(args) > 0:
             parameters = {**args, **post}
             try:
@@ -743,7 +743,9 @@ class ModelView(BaseView):
                     return self.model_response(data)
             except Exception as err:
                 print(err)
-                pass
+                return self.error(
+                    request=self.request, response=f"Error Saving Data {err!s}"
+                )
         # I need to use post data only
         try:
             qry = self.model(**post)
@@ -755,17 +757,15 @@ class ModelView(BaseView):
             else:
                 return self.error(
                     request=self.request,
-                    response=f'Invalid data for Schema {self.Meta.tablename}'
+                    response=f"Invalid data for Schema {self.Meta.tablename}",
                 )
         except Exception as err:
-            return self.critical(
-                request=self.request,
-                exception=err,
-                traceback=''
-            )
+            print(err)
+            trace = traceback.format_exc()
+            return self.critical(request=self.request, exception=err, traceback=trace)
 
     async def delete(self):
-        """"
+        """ "
         delete.
            summary: delete a table object
         """
@@ -780,36 +780,31 @@ class ModelView(BaseView):
         except Exception as err:
             return self.error(
                 request=self.request,
-                response='Error Deleting Object',
+                response="Error Deleting Object",
                 exception=err,
-                state=400
+                state=400,
             )
         if result is not None:
-            msg = {
-                "result": result
-            }
+            msg = {"result": result}
             headers = {
-                'X-STATUS': 'OK',
-                'X-MESSAGE': f'Table row was deleted',
-                'X-TABLE': self.Meta.tablename
+                "X-STATUS": "OK",
+                "X-MESSAGE": f"Table row was deleted",
+                "X-TABLE": self.Meta.tablename,
             }
-            return self.model_response(
-                msg,
-                headers=headers
-            )
+            return self.model_response(msg, headers=headers)
         else:
             headers = {
-                    'X-STATUS': 'Error',
-                    'X-MESSAGE': f'Row in Table {self.Meta.tablename} not deleted'
+                "X-STATUS": "Error",
+                "X-MESSAGE": f"Row in Table {self.Meta.tablename} not deleted",
             }
             return self.error(
-                response=f'Row in Table {self.Meta.tablename} not deleted',
+                response=f"Row in Table {self.Meta.tablename} not deleted",
                 headers=headers,
-                state=404
+                state=404,
             )
 
     async def put(self):
-        """"
+        """ "
         put.
            summary: insert a row in table
         """
@@ -819,7 +814,7 @@ class ModelView(BaseView):
             return self.error(
                 request=self.request,
                 response="Cannot Insert a row without post data",
-                state=406
+                state=406,
             )
         parameters = {**params, **post}
         try:
@@ -833,14 +828,10 @@ class ModelView(BaseView):
             else:
                 return self.error(
                     request=self.request,
-                    response=f'Invalid data for Schema {self.Meta.tablename}'
+                    response=f"Invalid data for Schema {self.Meta.tablename}",
                 )
         except Exception as err:
-            return self.critical(
-                request=self.request,
-                exception=err,
-                traceback=''
-            )
+            return self.critical(request=self.request, exception=err, traceback="")
 
     class Meta:
-        tablename: str = ''
+        tablename: str = ""

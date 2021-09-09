@@ -33,7 +33,7 @@ class BasicAuth(BaseAuthBackend):
     user_attribute: str = "user"
     username_attribute: str = "username"
     pwd_atrribute: str = "password"
-    scheme: str = "Basic"
+    scheme: str = "Bearer"
 
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model

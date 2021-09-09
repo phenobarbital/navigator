@@ -171,10 +171,10 @@ class BaseAuthBackend(ABC):
                 scheme, jwt_token = (
                     request.headers.get("Authorization").strip().split(" ")
                 )
-            except ValueError as err:
+            except (TypeError, ValueError) as err:
                 raise NavException("Invalid authorization Header", state=401)
             if scheme != self.scheme:
-                raise NavException("Invalid Session scheme", state=401)
+                logging.error("Auth: Invalid Session scheme")
             try:
                 payload = jwt.decode(
                     jwt_token,

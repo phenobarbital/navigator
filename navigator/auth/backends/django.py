@@ -31,7 +31,7 @@ class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
     redis = None
-    _scheme: str = "SessionID"
+    _scheme: str = "Bearer"
 
     def configure(self, app, router):
         async def _setup_redis(app):

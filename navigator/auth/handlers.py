@@ -53,10 +53,11 @@ class UserHandler(BaseView):
                 except KeyError:
                     return self.error('Invalid Session, missing Session ID')
                 headers = {"x-status": "OK", "x-message": "Session OK"}
+                userdata = dict(session)
                 data = {
                     "key": sessionid,
                     "session_id": sessionid,
-                    **session[sessionid]
+                    **userdata
                 }
                 if data:
                     return self.json_response(

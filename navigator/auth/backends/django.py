@@ -75,7 +75,7 @@ class DjangoAuth(BaseAuthBackend):
             async with await self.redis as redis:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
-                return False
+                raise Exception('Empty or non-existing Session')
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
             user = rapidjson.loads(session_data[1])
@@ -86,9 +86,8 @@ class DjangoAuth(BaseAuthBackend):
             }
             return session
         except Exception as err:
-            print(err)
-            logging.debug("Django Session Decoding Error: {}".format(err))
-            return False
+            logging.debug("Django Decoding Error: {}".format(err))
+            raise Exception("Django Decoding Error: {}".format(err))
 
     async def validate_user(self, login: str = None):
         # get the user based on Model

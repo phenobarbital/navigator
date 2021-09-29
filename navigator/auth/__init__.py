@@ -150,7 +150,6 @@ class AuthHandler(object):
                 )
         return b
 
-
     # async def login(self, request) -> web.Response:
     #     response = web.HTTPFound("/")
     #     form = await request.post()
@@ -226,8 +225,7 @@ class AuthHandler(object):
                 userdata = await backend.authenticate(request)
                 if not userdata:
                     raise web.HTTPUnauthorized(
-                        reason="Unauthorized",
-                        status=403
+                        reason="Unauthorized"
                     )
                 # at now: create the user-session
                 try:
@@ -235,29 +233,29 @@ class AuthHandler(object):
                     session['id'] = userdata['id']
                 except Exception as err:
                     raise web.HTTPUnauthorized(
-                        reason=f"Error Creating User Session: {err!s}",
-                        status=403
+                        reason=f"Error Creating User Session: {err!s}"
                     )
                 return json_response(userdata, state=200)
             except FailedAuth as err:
-                raise web.HTTPUnauthorized(
+                print('NO  ', err)
+                raise web.HTTPClientError(
                     reason="Authentication Error: Bad Credentials",
                     status=err.state
                 )
             except InvalidAuth as err:
                 raise web.HTTPUnauthorized(
-                    reason="Authentication Error: Invalid Authentication",
-                    status=403
+                    reason="Authentication Error: Invalid Authentication"
                 )
             except UserDoesntExists as err:
+                print('UD ', err)
                 raise web.HTTPUnauthorized(
-                    reason="Unauthorized: User Doesn't exists",
-                    status=403
+                    reason="Unauthorized: User Doesn't exists"
                 )
             except Exception as err:
-                raise web.HTTPUnauthorized(
+                print('HERE ', err)
+                raise web.HTTPClientError(
                     reason=f"Unauthorized Error {err!s}",
-                    status=403
+                    status=406
                 )
         else:
             # second: if no backend declared, will iterate over all backends
@@ -276,15 +274,14 @@ class AuthHandler(object):
                 ) as err:
                     continue
                 except Exception as err:
-                    return web.HTTPUnauthorized(
+                    return web.HTTPClientError(
                         reason=err,
                         status=401
                     )
             # if not userdata, then raise an not Authorized
             if not userdata:
                 raise web.HTTPUnauthorized(
-                    reason="User not Authorized",
-                    status=403,
+                    reason="User not Authorized"
                 )
             else:
                 # at now: create the user-session
@@ -294,8 +291,7 @@ class AuthHandler(object):
                 except Exception as err:
                     print(err)
                     return web.HTTPUnauthorized(
-                        reason=f"Error Creating User Session: {err!s}",
-                        status=403
+                        reason=f"Error Creating User Session: {err!s}"
                     )
                 return json_response(userdata, state=200)
 

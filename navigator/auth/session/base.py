@@ -32,7 +32,7 @@ class BaseSession(AbstractSession):
     async def create(self, request, userdata: dict = {}):
         app = request.app
         try:
-            self.session = await new_session(request)
+            session = await new_session(request)
         except Exception as err:
             logging.error(f'Error creating Session: {err}')
             return False

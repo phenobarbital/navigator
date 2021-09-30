@@ -18,7 +18,8 @@ from navigator.functions import json_response
 from navigator.auth.session import (
     CookieSession,
     RedisSession,
-    MemcacheSession
+    MemcacheSession,
+    TokenSession
 )
 from navigator.exceptions import (
     NavException,
@@ -96,6 +97,10 @@ class AuthHandler(object):
             )
         elif SESSION_STORAGE == "memcache":
             self._session = MemcacheSession(
+                name=SESSION_NAME
+            )
+        elif SESSION_STORAGE == "token":
+            self._session = TokenSession(
                 name=SESSION_NAME
             )
         else:
@@ -194,15 +199,16 @@ class AuthHandler(object):
         """
         app = request.app
         try:
+            print('LOGOUT')
             await self._session.forgot(request)
             return web.json_response(
                 {"message": "Logout successful"},
                 status=200
             )
         except Exception as err:
+            print(err)
             raise web.HTTPUnauthorized(
-                reason=f"Logout Error {err!s}",
-                status=401
+                reason=f"Logout Error {err!s}"
             )
 
     async def api_login(self, request: web.Request) -> web.Response:

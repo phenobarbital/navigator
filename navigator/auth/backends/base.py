@@ -31,9 +31,9 @@ JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 exclude_list = (
     "/static/",
     "/api/v1/login",
-    "/api/v1/logout",
+    # "/api/v1/logout",
     "/login",
-    "/logout",
+    # "/logout",
     "/signin",
     "/signout",
     "/_debug/",

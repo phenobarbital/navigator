@@ -165,7 +165,8 @@ class BasicAuth(BaseAuthBackend):
                 return await authz
             try:
                 jwt_token = self.decode_token(request)
-                print(jwt_token)
+                # middleware need to load session object:
+                request['user'] = jwt_token
             except NavException as err:
                 response = {
                     "message": "Token Error",

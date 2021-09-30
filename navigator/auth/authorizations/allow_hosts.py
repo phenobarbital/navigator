@@ -15,7 +15,9 @@ class authz_allow_hosts(BaseAuthzHandler):
     async def check_authorization(self, request: web.Request) -> bool:
         origin = request.host if request.host else request.headers["origin"]
         for key in ALLOWED_HOSTS:
-            # print(origin, ALLOWED_HOSTS, key, fnmatch.fnmatch(origin, key))
             if fnmatch.fnmatch(origin, key):
+                logging.debug(
+                    f'Authorized based on ALLOW HOST Authorization {key}'
+                )
                 return True
         return False

@@ -139,13 +139,17 @@ class DjangoAuth(BaseAuthBackend):
                 userdata = self.get_userdata(user)
                 userdata["session"] = data
                 userdata['id'] = sessionid
+                # saving user-data into request:
+                request['userdata'] = userdata
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
-                    "sessionid": sessionid
+                    "id": sessionid
                 }
-                token = self.create_jwt(data=payload)
+                token = self.create_jwt(
+                    data=payload
+                )
                 return {
                     "token": token,
                     **userdata

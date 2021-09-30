@@ -7,17 +7,15 @@ from functools import wraps, partial
 import aiomcache
 from aiohttp_session.memcached_storage import MemcachedStorage
 from aiohttp_session import setup as setup_session
-from .base import AbstractSession
+from .base import BaseSession
 from navigator.conf import (
-    DOMAIN,
-    SESSION_URL,
     SESSION_TIMEOUT,
     MEMCACHE_HOST,
     MEMCACHE_PORT,
 )
 
 
-class MemcacheSession(AbstractSession):
+class MemcacheSession(BaseSession):
     """Session Storage based on Memcache."""
 
     _pool = None

@@ -30,19 +30,23 @@ from navigator.conf import (
     DEBUG,
     INSTALLED_APPS,
     STATIC_DIR,
+    SESSION_TIMEOUT
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
-from navigator.resources import home  # ping
+from navigator.resources import home, ping
 from navigator.functions import cPrint
 import asyncio
 import uvloop
 
 # make asyncio use the event loop provided by uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+# get the authentication library
+from navigator.auth import AuthHandler
 
 loglevel = logging.INFO
 dictConfig(logging_config)
@@ -80,10 +84,7 @@ class path(object):
 
 
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
-    # Configure the main App
-    # app.router.add_route("GET", "/ping", ping)
-    # index
-    app.router.add_get("/", home)
+    """ Initialize all Apps in the existing Installation."""
     for app_name in app_list:
         obj = None
         try:
@@ -126,6 +127,7 @@ class AppHandler(ABC):
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
+    enable_auth: bool = True
     staticdir: str = ""
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
@@ -144,7 +146,6 @@ class AppHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         # TODO: making automatic discovery of routes
         if self.auto_home:
-            # self.app.router.add_route("GET", "/ping", ping)
             self.app.router.add_route("GET", "/", home)
 
     def CreateApp(self) -> web.Application:
@@ -156,16 +157,34 @@ class AppHandler(ABC):
             cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
-        if self._middleware:
-            middlewares = {"middlewares": self._middleware}
         app = web.Application(
             logger=self.logger,
             client_max_size=(1024 * 1024) * 1024,
             loop=self._loop,
-            **middlewares,
+            # **middlewares,
         )
+        app.router.add_route("GET", "/ping", ping, name="ping")
+        app.router.add_get("/", home, name="home")
         # print(app)
         app["name"] = self._name
+        # Setup Authentication:
+        if self.enable_auth is True:
+            self._auth = AuthHandler(
+                session_timeout=SESSION_TIMEOUT
+            )
+            # configuring authentication endpoints
+            # TODO: support multi-auth methods
+            self._auth.configure(app)
+            app["auth"] = self._auth
+            # cleanup operations over authentication backend
+            app.on_cleanup.append(self._auth.on_cleanup)
+        # add the other middlewares:
+        try:
+            for middleware in self._middleware:
+                app.middlewares.append(middleware)
+        except (ValueError, TypeError):
+            pass
+        # CORS
         self.cors = aiohttp_cors.setup(
             app,
             defaults={
@@ -182,7 +201,7 @@ class AppHandler(ABC):
 
     def get_loop(self, new: bool = False):
         if new is True:
-            loop = uvloop.new_event_loop()
+            loop = uvloop.get_event_loop()
             asyncio.set_event_loop(loop)
             return loop
         else:

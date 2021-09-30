@@ -1,19 +1,46 @@
 """Navigator Auth.
 
 Navigator Authentication/Authorization system.
+
+AuthHandler is the Authentication/Authorization system for NAV,
+Supporting:
+ * multiple authentication backends
+ * authorization exceptions via middlewares
+ * Session Support (in the top of aiohttp-session)
 """
 from textwrap import dedent
 import importlib
 import logging
 from aiohttp import web
-from typing import List, Iterable
-from .backends import BaseAuthBackend
-
-# aiohttp session
+from typing import Dict, List, Iterable
 from .authorizations import *
 from navigator.functions import json_response
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
-
+from navigator.auth.session import (
+    CookieSession,
+    RedisSession,
+    MemcacheSession,
+    TokenSession
+)
+from navigator.exceptions import (
+    NavException,
+    UserDoesntExists,
+    InvalidAuth,
+    FailedAuth
+)
+from navigator.conf import (
+    AUTHORIZATION_BACKENDS,
+    CREDENTIALS_REQUIRED,
+    SESSION_TIMEOUT,
+    AUTHENTICATION_BACKENDS,
+    AUTHORIZATION_MIDDLEWARES,
+    DOMAIN,
+    SESSION_NAME,
+    SESSION_STORAGE,
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    JWT_ALGORITHM
+)
+from aiohttp_session import get_session, new_session
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""
@@ -33,41 +60,70 @@ class AuthHandler(object):
                 <a href="/logout">Logout</a>
             </body>
     """
-    backend = None
+    backends: Dict = None
     _session = None
     _user_property: str = "user"
     _required: bool = False
+    _middlewares: Iterable = []
 
     def __init__(
         self,
-        backend: str = "navigator.auth.backends.NoAuth",
-        credentials_required: bool = False,
         auth_scheme="Bearer",
-        authorization_backends: List = (),
         **kwargs,
     ):
         self._template = dedent(self._template)
-        authz_backends = self.get_authorization_backends(authorization_backends)
+        authz_backends = self.get_authorization_backends(AUTHORIZATION_BACKENDS)
         args = {
-            "credentials_required": credentials_required,
+            "credentials_required": CREDENTIALS_REQUIRED,
             "scheme": auth_scheme,
             "authorization_backends": authz_backends,
             **kwargs,
         }
-        self.backend = self.get_backend(backend, **args)
+        # get the authentication backends (all of the list)
+        self.backends = self.get_backends(**args)
+        self._middlewares = self.get_authorization_middlewares(
+            AUTHORIZATION_MIDDLEWARES
+        )
+        # Session Support:
+        # getting Session Object:
+        if SESSION_STORAGE == "cookie":
+            self._session = CookieSession(
+                name=SESSION_NAME,
+                secret=SECRET_KEY
+            )
+        elif SESSION_STORAGE == "redis":
+            self._session = RedisSession(
+                name=SESSION_NAME
+            )
+        elif SESSION_STORAGE == "memcache":
+            self._session = MemcacheSession(
+                name=SESSION_NAME
+            )
+        elif SESSION_STORAGE == "token":
+            self._session = TokenSession(
+                name=SESSION_NAME
+            )
+        else:
+            raise NavException(
+                f"Unknown Session type {session_type}"
+            )
 
-    def get_backend(self, backend, **kwargs):
-        try:
-            parts = backend.split(".")
-            bkname = parts[-1]
-            classpath = ".".join(parts[:-1])
-            module = importlib.import_module(classpath, package=bkname)
-            obj = getattr(module, bkname)
-            return obj(**kwargs)
-        except ImportError:
-            raise Exception(f"Error loading Auth Backend {backend}")
+    def get_backends(self, **kwargs):
+        backends = {}
+        for backend in AUTHENTICATION_BACKENDS:
+            try:
+                parts = backend.split(".")
+                bkname = parts[-1]
+                classpath = ".".join(parts[:-1])
+                module = importlib.import_module(classpath, package=bkname)
+                obj = getattr(module, bkname)
+                logging.debug(f'Loading Auth Backend {bkname}')
+                backends[bkname] = obj(**kwargs)
+            except ImportError:
+                raise Exception(f"Error loading Auth Backend {backend}")
+        return backends
 
-    async def close(self):
+    async def on_cleanup(self, app):
         """
         Cleanup the processes
         """
@@ -81,6 +137,22 @@ class AuthHandler(object):
                 b.append(authz_hosts())
             elif backend == "allow_hosts":
                 b.append(authz_allow_hosts())
+        return b
+
+    def get_authorization_middlewares(self, backends: Iterable) -> tuple:
+        b = []
+        for backend in backends:
+            try:
+                parts = backend.split(".")
+                bkname = parts[-1]
+                classpath = ".".join(parts[:-1])
+                module = importlib.import_module(classpath, package=bkname)
+                obj = getattr(module, bkname)
+                b.append(obj)
+            except ImportError:
+                raise Exception(
+                    f"Error loading Authz Middleware {backend}"
+                )
         return b
 
     # async def login(self, request) -> web.Response:
@@ -122,40 +194,125 @@ class AuthHandler(object):
     #     raise web.HTTPSeeOther(location="/")
 
     async def api_logout(self, request: web.Request) -> web.Response:
-        await self.backend.forgot_session(request)
-        return web.json_response({"message": "logout successful"}, status=200)
-
-    async def api_login(self, request: web.Request) -> web.Response:
+        """Logout.
+        API-based Logout.
+        """
+        app = request.app
         try:
-            user = await self.backend.check_credentials(request)
-            print('USER: ', user)
-            if not user:
-                raise web.HTTPUnauthorized(
-                    reason="Unauthorized",
-                    status=403
-                )
-            return json_response(user, state=200)
-        except (NavException, UserDoesntExists, InvalidAuth) as err:
-            raise web.HTTPUnauthorized(
-                reason=err,
-                status=err.state
+            print('LOGOUT')
+            await self._session.forgot(request)
+            return web.json_response(
+                {"message": "Logout successful"},
+                status=200
             )
-        except ValueError:
-            raise web.HTTPUnauthorized(reason="Unauthorized")
         except Exception as err:
             print(err)
-            raise web.HTTPUnauthorized(reason=err, status=403)
+            raise web.HTTPUnauthorized(
+                reason=f"Logout Error {err!s}"
+            )
 
-    async def authenticate(self, request: web.Request) -> web.Response:
-        """ Authentication method to refresh credentials for Registration."""
-        auth = await self.backend.check_authorization(request)
-        if not auth:
-            raise web.HTTPUnauthorized(reason="User not Authorized")
+    async def api_login(self, request: web.Request) -> web.Response:
+        """Login.
+
+        API based login.
+        """
+        app = request.app
+        # first: getting header for an existing backend
+        method = request.headers.get('X-Auth-Method')
+        if method:
+            try:
+                backend = self.backends[method]
+            except KeyError:
+                raise web.HTTPUnauthorized(
+                    text=f"Unacceptable Auth Method {method}",
+                    content_type="application/json"
+                )
+            try:
+                userdata = await backend.authenticate(request)
+                if not userdata:
+                    raise web.HTTPUnauthorized(
+                        reason="Unauthorized"
+                    )
+                # at now: create the user-session
+                try:
+                    session = await self._session.create(request, userdata)
+                    session['id'] = userdata['id']
+                except Exception as err:
+                    raise web.HTTPUnauthorized(
+                        reason=f"Error Creating User Session: {err!s}"
+                    )
+                return json_response(userdata, state=200)
+            except FailedAuth as err:
+                print('NO  ', err)
+                raise web.HTTPClientError(
+                    reason="Authentication Error: Bad Credentials",
+                    status=err.state
+                )
+            except InvalidAuth as err:
+                raise web.HTTPUnauthorized(
+                    reason="Authentication Error: Invalid Authentication"
+                )
+            except UserDoesntExists as err:
+                print('UD ', err)
+                raise web.HTTPUnauthorized(
+                    reason="Unauthorized: User Doesn't exists"
+                )
+            except Exception as err:
+                print('HERE ', err)
+                raise web.HTTPClientError(
+                    reason=f"Unauthorized Error {err!s}",
+                    status=406
+                )
+        else:
+            # second: if no backend declared, will iterate over all backends
+            userdata = None
+            for bk, backend in self.backends.items():
+                try:
+                    # check credentials for all backends
+                    userdata = await backend.authenticate(request)
+                    if userdata:
+                        break
+                except (
+                    NavException,
+                    UserDoesntExists,
+                    InvalidAuth,
+                    FailedAuth
+                ) as err:
+                    continue
+                except Exception as err:
+                    return web.HTTPClientError(
+                        reason=err,
+                        status=401
+                    )
+            # if not userdata, then raise an not Authorized
+            if not userdata:
+                raise web.HTTPUnauthorized(
+                    reason="User not Authorized"
+                )
+            else:
+                # at now: create the user-session
+                try:
+                    session = await self._session.create(request, userdata)
+                    session['id'] = userdata['id']
+                except Exception as err:
+                    print(err)
+                    return web.HTTPUnauthorized(
+                        reason=f"Error Creating User Session: {err!s}"
+                    )
+                return json_response(userdata, state=200)
+
+    # Session Methods:
+    async def forgot_session(self, request: web.Request):
+        await self._session.forgot(request)
+
+    async def create_session(self, request: web.Request, data: Iterable):
+        return await self._session.create(request, data)
 
     async def get_session(self, request: web.Request) -> web.Response:
-        """ return Session Data from user."""
+        """ Get user data from session."""
+        session = None
         try:
-            dump = await self.backend.get_session(request)
+            session = await self._session.get_session(request)
         except NavException as err:
             print("Error HERE: ", err, err.state)
             response = {
@@ -164,43 +321,35 @@ class AuthHandler(object):
                 "status": err.state,
             }
             return web.json_response(response, status=err.state)
-        if dump:
-            return json_response(dump)
-        else:
-            raise web.HTTPForbidden()
+        if not session:
+            try:
+                session = await self._session.get_session(request)
+            except Exception as e:
+                print(e)
+                # always return a null session for user:
+                session = await self._session.create(request, {})
+        userdata = dict(session)
+        return web.json_response(userdata, status=200)
 
     def configure(self, app: web.Application) -> web.Application:
         router = app.router
-        # router.add_route("GET", "/login", self.login_page, name="index_login")
-        # router.add_route("POST", "/login", self.login, name="login")
-        # router.add_route("GET", "/logout", self.logout, name="logout")
         router.add_route(
             "GET",
-            "/api/v1/login/{program}",
+            "/api/v1/login",
             self.api_login,
-            name="api_login_get_tenant",
+            name="api_login"
         )
         router.add_route(
             "POST",
-            "/api/v1/login/{program}",
+            "/api/v1/login",
             self.api_login,
-            name="api_login_post_tenant",
+            name="api_login_post"
         )
-        router.add_route("GET", "/api/v1/login", self.api_login, name="api_login_get")
-        router.add_route("POST", "/api/v1/login", self.api_login, name="api_login_post")
-        router.add_route("GET", "/api/v1/logout", self.api_logout, name="api_logout")
-        # new route: authenticate against a especific program:
         router.add_route(
             "GET",
-            "/api/v1/authenticate/{program}",
-            self.authenticate,
-            name="api_authenticate_program",
-        )
-        # refresh or reconfigure authentication
-        router.add_route(
-            "GET", "/api/v1/authenticate",
-            self.authenticate,
-            name="api_authenticate"
+            "/api/v1/logout",
+            self.api_logout,
+            name="api_logout"
         )
         # get the session information for a program (only)
         router.add_route(
@@ -212,17 +361,29 @@ class AuthHandler(object):
         # get all user information
         router.add_route(
             "GET",
-            "/api/v1/session",
+            "/api/v1/user/session",
             self.get_session,
             name="api_session"
         )
-        # backed needs initialization (connection to a redis server, etc)
-        try:
-            self.backend.configure(app, router)
-        except Exception as err:
-            print(err)
-            logging.exception(f"Error on Auth Backend initialization {err!s}")
         # the backend add a middleware to the app
         mdl = app.middlewares
-        mdl.append(self.backend.auth_middleware)
+        # configuring Session Object
+        self._session.configure_session(app)
+        # if a backend needs initialization
+        # (connection to a redis server, etc)
+        for name, backend in self.backends.items():
+            try:
+                backend.configure(app, router)
+                if hasattr(backend, "auth_middleware"):
+                    # add the middleware for Basic Authentication
+                    mdl.append(backend.auth_middleware)
+            except Exception as err:
+                print(err)
+                logging.exception(
+                    f"Error on Auth Backend {name} init: {err!s}"
+                )
+        # at last: add other middleware support
+        if self._middlewares:
+            for mid in self._middlewares:
+                mdl.append(mid)
         return app

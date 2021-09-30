@@ -7,18 +7,20 @@ from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.utils.models import Model
 from navigator.conf import (
-    DOMAIN,
     NAV_AUTH_USER,
     NAV_AUTH_GROUP,
-    SESSION_NAME,
-    SESSION_STORAGE,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     JWT_ALGORITHM,
     USER_MAPPING,
+    SECRET_KEY,
+    SESSION_TIMEOUT,
+    CREDENTIALS_REQUIRED
 )
-from navigator.auth.session import CookieSession, RedisSession, MemcacheSession
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
+
+from navigator.exceptions import (
+    NavException,
+    UserDoesntExists,
+    InvalidAuth
+)
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 
@@ -29,9 +31,9 @@ JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 exclude_list = (
     "/static/",
     "/api/v1/login",
-    "/api/v1/logout",
+    # "/api/v1/logout",
     "/login",
-    "/logout",
+    # "/logout",
     "/signin",
     "/signout",
     "/_debug/",
@@ -63,7 +65,6 @@ class BaseAuthBackend(ABC):
         username_attribute: str = "username",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
-        session_type: str = "cookie",
         **kwargs,
     ):
         # force using of credentials
@@ -81,21 +82,6 @@ class BaseAuthBackend(ABC):
         self.user_model = self.get_model(NAV_AUTH_USER)
         self.group_model = self.get_model(NAV_AUTH_GROUP)
         self.user_mapping = USER_MAPPING
-        # getting Session Object:
-        args = {
-            "user_property": user_property,
-            "user_attribute": user_attribute,
-            "username_attribute": username_attribute,
-            **kwargs,
-        }
-        if SESSION_STORAGE == "cookie":
-            self._session = CookieSession(name=SESSION_NAME, secret=SECRET_KEY, **args)
-        elif SESSION_STORAGE == "redis":
-            self._session = RedisSession(name=SESSION_NAME, **args)
-        elif SESSION_STORAGE == "memcache":
-            self._session = MemcacheSession(name=SESSION_NAME, **args)
-        else:
-            raise Exception(f"Unknown Session type {session_type}")
 
     def get_model(self, model, **kwargs):
         try:
@@ -131,12 +117,7 @@ class BaseAuthBackend(ABC):
     def configure(self, app, router):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
-        try:
-            # configuring Session Object
-            self._session.configure_session(app)
-        except Exception as err:
-            print(err)
-            raise Exception(err)
+        pass
 
     async def authorization_backends(self, app, handler, request):
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
@@ -154,7 +135,10 @@ class BaseAuthBackend(ABC):
         return None
 
     def create_jwt(
-        self, issuer: str = None, expiration: int = None, data: dict = None
+        self,
+        issuer: str = None,
+        expiration: int = None,
+        data: dict = None
     ) -> str:
         """Creation of JWT tokens based on basic parameters.
         issuer: for default, urn:Navigator
@@ -187,10 +171,10 @@ class BaseAuthBackend(ABC):
                 scheme, jwt_token = (
                     request.headers.get("Authorization").strip().split(" ")
                 )
-            except ValueError as err:
+            except (TypeError, ValueError) as err:
                 raise NavException("Invalid authorization Header", state=401)
             if scheme != self.scheme:
-                raise NavException("Invalid Session scheme", state=401)
+                logging.error("Auth: Invalid Session scheme")
             try:
                 payload = jwt.decode(
                     jwt_token,
@@ -213,44 +197,7 @@ class BaseAuthBackend(ABC):
                 print(err, err.__class__.__name__)
                 raise NavException(err, state=501)
 
-    async def forgot_session(self, request: web.Request):
-        await self._session.forgot_session(request)
-
-    @abstractmethod
-    async def check_credentials(self, request):
-        """ Authenticate against user credentials (token, user/password)."""
-        pass
-
-    @abstractmethod
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
-        pass
-
-    async def get_session(self, request):
-        """ Get user data from session."""
-        app = request.app
-        session = await self._session.get_session(request)
-        if not session.new:
-            # user has existing session
-            userdata = session.get(self.user_property)
-        else:
-            try:
-                payload = self.decode_token(request)
-            except NavException as err:
-                raise NavException(err)
-            if payload:
-                userdata = payload
-        if userdata:
-            data = {self.user_property: userdata}
-            return data
-        else:
-            return None
-
-    @abstractmethod
-    async def auth_middleware(self, app, handler):
-        """ Base Middleware for Authentication Backend."""
-
-        async def middleware(request):
-            return await handler(request)
-
-        return middleware
+    # @abstractmethod
+    # async def check_credentials(self, request):
+    #     """ Authenticate against user credentials (token, user/password)."""
+    #     pass

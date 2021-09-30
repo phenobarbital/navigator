@@ -19,7 +19,7 @@ import secrets
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
 
 
-class TrocAuth(BaseAuthBackend):
+class TrocToken(BaseAuthBackend):
     """TROC authentication Header."""
 
     user_attribute: str = "user"
@@ -34,7 +34,6 @@ class TrocAuth(BaseAuthBackend):
         username_attribute: str = "email",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
-        session_type: str = "cookie",
         **kwargs,
     ):
         super().__init__(
@@ -44,7 +43,6 @@ class TrocAuth(BaseAuthBackend):
             username_attribute,
             credentials_required,
             authorization_backends,
-            session_type,
             **kwargs,
         )
         # forcing to use Email as Username Attribute
@@ -89,9 +87,11 @@ class TrocAuth(BaseAuthBackend):
             return None
         return troctoken
 
-    async def check_credentials(self, request):
+    async def authenticate(self, request):
+        """ Authenticate, refresh or return the user credentials."""
         try:
             troctoken = await self.get_payload(request)
+            print('TOKEN: ', troctoken)
         except Exception as err:
             raise NavException(err, state=400)
         if not troctoken:
@@ -101,8 +101,11 @@ class TrocAuth(BaseAuthBackend):
             # TODO: making the validation of token and expiration
             try:
                 data = rapidjson.loads(CIPHER.decode(passphrase=troctoken))
+                print(data)
             except Exception as err:
-                raise InvalidAuth(f"Invalid TROC Token: {err!s}", state=401)
+                raise InvalidAuth(
+                    f"Invalid TROC Token: {err!s}", state=401
+                )
             # making validation
             try:
                 username = data[self.username_attribute]
@@ -116,43 +119,21 @@ class TrocAuth(BaseAuthBackend):
                 raise NavException(err, state=500)
             try:
                 userdata = self.get_userdata(user)
-                userdata["Payload"] = data
-                # Create the User session and returned.
-                session = await self._session.create_session(request, user, userdata)
+                userdata["session"] = data
+                userdata['id'] = user[self.username_attribute]
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
                 }
                 token = self.create_jwt(data=payload)
-                return {"token": token}
+                return {
+                    "token": token,
+                    **userdata
+                }
             except Exception as err:
                 print(err)
                 return False
 
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
-        pass
-
-    async def auth_middleware(self, app, handler):
-        async def middleware(request):
-            request.user = None
-            authz = await self.authorization_backends(app, handler, request)
-            if authz:
-                return await authz
-            try:
-                jwt_token = self.decode_token(request)
-            except NavException as err:
-                response = {
-                    "message": "TROC Token Error",
-                    "error": err.message,
-                    "status": err.state,
-                }
-                return web.json_response(response, status=err.state)
-            except Exception as err:
-                raise web.HTTPBadRequest(body=f"Bad Request: {err!s}")
-            if self.credentials_required is True:
-                raise web.HTTPUnauthorized(body="Unauthorized")
-            return await handler(request)
-
-        return middleware
+    # async def check_credentials(self, request):
+    #     pass

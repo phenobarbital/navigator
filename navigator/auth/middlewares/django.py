@@ -2,27 +2,56 @@ import base64
 import rapidjson
 from aiohttp import web
 from datetime import datetime, timedelta
-from navigator.conf import SESSION_TIMEOUT, SECRET_KEY, SESSION_PREFIX
-from aiohttp_session import get_session
+from navigator.conf import (
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    SESSION_PREFIX,
+    CREDENTIALS_REQUIRED
+)
+from aiohttp_session import get_session, new_session
 import logging
+import time
+
+def get_sessionid(request):
+    sessionid = request.headers.get("X-Sessionid")
+    if not sessionid:
+        sessionid = request.headers.get("sessionid", None)
+        logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
+    return sessionid
 
 async def django_middleware(app, handler):
     async def middleware(request):
         request.user = None
+        sessionid = get_sessionid(request)
+        if not sessionid:
+            session = await get_session(request)
+            session.invalidate()
+            if CREDENTIALS_REQUIRED is True:
+                return web.json_response(
+                    {"error:": str(err), "message": "Missing Session and Auth Required"},
+                    status=403
+                )
+            return await handler(request)
         try:
-            sessionid = request.headers.get("X-Sessionid")
+            session = await get_session(request)
         except Exception as e:
-            sessionid = request.headers.get("Sessionid", None)
-            logging.warning('Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon')
-        redis = app["redis"]
-        session = await get_session(request)
+            print(e)
+            session = await new_session(request)
+        try:
+            id = session['id']
+            if id != sessionid:
+                session = await new_session(request)
+        except KeyError:
+            pass # new session
         if sessionid in session:
             data = session[sessionid]
+            session['id'] = sessionid
             request["user_id"] = data["user_id"]
             request["session"] = data
             # this session already exists:
             return await handler(request)
         try:
+            redis = app["redis"]
             result = await redis.get("{}:{}".format(SESSION_PREFIX, sessionid))
             if not result:
                 return web.json_response(
@@ -37,8 +66,10 @@ async def django_middleware(app, handler):
                     "session_id": session_data[0],
                     **user
                 }
+                # print('DATA DUMP: ', data)
                 request["user_id"] = user["user_id"]
                 request["session"] = data
+                session['id'] = sessionid
                 session[sessionid] = data
             except Exception as err:
                 print(err)
@@ -47,7 +78,11 @@ async def django_middleware(app, handler):
                 )
         except Exception as err:
             print(err)
-            return web.json_response({"message": "Invalid Session"}, status=400)
+            if CREDENTIALS_REQUIRED is True:
+                return web.json_response(
+                    {"error:": str(err), "message": "Invalid Session"},
+                    status=400
+                )
         return await handler(request)
 
     return middleware

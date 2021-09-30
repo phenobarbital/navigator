@@ -9,7 +9,7 @@ import logging
 import asyncio
 import jwt
 from aiohttp import web, hdrs
-from asyncdb import AsyncDB
+from asyncdb import AsyncPool
 from .base import BaseAuthBackend
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from datetime import datetime, timedelta
@@ -27,14 +27,29 @@ from navigator.conf import (
 class TokenAuth(BaseAuthBackend):
     """API Token Authentication Handler."""
 
-    connection = None
+    _pool = None
     _scheme: str = "Bearer"
 
     def configure(self, app, router):
         async def _make_connection():
             try:
-                self.connection = AsyncDB("pg", dsn=default_dsn)
-                await self.connection.connection()
+                kwargs = {
+                    "min_size": 1,
+                    "server_settings": {
+                        "application_name": 'AUTH-NAV',
+                        "client_min_messages": "notice",
+                        "max_parallel_workers": "48",
+                        "jit": "off",
+                        "statement_timeout": "3600",
+                        "effective_cache_size": "2147483647"
+                    },
+                }
+                self._pool = AsyncPool(
+                    "pg",
+                    dsn=default_dsn,
+                    **kwargs
+                )
+                await self._pool.connect()
             except Exception as err:
                 print(err)
                 raise Exception(err)
@@ -54,18 +69,21 @@ class TokenAuth(BaseAuthBackend):
                         request.headers.get("Authorization").strip().split(" ", 1)
                     )
                 except ValueError:
-                    raise web.HTTPForbidden(
-                        reason="Invalid authorization Header",
+                    raise NavException(
+                        "Invalid authorization Header",
+                        state=400
                     )
                 if scheme != self._scheme:
-                    raise web.HTTPForbidden(
-                        reason="Invalid Authorization Scheme",
+                    raise NavException(
+                        "Invalid Authorization Scheme",
+                        state=400
                     )
                 try:
                     tenant, token = id.split(":")
                 except ValueError:
-                    raise web.HTTPForbidden(
-                        reason="Invalid Token Structure",
+                    raise NavException(
+                        "Invalid Token Structure",
+                        state=400
                     )
         except Exception as e:
             print(e)
@@ -76,7 +94,8 @@ class TokenAuth(BaseAuthBackend):
         if not self.connection or not self.connection.is_connected():
             await self.connection.connection()
 
-    async def check_credentials(self, request):
+    async def authenticate(self, request):
+        """ Authenticate, refresh or return the user credentials."""
         try:
             tenant, token = await self.get_payload(request)
             logging.debug(f"Tenant ID: {tenant}")
@@ -105,15 +124,8 @@ class TokenAuth(BaseAuthBackend):
                     f"Missing attributes for Partner Token: {err!s}", state=401
                 )
             # TODO: Validate that partner (tenants table):
-            # try:
-            #     user = await self.validate_user(
-            #         login=username
-            #     )
-            # except UserDoesntExists as err:
-            #     raise UserDoesntExists(err)
-            # except Exception as err:
-            #     raise NavException(err, state=500)
             try:
+                userdata = dict(data)
                 user = {
                     "name": data["name"],
                     "partner": username,
@@ -121,26 +133,22 @@ class TokenAuth(BaseAuthBackend):
                     "programs": programs,
                     "grants": grants,
                     "tenant": tenant,
+                    "id": data["name"],
+                    "user_id": data["name"],
                 }
-                userdata = dict(data)
-                # Create the User session and returned.
-                session = await self._session.create_session(request, user, userdata)
-                session["partner"] = username
-                session["tenant"] = tenant
-                session["programs"] = programs
                 token = self.create_jwt(data=user)
-                return {"token": f"{tenant}:{token}"}
+                return {
+                    "token": f"{tenant}:{token}",
+                    **user
+                }
             except Exception as err:
                 print(err)
                 return False
 
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
+    async def check_credentials(self, request):
         pass
 
     async def check_token_info(self, request, tenant, payload):
-        if not self.connection:
-            await self.reconnect()
         try:
             name = payload["name"]
             partner = payload["partner"]
@@ -152,7 +160,9 @@ class TokenAuth(BaseAuthBackend):
         AND enabled = TRUE AND revoked = FALSE AND '{tenant}'= ANY(programs)
         """
         try:
-            result, error = await self.connection.queryrow(sql)
+            result = None
+            async with await self._pool.acquire() as conn:
+                result, error = await conn.queryrow(sql)
             if error or not result:
                 return False
             else:

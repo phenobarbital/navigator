@@ -8,11 +8,15 @@ import aioredis
 from functools import wraps, partial
 from aiohttp_session.redis_storage import RedisStorage
 from aiohttp_session import setup as setup_session
-from .base import AbstractSession
-from navigator.conf import DOMAIN, SESSION_URL, SESSION_TIMEOUT
+from .base import BaseSession
+from navigator.conf import (
+    DOMAIN,
+    SESSION_URL,
+    SESSION_TIMEOUT
+)
 
 
-class RedisSession(AbstractSession):
+class RedisSession(BaseSession):
     """Session Storage based on Redis."""
 
     _pool = None

@@ -127,7 +127,7 @@ REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 """
 Authentication System
 """
-NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
+# NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -154,6 +154,7 @@ ALLOWED_HOSTS = [
     e.strip()
     for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
 ]
+
 """
 Session Storage
 """
@@ -164,7 +165,7 @@ SESSION_PREFIX = "{}_session".format(CACHE_PREFIX)
 SESSION_NAME = "{}_SESSION".format(
     config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 )
-SESSION_TIMEOUT = config.get("SESSION_TIMEOUT", fallback=3600)
+SESSION_TIMEOUT = config.get("SESSION_TIMEOUT", fallback=36000)
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
 
 """

@@ -7,7 +7,12 @@ from aiohttp import web
 from .base import BaseAuthBackend
 from datetime import datetime, timedelta
 from aiohttp_session import get_session, new_session
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
+from navigator.exceptions import (
+    NavException,
+    FailedAuth,
+    UserDoesntExists,
+    InvalidAuth
+)
 from navigator.conf import SESSION_TIMEOUT, SECRET_KEY
 import hashlib
 import base64
@@ -28,7 +33,7 @@ class BasicAuth(BaseAuthBackend):
     user_attribute: str = "user"
     username_attribute: str = "username"
     pwd_atrribute: str = "password"
-    scheme: str = "Basic"
+    scheme: str = "Bearer"
 
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
@@ -46,8 +51,9 @@ class BasicAuth(BaseAuthBackend):
                 # return the user Object
                 return user
             else:
-                raise InvalidAuth("Invalid Credentials")
+                raise FailedAuth("Invalid Credentials")
         except Exception as err:
+            print(err)
             raise Exception(err)
         return None
 
@@ -67,7 +73,10 @@ class BasicAuth(BaseAuthBackend):
         return f"{PWD_ALGORITHM}${iterations}${salt}${hash}"
 
     def check_password(self, current_password, password):
-        algorithm, iterations, salt, hash = current_password.split("$", 3)
+        try:
+            algorithm, iterations, salt, hash = current_password.split("$", 3)
+        except ValueError:
+            raise InvalidAuth('Invalid Password Algorithm')
         assert algorithm == PWD_ALGORITHM
         iterations = int(iterations)
         compare_hash = self.set_password(password, iterations=iterations, salt=salt)
@@ -77,7 +86,7 @@ class BasicAuth(BaseAuthBackend):
         ctype = request.content_type
         if request.method == "GET":
             try:
-                user = request.query.get(self.user_attribute, None)
+                user = request.query.get(self.username_attribute, None)
                 password = request.query.get(self.pwd_atrribute, None)
                 return [user, password]
             except Exception:
@@ -85,7 +94,7 @@ class BasicAuth(BaseAuthBackend):
         elif ctype in ("multipart/mixed", "application/x-www-form-urlencoded"):
             data = await request.post()
             if len(data) > 0:
-                user = data.get(self.user_attribute, None)
+                user = data.get(self.username_attribute, None)
                 password = data.get(self.pwd_atrribute, None)
                 return [user, password]
             else:
@@ -93,7 +102,7 @@ class BasicAuth(BaseAuthBackend):
         elif ctype == "application/json":
             try:
                 data = await request.json()
-                user = data[self.user_attribute]
+                user = data[self.username_attribute]
                 password = data[self.pwd_atrribute]
                 return [user, password]
             except Exception:
@@ -101,7 +110,8 @@ class BasicAuth(BaseAuthBackend):
         else:
             return None
 
-    async def check_credentials(self, request):
+    async def authenticate(self, request):
+        """ Authenticate, refresh or return the user credentials."""
         try:
             user, pwd = await self.get_payload(request)
         except Exception as err:
@@ -112,6 +122,8 @@ class BasicAuth(BaseAuthBackend):
             # making validation
             try:
                 user = await self.validate_user(login=user, password=pwd)
+            except FailedAuth:
+                raise
             except UserDoesntExists as err:
                 raise UserDoesntExists(err)
             except InvalidAuth as err:
@@ -120,44 +132,55 @@ class BasicAuth(BaseAuthBackend):
                 raise NavException(err, state=500)
             try:
                 userdata = self.get_userdata(user)
-                # Create the User session and returned.
-                session = await self._session.create_session(request, user, userdata)
+                userdata['id'] = user[self.userid_attribute]
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
-                    "user_id": user[self.userid_attribute],
+                    "user_id": user[self.userid_attribute]
                 }
+                # Create the User session and returned.
                 token = self.create_jwt(data=payload)
-                return {"token": token}
+                return {
+                    "token": token,
+                    **userdata
+                }
             except Exception as err:
                 print(err)
                 return False
 
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
+    async def check_credentials(self, request):
+        """ Using for check the user credentials to the backend."""
         pass
 
     async def auth_middleware(self, app, handler):
+        """
+         Auth Middleware.
+         Description: Basic Authentication Middleware for JWT.
+        """
         async def middleware(request):
             request.user = None
             authz = await self.authorization_backends(app, handler, request)
             if authz:
+                # Authorization Exception
                 return await authz
             try:
                 jwt_token = self.decode_token(request)
+                # middleware need to load session object:
+                request['user'] = jwt_token
             except NavException as err:
-                print("Error HERE: ", err, err.state)
                 response = {
                     "message": "Token Error",
                     "error": err.message,
                     "status": err.state,
                 }
-                print(response)
                 return web.json_response(response, status=err.state)
             except Exception as err:
                 raise web.HTTPBadRequest(body=f"Bad Request: {err!s}")
-            if self.credentials_required is True:
+            if not jwt_token and CREDENTIALS_REQUIRED is True:
                 raise web.HTTPUnauthorized(body="Unauthorized")
+            else:
+                # processing the token and recover the user session
+                pass
             return await handler(request)
 
         return middleware

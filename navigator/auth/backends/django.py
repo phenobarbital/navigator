@@ -27,7 +27,7 @@ from navigator.conf import (
 )
 
 
-class DjangoSession(BaseAuthBackend):
+class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
     redis = None
@@ -47,7 +47,7 @@ class DjangoSession(BaseAuthBackend):
 
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
-        super(DjangoSession, self).configure(app, router)
+        super(DjangoAuth, self).configure(app, router)
 
     async def get_payload(self, request):
         id = None
@@ -75,7 +75,7 @@ class DjangoSession(BaseAuthBackend):
             async with await self.redis as redis:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
             if not result:
-                return False
+                raise Exception('Empty or non-existing Session')
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
             user = rapidjson.loads(session_data[1])
@@ -86,9 +86,8 @@ class DjangoSession(BaseAuthBackend):
             }
             return session
         except Exception as err:
-            print(err)
-            logging.debug("Django Session Decoding Error: {}".format(err))
-            return False
+            logging.debug("Django Decoding Error: {}".format(err))
+            raise Exception("Django Decoding Error: {}".format(err))
 
     async def validate_user(self, login: str = None):
         # get the user based on Model
@@ -102,7 +101,8 @@ class DjangoSession(BaseAuthBackend):
             raise Exception(err)
         return None
 
-    async def check_credentials(self, request):
+    async def authenticate(self, request):
+        """ Authenticate against user credentials (django session id)."""
         try:
             sessionid = await self.get_payload(request)
             logging.debug(f"Session ID: {sessionid}")
@@ -110,17 +110,17 @@ class DjangoSession(BaseAuthBackend):
             raise NavException(err, state=400)
         if not sessionid:
             raise InvalidAuth(
-                "Invalid Credentials",
+                "Auth: Invalid Credentials",
                 state=401
             )
         else:
-            # getting user information
-            # TODO: making the validation of token and expiration
             try:
                 data = await self.validate_session(key=sessionid)
             except Exception as err:
                 raise InvalidAuth(f"Invalid Session: {err!s}", state=401)
             # making validation
+            if not data:
+                raise InvalidAuth("Missing User Information", state=403)
             try:
                 u = data[self.user_property]
                 username = u[self.userid_attribute]
@@ -138,62 +138,22 @@ class DjangoSession(BaseAuthBackend):
             try:
                 userdata = self.get_userdata(user)
                 userdata["session"] = data
-                # Create the User session and returned.
-                session = await self._session.create_session(
-                    request,
-                    user,
-                    userdata
-                )
-                session[sessionid] = userdata
+                userdata['id'] = sessionid
+                # saving user-data into request:
+                request['userdata'] = userdata
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
+                    "id": sessionid
                 }
-                token = self.create_jwt(data=payload)
-                return {"token": token}
+                token = self.create_jwt(
+                    data=payload
+                )
+                return {
+                    "token": token,
+                    **userdata
+                }
             except Exception as err:
                 print(err)
                 return False
-
-    async def authenticate(self, request):
-        """ Authenticate, refresh or return the user credentials."""
-        pass
-
-    async def auth_middleware(self, app, handler):
-        async def middleware(request):
-            request.user = None
-            authz = await self.authorization_backends(app, handler, request)
-            if authz:
-                return await authz
-            if "Authorization" in request.headers:
-                try:
-                    jwt_token = self.decode_token(request)
-                    return await handler(request)
-                except NavException as err:
-                    response = {
-                        "message": "Session ID Failure",
-                        "error": err.message,
-                        "status": err.state,
-                    }
-                    return web.json_response(response, status=err.state)
-                except Exception as err:
-                    raise web.HTTPBadRequest(body=f"Bad Request: {err!s}")
-                if self.credentials_required is True:
-                    raise web.HTTPUnauthorized(body="Unauthorized")
-            elif "X-Sessionid" in request.headers:
-                sessionid = request.headers.get("X-Sessionid", None)
-                try:
-                    data = await self.validate_session(key=sessionid)
-                    # TODO: making validation using only sessionid
-                except Exception as err:
-                    raise web.HTTPUnauthorized(
-                        reason="Invalid Authorization Session",
-                    )
-            else:
-                if self.credentials_required is True:
-                    raise web.HTTPUnauthorized(
-                        reason="Missing Authorization Session",
-                    )
-            return await handler(request)
-        return middleware

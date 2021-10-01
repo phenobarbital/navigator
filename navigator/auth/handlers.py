@@ -21,6 +21,7 @@ from navigator.exceptions import (
     UserDoesntExists,
     InvalidAuth
 )
+
 from aiohttp_session import get_session, new_session
 from navigator.views import BaseView, BaseHandler
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder

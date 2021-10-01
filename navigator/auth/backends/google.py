@@ -180,3 +180,7 @@ class GoogleAuth(BaseAuthBackend):
                 "error": "Authenticate Error"
             }
             return web.json_response(response, status=403)
+
+    async def check_credentials(self, request):
+        """ Authentication and create a session."""
+        return True

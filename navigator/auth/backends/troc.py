@@ -135,5 +135,6 @@ class TrocToken(BaseAuthBackend):
                 print(err)
                 return False
 
-    # async def check_credentials(self, request):
-    #     pass
+    async def check_credentials(self, request):
+        """ Authentication and create a session."""
+        return True

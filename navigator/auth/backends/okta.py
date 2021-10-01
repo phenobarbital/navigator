@@ -237,3 +237,7 @@ class OktaAuth(BaseAuthBackend):
 
     async def finish_logout(self, request):
         pass
+
+    async def check_credentials(self, request):
+        """ Authentication and create a session."""
+        return True

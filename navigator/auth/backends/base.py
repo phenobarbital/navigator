@@ -6,14 +6,17 @@ from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.utils.models import Model
+from cryptography import fernet
+import base64
 from navigator.conf import (
     NAV_AUTH_USER,
     NAV_AUTH_GROUP,
     JWT_ALGORITHM,
     USER_MAPPING,
-    SECRET_KEY,
     SESSION_TIMEOUT,
-    CREDENTIALS_REQUIRED
+    CREDENTIALS_REQUIRED,
+    SESSION_KEY,
+    SECRET_KEY
 )
 
 from navigator.exceptions import (
@@ -24,8 +27,6 @@ from navigator.exceptions import (
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 
-JWT_SECRET = SECRET_KEY
-JWT_ALGORITHM = JWT_ALGORITHM
 JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
 
 exclude_list = (
@@ -52,6 +53,7 @@ class BaseAuthBackend(ABC):
     userid_attribute: str = "user_id"
     username_attribute: str = "username"
     user_mapping: dict = {"user_id": "id", "username": "username"}
+    session_key_property: str = SESSION_KEY
     credentials_required: bool = False
     scheme: str = "Bearer"
     _authz_backends: List = []
@@ -82,6 +84,11 @@ class BaseAuthBackend(ABC):
         self.user_model = self.get_model(NAV_AUTH_USER)
         self.group_model = self.get_model(NAV_AUTH_GROUP)
         self.user_mapping = USER_MAPPING
+        if not SECRET_KEY:
+            fernet_key = fernet.Fernet.generate_key()
+            self.secret_key = base64.urlsafe_b64decode(fernet_key)
+        else:
+            self.secret_key = SECRET_KEY
 
     def get_model(self, model, **kwargs):
         try:
@@ -155,9 +162,10 @@ class BaseAuthBackend(ABC):
             "iss": issuer,
             **data,
         }
+        print(payload)
         jwt_token = jwt.encode(
             payload,
-            JWT_SECRET,
+            self.secret_key,
             JWT_ALGORITHM,
         )
         return jwt_token
@@ -174,17 +182,19 @@ class BaseAuthBackend(ABC):
             except (TypeError, ValueError) as err:
                 raise NavException("Invalid authorization Header", state=401)
             if scheme != self.scheme:
-                logging.error("Auth: Invalid Session scheme")
+                raise NavException(f"Auth: Invalid Session scheme: {scheme}", state=401)
             try:
                 payload = jwt.decode(
                     jwt_token,
-                    JWT_SECRET,
+                    self.secret_key,
                     algorithms=[JWT_ALGORITHM],
                     iss=issuer,
                     leeway=30,
                 )
                 logging.debug(f"Decoded Token: {payload!s}")
                 return payload
+            except (jwt.exceptions.InvalidSignatureError):
+                raise NavException("Invalid Signature Error")
             except (jwt.DecodeError) as err:
                 raise NavException(f"Token Decoding Error: {err}", state=400)
             except jwt.InvalidTokenError as err:
@@ -194,10 +204,10 @@ class BaseAuthBackend(ABC):
                 print(err)
                 raise NavException(f"Token Expired {err!s}", state=403)
             except Exception as err:
-                print(err, err.__class__.__name__)
+                print(err)
                 raise NavException(err, state=501)
 
-    # @abstractmethod
-    # async def check_credentials(self, request):
-    #     """ Authenticate against user credentials (token, user/password)."""
-    #     pass
+    @abstractmethod
+    async def check_credentials(self, request):
+        """ Authenticate against user credentials (token, user/password)."""
+        pass

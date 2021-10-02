@@ -16,14 +16,9 @@ from typing import Dict, List, Iterable
 from .authorizations import *
 from navigator.functions import json_response
 
-# from navigator.auth.session import (
-#     CookieSession,
-#     RedisSession,
-#     MemcacheSession,
-#     TokenSession
-# )
-
-from navigator.auth.sessions import TestStorage
+from navigator.auth.sessions.storages import (
+    RedisStorage,
+)
 
 from navigator.exceptions import (
     NavException,
@@ -88,8 +83,8 @@ class AuthHandler(object):
         self._middlewares = self.get_authorization_middlewares(
             AUTHORIZATION_MIDDLEWARES
         )
-        # TODO: Session Support:
-        self._session = TestStorage()
+        # TODO: Session Support with parametrization:
+        self._session = RedisStorage()
 
     def get_backends(self, **kwargs):
         backends = {}
@@ -249,7 +244,7 @@ class AuthHandler(object):
         await self._session.forgot(request)
 
     async def create_session(self, request: web.Request, data: Iterable):
-        return await self._session.create(request, data)
+        return await self._session.new_session(request, data)
 
     async def get_session(self, request: web.Request) -> web.Response:
         """ Get user data from session."""
@@ -270,7 +265,7 @@ class AuthHandler(object):
             except Exception as e:
                 print(e)
                 # always return a null session for user:
-                session = await self._session.create(request, {})
+                session = await self._session.new_session(request, {})
         userdata = dict(session)
         return web.json_response(userdata, status=200)
 

@@ -162,7 +162,6 @@ class BaseAuthBackend(ABC):
             "iss": issuer,
             **data,
         }
-        print(payload)
         jwt_token = jwt.encode(
             payload,
             self.secret_key,

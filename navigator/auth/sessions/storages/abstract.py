@@ -97,6 +97,9 @@ class SessionData(MutableMapping[str, Any]):
     def changed(self) -> None:
         self._changed = True
 
+    def session_data(self) -> Dict:
+        return self._data
+
     def invalidate(self) -> None:
         self._changed = True
         self._data = {}

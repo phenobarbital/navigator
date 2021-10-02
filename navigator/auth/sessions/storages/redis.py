@@ -114,7 +114,25 @@ class RedisStorage(AbstractStorage):
         response: web.StreamResponse,
         session: SessionData
     ) -> None:
-        pass
+        """Save the whole session in the backend Storage."""
+        session_id = session.identity
+        if not session_id:
+            session_id = session.get(SESSION_KEY, None)
+        if session_id is None:
+            session_id = self.key_factory()
+        if session.empty:
+            data = {}
+        data = self._encoder(session.session_data())
+        max_age = session.max_age
+        expire = max_age if max_age is not None else 0
+        conn = aioredis.Redis(connection_pool=self._redis)
+        try:
+            result = await conn.setex(
+                session_id, self.max_age, dt
+            )
+        except Exception as err:
+            logging.debug(err)
+            return False
 
     async def new_session(
         self,

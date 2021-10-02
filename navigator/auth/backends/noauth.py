@@ -51,14 +51,16 @@ class NoAuth(BaseAuthBackend):
                 return await authz
             try:
                 jwt_token = self.decode_token(request)
-                # load session information
-                session = await get_session(request, jwt_token)
+                if jwt_token:
+                    # load session information
+                    session = await get_session(request, jwt_token)
             except NavException as err:
                 response = {
                     "message": "Token Error",
                     "error": err.message,
                     "status": err.state,
                 }
+                print(response)
                 return web.json_response(response, status=err.state)
             except Exception as err:
                 raise web.HTTPBadRequest(reason=f"Bad Request: {err!s}")

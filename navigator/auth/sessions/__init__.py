@@ -16,13 +16,13 @@ from navigator.conf import (
     SESSION_OBJECT
 )
 
-async def new_session(request: web.Request) -> SessionData:
+async def new_session(request: web.Request, userdata: dict = {}) -> SessionData:
     storage = request.get(SESSION_STORAGE)
     if storage is None:
         raise RuntimeError(
             "Missing Configuration for Session Middleware."
         )
-    session = await storage.new_session()
+    session = await storage.new_session(request, userdata)
     if not isinstance(session, SessionData):
         raise RuntimeError(
             "Installed {!r} storage should return session instance "
@@ -30,17 +30,23 @@ async def new_session(request: web.Request) -> SessionData:
     request[SESSION_OBJECT] = session
     return session
 
-async def get_session(request: web.Request, userdata: dict = None) -> SessionData:
+async def get_session(
+        request: web.Request,
+        userdata: dict = {},
+        new: bool = False
+) -> SessionData:
     session = request.get(SESSION_OBJECT)
+    # print('SESSION IS: ', session)
     if session is None:
         storage = request.get(SESSION_STORAGE)
+        # print('STORAGE IS ', storage)
         if storage is None:
             raise RuntimeError(
                 "Missing Configuration for Session Middleware."
             )
         # using the storage session for Load an existing Session
-        session = await storage.load_session(request, userdata)
-        if not isinstance(session, SessionData):
+        session = await storage.load_session(request, userdata, new)
+        if new is True and not isinstance(session, SessionData):
             raise RuntimeError(
                 "Installed {!r} storage should return session instance "
                 "on .load_session() call, got {!r}.".format(storage, session))

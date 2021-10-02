@@ -29,7 +29,6 @@ class SessionData(MutableMapping[str, Any]):
 
     _data: Dict[str, Any] = {}
     _db: Callable = None
-    key_factory: Callable = lambda: uuid.uuid4().hex
 
     def __init__(
         self,
@@ -42,9 +41,9 @@ class SessionData(MutableMapping[str, Any]):
         self._changed = False
         self._data = {}
         self._db = db
-        self._identity = data.get('id', None) if data else identity
+        self._identity = data.get(SESSION_KEY, None) if data else identity
         if not self._identity:
-            self._identity = self.key_factory()
+            self._identity = uuid.uuid4().hex
         self._new = new if data != {} else True
         self._max_age = max_age if max_age else None
         created = data.get('created', None) if data else None
@@ -127,7 +126,10 @@ class SessionData(MutableMapping[str, Any]):
         self._changed = True
 
 class AbstractStorage(metaclass=abc.ABCMeta):
-    key_factory: Callable = lambda: uuid.uuid4().hex
+
+    def id_factory(self) -> str:
+        return uuid.uuid4().hex
+
     def __init__(self, max_age: int = None, secure: bool = None) -> None:
         if not max_age:
             self.max_age = SESSION_TIMEOUT
@@ -149,7 +151,11 @@ class AbstractStorage(metaclass=abc.ABCMeta):
         pass
 
     @abc.abstractmethod
-    async def load_session(self, request: web.Request) -> SessionData:
+    async def load_session(
+        self,
+        request: web.Request,
+        new: bool = False
+    ) -> SessionData:
         pass
 
     @abc.abstractmethod
@@ -216,7 +222,6 @@ def session_middleware(
         if session is not None:
             if session.is_changed:
                 await storage.save_session(request, response, session)
-        print('Y AQUI TERMINA EL SESSION MIDDLEWARE')
         return response
 
     return middleware

@@ -1,5 +1,7 @@
 """Using Redis for Saving Session Storage."""
 import time
+import uuid
+import logging
 import aioredis
 import asyncio
 import rapidjson
@@ -72,18 +74,39 @@ class RedisStorage(AbstractStorage):
             return False
         return True
 
-    async def load_session(self, request: web.Request, userdata: dict = None) -> SessionData:
+    async def load_session(
+        self,
+        request: web.Request,
+        userdata: dict = {},
+        new: bool = True
+    ) -> SessionData:
+        """
+        Load Session.
+
+        Load User session from backend storage, or create one if
+        doesnt exists.
+
+        ---
+        new: if False, new session is not created.
+        """
         # first: for security, check if cookie csrf_secure exists
         # if not, session is missed, expired, bad session, etc
         conn = aioredis.Redis(connection_pool=self._redis)
         session_id = userdata.get(SESSION_KEY, None) if userdata else None
         if not session_id:
             # TODO: getting from cookie
-            pass
+            session_id = request.get(SESSION_KEY, None)
         # we need to load session data from redis
-        data = await conn.get(session_id)
+        try:
+            data = await conn.get(session_id)
+        except Exception as err:
+            logging.error(err)
+            data = None
         if data is None:
-            return await self.new_session(request, userdata)
+            if new is True:
+                return await self.new_session(request, userdata)
+            else:
+                return False
         try:
             data = self._decoder(data)
             session = SessionData(
@@ -119,7 +142,7 @@ class RedisStorage(AbstractStorage):
         if not session_id:
             session_id = session.get(SESSION_KEY, None)
         if session_id is None:
-            session_id = self.key_factory()
+            session_id = self.id_factory()
         if session.empty:
             data = {}
         data = self._encoder(session.session_data())
@@ -128,7 +151,7 @@ class RedisStorage(AbstractStorage):
         conn = aioredis.Redis(connection_pool=self._redis)
         try:
             result = await conn.setex(
-                session_id, self.max_age, dt
+                session_id, self.max_age, data
             )
         except Exception as err:
             logging.debug(err)
@@ -140,14 +163,17 @@ class RedisStorage(AbstractStorage):
         data: dict = None
     ) -> SessionData:
         """Create a New Session Object for this User."""
-        # print(':::::: START CREATING A NEW SESSION ::::: ')
-        session_id = data.get(SESSION_KEY, None) if data else self.key_factory()
+        session_id = request.get(SESSION_KEY, None)
+        if not session_id:
+            session_id = data.get(SESSION_KEY, None) if data else None
+        # print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
         if not data:
             data = {}
         t = time.time()
         data['created'] = t
         data['last_visit'] = t
         data["last_visited"] = f"Last visited: {t!s}"
+        data[SESSION_KEY] = session_id
         # saving this new session on DB
         conn = aioredis.Redis(connection_pool=self._redis)
         try:

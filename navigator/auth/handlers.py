@@ -57,7 +57,6 @@ class UserHandler(BaseView):
                 headers = {"x-status": "OK", "x-message": "Session OK"}
                 userdata = dict(session)
                 data = {
-                    "key": sessionid,
                     "session_id": sessionid,
                     **userdata
                 }

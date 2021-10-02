@@ -137,13 +137,14 @@ class AuthHandler(object):
         """Logout.
         API-based Logout.
         """
-        app = request.app
         try:
-            print('LOGOUT')
             await self._session.forgot(request)
             return web.json_response(
-                {"message": "Logout successful"},
-                status=200
+                {
+                    "message": "Logout successful",
+                    "state": 202
+                },
+                status=202
             )
         except Exception as err:
             print(err)

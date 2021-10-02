@@ -47,7 +47,6 @@ class SessionData(MutableMapping[str, Any]):
         self._new = new if data != {} else True
         self._max_age = max_age if max_age else None
         created = data.get('created', None) if data else None
-        session_data = data.get('session', None) if data else None
         now = int(time.time())
         age = now - created if created else now
         if max_age is not None and age > max_age:
@@ -57,8 +56,8 @@ class SessionData(MutableMapping[str, Any]):
         else:
             self._created = created
 
-        if session_data is not None:
-            self._data.update(session_data)
+        if data is not None:
+            self._data.update(data)
 
     def __repr__(self) -> str:
         return '<{} [new:{}, created:{}] {!r}>'.format(
@@ -188,7 +187,9 @@ class AbstractStorage(metaclass=abc.ABCMeta):
             del request[SESSION_KEY]
             del request[SESSION_OBJECT]
         except Exception as err:
-            print(err)
+            print('Error: ', err)
+        finally:
+            return True
 
 """
  Basic Middleware for Session System
@@ -219,7 +220,7 @@ def session_middleware(
                 "We Cannot save session data into on prepared responses"
             )
         session = request.get(SESSION_OBJECT)
-        if session is not None:
+        if isinstance(session, SessionData):
             if session.is_changed:
                 await storage.save_session(request, response, session)
         return response

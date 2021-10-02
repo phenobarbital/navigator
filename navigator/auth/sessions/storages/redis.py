@@ -45,23 +45,28 @@ class RedisStorage(AbstractStorage):
         return asyncio.get_event_loop().run_until_complete(_make_mredis())
 
     async def get_session(self, request: web.Request) -> SessionData:
-        session = request.get(SESSION_OBJECT)
+        try:
+            session = request.get(SESSION_OBJECT)
+        except KeyError:
+            session = None
         if session is None:
             storage = request.get(SESSION_STORAGE)
             if storage is None:
                 raise RuntimeError(
                     "Missing Configuration for Session Middleware."
                 )
-            session = await storage.load_session(request, userdata)
+            session = await self.load_session(request, userdata)
         request[SESSION_OBJECT] = session
         request["session"] = session
         return session
 
     async def invalidate(self, request: web.Request, session: SessionData) -> None:
         conn = aioredis.Redis(connection_pool=self._redis)
-        if session is None:
-            session_id = request.get(SESSION_KEY, None) if userdata else None
-            data = await conn.get(session_id)
+        if not session:
+            data = None
+            session_id = request.get(SESSION_KEY, None)
+            if session_id:
+                data = await conn.get(session_id)
             if data is None:
                 # nothing to forgot
                 return True
@@ -92,14 +97,16 @@ class RedisStorage(AbstractStorage):
         # first: for security, check if cookie csrf_secure exists
         # if not, session is missed, expired, bad session, etc
         conn = aioredis.Redis(connection_pool=self._redis)
-        session_id = userdata.get(SESSION_KEY, None) if userdata else None
+        session_id = request.get(SESSION_KEY, None)
         if not session_id:
+            session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie
-            session_id = request.get(SESSION_KEY, None)
         # we need to load session data from redis
+        ## print(f':::::: GETTING SESSION {session_id} ::::: ')
         try:
             data = await conn.get(session_id)
         except Exception as err:
+            print('Error: ', err)
             logging.error(err)
             data = None
         if data is None:
@@ -117,6 +124,7 @@ class RedisStorage(AbstractStorage):
                 max_age=self.max_age
             )
         except Exception as err:
+            print('ERROR: :::::::::::::')
             logging.debug(err)
             session = SessionData(
                 db=conn,
@@ -125,10 +133,9 @@ class RedisStorage(AbstractStorage):
                 new=True,
                 max_age=self.max_age
             )
-        # if not data from redis, invoke new_session(request, userdata)
-        last_visit = session["last_visit"] if "last_visit" in session else None
-        session["last_visited"] = "Last visited: {}".format(last_visit)
         request[SESSION_KEY] = session_id
+        session[SESSION_KEY] = session_id
+        request[SESSION_OBJECT] = session
         request["session"] = session
         return session
 
@@ -150,8 +157,8 @@ class RedisStorage(AbstractStorage):
         expire = max_age if max_age is not None else 0
         conn = aioredis.Redis(connection_pool=self._redis)
         try:
-            result = await conn.setex(
-                session_id, self.max_age, data
+            result = await conn.set(
+                session_id, data, self.max_age
             )
         except Exception as err:
             logging.debug(err)
@@ -178,9 +185,11 @@ class RedisStorage(AbstractStorage):
         conn = aioredis.Redis(connection_pool=self._redis)
         try:
             dt = self._encoder(data)
-            result = await conn.setex(
-                session_id, self.max_age, dt
+            result = await conn.set(
+                session_id, dt, self.max_age
             )
+            logging.debug(f'Creation of New Session: {result}')
+            dd = await conn.get(session_id)
         except Exception as err:
             logging.debug(err)
             return False
@@ -192,7 +201,6 @@ class RedisStorage(AbstractStorage):
             max_age=self.max_age
         )
         # Saving Session Object:
-        # print(':::: SAVING SESSION OBJECT ::: ')
         session[SESSION_KEY] = session_id
         request[SESSION_OBJECT] = session
         request[SESSION_KEY] = session_id

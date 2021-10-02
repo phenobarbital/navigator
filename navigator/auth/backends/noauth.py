@@ -41,7 +41,7 @@ class NoAuth(BaseAuthBackend):
     async def auth_middleware(self, app, handler):
         """
          NoAuth Middleware.
-         Description: No-Authentication for Anonymous connections.
+         Description: Basic Authentication for NoAuth, Basic and Django.
         """
         async def middleware(request):
             jwt_token = None
@@ -53,14 +53,13 @@ class NoAuth(BaseAuthBackend):
                 jwt_token = self.decode_token(request)
                 if jwt_token:
                     # load session information
-                    session = await get_session(request, jwt_token)
+                    session = await get_session(request, jwt_token, new = False)
             except NavException as err:
                 response = {
                     "message": "Token Error",
                     "error": err.message,
                     "status": err.state,
                 }
-                print(response)
                 return web.json_response(response, status=err.state)
             except Exception as err:
                 raise web.HTTPBadRequest(reason=f"Bad Request: {err!s}")

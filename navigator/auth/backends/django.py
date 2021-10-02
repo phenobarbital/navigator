@@ -23,7 +23,8 @@ from navigator.conf import (
     SESSION_URL,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    SESSION_PREFIX
+    SESSION_PREFIX,
+    SESSION_KEY
 )
 
 
@@ -145,6 +146,7 @@ class DjangoAuth(BaseAuthBackend):
                 userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
                 request['userdata'] = userdata
+                request[SESSION_KEY] = sessionid
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],

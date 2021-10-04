@@ -3,6 +3,8 @@
 import abc
 import uuid
 import time
+import asyncio
+import logging
 from aiohttp import web
 from aiohttp.web_middlewares import _Handler, _Middleware
 from typing import (
@@ -25,7 +27,10 @@ from navigator.conf import (
 )
 
 class SessionData(MutableMapping[str, Any]):
-    """Session dict-like object."""
+    """Session dict-like object.
+
+    TODO: Support saving directly into Storage.
+    """
 
     _data: Dict[str, Any] = {}
     _db: Callable = None
@@ -41,6 +46,7 @@ class SessionData(MutableMapping[str, Any]):
         self._changed = False
         self._data = {}
         self._db = db
+        print('DB IS: ', self._db)
         self._identity = data.get(SESSION_KEY, None) if data else identity
         if not self._identity:
             self._identity = uuid.uuid4().hex
@@ -119,10 +125,24 @@ class SessionData(MutableMapping[str, Any]):
         self._data[key] = value
         self._changed = True
         # also, saved into redis automatically
+        print('REDIS ... ')
+        print('DB: ', self._db, key, value)
+        # try:
+        #     loop = asyncio.get_event_loop()
+        #     result = loop.run_until_complete(
+        #         self._db.hsetnx(self._identity, key, value)
+        #     )
+        #     print(result)
+        # except Exception as err:
+        #     print(err)
+        #     logging.error(err)
+        #     self._changed = True # try to save it in middleware instead
 
     def __delitem__(self, key: str) -> None:
         del self._data[key]
-        self._changed = True
+
+    __setattr__ = __setitem__
+    __getattr__ = __getitem__
 
 class AbstractStorage(metaclass=abc.ABCMeta):
 

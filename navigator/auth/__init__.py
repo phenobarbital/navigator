@@ -39,7 +39,7 @@ from navigator.conf import (
     SECRET_KEY,
     JWT_ALGORITHM
 )
-from aiohttp_session import get_session, new_session
+from navigator.auth.sessions import get_session, new_session
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""

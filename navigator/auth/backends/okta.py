@@ -21,7 +21,6 @@ from navigator.conf import (
     OKTA_DOMAIN,
     OKTA_APP_NAME,
 )
-from aiohttp_session import new_session
 from okta_jwt_verifier import JWTVerifier
 
 async def is_token_valid(token, issuer, client_id):
@@ -229,7 +228,6 @@ class OktaAuth(BaseAuthBackend):
             **userdata
         }
         # TODO: saving Auth token and user_creds on a Database
-        # session = await new_session(request)
         return web.json_response(data, status=200)
 
     async def logout(self, request):

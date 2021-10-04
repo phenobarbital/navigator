@@ -19,11 +19,6 @@ import uvloop
 from aiohttp import web
 from aiohttp.abc import AbstractView
 
-# Aiohttp Session
-from aiohttp_session import get_session
-from aiohttp_session import setup as setup_session
-from aiohttp_session.redis_storage import RedisStorage
-
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 

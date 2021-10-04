@@ -6,7 +6,6 @@ import jwt
 from aiohttp import web
 from .base import BaseAuthBackend
 from datetime import datetime, timedelta
-from aiohttp_session import get_session, new_session
 from navigator.exceptions import (
     NavException,
     FailedAuth,

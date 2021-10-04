@@ -8,7 +8,6 @@ import rapidjson
 from .base import BaseAuthBackend
 from navigator.libs.cypher import *
 from datetime import datetime, timedelta
-from aiohttp_session import get_session, new_session
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from navigator.conf import PARTNER_KEY, CYPHER_TYPE, SESSION_TIMEOUT, SECRET_KEY
 import hashlib

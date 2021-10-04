@@ -36,7 +36,6 @@ from navigator.conf import (
     GROUP_CLAIM,
     ADFS_LOGIN_REDIRECT_URL,
 )
-from aiohttp_session import new_session
 
 AZURE_AD_SERVER = "login.microsoftonline.com"
 

@@ -260,6 +260,11 @@ class AuthHandler(object):
                 "status": err.state,
             }
             return web.json_response(response, status=err.state)
+        except Exception as err:
+            return web.HTTPClientError(
+                reason=err,
+                status=401
+            )
         if not session:
             try:
                 session = await self._session.get_session(request)

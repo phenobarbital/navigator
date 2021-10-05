@@ -44,10 +44,11 @@ class RedisStorage(AbstractStorage):
                 return False
         return asyncio.get_event_loop().run_until_complete(_make_mredis())
 
-    async def get_session(self, request: web.Request) -> SessionData:
+    async def get_session(self, request: web.Request, userdata: dict = {}) -> SessionData:
         try:
             session = request.get(SESSION_OBJECT)
-        except KeyError:
+        except Exception as err:
+            logging.debug(f'Error on get Session: {err!s}')
             session = None
         if session is None:
             storage = request.get(SESSION_STORAGE)
@@ -102,7 +103,7 @@ class RedisStorage(AbstractStorage):
             session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie
         # we need to load session data from redis
-        ## print(f':::::: GETTING SESSION {session_id} ::::: ')
+        print(f':::::: GETTING SESSION {session_id} ::::: ')
         try:
             data = await conn.get(session_id)
         except Exception as err:
@@ -173,7 +174,7 @@ class RedisStorage(AbstractStorage):
         session_id = request.get(SESSION_KEY, None)
         if not session_id:
             session_id = data.get(SESSION_KEY, None) if data else None
-        # print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
+        print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
         if not data:
             data = {}
         t = time.time()

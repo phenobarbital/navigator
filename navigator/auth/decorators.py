@@ -3,7 +3,7 @@ from functools import wraps
 from typing import Callable
 
 from aiohttp import web
-from aiohttp_session import get_session
+from navigator.auth.sessions import get_session
 
 
 def authorization_required(func: Callable) -> Callable:

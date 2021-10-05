@@ -173,7 +173,7 @@ class RedisStorage(AbstractStorage):
         """Create a New Session Object for this User."""
         session_id = request.get(SESSION_KEY, None)
         if not session_id:
-            session_id = data.get(SESSION_KEY, None) if data else None
+            session_id = data.get(SESSION_KEY, None) if data else self.id_factory()
         print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
         if not data:
             data = {}

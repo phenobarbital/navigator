@@ -367,6 +367,11 @@ class AppConfig(AppHandler):
                 swagger_url=f"/api/v1/doc",
                 ui_version=3,
             )
+        ## add the authorization endpoint endpoint:
+        auth = self.authorization
+        self.app.router.add_get(
+            '/authorize', auth
+        )
 
     async def on_cleanup(self, app):
         try:
@@ -533,3 +538,16 @@ class AppConfig(AppHandler):
                         )
                         return False
                     self.cors.add(r)
+
+    async def authorization(self, request: web.Request) -> web.Response:
+        app = request.app
+        try:
+            program = self.__class__.__name__
+        except Exception as err:
+            print(err)
+            program = self._name
+        authorization = {
+            "status": "User Authorized",
+            "program": program
+        }
+        return web.json_response(authorization, status=200)

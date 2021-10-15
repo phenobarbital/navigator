@@ -77,7 +77,10 @@ class AppCommand(BaseCommand):
             ini = read_file(path, "init.app.tpl")
             views = read_file(path, "views.py.tpl")
         except Exception as err:
-            self.write(":: Error getting templates: {err!s}", level="WARN")
+            self.write(f":: Error getting templates: {err!s}", level="WARN")
+            self.write(f":: Directory: {path!s}", level="WARN")
+            output = "Failed."
+            return output
 
         output = "Application Created."
         if options.debug:
@@ -91,8 +94,9 @@ class AppCommand(BaseCommand):
         try:
             program = options.program
         except Exception as err:
-            self.write(":: Error getting Program: {err!s}", level="ERROR")
-            return "Failed."
+            self.write(f":: Error getting Program: {err!s}", level="ERROR")
+            output = "Failed."
+            return output
 
         if options.is_program:
             ini = read_file(path, "program.app.tpl")

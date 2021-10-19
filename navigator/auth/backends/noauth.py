@@ -50,7 +50,12 @@ class NoAuth(BaseAuthBackend):
                 # Authorization Exception
                 return await authz
             try:
-                jwt_token = self.decode_token(request)
+                if request['authenticated'] is True:
+                    return await handler(request)
+            except KeyError:
+                pass
+            try:
+                tenant, token = self.decode_token(request)
                 if jwt_token:
                     # load session information
                     session = await get_session(request, jwt_token, new = False)

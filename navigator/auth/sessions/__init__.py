@@ -36,10 +36,10 @@ async def get_session(
         new: bool = False
 ) -> SessionData:
     session = request.get(SESSION_OBJECT)
-    # print('SESSION IS: ', session)
+    print('SESSION IS: ', session)
     if session is None:
         storage = request.get(SESSION_STORAGE)
-        # print('STORAGE IS ', storage)
+        print('STORAGE IS ', storage)
         if storage is None:
             raise RuntimeError(
                 "Missing Configuration for Session Middleware."

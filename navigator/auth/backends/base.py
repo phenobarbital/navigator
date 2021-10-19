@@ -170,18 +170,33 @@ class BaseAuthBackend(ABC):
         return jwt_token
 
     def decode_token(self, request, issuer: str = None):
+        jwt_token = None
+        tenant = None
+        id = None
         payload = None
         if not issuer:
             issuer = "urn:Navigator"
         if "Authorization" in request.headers:
+            print('HERE')
             try:
-                scheme, jwt_token = (
-                    request.headers.get("Authorization").strip().split(" ")
+                scheme, id = (
+                    request.headers.get("Authorization").strip().split(" ", 1)
                 )
-            except (TypeError, ValueError) as err:
-                raise NavException("Invalid authorization Header", state=401)
-            if scheme != self.scheme:
-                raise NavException(f"Auth: Invalid Session scheme: {scheme}", state=401)
+            except ValueError:
+                raise NavException(
+                    "Invalid authorization Header",
+                    state=400
+                )
+            if scheme != self._scheme:
+                raise NavException(
+                    "Invalid Authorization Scheme",
+                    state=400
+                )
+            try:
+                tenant, jwt_token = id.split(":")
+            except Exception:
+                # normal Token:
+                jwt_token = id
             try:
                 payload = jwt.decode(
                     jwt_token,
@@ -191,7 +206,7 @@ class BaseAuthBackend(ABC):
                     leeway=30,
                 )
                 logging.debug(f"Decoded Token: {payload!s}")
-                return payload
+                return [tenant, payload]
             except (jwt.exceptions.InvalidSignatureError):
                 raise NavException("Invalid Signature Error")
             except (jwt.DecodeError) as err:
@@ -205,6 +220,8 @@ class BaseAuthBackend(ABC):
             except Exception as err:
                 print(err)
                 raise NavException(err, state=501)
+        else:
+            return [tenant, payload]
 
     @abstractmethod
     async def check_credentials(self, request):

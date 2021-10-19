@@ -8,6 +8,7 @@ import rapidjson
 import logging
 import asyncio
 import jwt
+import uuid
 from aiohttp import web, hdrs
 from asyncdb import AsyncPool
 from .base import BaseAuthBackend
@@ -22,6 +23,7 @@ from navigator.conf import (
     SESSION_PREFIX,
     default_dsn,
 )
+from navigator.auth.sessions import get_session
 
 
 class TokenAuth(BaseAuthBackend):
@@ -88,6 +90,7 @@ class TokenAuth(BaseAuthBackend):
         except Exception as e:
             print(e)
             return None
+        print(tenant, token)
         return [tenant, token]
 
     async def reconnect(self):
@@ -98,6 +101,7 @@ class TokenAuth(BaseAuthBackend):
         """ Authenticate, refresh or return the user credentials."""
         try:
             tenant, token = await self.get_payload(request)
+            print(tenant, token)
             logging.debug(f"Tenant ID: {tenant}")
         except Exception as err:
             raise NavException(err, state=400)
@@ -163,6 +167,7 @@ class TokenAuth(BaseAuthBackend):
             result = None
             async with await self._pool.acquire() as conn:
                 result, error = await conn.queryrow(sql)
+                print('HERE ', result, error)
             if error or not result:
                 return False
             else:
@@ -177,23 +182,30 @@ class TokenAuth(BaseAuthBackend):
             authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return await authz
-            tenant, token = await self.get_payload(request)
-            if token:
+            try:
+                if request['authenticated'] is True:
+                    return await handler(request)
+            except KeyError:
+                pass
+            tenant, jwt_token = await self.get_payload(request)
+            if jwt_token:
                 try:
                     payload = jwt.decode(
-                        token, PARTNER_KEY, algorithms=[JWT_ALGORITHM], leeway=30
+                        jwt_token, PARTNER_KEY, algorithms=[JWT_ALGORITHM], leeway=30
                     )
                     logging.debug(f"Decoded Token: {payload!s}")
                     result = await self.check_token_info(request, tenant, payload)
                     if not result:
                         raise web.HTTPForbidden(
-                            reason="Not Authorized",
+                            reason="API Key Not Authorized",
                         )
                     else:
-                        session = await self._session.get_session(request)
+                        # TRUE because if data doesnt exists, returned
+                        session = await get_session(request, payload, new = True)
                         session["grants"] = result["grants"]
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
+                        request['authenticated'] = True
                 except (jwt.DecodeError) as err:
                     raise web.HTTPBadRequest(reason=f"Token Decoding Error: {err!r}")
                 except jwt.InvalidTokenError as err:

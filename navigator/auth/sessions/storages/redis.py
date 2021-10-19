@@ -95,10 +95,11 @@ class RedisStorage(AbstractStorage):
         ---
         new: if False, new session is not created.
         """
-        # first: for security, check if cookie csrf_secure exists
+        # TODO: first: for security, check if cookie csrf_secure exists
         # if not, session is missed, expired, bad session, etc
         conn = aioredis.Redis(connection_pool=self._redis)
         session_id = request.get(SESSION_KEY, None)
+        print('HERE ', session_id)
         if not session_id:
             session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie
@@ -107,11 +108,11 @@ class RedisStorage(AbstractStorage):
         try:
             data = await conn.get(session_id)
         except Exception as err:
-            print('Error: ', err)
-            logging.error(err)
+            logging.error(f'Error Getting existing Session data: {err!s}')
             data = None
         if data is None:
             if new is True:
+                # create a new session if not exists:
                 return await self.new_session(request, userdata)
             else:
                 return False
@@ -173,7 +174,10 @@ class RedisStorage(AbstractStorage):
         """Create a New Session Object for this User."""
         session_id = request.get(SESSION_KEY, None)
         if not session_id:
-            session_id = data.get(SESSION_KEY, None) if data else self.id_factory()
+            try:
+                session_id = data[SESSION_KEY]
+            except KeyError:
+                session_id = self.id_factory()
         print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
         if not data:
             data = {}

@@ -55,17 +55,19 @@ class NoAuth(BaseAuthBackend):
             except KeyError:
                 pass
             try:
-                tenant, token = self.decode_token(request)
+                tenant, jwt_token = self.decode_token(request)
                 if jwt_token:
                     # load session information
                     session = await get_session(request, jwt_token, new = False)
+                    request['authenticated'] = True
             except NavException as err:
-                response = {
-                    "message": "Token Error",
-                    "error": err.message,
-                    "status": err.state,
-                }
-                return web.json_response(response, status=err.state)
+                # response = {
+                #     "message": "Token Error",
+                #     "error": err.message,
+                #     "status": err.state,
+                # }
+                # return web.json_response(response, status=err.state)
+                pass # NoAuth can pass silently when no token was generated
             except Exception as err:
                 raise web.HTTPBadRequest(reason=f"Bad Request: {err!s}")
             if not jwt_token and AUTH_CREDENTIALS_REQUIRED is True:

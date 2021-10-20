@@ -1,10 +1,10 @@
 .venv:
-	python3.8 -m venv .venv
-	source .venv/bin/activate && make setup dev
+	python3.9 -m venv .venv
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
 develop:
-	source .venv/bin/activate && make setup dev
+	pip install -e .
+	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'
 
 venv:

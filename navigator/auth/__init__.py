@@ -15,12 +15,11 @@ from aiohttp import web
 from typing import Dict, List, Iterable
 from .authorizations import *
 from navigator.functions import json_response
-from navigator.auth.session import (
-    CookieSession,
-    RedisSession,
-    MemcacheSession,
-    TokenSession
+
+from navigator.auth.sessions.storages import (
+    RedisStorage,
 )
+
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
@@ -40,7 +39,7 @@ from navigator.conf import (
     SECRET_KEY,
     JWT_ALGORITHM
 )
-from aiohttp_session import get_session, new_session
+from navigator.auth.sessions import get_session, new_session
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""
@@ -84,29 +83,8 @@ class AuthHandler(object):
         self._middlewares = self.get_authorization_middlewares(
             AUTHORIZATION_MIDDLEWARES
         )
-        # Session Support:
-        # getting Session Object:
-        if SESSION_STORAGE == "cookie":
-            self._session = CookieSession(
-                name=SESSION_NAME,
-                secret=SECRET_KEY
-            )
-        elif SESSION_STORAGE == "redis":
-            self._session = RedisSession(
-                name=SESSION_NAME
-            )
-        elif SESSION_STORAGE == "memcache":
-            self._session = MemcacheSession(
-                name=SESSION_NAME
-            )
-        elif SESSION_STORAGE == "token":
-            self._session = TokenSession(
-                name=SESSION_NAME
-            )
-        else:
-            raise NavException(
-                f"Unknown Session type {session_type}"
-            )
+        # TODO: Session Support with parametrization:
+        self._session = RedisStorage()
 
     def get_backends(self, **kwargs):
         backends = {}
@@ -155,55 +133,18 @@ class AuthHandler(object):
                 )
         return b
 
-    # async def login(self, request) -> web.Response:
-    #     response = web.HTTPFound("/")
-    #     form = await request.post()
-    #     login = form.get("login")
-    #     password = form.get("password")
-    #     if user := await self.check_credentials(login, password):
-    #         # if state, save user data in session
-    #         state = await self._session.create_session(request, user=user)
-    #         raise response
-    #     else:
-    #         template = self._template.format(
-    #             message="Invalid =username/password= combination"
-    #         )
-    #     raise web.HTTPUnauthorized(text=template, content_type="text/html")
-    #
-    # async def login_page(self, request):
-    #     username = None
-    #     # check if authorized, instead, return to login
-    #     #session = await get_session(request)
-    #     # try:
-    #     #     username = session["username"]
-    #     # except KeyError:
-    #     #     template = self._template.format(message="You need to login")
-    #     # print(template)
-    #     # if username:
-    #     #     template = self._template.format(
-    #     #         message="Hello, {username}!".format(username=username)
-    #     #     )
-    #     # else:
-    #     #     template = self._template.format(message="You need to login")
-    #     # print(template)
-    #     template = self._template.format(message="You need to login")
-    #     return web.Response(text=template, content_type="text/html")
-    #
-    # async def logout(self, request: web.Request) -> web.Response:
-    #     await self._session.forgot_session(request)
-    #     raise web.HTTPSeeOther(location="/")
-
     async def api_logout(self, request: web.Request) -> web.Response:
         """Logout.
         API-based Logout.
         """
-        app = request.app
         try:
-            print('LOGOUT')
             await self._session.forgot(request)
             return web.json_response(
-                {"message": "Logout successful"},
-                status=200
+                {
+                    "message": "Logout successful",
+                    "state": 202
+                },
+                status=202
             )
         except Exception as err:
             print(err)
@@ -235,8 +176,7 @@ class AuthHandler(object):
                     )
                 # at now: create the user-session
                 try:
-                    session = await self._session.create(request, userdata)
-                    session['id'] = userdata['id']
+                    session = await self._session.new_session(request, userdata)
                 except Exception as err:
                     raise web.HTTPUnauthorized(
                         reason=f"Error Creating User Session: {err!s}"
@@ -258,7 +198,6 @@ class AuthHandler(object):
                     reason="Unauthorized: User Doesn't exists"
                 )
             except Exception as err:
-                print('HERE ', err)
                 raise web.HTTPClientError(
                     reason=f"Unauthorized Error {err!s}",
                     status=406
@@ -292,8 +231,7 @@ class AuthHandler(object):
             else:
                 # at now: create the user-session
                 try:
-                    session = await self._session.create(request, userdata)
-                    session['id'] = userdata['id']
+                    session = await self._session.new_session(request, userdata)
                 except Exception as err:
                     print(err)
                     return web.HTTPUnauthorized(
@@ -306,7 +244,7 @@ class AuthHandler(object):
         await self._session.forgot(request)
 
     async def create_session(self, request: web.Request, data: Iterable):
-        return await self._session.create(request, data)
+        return await self._session.new_session(request, data)
 
     async def get_session(self, request: web.Request) -> web.Response:
         """ Get user data from session."""
@@ -314,20 +252,24 @@ class AuthHandler(object):
         try:
             session = await self._session.get_session(request)
         except NavException as err:
-            print("Error HERE: ", err, err.state)
             response = {
                 "message": "Session Error",
                 "error": err.message,
                 "status": err.state,
             }
             return web.json_response(response, status=err.state)
+        except Exception as err:
+            return web.HTTPClientError(
+                reason=err,
+                status=401
+            )
         if not session:
             try:
                 session = await self._session.get_session(request)
             except Exception as e:
                 print(e)
                 # always return a null session for user:
-                session = await self._session.create(request, {})
+                session = await self._session.new_session(request, {})
         userdata = dict(session)
         return web.json_response(userdata, status=200)
 
@@ -369,8 +311,7 @@ class AuthHandler(object):
         mdl = app.middlewares
         # configuring Session Object
         self._session.configure_session(app)
-        # if a backend needs initialization
-        # (connection to a redis server, etc)
+        # if authentication backend needs initialization
         for name, backend in self.backends.items():
             try:
                 backend.configure(app, router)

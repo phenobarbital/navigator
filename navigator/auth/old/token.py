@@ -138,7 +138,7 @@ class TokenSession(AbstractSession):
         app.on_cleanup.append(close_redis)
         return redis
 
-    def configure_session(self, app, **kwargs):
+    def configure_session(self, app, middleware, **kwargs):
         async def _make_mredis():
             self._encoder = partial(rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601)
             self._decoder = rapidjson.loads
@@ -151,6 +151,7 @@ class TokenSession(AbstractSession):
         self._encoder = partial(
             rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601
         )
+
     async def get_session(self, request):
         conn = aioredis.Redis(connection_pool=self._redis)
         # change logic: middleware needs to load request['session']

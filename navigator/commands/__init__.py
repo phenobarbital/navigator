@@ -100,7 +100,7 @@ class BaseCommand(object):
             # parsing current arguments
             options = self.parser.parse_args(self.args)
             if options.debug:
-                self.write("Executing : {}".format(self.action), level="DEBUG")
+                self.write("Executing : {} Command.".format(self.action), level="DEBUG")
             sig = signature(fn)
             try:
                 if len(sig.parameters) > 0:
@@ -142,6 +142,10 @@ def get_command(command: str = "troc", clsname: str = "", pathname: str = "navig
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
+
+    Command is running in the form:
+    manage.py {command} {instructions}
+    example: manage.py app create
     """
     if len(sys.argv) > 1:
         args = sys.argv

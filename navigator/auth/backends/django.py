@@ -23,7 +23,8 @@ from navigator.conf import (
     SESSION_URL,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    SESSION_PREFIX
+    SESSION_PREFIX,
+    SESSION_KEY
 )
 
 
@@ -48,6 +49,10 @@ class DjangoAuth(BaseAuthBackend):
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
         super(DjangoAuth, self).configure(app, router)
+
+    async def check_credentials(self, request):
+        """ Authentication and create a session."""
+        return True
 
     async def get_payload(self, request):
         id = None
@@ -138,14 +143,15 @@ class DjangoAuth(BaseAuthBackend):
             try:
                 userdata = self.get_userdata(user)
                 userdata["session"] = data
-                userdata['id'] = sessionid
+                userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
                 request['userdata'] = userdata
+                request[SESSION_KEY] = sessionid
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
-                    "user_id": user[self.userid_attribute],
-                    "id": sessionid
+                    self.userid_attribute: user[self.userid_attribute],
+                    self.session_key_property: sessionid
                 }
                 token = self.create_jwt(
                     data=payload

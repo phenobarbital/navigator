@@ -12,6 +12,7 @@ from aiofile import AIOFile
 
 from . import BaseCommand, CommandError
 
+
 logger = logging.getLogger("Navigator.creator")
 loop = asyncio.get_event_loop()
 

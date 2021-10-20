@@ -167,7 +167,6 @@ class TokenAuth(BaseAuthBackend):
             result = None
             async with await self._pool.acquire() as conn:
                 result, error = await conn.queryrow(sql)
-                print('HERE ', result, error)
             if error or not result:
                 return False
             else:

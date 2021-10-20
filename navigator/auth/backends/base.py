@@ -177,7 +177,6 @@ class BaseAuthBackend(ABC):
         if not issuer:
             issuer = "urn:Navigator"
         if "Authorization" in request.headers:
-            print('HERE')
             try:
                 scheme, id = (
                     request.headers.get("Authorization").strip().split(" ", 1)

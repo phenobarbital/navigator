@@ -99,7 +99,6 @@ class RedisStorage(AbstractStorage):
         # if not, session is missed, expired, bad session, etc
         conn = aioredis.Redis(connection_pool=self._redis)
         session_id = request.get(SESSION_KEY, None)
-        print('HERE ', session_id)
         if not session_id:
             session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie

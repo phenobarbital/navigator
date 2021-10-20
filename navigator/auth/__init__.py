@@ -198,7 +198,6 @@ class AuthHandler(object):
                     reason="Unauthorized: User Doesn't exists"
                 )
             except Exception as err:
-                print('HERE ', err)
                 raise web.HTTPClientError(
                     reason=f"Unauthorized Error {err!s}",
                     status=406
@@ -253,7 +252,6 @@ class AuthHandler(object):
         try:
             session = await self._session.get_session(request)
         except NavException as err:
-            print("Error HERE: ", err, err.state)
             response = {
                 "message": "Session Error",
                 "error": err.message,

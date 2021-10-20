@@ -206,27 +206,15 @@ class TokenAuth(BaseAuthBackend):
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
                         request['authenticated'] = True
-                except (jwt.DecodeError) as err:
-                    raise web.HTTPBadRequest(reason=f"Token Decoding Error: {err!r}")
-                except jwt.InvalidTokenError as err:
-                    print(err)
-                    raise web.HTTPBadRequest(
-                        reason=f"Invalid authorization token {err!s}"
-                    )
+                except (jwt.DecodeError, jwt.InvalidTokenError) as err:
+                    logging.error(f"Invalid authorization token: {err!r}")
+                    pass
                 except (jwt.ExpiredSignatureError) as err:
-                    print(err)
-                    raise web.HTTPBadRequest(reason=f"Token Expired: {err!s}")
+                    logging.error(f"TokenAuth: token expired: {err!s}")
+                    pass
                 except Exception as err:
                     print(err, err.__class__.__name__)
-                    raise web.HTTPBadRequest(
-                        reason=f"Bad Authorization Request: {err!s}"
-                    )
-            else:
-                if self.credentials_required is True:
-                    print("Missing Token information")
-                    raise web.HTTPUnauthorized(
-                        reason="Not Authorized",
-                    )
+                    pass
             return await handler(request)
 
         return middleware

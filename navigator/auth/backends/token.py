@@ -83,10 +83,7 @@ class TokenAuth(BaseAuthBackend):
                 try:
                     tenant, token = id.split(":")
                 except ValueError:
-                    raise NavException(
-                        "Invalid Token Structure",
-                        state=400
-                    )
+                    token = id
         except Exception as e:
             print(e)
             return None

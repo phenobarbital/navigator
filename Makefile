@@ -35,5 +35,5 @@ test:
 	python -m coverage report
 	python -m mypy navigator/*.py
 
-distclean: clean
+distclean:
 	rm -rf .venv

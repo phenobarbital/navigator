@@ -1,4 +1,4 @@
-.venv:
+venv:
 	python3.9 -m venv .venv
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
@@ -9,9 +9,6 @@ develop:
 	pip install navconfig==0.3.8
 	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'
-
-venv:
-	source .venv/bin/activate
 
 setup:
 	python -m pip install -Ur requirements/requirements-dev.txt

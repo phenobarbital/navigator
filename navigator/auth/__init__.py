@@ -182,13 +182,13 @@ class AuthHandler(object):
                 return json_response(userdata, state=200)
             except FailedAuth as err:
                 raise web.HTTPClientError(
-                    reason="Authentication Error: Bad Credentials: {err!s}",
+                    reason=f"Authentication Error: Bad Credentials: {err!s}",
                     status=err.state
                 )
             except InvalidAuth as err:
                 logging.exception(err)
                 raise web.HTTPUnauthorized(
-                    reason="Authentication Error: Invalid Authentication: {err!s}"
+                    reason=f"Authentication Error: Invalid Authentication: {err!s}"
                 )
             except UserDoesntExists as err:
                 print('UD ', err)

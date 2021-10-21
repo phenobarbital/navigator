@@ -77,8 +77,10 @@ class DjangoAuth(BaseAuthBackend):
 
     async def validate_session(self, key: str = None):
         try:
+            print(SESSION_PREFIX)
             async with await self.redis as redis:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
+                print(result)
             if not result:
                 raise Exception('Empty or non-existing Session')
             data = base64.b64decode(result)

@@ -1,5 +1,5 @@
 [project]
-name = "navigator"
+name = "navigator-api"
 authors = [
     {name = "Jesus Lara G.", email = "jesuslarag@gmail.com"},
 ]
@@ -25,11 +25,6 @@ classifiers=[
   "License :: OSI Approved :: BSD License",
 ]
 dynamic = ['version', 'description']
-
-[project.dependencies]
-jsonschema = ">= 2.5.1, < 4"
-asyncdb = ">= 1.7.19, < 1.8"
-naconfig = ">= 0.3.3, < 0.4"
 
 [build-system]
 requires = [

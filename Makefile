@@ -4,9 +4,9 @@ venv:
 
 develop:
 	pip install wheel==0.37.0
-	pip install -e .
-	pip install asyncdb==1.7.25
+	pip install extensions/asyncdb
 	pip install navconfig==0.3.8
+	pip install -e .
 	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'
 

@@ -1,4 +1,4 @@
-.venv:
+venv:
 	python3.9 -m venv .venv
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
@@ -8,8 +8,6 @@ develop:
 	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'
 
-venv:
-	source .venv/bin/activate
 
 setup:
 	python -m pip install -Ur requirements/requirements-dev.txt
@@ -33,5 +31,5 @@ test:
 	python -m coverage report
 	python -m mypy navigator/*.py
 
-distclean: clean
+distclean:
 	rm -rf .venv

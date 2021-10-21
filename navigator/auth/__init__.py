@@ -171,9 +171,7 @@ class AuthHandler(object):
             try:
                 userdata = await backend.authenticate(request)
                 if not userdata:
-                    raise web.HTTPUnauthorized(
-                        reason="Unauthorized"
-                    )
+                    raise InvalidAuth('User was not authenticated')
                 # at now: create the user-session
                 try:
                     session = await self._session.new_session(request, userdata)
@@ -183,14 +181,14 @@ class AuthHandler(object):
                     )
                 return json_response(userdata, state=200)
             except FailedAuth as err:
-                print('NO  ', err)
                 raise web.HTTPClientError(
-                    reason="Authentication Error: Bad Credentials",
+                    reason="Authentication Error: Bad Credentials: {err!s}",
                     status=err.state
                 )
             except InvalidAuth as err:
+                logging.exception(err)
                 raise web.HTTPUnauthorized(
-                    reason="Authentication Error: Invalid Authentication"
+                    reason="Authentication Error: Invalid Authentication: {err!s}"
                 )
             except UserDoesntExists as err:
                 print('UD ', err)

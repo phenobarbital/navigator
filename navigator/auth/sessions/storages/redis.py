@@ -108,7 +108,7 @@ class RedisStorage(AbstractStorage):
         try:
             data = await conn.get(session_id)
         except Exception as err:
-            # logging.error(f'Error Getting existing Session data: {err!s}')
+            logging.error(f'Error Getting Session data: {err!s}')
             data = None
         if data is None:
             if new is True:
@@ -151,7 +151,7 @@ class RedisStorage(AbstractStorage):
         session_id = session.identity
         if not session_id:
             session_id = session.get(SESSION_KEY, None)
-        if session_id is None:
+        if not session_id:
             session_id = self.id_factory()
         if session.empty:
             data = {}
@@ -164,7 +164,7 @@ class RedisStorage(AbstractStorage):
                 session_id, data, self.max_age
             )
         except Exception as err:
-            logging.debug(err)
+            logging.error(err)
             return False
 
     async def new_session(

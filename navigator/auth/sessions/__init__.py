@@ -46,9 +46,10 @@ async def get_session(
             )
         # using the storage session for Load an existing Session
         session = await storage.load_session(request, userdata, new)
+        request[SESSION_OBJECT] = session
+        request['session'] = session
         if new is True and not isinstance(session, SessionData):
             raise RuntimeError(
                 "Installed {!r} storage should return session instance "
                 "on .load_session() call, got {!r}.".format(storage, session))
-        request[SESSION_OBJECT] = session
     return session

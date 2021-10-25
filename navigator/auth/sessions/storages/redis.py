@@ -25,6 +25,7 @@ class RedisStorage(AbstractStorage):
                 decode_responses=True,
                 encoding='utf-8'
         )
+        print('REDIS CACHE:  ', SESSION_URL, redis)
         async def close_redis(app):
             await redis.disconnect(inuse_connections = True)
         app.on_cleanup.append(close_redis)

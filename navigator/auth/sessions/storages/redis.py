@@ -119,6 +119,7 @@ class RedisStorage(AbstractStorage):
                 return False
         try:
             data = self._decoder(data)
+            print(data)
             session = SessionData(
                 db=conn,
                 identity=session_id,
@@ -127,7 +128,7 @@ class RedisStorage(AbstractStorage):
                 max_age=self.max_age
             )
         except Exception as err:
-            print('ERROR: :::::::::::::')
+            print(f'ERROR: ::::::::::::: {!err}')
             logging.debug(err)
             session = SessionData(
                 db=conn,
@@ -174,6 +175,7 @@ class RedisStorage(AbstractStorage):
     ) -> SessionData:
         """Create a New Session Object for this User."""
         session_id = request.get(SESSION_KEY, None)
+        print('NEW: ', session_id)
         if not session_id:
             try:
                 session_id = data[SESSION_KEY]

@@ -128,7 +128,7 @@ class RedisStorage(AbstractStorage):
                 max_age=self.max_age
             )
         except Exception as err:
-            print(f'ERROR: ::::::::::::: {!err}')
+            print(f'ERROR: ::::::::::: ', err)
             logging.debug(err)
             session = SessionData(
                 db=conn,
@@ -159,13 +159,14 @@ class RedisStorage(AbstractStorage):
         data = self._encoder(session.session_data())
         max_age = session.max_age
         expire = max_age if max_age is not None else 0
-        conn = aioredis.Redis(connection_pool=self._redis)
         try:
+            conn = aioredis.Redis(connection_pool=self._redis)
             result = await conn.set(
                 session_id, data, self.max_age
             )
         except Exception as err:
-            logging.error(err)
+            print('Error Saving Session: ', err)
+            logging.exception(err)
             return False
 
     async def new_session(
@@ -175,7 +176,6 @@ class RedisStorage(AbstractStorage):
     ) -> SessionData:
         """Create a New Session Object for this User."""
         session_id = request.get(SESSION_KEY, None)
-        print('NEW: ', session_id)
         if not session_id:
             try:
                 session_id = data[SESSION_KEY]
@@ -184,30 +184,34 @@ class RedisStorage(AbstractStorage):
         print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
         if not data:
             data = {}
-        t = time.time()
-        data['created'] = t
-        data['last_visit'] = t
-        data["last_visited"] = f"Last visited: {t!s}"
-        data[SESSION_KEY] = session_id
         # saving this new session on DB
-        conn = aioredis.Redis(connection_pool=self._redis)
         try:
+            conn = aioredis.Redis(connection_pool=self._redis)
+            t = time.time()
+            data['created'] = t
+            data['last_visit'] = t
+            data["last_visited"] = f"Last visited: {t!s}"
+            data[SESSION_KEY] = session_id
             dt = self._encoder(data)
             result = await conn.set(
                 session_id, dt, self.max_age
             )
-            logging.debug(f'Creation of New Session: {result}')
+            logging.info(f'Creation of New Session: {result}')
             dd = await conn.get(session_id)
         except Exception as err:
-            logging.debug(err)
+            logging.exception(err)
             return False
-        session = SessionData(
-            db=conn,
-            identity=session_id,
-            data=data,
-            new=True,
-            max_age=self.max_age
-        )
+        try:
+            session = SessionData(
+                db=conn,
+                identity=session_id,
+                data=data,
+                new=True,
+                max_age=self.max_age
+            )
+        except Exception as err:
+            print(err)
+            logging.exception(f'Error creating Session Data: {err!s}')
         # Saving Session Object:
         session[SESSION_KEY] = session_id
         request[SESSION_OBJECT] = session

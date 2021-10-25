@@ -129,10 +129,6 @@ class SessionData(MutableMapping[str, Any]):
         del self._data[key]
         self._changed = True
 
-    def __setattr__(self, key: str, value: Any) -> None:
-        self._data[key] = value
-        self._changed = True
-
     def __getattr__(self, key: str) -> Any:
         return self._data[key]
 
@@ -233,9 +229,7 @@ def session_middleware(
             )
         session = request.get(SESSION_OBJECT)
         if isinstance(session, SessionData):
-            logging.debug('IS SESSION OBJECT')
             if session.is_changed:
-                logging.debug('SESSION IS CHANGED!')
                 await storage.save_session(request, response, session)
         return response
 

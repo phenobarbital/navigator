@@ -55,11 +55,10 @@ class NoAuth(BaseAuthBackend):
             except KeyError:
                 pass
             try:
-                tenant, jwt_token = self.decode_token(request)
-                print(f'TOKEN IS: {tenant}, {jwt_token}')
-                if jwt_token:
+                tenant, payload = self.decode_token(request)
+                if payload:
                     # load session information
-                    session = await get_session(request, jwt_token, new = False)
+                    session = await get_session(request, payload, new = False)
                     request['authenticated'] = True
             except NavException as err:
                 pass # NoAuth can pass silently when no token was generated

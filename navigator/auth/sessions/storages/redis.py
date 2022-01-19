@@ -104,7 +104,7 @@ class RedisStorage(AbstractStorage):
             session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie
         # we need to load session data from redis
-        print(f':::::: GETTING SESSION {session_id} ::::: ')
+        print(f':::::: LOAD SESSION {session_id} ::::: ')
         try:
             data = await conn.get(session_id)
         except Exception as err:
@@ -112,12 +112,13 @@ class RedisStorage(AbstractStorage):
             data = None
         if data is None:
             if new is True:
-                print(':::: CREATING NEW SESSION :::: ')
+                print(':::: CREATING A NEW SESSION :::: ')
                 # create a new session if not exists:
                 return await self.new_session(request, userdata)
             else:
                 return False
         try:
+            print('BEFORE')
             data = self._decoder(data)
             print(data)
             session = SessionData(
@@ -127,6 +128,7 @@ class RedisStorage(AbstractStorage):
                 new=False,
                 max_age=self.max_age
             )
+            print('EXIT LOAD')
         except Exception as err:
             print(f'ERROR: ::::::::::: ', err)
             logging.debug(err)

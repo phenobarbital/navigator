@@ -196,6 +196,7 @@ class BaseAuthBackend(ABC):
             except Exception:
                 # normal Token:
                 jwt_token = id
+            logging.debug(f'Session Token: {jwt_token}')
             try:
                 payload = jwt.decode(
                     jwt_token,
@@ -204,7 +205,7 @@ class BaseAuthBackend(ABC):
                     iss=issuer,
                     leeway=30,
                 )
-                logging.debug(f"Decoded Token: {payload!s}")
+                logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
             except (jwt.exceptions.InvalidSignatureError):
                 raise NavException("Invalid Signature Error")

@@ -302,7 +302,7 @@ class BaseHandler(CorsViewMixin):
         try:
             params = await request.json()
         except json.decoder.JSONDecodeError as err:
-            logging.error(f"Invalid POST DATA: {err!s}")
+            logging.debug(f"Invalid POST DATA: {err!s}")
         # if any, mix with match_info data:
         for arg in request.match_info:
             try:

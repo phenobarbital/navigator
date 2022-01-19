@@ -46,7 +46,6 @@ async def get_session(
             )
         # using the storage session for Load an existing Session
         session = await storage.load_session(request, userdata, new)
-        print('GET SESSION')
         request[SESSION_OBJECT] = session
         request['session'] = session
         if new is True and not isinstance(session, SessionData):

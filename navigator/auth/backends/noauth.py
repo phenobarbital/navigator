@@ -56,6 +56,7 @@ class NoAuth(BaseAuthBackend):
                 pass
             try:
                 tenant, jwt_token = self.decode_token(request)
+                print(f'TOKEN IS: {tenant}, {jwt_token}')
                 if jwt_token:
                     # load session information
                     session = await get_session(request, jwt_token, new = False)

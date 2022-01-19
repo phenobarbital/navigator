@@ -90,7 +90,7 @@ class BasicAuth(BaseAuthBackend):
                 return [user, password]
             except Exception:
                 return None
-        elif ctype in ("multipart/mixed", "application/x-www-form-urlencoded"):
+        elif ctype in ("multipart/mixed", "multipart/form-data", "application/x-www-form-urlencoded"):
             data = await request.post()
             if len(data) > 0:
                 user = data.get(self.username_attribute, None)

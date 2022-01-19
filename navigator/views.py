@@ -319,9 +319,17 @@ class BaseView(web.View, BaseHandler, AbstractView):
     _connection: Any = None
     _redis: Any = None
 
+    cors_config = {
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            allow_headers="*",
+        )
+    }
+
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
+        CorsViewMixin.__init__(self)
         self._request = request
 
     # def post_init(self, *args, **kwargs):

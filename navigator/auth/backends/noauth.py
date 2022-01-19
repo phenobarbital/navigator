@@ -59,6 +59,7 @@ class NoAuth(BaseAuthBackend):
                 if payload:
                     # load session information
                     session = await get_session(request, payload, new = False)
+                    print('MIDDLEWARE')
                     request['authenticated'] = True
             except NavException as err:
                 pass # NoAuth can pass silently when no token was generated

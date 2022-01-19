@@ -118,7 +118,6 @@ class RedisStorage(AbstractStorage):
             else:
                 return False
         try:
-            print('BEFORE')
             data = self._decoder(data)
             print(data)
             session = SessionData(
@@ -128,7 +127,6 @@ class RedisStorage(AbstractStorage):
                 new=False,
                 max_age=self.max_age
             )
-            print('EXIT LOAD')
         except Exception as err:
             print(f'ERROR: ::::::::::: ', err)
             logging.debug(err)

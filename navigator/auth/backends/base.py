@@ -126,7 +126,7 @@ class BaseAuthBackend(ABC):
         to create Session Object."""
         pass
 
-    async def authorization_backends(self, app, handler, request):
+    async def authorization_backends(self, app, handler, request):    
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
             return await handler(request)
         # avoid authorization on exclude list

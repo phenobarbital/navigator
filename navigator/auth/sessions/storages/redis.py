@@ -119,7 +119,6 @@ class RedisStorage(AbstractStorage):
                 return False
         try:
             data = self._decoder(data)
-            # print(data)
             session = SessionData(
                 db=conn,
                 identity=session_id,

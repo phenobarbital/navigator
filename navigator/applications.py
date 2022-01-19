@@ -354,7 +354,7 @@ class AppConfig(AppHandler):
         # set the setup_routes
         self.setup_routes()
         # setup cors:
-        self.setup_cors(self.cors)
+        # self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
 

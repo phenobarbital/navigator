@@ -134,6 +134,13 @@ AUTHORIZATION_BACKENDS = [
         config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(",")
     )
 ]
+
+# Basic Authentication
+AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
+AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
+AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
+AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
+
 CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
 NAV_AUTH_USER = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
 NAV_AUTH_GROUP = config.get("AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group")

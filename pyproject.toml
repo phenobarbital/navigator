@@ -1,5 +1,5 @@
 [project]
-name = "navigator"
+name = "navigator-api"
 authors = [
     {name = "Jesus Lara G.", email = "jesuslarag@gmail.com"},
 ]

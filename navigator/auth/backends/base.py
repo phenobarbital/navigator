@@ -91,7 +91,6 @@ class BaseAuthBackend(ABC):
             self.secret_key = SECRET_KEY
 
     def get_model(self, model, **kwargs):
-        print('AQUI> ', model, NAV_AUTH_USER, NAV_AUTH_GROUP)
         try:
             parts = model.split(".")
             name = parts[-1]

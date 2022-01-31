@@ -11,6 +11,7 @@ import base64
 from navigator.conf import (
     NAV_AUTH_USER,
     NAV_AUTH_GROUP,
+    NAV_SESSION_OBJECT,
     JWT_ALGORITHM,
     USER_MAPPING,
     SESSION_TIMEOUT,
@@ -119,6 +120,10 @@ class BaseAuthBackend(ABC):
         for name, item in self.user_mapping.items():
             if name != self.password_attribute:
                 userdata[name] = user[item]
+        if NAV_SESSION_OBJECT:
+            return {
+                NAV_SESSION_OBJECT: userdata
+            }
         return userdata
 
     def configure(self, app, router):

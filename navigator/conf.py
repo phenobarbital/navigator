@@ -145,6 +145,7 @@ AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
 CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
 NAV_AUTH_USER = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
 NAV_AUTH_GROUP = config.get("AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group")
+NAV_SESSION_OBJECT = config.get("AUTH_SESSION_OBJECT", fallback="session")
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",

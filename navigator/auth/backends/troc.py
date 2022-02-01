@@ -8,8 +8,18 @@ import rapidjson
 from .base import BaseAuthBackend
 from navigator.libs.cypher import *
 from datetime import datetime, timedelta
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
-from navigator.conf import PARTNER_KEY, CYPHER_TYPE, SESSION_TIMEOUT, SECRET_KEY
+from navigator.exceptions import (
+    NavException,
+    UserDoesntExists,
+    InvalidAuth
+)
+from navigator.conf import (
+    PARTNER_KEY,
+    CYPHER_TYPE,
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    NAV_SESSION_OBJECT
+)
 import hashlib
 import base64
 import secrets
@@ -118,7 +128,13 @@ class TrocToken(BaseAuthBackend):
                 raise NavException(err, state=500)
             try:
                 userdata = self.get_userdata(user)
-                userdata["session"] = data
+                try:
+                    # merging both session objects
+                    userdata[NAV_SESSION_OBJECT] = {
+                        **userdata[NAV_SESSION_OBJECT], **data
+                    }
+                except Exception as err:
+                    logging.exception(err)
                 userdata['id'] = user[self.username_attribute]
                 payload = {
                     self.user_property: user[self.userid_attribute],

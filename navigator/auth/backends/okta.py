@@ -20,6 +20,7 @@ from navigator.conf import (
     OKTA_CLIENT_SECRET,
     OKTA_DOMAIN,
     OKTA_APP_NAME,
+    NAV_SESSION_OBJECT
 )
 from okta_jwt_verifier import JWTVerifier
 
@@ -215,7 +216,7 @@ class OktaAuth(BaseAuthBackend):
         # unique_id = userdata["sub"]
         # user_email = userdata["email"]
         # user_name = userdata["given_name"]
-        # Optional: get User info from Nav
+        # TODO: Optional: get User info from Nav
         payload = {
             "user_id": userdata["sub"],
             **userdata

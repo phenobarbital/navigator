@@ -20,7 +20,8 @@ from aiogoogle.auth.utils import create_secret
 from navigator.conf import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
-    GOOGLE_API_SCOPES
+    GOOGLE_API_SCOPES,
+    NAV_SESSION_OBJECT
 )
 
 class GoogleAuth(BaseAuthBackend):

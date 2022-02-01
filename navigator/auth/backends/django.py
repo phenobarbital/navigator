@@ -24,7 +24,8 @@ from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
     SESSION_PREFIX,
-    SESSION_KEY
+    SESSION_KEY,
+    NAV_SESSION_OBJECT
 )
 
 
@@ -144,7 +145,13 @@ class DjangoAuth(BaseAuthBackend):
                 raise NavException(err, state=500)
             try:
                 userdata = self.get_userdata(user)
-                userdata["session"] = data
+                try:
+                    # merging both session objects
+                    userdata[NAV_SESSION_OBJECT] = {
+                        **userdata[NAV_SESSION_OBJECT], **data
+                    }
+                except Exception as err:
+                    logging.exception(err)
                 userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
                 request['userdata'] = userdata

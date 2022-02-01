@@ -7,13 +7,15 @@ import asyncio
 from aiohttp import web, hdrs
 from .base import BaseAuthBackend
 import uuid
-from navigator.conf import AUTH_CREDENTIALS_REQUIRED
+from navigator.conf import (
+    AUTH_CREDENTIALS_REQUIRED,
+    NAV_SESSION_OBJECT
+)
 from navigator.auth.sessions import get_session
 from navigator.exceptions import (
     NavException,
     FailedAuth,
-    InvalidAuth,
-    NAV_SESSION_OBJECT
+    InvalidAuth
 )
 
 class NoAuth(BaseAuthBackend):

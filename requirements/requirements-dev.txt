@@ -1,6 +1,6 @@
 pytest==7.0.0
 pytest-cov==3.0.0
-pytest-cov
+pytest-cov==3.0.0
 pytest-asyncio
 pytest-xdist==2.5.0
 pytest-assume

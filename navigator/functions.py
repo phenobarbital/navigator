@@ -9,6 +9,7 @@ from functools import partial
 from aiohttp import web
 from asyncdb.utils.encoders import BaseEncoder
 
+
 async def run_cmd(cmd: List) -> str:
     print(f'Executing: {" ".join(cmd)}')
     process = await asyncio.create_subprocess_exec(*cmd, stdout=asyncio.subprocess.PIPE)
@@ -39,6 +40,7 @@ def json_response(response={}, headers={}, state=200, cls=None):
     for header, value in headers.items():
         obj.headers[header] = value
     return obj
+
 
 ### printing functions
 class colors:

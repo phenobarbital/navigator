@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import base64
+import json
 import importlib
 import logging
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any, Dict, List, Tuple
 from cryptography import fernet
+
 # Import Config Class
 from navconfig import BASE_DIR, EXTENSION_DIR, config
 from navconfig.logging import logdir, loglevel, logging_config
@@ -29,10 +31,10 @@ Security and debugging
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
 # SECRET_KEY = config.get('TROC_KEY')
-PARTNER_KEY = config.get('PARTNER_KEY')
-CYPHER_TYPE = config.get('CYPHER_TYPE', fallback='RNC')
+PARTNER_KEY = config.get("PARTNER_KEY")
+CYPHER_TYPE = config.get("CYPHER_TYPE", fallback="RNC")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
-DOMAIN = config.get('DOMAIN', fallback='dev.local')
+DOMAIN = config.get("DOMAIN", fallback="dev.local")
 
 # Debug
 #
@@ -99,19 +101,15 @@ from navconfig.conf import *
 """
 Main Database
 """
-TIMEZONE = config.get('TIMEZONE', fallback='America/New_York')
-PG_USER = config.get('DBUSER')
-PG_HOST = config.get('DBHOST', fallback='localhost')
-PG_PWD = config.get('DBPWD')
-PG_DATABASE = config.get('DBNAME', fallback='navigator')
-PG_PORT = config.get('DBPORT', fallback=5432)
+TIMEZONE = config.get("TIMEZONE", fallback="America/New_York")
+PG_USER = config.get("DBUSER")
+PG_HOST = config.get("DBHOST", fallback="localhost")
+PG_PWD = config.get("DBPWD")
+PG_DATABASE = config.get("DBNAME", fallback="navigator")
+PG_PORT = config.get("DBPORT", fallback=5432)
 
-asyncpg_url = 'postgres://{user}:{password}@{host}:{port}/{db}'.format(
-    user=PG_USER,
-    password=PG_PWD,
-    host=PG_HOST,
-    port=PG_PORT,
-    db=PG_DATABASE
+asyncpg_url = "postgres://{user}:{password}@{host}:{port}/{db}".format(
+    user=PG_USER, password=PG_PWD, host=PG_HOST, port=PG_PORT, db=PG_DATABASE
 )
 default_dsn = asyncpg_url
 
@@ -122,20 +120,34 @@ Auth and Cache
 """
 REDIS
 """
-CACHE_HOST = config.get('CACHEHOST', fallback='localhost')
-CACHE_PORT = config.get('CACHEPORT', fallback=6379)
+CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
+CACHE_PORT = config.get("CACHEPORT", fallback=6379)
 CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
-REDIS_SESSION_DB = config.get('REDIS_SESSION_DB', fallback=0)
+REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 
 """
 Authentication System
 """
-NAV_AUTH_BACKEND = config.get('AUTH_BACKEND', fallback='navigator.auth.backends.NoAuth')
-AUTHORIZATION_BACKENDS = [e.strip() for e in list(config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(","))]
-CREDENTIALS_REQUIRED = config.getboolean('AUTH_CREDENTIALS_REQUIRED', fallback=False)
-NAV_AUTH_USER = config.get('AUTH_USER_MODEL', fallback='navigator.auth.models.User')
-NAV_AUTH_GROUP = config.get('AUTH_GROUP_MODEL', fallback='navigator.auth.models.Group')
-USER_MAPPING = {
+# NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
+AUTHORIZATION_BACKENDS = [
+    e.strip()
+    for e in list(
+        config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(",")
+    )
+]
+
+# Basic Authentication
+AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
+AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
+AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
+AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
+
+CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
+NAV_AUTH_USER = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
+NAV_AUTH_GROUP = config.get("AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group")
+NAV_SESSION_OBJECT = config.get("AUTH_SESSION_OBJECT", fallback="session")
+
+DEFAULT_MAPPING = {
     "user_id": "user_id",
     "username": "username",
     "password": "password",
@@ -145,28 +157,33 @@ USER_MAPPING = {
     "enabled": "is_active",
     "superuser": "is_superuser",
     "last_login": "last_login",
-    "title": "title"
+    "title": "title",
 }
-USERS_TABLE = config.get('AUTH_USERS_TABLE', fallback='vw_users')
+mapping = config.get('AUTH_USER_MAPPING')
+if mapping:
+    USER_MAPPING = json.loads(mapping)
+else:
+    USER_MAPPING = DEFAULT_MAPPING
+
+USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
 ALLOWED_HOSTS = [
-    e.strip() for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+    e.strip()
+    for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
 ]
+
 """
 Session Storage
 """
-SESSION_STORAGE = config.get('SESSION_STORAGE', fallback='redis')
-SESSION_URL = "redis://{}:{}/{}".format(CACHE_HOST, CACHE_PORT, REDIS_SESSION_DB)
-CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
-SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
-SESSION_NAME = '{}_SESSION'.format(config.get('APP_TITLE', fallback='NAVIGATOR').upper())
-SESSION_TIMEOUT = config.get('SESSION_TIMEOUT', fallback=3600)
-JWT_ALGORITHM = config.get('JWT_ALGORITHM', fallback='HS256')
+SESSION_NAME = "{}_SESSION".format(
+    config.get("APP_TITLE", fallback="NAVIGATOR").upper()
+)
+JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
 
 """
  Memcache
 """
-MEMCACHE_HOST = config.get('MEMCACHE_HOST', 'localhost')
-MEMCACHE_PORT = config.get('MEMCACHE_PORT', 11211)
+MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
+MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 
 """
 Final: Config dict for aiohttp
@@ -180,7 +197,7 @@ Context = {
     "env": ENV,
     "cache_url": CACHE_URL,
     "asyncpg_url": asyncpg_url,
-    "default_dsn": default_dsn
+    "default_dsn": default_dsn,
 }
 
 """
@@ -209,7 +226,7 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        #"ENGINE": config.get("DBENGINE"),
+                        # "ENGINE": config.get("DBENGINE"),
                         "NAME": PG_DATABASE,
                         "USER": PG_USER,
                         "OPTIONS": {
@@ -224,7 +241,7 @@ if APP_DIR.is_dir():
                         "PORT": PG_PORT,
                     }
 
-Context['DATABASES'] = DATABASES
+Context["DATABASES"] = DATABASES
 
 """
 Per-Program Settings

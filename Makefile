@@ -1,16 +1,17 @@
-.venv:
-	python3.8 -m venv .venv
-	source .venv/bin/activate && make setup dev
+venv:
+	python3.9 -m venv .venv
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
 develop:
-	source .venv/bin/activate && make setup dev
+	pip install wheel==0.37.0
+	pip install extensions/asyncdb
+	pip install navconfig==0.3.8
+	pip install -e .
+	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'
 
-venv: .venv
-
 setup:
-	python -m pip install -Ur docs/requirements-dev.txt
+	python -m pip install -Ur requirements/requirements-dev.txt
 
 dev:
 	flit install --symlink
@@ -31,5 +32,5 @@ test:
 	python -m coverage report
 	python -m mypy navigator/*.py
 
-distclean: clean
+distclean:
 	rm -rf .venv

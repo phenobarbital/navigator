@@ -5,6 +5,7 @@ import typing
 from abc import ABC, abstractmethod
 import importlib
 import inspect
+
 # logging system
 import logging
 from logging.config import dictConfig
@@ -28,19 +29,24 @@ from navigator.conf import (
     BASE_DIR,
     DEBUG,
     INSTALLED_APPS,
-    STATIC_DIR
+    STATIC_DIR,
+    SESSION_TIMEOUT
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
 from navigator.middlewares import basic_middleware
 
 # make a home and a ping class
-from navigator.resources import home  # ping
+from navigator.resources import home, ping
 from navigator.functions import cPrint
 import asyncio
 import uvloop
+
 # make asyncio use the event loop provided by uvloop
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+
+# get the authentication library
+from navigator.auth import AuthHandler
 
 loglevel = logging.INFO
 dictConfig(logging_config)
@@ -78,10 +84,7 @@ class path(object):
 
 
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
-    # Configure the main App
-    # app.router.add_route("GET", "/ping", ping)
-    # index
-    app.router.add_get("/", home)
+    """ Initialize all Apps in the existing Installation."""
     for app_name in app_list:
         obj = None
         try:
@@ -89,7 +92,7 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             app_class = importlib.import_module(app_name, package="apps")
             obj = getattr(app_class, name)
             instance = obj(context, **kwargs)
-            domain = getattr(instance, 'domain', None)
+            domain = getattr(instance, "domain", None)
             if domain:
                 app.add_domain(domain, instance.App)
             else:
@@ -114,7 +117,7 @@ class AppHandler(ABC):
     _loop = None
     debug = False
     app: web.Application = None
-    app_name: str = ''
+    app_name: str = ""
     __version__: str = "0.0.1"
     app_description: str = ""
     cors = None
@@ -124,6 +127,7 @@ class AppHandler(ABC):
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
+    enable_auth: bool = True
     staticdir: str = ""
 
     def __init__(self, context: dict, *args: List, **kwargs: dict):
@@ -142,7 +146,6 @@ class AppHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         # TODO: making automatic discovery of routes
         if self.auto_home:
-            # self.app.router.add_route("GET", "/ping", ping)
             self.app.router.add_route("GET", "/", home)
 
     def CreateApp(self) -> web.Application:
@@ -151,19 +154,37 @@ class AppHandler(ABC):
                 name = self._name
             else:
                 name = self.app_name
-            cPrint(f"SETUP APPLICATION: {name!s}", level='SUCCESS')
+            cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
-        if self._middleware:
-            middlewares = {"middlewares": self._middleware}
         app = web.Application(
             logger=self.logger,
             client_max_size=(1024 * 1024) * 1024,
             loop=self._loop,
-            **middlewares
+            # **middlewares,
         )
+        app.router.add_route("GET", "/ping", ping, name="ping")
+        app.router.add_get("/", home, name="home")
         # print(app)
-        app['name'] = self._name
+        app["name"] = self._name
+        # Setup Authentication:
+        if self.enable_auth is True:
+            self._auth = AuthHandler(
+                session_timeout=SESSION_TIMEOUT
+            )
+            # configuring authentication endpoints
+            # TODO: support multi-auth methods
+            self._auth.configure(app)
+            app["auth"] = self._auth
+            # cleanup operations over authentication backend
+            app.on_cleanup.append(self._auth.on_cleanup)
+        # add the other middlewares:
+        try:
+            for middleware in self._middleware:
+                app.middlewares.append(middleware)
+        except (ValueError, TypeError):
+            pass
+        # CORS
         self.cors = aiohttp_cors.setup(
             app,
             defaults={
@@ -180,7 +201,7 @@ class AppHandler(ABC):
 
     def get_loop(self, new: bool = False):
         if new is True:
-            loop = uvloop.new_event_loop()
+            loop = uvloop.get_event_loop()
             asyncio.set_event_loop(loop)
             return loop
         else:
@@ -221,7 +242,7 @@ class AppHandler(ABC):
                 fn = route.handler
                 signature = inspect.signature(fn)
                 doc = fn.__doc__
-                if doc is None and 'OPTIONS' not in route.method:
+                if doc is None and "OPTIONS" not in route.method:
                     # TODO: making more efficiently
                     fnName = fn.__name__
                     if fnName in ["_handle", "channel_handler", "WebSocket"]:
@@ -263,7 +284,7 @@ class AppHandler(ABC):
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except ValueError as err:
+            except (Exception, ValueError) as err:
                 # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
 
@@ -318,7 +339,7 @@ class AppConfig(AppHandler):
     path: Path = None
     _middleware = None
     enable_notify: bool = False
-    domain: str = ''
+    domain: str = ""
 
     def __init__(self, *args: List, **kwargs: dict):
         self._name = type(self).__name__
@@ -336,21 +357,27 @@ class AppConfig(AppHandler):
         # self.setup_cors(self.cors)
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
+
             setup_swagger(
                 self.app,
-                api_base_url=f'/{self._name}',
-                title=f'{self._name} API',
+                api_base_url=f"/{self._name}",
+                title=f"{self._name} API",
                 api_version=self.__version__,
                 description=self.app_description,
                 swagger_url=f"/api/v1/doc",
-                ui_version=3
+                ui_version=3,
             )
+        ## add the authorization endpoint endpoint:
+        auth = self.authorization
+        self.app.router.add_get(
+            '/authorize', auth
+        )
 
     async def on_cleanup(self, app):
         try:
             await app["redis"].close()
         except Exception:
-            logging.error('Error closing Redis connection')
+            logging.error("Error closing Redis connection")
 
     async def on_startup(self, app):
         # redis Pool
@@ -359,54 +386,56 @@ class AppConfig(AppHandler):
         app["redis"] = rd
         # initialize models:
 
-    async def create_connection(self, app, dsn: str = ''):
+    async def create_connection(self, app, dsn: str = ""):
+        if 'database' in app:
+            return True
         if not dsn:
             dsn = app["config"]["asyncpg_url"]
-        pool = PostgresPool(
-            dsn=dsn,
-            name=f'NAV-{self._name!s}',
-            loop=self._loop
-        )
+        pool = PostgresPool(dsn=dsn, name=f"NAV-{self._name!s}", loop=self._loop)
         try:
             await pool.startup(app=app)
-            app['database'] = pool.connection()
+            app["database"] = pool.connection()
         except Exception as err:
             print(err)
             raise Exception(err)
         if self.enable_notify is True:
             await self.open_connection(app)
+        return pool.connection()
 
     async def close_connection(self, conn):
+        if 'database' in app:
+            # can't close the connection of a shared connection
+            return True
         try:
             if self.enable_notify is True:
                 if conn:
-                    await conn.engine().remove_listener(
-                        self._name,
-                        self.listener
-                    )
+                    await conn.engine().remove_listener(self._name, self.listener)
                     await asyncio.sleep(1)
                 await conn.close()
         except Exception as err:
             logging.error("Error closing Interface connection {}".format(err))
-
 
     async def open_connection(self, app, listener: Callable = None):
         if not listener:
             listener = self.listener
         try:
             conn = await app["database"].acquire()
-            app['connection'] = conn
+            app["connection"] = conn
             if conn:
                 if self.enable_notify:
                     connection = conn.engine()
                     await connection.add_listener(self._name, listener)
-                    await connection.execute('NOTIFY "{}", \'= Starting Navigator Notify System = \''.format(self._name))
+                    await connection.execute(
+                        "NOTIFY \"{}\", '= Starting Navigator Notify System = '".format(
+                            self._name
+                        )
+                    )
         except Exception as err:
             raise Exception(err)
 
     async def on_shutdown(self, app):
         try:
-            await app['database'].wait_close(timeout=5)
+            await app["database"].wait_close(timeout=5)
         except Exception:
             pass
 
@@ -444,15 +473,15 @@ class AppConfig(AppHandler):
                         "*", route.url, route.handler, name=route.name
                     )
                 else:
-                    if route.method == 'get':
+                    if route.method == "get":
                         r = self.app.router.add_get(
                             route.url, route.handler, name=route.name
                         )
-                    elif route.method == 'post':
+                    elif route.method == "post":
                         r = self.app.router.add_post(
                             route.url, route.handler, name=route.name
                         )
-                    elif route.method == 'delete':
+                    elif route.method == "delete":
                         r = self.app.router.add_delete(
                             route.url, route.handler, name=route.name
                         )
@@ -483,10 +512,7 @@ class AppConfig(AppHandler):
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
-                            route.url,
-                            route.handler,
-                            name=route.name,
-                            allow_head=False
+                            route.url, route.handler, name=route.name, allow_head=False
                         )
                     elif route.method == "post":
                         r = self.app.router.add_post(
@@ -512,3 +538,16 @@ class AppConfig(AppHandler):
                         )
                         return False
                     self.cors.add(r)
+
+    async def authorization(self, request: web.Request) -> web.Response:
+        app = request.app
+        try:
+            program = self.__class__.__name__
+        except Exception as err:
+            print(err)
+            program = self._name
+        authorization = {
+            "status": "User Authorized",
+            "program": program
+        }
+        return web.json_response(authorization, status=200)

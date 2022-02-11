@@ -19,10 +19,6 @@ import uvloop
 from aiohttp import web
 from aiohttp.abc import AbstractView
 
-# Aiohttp Session
-from aiohttp_session import get_session
-from aiohttp_session import setup as setup_session
-from aiohttp_session.redis_storage import RedisStorage
 # from apps.setup import app_startup
 from aiohttp_utils import run as runner
 
@@ -33,15 +29,11 @@ from navigator.conf import (
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
-    NAV_AUTH_BACKEND,
-    AUTHORIZATION_BACKENDS,
-    CREDENTIALS_REQUIRED,
-    SECRET_KEY,
     STATIC_DIR,
     Context,
     config,
     SSL_CERT,
-    SSL_KEY
+    SSL_KEY,
 )
 
 from navigator.applications import AppBase, AppHandler, app_startup
@@ -51,9 +43,6 @@ from navigator.handlers import nav_exception_handler, shutdown
 
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
-
-# get the authentication library
-from navigator.auth import AuthHandler
 
 __version__ = "1.2.0"
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
@@ -103,11 +92,7 @@ class Application(object):
     enable_swagger: bool = True
     disable_debugtoolbar: bool = True
 
-    def __init__(
-        self, app: AppHandler = None,
-        *args: typing.Any,
-        **kwargs: typing.Any
-    ):
+    def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -197,17 +182,8 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        self._auth = AuthHandler(
-            backend=NAV_AUTH_BACKEND,
-            credentials_required=CREDENTIALS_REQUIRED,
-            authorization_backends=AUTHORIZATION_BACKENDS
-        )
-        # configuring authentication endpoints
-        self._auth.configure(app)
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
-        app["auth"] = self._auth
-
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(
@@ -278,7 +254,6 @@ class Application(object):
                 return result
             except Exception as err:
                 self._logger.exception(err)
-
         return _wrap
 
     def route(self, route: str, method: str = "GET", threaded: bool = False):
@@ -298,9 +273,7 @@ class Application(object):
     def add_get(self, route: str, threaded: bool = False) -> Callable:
         def _decorator(func):
             self.app.App.router.add_get(
-                route,
-                self.threaded_func(func, threaded),
-                allow_head=False
+                route, self.threaded_func(func, threaded), allow_head=False
             )
             return func
 
@@ -356,25 +329,27 @@ class Application(object):
         """
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
+
             setup_swagger(
                 app,
-                api_base_url='/',
-                title='Navigator API',
+                api_base_url="/",
+                title="Navigator API",
                 api_version=self.version,
                 description=long_description,
                 swagger_url="/api/v1/doc",
-                ui_version=3
+                ui_version=3,
             )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
                 if self.disable_debugtoolbar is False:
                     import aiohttp_debugtoolbar
                     from aiohttp_debugtoolbar import toolbar_middleware_factory
+
                     aiohttp_debugtoolbar.setup(
                         app,
-                        hosts=[self.host,'127.0.0.1', '::1'],
+                        hosts=[self.host, "127.0.0.1", "::1"],
                         enabled=True,
-                        path_prefix='/_debug'
+                        path_prefix="/_debug",
                     )
             if self._reload:
                 runner(

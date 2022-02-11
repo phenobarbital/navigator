@@ -27,20 +27,20 @@ async def channel_handler(request):
     print("Websocket connection starting for channel {}".format(channel))
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    #TODO: connection is not defined, I dont understand this code
+    # TODO: connection is not defined, I dont understand this code
     socket = {"ws": ws, "conn": connection}
     request.app["websockets"].append(socket)
     print(socket)
-    print('Websocket Channel connection ready')
+    print("Websocket Channel connection ready")
     try:
         async for msg in ws:
             print(msg)
             if msg.type == aiohttp.WSMsgType.TEXT:
                 print(msg.data)
-                if msg.data == 'close':
+                if msg.data == "close":
                     await ws.close()
                 else:
-                    await ws.send_str(msg.data + '/answer')
+                    await ws.send_str(msg.data + "/answer")
     finally:
         request.app["websockets"].remove(socket)
     return ws

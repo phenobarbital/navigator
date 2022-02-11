@@ -12,10 +12,12 @@ from navigator import get_version
 from navigator.conf import INSTALLED_APPS
 from navigator.functions import cPrint
 
+
 class CommandError(Exception):
     """
     Exception Base Class for raise problems in the execution of a Command
     """
+
     pass
 
 
@@ -23,6 +25,7 @@ class CommandNotFound(Exception):
     """
     Exception Base Class for raise problems in the execution of a Command
     """
+
     pass
 
 
@@ -97,7 +100,7 @@ class BaseCommand(object):
             # parsing current arguments
             options = self.parser.parse_args(self.args)
             if options.debug:
-                self.write("Executing : {}".format(self.action), level="DEBUG")
+                self.write("Executing : {} Command.".format(self.action), level="DEBUG")
             sig = signature(fn)
             try:
                 if len(sig.parameters) > 0:
@@ -120,15 +123,12 @@ class BaseCommand(object):
             return output
 
 
-def get_command(
-        command: str = 'troc',
-        clsname: str = '',
-        pathname: str = 'navigator'):
+def get_command(command: str = "troc", clsname: str = "", pathname: str = "navigator"):
     try:
         if pathname:
             classpath = "{path}.commands.{command}".format(
-                path=pathname,
-                command=command)
+                path=pathname, command=command
+            )
         else:
             classpath = "commands.{command}".format(command=command)
         module = importlib.import_module(classpath, package="commands")
@@ -136,13 +136,16 @@ def get_command(
         return cls
     except (ModuleNotFoundError, ImportError):
         # last resort: direct commands on source
-        raise CommandNotFound(
-            f'Command {clsname} was not found on {pathname}'
-        )
+        raise CommandNotFound(f"Command {clsname} was not found on {pathname}")
+
 
 def run_command(**kwargs):
     """
     Running a command in Navigator Enviroment
+
+    Command is running in the form:
+    manage.py {command} {instructions}
+    example: manage.py app create
     """
     if len(sys.argv) > 1:
         args = sys.argv
@@ -161,7 +164,9 @@ def run_command(**kwargs):
                 #     program=program, provider=clsCommand
                 # )
                 try:
-                    cls = get_command(command=clsCommand, clsname=clsCommand, pathname=program)
+                    cls = get_command(
+                        command=clsCommand, clsname=clsCommand, pathname=program
+                    )
                     # module = importlib.import_module(classpath, package=clsCommand)
                     # cls = getattr(module, clsCommand)
                 except CommandNotFound:
@@ -173,14 +178,19 @@ def run_command(**kwargs):
                 clsCommand = "{}Command".format(command.capitalize())
                 # check if is a Navigator Command
                 try:
-                    cls = get_command(command=command, clsname=clsCommand, pathname='navigator')
+                    cls = get_command(
+                        command=command, clsname=clsCommand, pathname="navigator"
+                    )
                 except CommandNotFound:
                     # last resort: direct commands on source
                     try:
-                        cls = get_command(command=command, clsname=clsCommand, pathname='')
+                        cls = get_command(
+                            command=command, clsname=clsCommand, pathname=""
+                        )
                     except CommandNotFound:
                         raise CommandNotFound(
-                            "Command %s was not found o program doesnt exists" % clsCommand
+                            "Command %s was not found o program doesnt exists"
+                            % clsCommand
                         )
             try:
                 cmd = cls(args)

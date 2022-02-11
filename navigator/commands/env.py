@@ -24,7 +24,7 @@ def create_dir(dir, name, touch_init: bool = False):
         path.mkdir(parents=True, exist_ok=True)
         if touch_init is True:
             # create a __init__ file
-            save_file(path, '__init__.py', content="#!/usr/bin/env python3")
+            save_file(path, "__init__.py", content="#!/usr/bin/env python3")
     except FileExistsError as exc:
         pass
 
@@ -51,24 +51,22 @@ def save_file(dir, filename, content):
             print(err)
             logging.error(err)
             return False
+
     return loop.run_until_complete(main(filename, content))
 
 
-def drive_permission(
-    client: str,
-    secret: str,
-    project: str = 'navigator') -> str:
+def drive_permission(client: str, secret: str, project: str = "navigator") -> str:
     permission = {
-    	"web": {
-    		"client_id": f"{client!s}.apps.googleusercontent.com",
-    		"project_id": project,
-    		"auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    		"token_uri": "https://oauth2.googleapis.com/token",
-    		"auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    		"client_secret": secret,
-    		"redirect_uris": ["http://localhost:8090/"],
-    		"javascript_origins": ["http://localhost:8090"]
-    	}
+        "web": {
+            "client_id": f"{client!s}.apps.googleusercontent.com",
+            "project_id": project,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_secret": secret,
+            "redirect_uris": ["http://localhost:8090/"],
+            "javascript_origins": ["http://localhost:8090"],
+        }
     }
     return json.dumps(permission)
 
@@ -104,7 +102,7 @@ class EnvCommand(BaseCommand):
         create_dir(path, "apps", touch_init=True)
         create_dir(path, "env/testing")
         create_dir(path, "etc")
-        #create_dir(path, "log")
+        # create_dir(path, "log")
         create_dir(path, "services", touch_init=True)
         create_dir(path, "resources", touch_init=True)
         create_dir(path, "settings", touch_init=True)
@@ -113,8 +111,8 @@ class EnvCommand(BaseCommand):
         create_dir(path, "static/css")
         create_dir(path, "templates")
         self.write("* Second Step: Creation of Empty .env File")
-        #save_file(path, "env/.env", env)
-        #save_file(path, "env/testing/.env", env)
+        # save_file(path, "env/.env", env)
+        # save_file(path, "env/testing/.env", env)
         save_file(path, "etc/navigator.ini", ini)
         # TODO: download from Google Drive, if possible
         self.write("* Third Step: Creation of Empty settings.py File")
@@ -140,25 +138,24 @@ class EnvCommand(BaseCommand):
         path = Path(kwargs["project_path"]).resolve()
         file_env = options.file_env
         # first: removing existing credentials
-        delete_file(path, 'env/credentials.txt')
+        delete_file(path, "env/credentials.txt")
         # saving the credentials into a new file
         save_file(path, "env/file_env", file_env)
         # preparing the environment:
         # set SITE_ROOT:
-        os.environ['SITE_ROOT'] = str(path)
-        print('SITE ROOT: ', os.getenv('SITE_ROOT'))
+        os.environ["SITE_ROOT"] = str(path)
+        print("SITE ROOT: ", os.getenv("SITE_ROOT"))
         # set configuration for navconfig
-        os.environ['NAVCONFIG_ENV'] = 'drive'
-        os.environ['NAVCONFIG_DRIVE_CLIENT'] = 'env/credentials.txt'
-        os.environ['NAVCONFIG_DRIVE_ID'] = file_env
+        os.environ["NAVCONFIG_ENV"] = "drive"
+        os.environ["NAVCONFIG_DRIVE_CLIENT"] = "env/credentials.txt"
+        os.environ["NAVCONFIG_DRIVE_ID"] = file_env
         # get the drive permission
         client = options.client
         secret = options.secret
         project = options.project
-        content = drive_permission(
-            client, secret, project
-        )
-        save_file(path, 'client_secrets.json', content)
+        content = drive_permission(client, secret, project)
+        save_file(path, "client_secrets.json", content)
         from navconfig import config
-        config.save_environment('drive')
-        return 'Done.'
+
+        config.save_environment("drive")
+        return "Done."

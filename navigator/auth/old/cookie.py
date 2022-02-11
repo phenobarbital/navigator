@@ -1,15 +1,12 @@
 """Cookie-based Session Storage."""
 
 from aiohttp_session.cookie_storage import EncryptedCookieStorage
-from .base import AbstractSession
+from .base import BaseSession
 from aiohttp_session import setup as setup_session
-from navigator.conf import (
-    DOMAIN,
-    SESSION_TIMEOUT
-)
+from navigator.conf import SESSION_TIMEOUT
 
 
-class CookieSession(AbstractSession):
+class CookieSession(BaseSession):
     """Encrypted Cookie Session Storage."""
 
     def configure_session(self, app):
@@ -21,6 +18,5 @@ class CookieSession(AbstractSession):
                 self.secret_key,
                 cookie_name=self.session_name,
                 max_age=SESSION_TIMEOUT
-                # domain=DOMAIN,
-            )
+            ),
         )

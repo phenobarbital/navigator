@@ -3,6 +3,7 @@
 
 class NavException(Exception):
     """Base class for other exceptions"""
+
     state: int = 0
 
     def __init__(self, message, state: int = 0, *args, **kwargs):
@@ -23,3 +24,6 @@ class UserDoesntExists(NavException):
 
 class InvalidAuth(NavException):
     state: int = 401
+
+class FailedAuth(NavException):
+    state: int = 403

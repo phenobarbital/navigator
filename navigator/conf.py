@@ -34,6 +34,7 @@ APP_PORT = config.get('APP_PORT', fallback=5000)
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 STATIC_DIR = BASE_DIR.joinpath("static")
+TEMPLATE_DIR = BASE_DIR.joinpath("templates")
 SERVICES_DIR = BASE_DIR.joinpath("services")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")

@@ -36,7 +36,8 @@ from navigator.conf import (
     config,
     SSL_CERT,
     SSL_KEY,
-    loglevel
+    loglevel,
+    TEMPLATE_DIR
 )
 from navigator.applications import AppBase, AppHandler, app_startup
 # Exception Handlers
@@ -44,6 +45,7 @@ from navigator.handlers import (
     nav_exception_handler,
     shutdown
 )
+from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 
@@ -83,12 +85,14 @@ class Application(object):
         app: AppHandler = None,
         enable_swagger: bool = True,
         enable_debugtoolbar: bool = True,
+        enable_jinja_parser: bool = True,
         use_ssl: bool = False,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
         swagger_options: Dict = {},
+
         *args,
         **kwargs
     ) -> None:
@@ -104,6 +108,7 @@ class Application(object):
         if not title:
             self.title = APP_NAME
         self.swagger_options = swagger_options
+        self.enable_jinja_parser = enable_jinja_parser
         # configuring asyncio loop
         # TODO: work in an exception handler for NAV
         self._loop = asyncio.get_event_loop()
@@ -198,6 +203,14 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
+        if self.enable_jinja_parser is True:
+            try:
+                parser = TemplateParser(
+                    directory=TEMPLATE_DIR
+                )
+                app['template'] = parser
+            except Exception:
+                raise
         return app
 
     def add_websockets(self) -> None:

@@ -302,7 +302,7 @@ class BaseHandler(CorsViewMixin):
         try:
             params = await request.json()
         except json.decoder.JSONDecodeError as err:
-            raise Exception(f"Invalid POST DATA: {err!s}")
+            logging.debug(f"Invalid POST DATA: {err!s}")
         # if any, mix with match_info data:
         for arg in request.match_info:
             try:
@@ -319,9 +319,17 @@ class BaseView(web.View, BaseHandler, AbstractView):
     _connection: Any = None
     _redis: Any = None
 
+    cors_config = {
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            allow_headers="*",
+        )
+    }
+
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
+        CorsViewMixin.__init__(self)
         self._request = request
 
     # def post_init(self, *args, **kwargs):
@@ -353,7 +361,11 @@ class BaseView(web.View, BaseHandler, AbstractView):
     async def post_data(self) -> dict:
         params = {}
         if self.request.headers.get("Content-Type") == "application/json":
-            return await self.request.json()
+            try:
+                return await self.request.json()
+            except json.decoder.JSONDecodeError as err:
+                logging.exception('Empty POST Data')
+                return None
         try:
             params = await self.request.post()
             if not params or len(params) == 0:
@@ -369,7 +381,6 @@ class BaseView(web.View, BaseHandler, AbstractView):
                         except (KeyError, ValueError):
                             pass
         finally:
-            print(params)
             return params
 
 

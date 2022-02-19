@@ -36,19 +36,20 @@ async def get_session(
         new: bool = False
 ) -> SessionData:
     session = request.get(SESSION_OBJECT)
-    print('SESSION IS: ', session)
+    logging.debug(f'SESSION IS: {session!s} for object {SESSION_OBJECT!s}')
     if session is None:
         storage = request.get(SESSION_STORAGE)
-        print('STORAGE IS ', storage)
+        logging.debug(f'SESSION STORAGE IS {storage}')
         if storage is None:
             raise RuntimeError(
                 "Missing Configuration for Session Middleware."
             )
         # using the storage session for Load an existing Session
         session = await storage.load_session(request, userdata, new)
+        request[SESSION_OBJECT] = session
+        request['session'] = session
         if new is True and not isinstance(session, SessionData):
             raise RuntimeError(
                 "Installed {!r} storage should return session instance "
                 "on .load_session() call, got {!r}.".format(storage, session))
-        request[SESSION_OBJECT] = session
     return session

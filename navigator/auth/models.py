@@ -6,8 +6,16 @@ Model for User, Group and Roles for Navigator Auth.
 import uuid
 import asyncio
 import logging
-from asyncdb.utils.models import Model, Column
-from typing import Optional, List, Dict, Union, Tuple, Any, Callable
+from asyncdb.models import Model, Column
+from typing import (
+    Optional,
+    List,
+    Dict,
+    Union,
+    Tuple,
+    Any,
+    Callable
+)
 from dataclasses import InitVar
 from datetime import datetime
 from navigator.conf import default_dsn, USERS_TABLE

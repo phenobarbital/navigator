@@ -1,7 +1,7 @@
 """Django Session Backend.
 
-Navigator Authentication using Django Session Backend
-description: read the Django session from Redis Backend and decrypt.
+Navigator Authentication using API Token
+description: Single API Token Authentication
 """
 import base64
 import rapidjson
@@ -22,6 +22,7 @@ from navigator.conf import (
     JWT_ALGORITHM,
     SESSION_PREFIX,
     default_dsn,
+    AUTH_SESSION_OBJECT
 )
 from navigator.auth.sessions import get_session
 

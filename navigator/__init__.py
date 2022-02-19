@@ -14,7 +14,7 @@ are also implicitly created anytime a new section starts.
 Attributes:
     * WIP
 
-Todo:
+TODO:
     * Work with asgi loaders
     * You have to also use ``sphinx.ext.todo`` extension
 
@@ -22,6 +22,9 @@ Todo:
 https://github.com/phenobarbital/navigator-api
 
 """
-from .navigator import Application, Response, get_version
+from .navigator import Application, Response
+from .version import (
+    __title__, __description__, __version__, __author__
+)
 
-__all__ = (Application, Response, get_version)
+__all__ = ("Application", "Response", )

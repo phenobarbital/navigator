@@ -7,7 +7,10 @@ import asyncio
 from aiohttp import web, hdrs
 from .base import BaseAuthBackend
 import uuid
-from navigator.conf import AUTH_CREDENTIALS_REQUIRED
+from navigator.conf import (
+    CREDENTIALS_REQUIRED,
+    AUTH_SESSION_OBJECT
+)
 from navigator.auth.sessions import get_session
 from navigator.exceptions import (
     NavException,
@@ -24,18 +27,32 @@ class NoAuth(BaseAuthBackend):
         """ Authentication and create a session."""
         return True
 
-    async def authenticate(self, request):
+    def get_userdata(self):
         key = uuid.uuid4().hex
+        userdata = {
+            AUTH_SESSION_OBJECT: {
+                "session": key,
+                self.username_attribute: "Anonymous",
+                "first_name": "Anonymous",
+                "last_name": "User"
+            }
+        }
+        return [ userdata, key ]
+
+    async def authenticate(self, request):
+        userdata, key = self.get_userdata()
         payload = {
             self.session_key_property: key,
             self.user_property: None,
-            self.username_attribute: "Anonymous"
+            self.username_attribute: "Anonymous",
+            **userdata
         }
         token = self.create_jwt(data=payload)
         return {
             "token": token,
             self.session_key_property: key,
-            self.username_attribute: "Anonymous"
+            self.username_attribute: "Anonymous",
+            **userdata
         }
 
     async def auth_middleware(self, app, handler):
@@ -55,10 +72,10 @@ class NoAuth(BaseAuthBackend):
             except KeyError:
                 pass
             try:
-                tenant, jwt_token = self.decode_token(request)
-                if jwt_token:
+                tenant, payload = self.decode_token(request)
+                if payload:
                     # load session information
-                    session = await get_session(request, jwt_token, new = False)
+                    session = await get_session(request, payload, new = False)
                     request['authenticated'] = True
             except NavException as err:
                 pass # NoAuth can pass silently when no token was generated

@@ -6,8 +6,13 @@ import uuid
 from asyncpg.pgproto import pgproto
 from asyncdb.utils.encoders import BaseEncoder
 from asyncdb import AsyncPool
-from asyncdb.providers import BasePool, BaseProvider
-from typing import Dict, List, Callable, Optional, Iterable
+from typing import (
+    Dict,
+    List,
+    Callable,
+    Optional,
+    Iterable
+)
 
 try:
     from settings.settings import TIMEZONE

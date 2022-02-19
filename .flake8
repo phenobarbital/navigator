@@ -1,0 +1,19 @@
+[flake8]
+enable-extensions = G
+exclude = extensions/,tests/,examples/,bin/
+max-doc-length = 88
+max-line-length = 88
+select = C,E,F,W,B,B9
+# W503: Mutually exclusive with W504.
+ignore = N801,N802,N803,E203,E226,E305,W504,E252,E301,E302,E704,W503,W504
+exclude = __init__.py
+
+# flake8-import-order
+import-order-style = pycharm
+
+# flake8-quotes
+inline-quotes = "
+
+# flake8-requirements
+known-modules = pynacl:[nacl]
+requirements-file = requirements-dev.txt

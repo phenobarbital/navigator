@@ -29,10 +29,10 @@ dynamic = ['version', 'description']
 [build-system]
 requires = [
     'setuptools >= 47',
-    'wheel >= 0.37.0',
-    'Cython==0.29.21',
+    'wheel == 0.37.0',
+    'Cython==0.29.28',
     'toml >= 0.10.2',
-    'numpy==1.19.4',
+    'numpy==1.21.1',
     'asyncio==3.4.3',
     'flit'
 ]

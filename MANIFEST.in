@@ -1,0 +1,5 @@
+include LICENSE
+include LICENSE-APACHE
+include README.md
+recursive-include navigator/templates *
+recursive-include navigator/static *

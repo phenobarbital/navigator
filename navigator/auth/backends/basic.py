@@ -3,6 +3,9 @@
 Navigator Authentication using JSON Web Tokens.
 """
 import jwt
+import hashlib
+import base64
+import secrets
 from aiohttp import web
 from .base import BaseAuthBackend
 from datetime import datetime, timedelta
@@ -12,17 +15,14 @@ from navigator.exceptions import (
     UserDoesntExists,
     InvalidAuth
 )
-from navigator.conf import SESSION_TIMEOUT, SECRET_KEY
-import hashlib
-import base64
-import secrets
-
-# credentials algorithm
-PWD_ALGORITHM = "pbkdf2_sha256"
-ITERATIONS = 150000
-PWD_DIGEST = "sha256"
-KEY_LENGTH = 64
-
+from navigator.conf import (
+    SESSION_TIMEOUT,
+    SECRET_KEY,
+    AUTH_PWD_DIGEST,
+    AUTH_PWD_ALGORITHM,
+    AUTH_PWD_LENGTH,
+    AUTH_PWD_SALT_LENGTH
+)
 # "%s$%d$%s$%s" % (algorithm, iterations, salt, hash)
 
 
@@ -62,23 +62,27 @@ class BasicAuth(BaseAuthBackend):
         if not salt:
             salt = secrets.token_hex(token_num)
         key = hashlib.pbkdf2_hmac(
-            PWD_DIGEST,
+            AUTH_PWD_DIGEST,
             password.encode("utf-8"),
             salt.encode("utf-8"),
             iterations,
-            dklen=KEY_LENGTH,
+            dklen=AUTH_PWD_LENGTH,
         )
-        hash = base64.b64encode(key).decode("ascii").strip()
-        return f"{PWD_ALGORITHM}${iterations}${salt}${hash}"
+        hash = base64.b64encode(key).decode("utf-8").strip()
+        return f"{AUTH_PWD_ALGORITHM}${iterations}${salt}${hash}"
 
     def check_password(self, current_password, password):
         try:
             algorithm, iterations, salt, hash = current_password.split("$", 3)
         except ValueError:
             raise InvalidAuth('Invalid Password Algorithm')
-        assert algorithm == PWD_ALGORITHM
-        iterations = int(iterations)
-        compare_hash = self.set_password(password, iterations=iterations, salt=salt)
+        assert algorithm == AUTH_PWD_ALGORITHM
+        compare_hash = self.set_password(
+            password,
+            iterations=int(iterations),
+            salt=salt,
+            token_num=AUTH_PWD_SALT_LENGTH
+        )
         return secrets.compare_digest(current_password, compare_hash)
 
     async def get_payload(self, request):
@@ -90,7 +94,7 @@ class BasicAuth(BaseAuthBackend):
                 return [user, password]
             except Exception:
                 return None
-        elif ctype in ("multipart/mixed", "application/x-www-form-urlencoded"):
+        elif ctype in ("multipart/mixed", "multipart/form-data", "application/x-www-form-urlencoded"):
             data = await request.post()
             if len(data) > 0:
                 user = data.get(self.username_attribute, None)

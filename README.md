@@ -10,11 +10,8 @@ The main goal of Navigator is to provide data sources to Navigator-Next (FrontEn
 ## Dependencies ##
 
  * aiohttp (Asyncio Web Framework and Server)
+ * NavConfig
  * AsyncDB
-
-### What is AsyncDB? ###
-
-AsyncDB is a collection of database connectors using asyncio-based technologies like asyncpg, aiomysql or async-redis.
 
 ### Getting Started ###
 
@@ -28,7 +25,7 @@ AsyncDB is a collection of database connectors using asyncio-based technologies 
 
 * Python >= 3.8
 * asyncio (https://pypi.python.org/pypi/asyncio/)
-* aiohttp >= 3.6.2
+* aiohttp >= 3.8.0
 
 ### Contribution guidelines ###
 

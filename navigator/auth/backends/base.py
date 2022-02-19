@@ -5,12 +5,13 @@ from typing import List, Iterable
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
-from asyncdb.utils.models import Model
+from asyncdb.models import Model
 from cryptography import fernet
 import base64
 from navigator.conf import (
-    NAV_AUTH_USER,
-    NAV_AUTH_GROUP,
+    AUTH_USER_MODEL,
+    AUTH_GROUP_MODEL,
+    AUTH_SESSION_OBJECT,
     JWT_ALGORITHM,
     USER_MAPPING,
     SESSION_TIMEOUT,
@@ -81,8 +82,8 @@ class BaseAuthBackend(ABC):
         self._authz_backends = authorization_backends
         # user and group models
         # getting User and Group Models
-        self.user_model = self.get_model(NAV_AUTH_USER)
-        self.group_model = self.get_model(NAV_AUTH_GROUP)
+        self.user_model = self.get_model(AUTH_USER_MODEL)
+        self.group_model = self.get_model(AUTH_GROUP_MODEL)
         self.user_mapping = USER_MAPPING
         if not SECRET_KEY:
             fernet_key = fernet.Fernet.generate_key()
@@ -119,6 +120,10 @@ class BaseAuthBackend(ABC):
         for name, item in self.user_mapping.items():
             if name != self.password_attribute:
                 userdata[name] = user[item]
+        if AUTH_SESSION_OBJECT:
+            return {
+                AUTH_SESSION_OBJECT: userdata
+            }
         return userdata
 
     def configure(self, app, router):
@@ -196,6 +201,7 @@ class BaseAuthBackend(ABC):
             except Exception:
                 # normal Token:
                 jwt_token = id
+            logging.debug(f'Session Token: {jwt_token}')
             try:
                 payload = jwt.decode(
                     jwt_token,
@@ -204,7 +210,7 @@ class BaseAuthBackend(ABC):
                     iss=issuer,
                     leeway=30,
                 )
-                logging.debug(f"Decoded Token: {payload!s}")
+                logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
             except (jwt.exceptions.InvalidSignatureError):
                 raise NavException("Invalid Signature Error")

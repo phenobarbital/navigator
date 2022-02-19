@@ -7,7 +7,7 @@ from navigator.conf import (
     SESSION_KEY,
     SECRET_KEY,
     SESSION_PREFIX,
-    AUTH_CREDENTIALS_REQUIRED,
+    CREDENTIALS_REQUIRED,
     SESSION_STORAGE
 )
 from navigator.auth.sessions import get_session, new_session
@@ -27,7 +27,7 @@ async def django_middleware(app, handler):
     async def middleware(request):
         sessionid = get_sessionid(request)
         if not sessionid:
-            if AUTH_CREDENTIALS_REQUIRED is True:
+            if CREDENTIALS_REQUIRED is True:
                 request[SESSION_KEY] = None
                 raise web.HTTPUnauthorized(
                     reason="Missing Session and Auth Required"
@@ -88,7 +88,7 @@ async def django_middleware(app, handler):
                 )
         except Exception as err:
             print(err)
-            if AUTH_CREDENTIALS_REQUIRED is True:
+            if CREDENTIALS_REQUIRED is True:
                 return web.json_response(
                     {"error:": str(err), "message": "Invalid Session"},
                     status=400

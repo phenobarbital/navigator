@@ -40,7 +40,7 @@ setup(
     ],
     author=__author__,
     author_email=__author_email__,
-    packages=["navigator"],
+    packages=find_packages(),
     include_package_data=True,
     license=__license__,
     setup_requires=[

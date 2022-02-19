@@ -158,7 +158,6 @@ class AppHandler(ABC):
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app.router.add_get("/", home, name="home")
-        print(app)
         app["name"] = self._name
         # Setup Authentication:
         if self.enable_auth is True:

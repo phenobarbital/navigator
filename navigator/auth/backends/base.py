@@ -9,9 +9,9 @@ from asyncdb.models import Model
 from cryptography import fernet
 import base64
 from navigator.conf import (
-    NAV_AUTH_USER,
-    NAV_AUTH_GROUP,
-    NAV_SESSION_OBJECT,
+    AUTH_USER_MODEL,
+    AUTH_GROUP_MODEL,
+    AUTH_SESSION_OBJECT,
     JWT_ALGORITHM,
     USER_MAPPING,
     SESSION_TIMEOUT,
@@ -82,8 +82,8 @@ class BaseAuthBackend(ABC):
         self._authz_backends = authorization_backends
         # user and group models
         # getting User and Group Models
-        self.user_model = self.get_model(NAV_AUTH_USER)
-        self.group_model = self.get_model(NAV_AUTH_GROUP)
+        self.user_model = self.get_model(AUTH_USER_MODEL)
+        self.group_model = self.get_model(AUTH_GROUP_MODEL)
         self.user_mapping = USER_MAPPING
         if not SECRET_KEY:
             fernet_key = fernet.Fernet.generate_key()
@@ -120,9 +120,9 @@ class BaseAuthBackend(ABC):
         for name, item in self.user_mapping.items():
             if name != self.password_attribute:
                 userdata[name] = user[item]
-        if NAV_SESSION_OBJECT:
+        if AUTH_SESSION_OBJECT:
             return {
-                NAV_SESSION_OBJECT: userdata
+                AUTH_SESSION_OBJECT: userdata
             }
         return userdata
 

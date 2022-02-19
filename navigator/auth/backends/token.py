@@ -22,7 +22,7 @@ from navigator.conf import (
     JWT_ALGORITHM,
     SESSION_PREFIX,
     default_dsn,
-    NAV_SESSION_OBJECT
+    AUTH_SESSION_OBJECT
 )
 from navigator.auth.sessions import get_session
 

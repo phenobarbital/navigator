@@ -25,7 +25,7 @@ from navigator.conf import (
     SECRET_KEY,
     SESSION_PREFIX,
     SESSION_KEY,
-    NAV_SESSION_OBJECT
+    AUTH_SESSION_OBJECT
 )
 
 
@@ -146,8 +146,8 @@ class DjangoAuth(BaseAuthBackend):
                 userdata = self.get_userdata(user)
                 try:
                     # merging both session objects
-                    userdata[NAV_SESSION_OBJECT] = {
-                        **userdata[NAV_SESSION_OBJECT], **data
+                    userdata[AUTH_SESSION_OBJECT] = {
+                        **userdata[AUTH_SESSION_OBJECT], **data
                     }
                 except Exception as err:
                     logging.exception(err)

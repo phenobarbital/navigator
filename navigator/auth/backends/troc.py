@@ -18,7 +18,7 @@ from navigator.conf import (
     CYPHER_TYPE,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    NAV_SESSION_OBJECT
+    AUTH_SESSION_OBJECT
 )
 import hashlib
 import base64
@@ -130,8 +130,8 @@ class TrocToken(BaseAuthBackend):
                 userdata = self.get_userdata(user)
                 try:
                     # merging both session objects
-                    userdata[NAV_SESSION_OBJECT] = {
-                        **userdata[NAV_SESSION_OBJECT], **data
+                    userdata[AUTH_SESSION_OBJECT] = {
+                        **userdata[AUTH_SESSION_OBJECT], **data
                     }
                 except Exception as err:
                     logging.exception(err)

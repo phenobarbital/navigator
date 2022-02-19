@@ -46,7 +46,8 @@ Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
 fernet_key = fernet.Fernet.generate_key()
-SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
+new_secret = base64.urlsafe_b64decode(fernet_key)
+SECRET_KEY = config.get("SECRET_KEY", fallback=new_secret)
 
 # used by tokenauth with RNC.
 PARTNER_KEY = config.get("PARTNER_KEY")
@@ -106,9 +107,6 @@ Basic Information
 EMAIL_CONTACT = config.get("EMAIL_CONTACT", section="info", fallback="foo@example.com")
 API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
 
-# get configuration settings.
-from navconfig.conf import *
-
 #######################
 ##
 ## APPS CONFIGURATION
@@ -133,12 +131,13 @@ Auth and Cache
 """
 
 """
-REDIS
+REDIS SESSIONS
 """
 CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
 CACHE_PORT = config.get("CACHEPORT", fallback=6379)
 CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
 REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
+CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 
 """
 Authentication System
@@ -150,16 +149,28 @@ AUTHORIZATION_BACKENDS = [
     )
 ]
 
+AUTHORIZATION_MIDDLEWARES = (
+)
+
+
 # Basic Authentication
 AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
 
-CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
-NAV_AUTH_USER = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
-NAV_AUTH_GROUP = config.get("AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group")
-NAV_SESSION_OBJECT = config.get("AUTH_SESSION_OBJECT", fallback="session")
+CREDENTIALS_REQUIRED = config.getboolean(
+    "AUTH_CREDENTIALS_REQUIRED", fallback=False
+)
+AUTH_USER_MODEL = config.get(
+    "AUTH_USER_MODEL", fallback="navigator.auth.models.User"
+)
+AUTH_GROUP_MODEL = config.get(
+    "AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group"
+)
+AUTH_SESSION_OBJECT = config.get(
+    "AUTH_SESSION_OBJECT", fallback="session"
+)
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",
@@ -192,12 +203,21 @@ SESSION_NAME = "{}_SESSION".format(
     config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 )
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
+SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
+SESSION_KEY = config.get('SESSION_KEY', fallback='id')
+SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
+SESSION_OBJECT = 'NAV_SESSION'
+SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
 
 """
  Memcache
 """
 MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
 MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
+
+# get configuration settings (user can override settings).
+from navconfig.conf import *
 
 """
 Final: Config dict for aiohttp

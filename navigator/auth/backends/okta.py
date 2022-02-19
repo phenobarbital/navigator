@@ -20,7 +20,7 @@ from navigator.conf import (
     OKTA_CLIENT_SECRET,
     OKTA_DOMAIN,
     OKTA_APP_NAME,
-    NAV_SESSION_OBJECT
+    AUTH_SESSION_OBJECT
 )
 from okta_jwt_verifier import JWTVerifier
 

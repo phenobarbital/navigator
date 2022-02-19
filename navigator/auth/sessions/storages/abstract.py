@@ -6,7 +6,7 @@ import time
 import asyncio
 import logging
 from aiohttp import web
-from aiohttp.web_middlewares import _Handler, _Middleware
+from aiohttp.web_middlewares import Handler, middleware
 from typing import (
     Any,
     Callable,
@@ -205,7 +205,7 @@ class AbstractStorage(metaclass=abc.ABCMeta):
 def session_middleware(
         app: web.Application,
         storage: 'AbstractStorage'
-) -> _Middleware:
+) -> middleware:
     """Middleware to attach Session Storage to every Request."""
     if not isinstance(storage, AbstractStorage):
         raise RuntimeError(f"Expected an AbstractStorage got {storage!s}")
@@ -213,7 +213,7 @@ def session_middleware(
     @web.middleware
     async def middleware(
             request: web.Request,
-            handler: _Handler
+            handler: Handler
     ) -> web.StreamResponse:
         request[SESSION_STORAGE] = storage
         try:

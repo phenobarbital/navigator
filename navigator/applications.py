@@ -41,10 +41,6 @@ from navigator.resources import home, ping
 from navigator.functions import cPrint
 import asyncio
 import uvloop
-
-# make asyncio use the event loop provided by uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 # get the authentication library
 from navigator.auth import AuthHandler
 
@@ -111,30 +107,33 @@ class AppHandler(ABC):
      * TODO: adding support for middlewares
      * TODO: get APP names
     """
-
-    _name = None
-    logger = None
-    _loop = None
-    debug = False
-    app: web.Application = None
-    app_name: str = ""
-    __version__: str = "0.0.1"
-    app_description: str = ""
-    cors = None
-    _middleware: Any = None
+    _middleware: List = []
     auto_home: bool = True
     enable_notify: bool = False
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
     enable_auth: bool = True
-    staticdir: str = ""
+    staticdir: str = None
 
-    def __init__(self, context: dict, *args: List, **kwargs: dict):
-        self._name = type(self).__name__
+    def __init__(
+        self,
+        context: dict,
+        app_name: str = None,
+        *args,
+        **kwargs
+    ) -> None:
+        # App Name
+        if not app_name:
+            self._name = type(self).__name__
+        else:
+            self._name = app_name
+        self.debug = DEBUG
+        if not self.staticdir:
+            self.staticdir = STATIC_DIR
         self.logger = logging.getLogger(self._name)
         # configuring asyncio loop
-        self._loop = self.get_loop()
+        self._loop = asyncio.get_event_loop()
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -150,22 +149,16 @@ class AppHandler(ABC):
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
-            if not self.app_name:
-                name = self._name
-            else:
-                name = self.app_name
-            cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
+            cPrint(f"SETUP APPLICATION: {self._name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
         app = web.Application(
             logger=self.logger,
-            client_max_size=(1024 * 1024) * 1024,
-            loop=self._loop,
-            # **middlewares,
+            client_max_size=(1024 * 1024) * 1024
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app.router.add_get("/", home, name="home")
-        # print(app)
+        print(app)
         app["name"] = self._name
         # Setup Authentication:
         if self.enable_auth is True:
@@ -199,14 +192,6 @@ class AppHandler(ABC):
         )
         return app
 
-    def get_loop(self, new: bool = False):
-        if new is True:
-            loop = uvloop.get_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop
-        else:
-            return asyncio.get_event_loop()
-
     @property
     def App(self) -> web.Application:
         return self.app
@@ -220,16 +205,14 @@ class AppHandler(ABC):
         configure.
             making configuration of routes
         """
-        if self.enable_static:
+        if self.enable_static is True:
             # adding statics
-            # TODO: can personalize the path
-            static = self.staticdir if self.staticdir else STATIC_DIR
             self.app.router.add_static(
-                "/static/", path=static, name="static", append_version=True
+                "/static/",
+                path=self.staticdir,
+                name="static",
+                append_version=True
             )
-            # self.app.add_routes(
-            #     [web.static('/static', static, append_version=True)]
-            # )
 
     def setup_docs(self) -> None:
         """
@@ -350,20 +333,21 @@ class AppConfig(AppHandler):
         if self.template:
             template_dir = os.path.join(self.path, self.template)
             # template_dir = self.path.resolve().joinpath(self.template)
-            aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(template_dir))
+            aiohttp_jinja2.setup(
+                self.app,
+                loader=jinja2.FileSystemLoader(template_dir)
+        )
         # set the setup_routes
         self.setup_routes()
-        # setup cors:
-        # self.setup_cors(self.cors)
+        # setup swagger
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
-
             setup_swagger(
                 self.app,
                 api_base_url=f"/{self._name}",
                 title=f"{self._name} API",
-                api_version=self.__version__,
-                description=self.app_description,
+                api_version=self.version,
+                description=self.description,
                 swagger_url=f"/api/v1/doc",
                 ui_version=3,
             )

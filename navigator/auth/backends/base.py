@@ -5,7 +5,7 @@ from typing import List, Iterable
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
-from asyncdb.utils.models import Model
+from asyncdb.models import Model
 from cryptography import fernet
 import base64
 from navigator.conf import (

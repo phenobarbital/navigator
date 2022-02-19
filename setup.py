@@ -61,7 +61,7 @@ setup(
         "asyncdb @ git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb",
         "navconfig @ git+https://github.com/phenobarbital/NavConfig.git@new-version#egg=navconfig",
         "aiofile==3.7.4",
-        "aiofiles-0.8.0",
+        "aiofiles==0.8.0",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
@@ -81,6 +81,7 @@ setup(
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
+        "aiohttp-debugtoolbar==0.6.0"
     ],
     tests_require=[
             'pytest>=5.4.0',

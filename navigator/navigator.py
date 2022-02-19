@@ -4,27 +4,29 @@ import ssl
 import sys
 import typing
 import aiohttp_cors
-from aiohttp import web
-import inspect
 import logging
 import signal
 import sockjs
+import traceback
+from aiohttp import web
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
-from typing import Any, Callable, Optional
-
+from typing import (
+    List,
+    Dict,
+    Any,
+    Callable,
+    Optional
+)
 # make asyncio use the event loop provided by uvloop
 import asyncio
 import uvloop
-from aiohttp import web
-from aiohttp.abc import AbstractView
-
-# from apps.setup import app_startup
-from aiohttp_utils import run as runner
-
 from navigator.conf import (
     DEBUG,
     APP_DIR,
+    APP_NAME,
+    APP_HOST,
+    APP_PORT,
     BASE_DIR,
     EMAIL_CONTACT,
     INSTALLED_APPS,
@@ -34,22 +36,18 @@ from navigator.conf import (
     config,
     SSL_CERT,
     SSL_KEY,
+    loglevel
 )
-
 from navigator.applications import AppBase, AppHandler, app_startup
-
 # Exception Handlers
-from navigator.handlers import nav_exception_handler, shutdown
-
+from navigator.handlers import (
+    nav_exception_handler,
+    shutdown
+)
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 
-__version__ = "1.2.0"
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-
-def get_version():
-    return __version__
 
 
 def Response(
@@ -65,7 +63,11 @@ def Response(
     Response.
     Web Response Definition for Navigator
     """
-    response = {"content_type": content_type, "charset": charset, "status": status}
+    response = {
+        "content_type": content_type,
+        "charset": charset,
+        "status": status
+    }
     if headers:
         response["headers"] = headers
     if isinstance(content, str) or text is not None:
@@ -76,54 +78,56 @@ def Response(
 
 
 class Application(object):
-    app: Any = None
-    _auth = None
-    debug = False
-    parser = None
-    use_ssl = False
-    _routes: list = []
-    _reload = False
-    _logger = None
-    path = ""
-    host = "0.0.0.0"
-    port = 5000
-    _loop = None
-    version = "0.0.1"
-    enable_swagger: bool = True
-    disable_debugtoolbar: bool = True
-
-    def __init__(self, app: AppHandler = None, *args: typing.Any, **kwargs: typing.Any):
+    def __init__(
+        self,
+        app: AppHandler = None,
+        enable_swagger: bool = True,
+        enable_debugtoolbar: bool = True,
+        use_ssl: bool = False,
+        title: str = '',
+        description: str = 'NAVIGATOR APP',
+        contact: str = '',
+        version: str = "0.0.1",
+        swagger_options: Dict = {},
+        *args,
+        **kwargs
+    ) -> None:
+        self.version = version
+        self.enable_debugtoolbar = enable_debugtoolbar
+        self.enable_swagger = enable_swagger
+        self.use_ssl = use_ssl
+        self.description = description
+        self.contact = contact
+        if not contact:
+            self.contact = EMAIL_CONTACT
+        self.title = title
+        if not title:
+            self.title = APP_NAME
+        self.swagger_options = swagger_options
         # configuring asyncio loop
-        try:
-            self._loop = asyncio.get_event_loop()
-        except RuntimeError:
-            logging.error(
-                "Couldn't get event loop for current thread. Creating a new event loop to be used!"
-            )
-            self._loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(self._loop)
-        # self._loop.set_exception_handler(nav_exception_handler)
+        # TODO: work in an exception handler for NAV
+        self._loop = asyncio.get_event_loop()
+        self._loop.set_exception_handler(nav_exception_handler)
         # May want to catch other signals too
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
             self._loop.add_signal_handler(
-                s, lambda s=s: asyncio.create_task(shutdown(self._loop, s))
+                s, lambda s=s: asyncio.create_task(
+                    shutdown(self._loop, s)
+                )
             )
         self._executor = ThreadPoolExecutor()
-        if "debug" in kwargs:
-            self.debug = kwargs["debug"]
-        else:
-            self.debug = DEBUG
-        self.parser = argparse.ArgumentParser(description="Navigator App")
+        self.parser = argparse.ArgumentParser(
+            description="Navigator App"
+        )
         self.parser.add_argument("--path")
         self.parser.add_argument("--host")
         self.parser.add_argument("--port")
-        self.parser.add_argument("-r", "--reload", action="store_true")
         self.parser.add_argument(
             "-d", "--debug", action="store_true", help="Enable Debug"
         )
         self.parser.add_argument(
-            "--traceback", action="store_true", help="Return the Traceback on Error"
+            "--traceback", action="store_true", help="Return Traceback on Error"
         )
         self.parse_arguments()
         if not app:
@@ -131,6 +135,7 @@ class Application(object):
             self.app = AppBase(Context)
         else:
             self.app = app(Context)
+        # getting the application Logger
         self._logger = self.get_logger(self.app.Name)
 
     def parse_arguments(self):
@@ -142,24 +147,19 @@ class Application(object):
         try:
             self.host = args.host
             if not self.host:
-                self.host = "0.0.0.0"
+                self.host = APP_HOST
         except (KeyError, ValueError, TypeError):
-            self.host = "0.0.0.0"
+            self.host = APP_HOST
         try:
             self.port = args.port
             if not self.port:
-                self.port = 5000
+                self.port = APP_PORT
         except (KeyError, ValueError, TypeError):
-            self.port = 5000
+            self.port = APP_PORT
         try:
-            if args.debug:
-                self.debug = args.debug
+            self.debug = args.debug
         except (KeyError, ValueError, TypeError):
-            pass
-        try:
-            self._reload = args.reload
-        except (KeyError, ValueError, TypeError):
-            self._reload = False
+            self.debug = DEBUG
 
     def get_app(self) -> web.Application:
         return self.app.App
@@ -170,13 +170,11 @@ class Application(object):
     def __getitem__(self, k):
         return self.app.App[k]
 
-    def get_logger(self, name="Navigator"):
+    def get_logger(self, name:str = "Navigator"):
         logging_format = f"[%(asctime)s] %(levelname)-5s %(name)-{len(name)}s "
-        # logging_format += "%(module)-7s::l%(lineno)d: "
-        # logging_format += "%(module)-7s: "
         logging_format += "%(message)s"
         logging.basicConfig(
-            format=logging_format, level=logging.INFO, datefmt="%Y:%m:%d %H:%M:%S"
+            format=logging_format, level=loglevel, datefmt="%Y:%m:%d %H:%M:%S"
         )
         return logging.getLogger(name)
 
@@ -321,46 +319,38 @@ class Application(object):
     def run(self):
         # getting the resource App
         app = self.setup_app()
-        # previous to run, setup swagger:
-        # auto-configure swagger
-        long_description = """
-        Asynchronous RESTful API for data source connections, REST consumer \
-        and Query API, used by Navigator, powered by MobileInsight
-        """
+        if self.debug:
+            logging.debug('Running in DEBUG mode.')
         if self.enable_swagger is True:
+            # previous to run, setup swagger:
+            # auto-configure swagger
             from aiohttp_swagger import setup_swagger
-
             setup_swagger(
                 app,
                 api_base_url="/",
-                title="Navigator API",
+                title=self.title,
                 api_version=self.version,
-                description=long_description,
+                description=self.description,
                 swagger_url="/api/v1/doc",
                 ui_version=3,
+                **self.swagger_options
             )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
-                if self.disable_debugtoolbar is False:
+                if self.enable_debugtoolbar is True:
                     import aiohttp_debugtoolbar
                     from aiohttp_debugtoolbar import toolbar_middleware_factory
-
                     aiohttp_debugtoolbar.setup(
                         app,
                         hosts=[self.host, "127.0.0.1", "::1"],
                         enabled=True,
                         path_prefix="/_debug",
                     )
-            if self._reload:
-                runner(
-                    app=app,
-                    app_uri="navigator.runserver:app",
-                    reload=True,
-                    port=self.port,
-                    host=self.host,
-                )
-            else:
+            try:
                 web.run_app(app, host=self.host, port=self.port)
+            except Exception as err:
+                print(traceback.format_exc())
+                print(err)
         else:
             if self.use_ssl:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)

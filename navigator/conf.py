@@ -1,28 +1,44 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
 import base64
 import json
 import importlib
 import logging
-import os
-import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple
+)
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig import (
+    BASE_DIR,
+    EXTENSION_DIR,
+    config,
+    DEBUG
+)
 from navconfig.logging import logdir, loglevel, logging_config
 
 """
 Routes
 """
+APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_DIR = BASE_DIR.joinpath("apps")
+APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
+APP_PORT = config.get('APP_PORT', fallback=5000)
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
-FILES_DIR = config.get("ETL_PATH", fallback="/home/ubuntu/symbits/")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 STATIC_DIR = BASE_DIR.joinpath("static")
 SERVICES_DIR = BASE_DIR.joinpath("services")
+HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+DOMAIN = config.get("DOMAIN", fallback="dev.local")
+# Temp File Path
+files_path = BASE_DIR.joinpath("temp")
 
 """
 Security and debugging
@@ -30,15 +46,17 @@ Security and debugging
 # SECURITY WARNING: keep the secret key used in production secret!
 fernet_key = fernet.Fernet.generate_key()
 SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
-# SECRET_KEY = config.get('TROC_KEY')
+
+# used by tokenauth with RNC.
 PARTNER_KEY = config.get("PARTNER_KEY")
 CYPHER_TYPE = config.get("CYPHER_TYPE", fallback="RNC")
-HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
-DOMAIN = config.get("DOMAIN", fallback="dev.local")
 
+"""
+Development
+"""
 # Debug
 #
-DEBUG = config.getboolean("DEBUG", fallback=True)
+DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
@@ -48,7 +66,7 @@ Timezone
 """
 # Timezone (For parsedate)
 # https://dateparser.readthedocs.io/en/latest/#timezone-and-utc-offset
-TIMEZONE = config.get("TIMEZONE", "US/Eastern")
+TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 
 """
 Environment
@@ -81,16 +99,13 @@ else:
         SSL_KEY = None
         PREFERRED_URL_SCHEME = "http"
 
-# Temp File Path
-files_path = BASE_DIR.joinpath("temp")
-
 """
 Basic Information
 """
 EMAIL_CONTACT = config.get("EMAIL_CONTACT", section="info", fallback="foo@example.com")
 API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
 
-# get settings
+# get configuration settings.
 from navconfig.conf import *
 
 #######################
@@ -101,7 +116,6 @@ from navconfig.conf import *
 """
 Main Database
 """
-TIMEZONE = config.get("TIMEZONE", fallback="America/New_York")
 PG_USER = config.get("DBUSER")
 PG_HOST = config.get("DBHOST", fallback="localhost")
 PG_PWD = config.get("DBPWD")
@@ -128,7 +142,6 @@ REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 """
 Authentication System
 """
-# NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -208,7 +221,6 @@ DATABASES: Dict = {}
 
 if APP_DIR.is_dir():
     for item in APP_DIR.iterdir():
-        # for item in os.listdir(APPS_DIR):
         if item.name != "__pycache__":
             if item.is_dir():
                 name = item.name
@@ -226,15 +238,11 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        # "ENGINE": config.get("DBENGINE"),
                         "NAME": PG_DATABASE,
                         "USER": PG_USER,
                         "OPTIONS": {
                             "options": "-c search_path=" + item.name + ",public",
                         },
-                        #'PARAMS': {
-                        #    'readonly': True,
-                        # },
                         "SCHEMA": item.name,
                         "PASSWORD": PG_PWD,
                         "HOST": PG_HOST,

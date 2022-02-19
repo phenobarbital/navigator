@@ -113,7 +113,7 @@ async def home(request):
         "404":
             description: Template "templates/home.html" not found.
     """
-    path = Path(BASE_DIR).joinpath("templates/home.html")
+    path = Path(BASE_DIR).joinpath("navigator/templates/home.html")
     try:
         file_path = path
         if not file_path.exists():
@@ -122,5 +122,7 @@ async def home(request):
     except Exception as e:
         response_obj = {"status": "failed", "reason": str(e)}
         return web.Response(
-            text=json.dumps(response_obj), status=500, content_type="application/json"
+            text=json.dumps(response_obj),
+            status=500,
+            content_type="application/json"
         )

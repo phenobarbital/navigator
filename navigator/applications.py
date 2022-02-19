@@ -322,8 +322,14 @@ class AppConfig(AppHandler):
     _middleware = None
     enable_notify: bool = False
     domain: str = ""
+    version: str = '0.0.1'
+    description: str = ''
 
-    def __init__(self, *args: List, **kwargs: dict):
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ):
         self._name = type(self).__name__
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)

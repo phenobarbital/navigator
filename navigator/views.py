@@ -26,7 +26,7 @@ from aiohttp.web_exceptions import (
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
 from asyncdb.meta import asyncORM
-from asyncdb.utils.models import Model
+from asyncdb.models import Model
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
 from navconfig.logging import logging_config, loglevel

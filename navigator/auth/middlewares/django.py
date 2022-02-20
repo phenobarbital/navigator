@@ -8,34 +8,36 @@ from navigator.conf import (
     SECRET_KEY,
     SESSION_PREFIX,
     CREDENTIALS_REQUIRED,
-    SESSION_STORAGE
+    SESSION_STORAGE,
+    SESSION_USER_PROPERTY
 )
 from navigator.auth.sessions import get_session, new_session
 import logging
 import time
 
-def get_sessionid(request):
+def get_sessionid(request: web.Request):
     sessionid = request.headers.get("X-Sessionid")
     if not sessionid:
-        sessionid = request.headers.get("sessionid", None)
-        logging.warning(
-            'Django Middleware: Using Sessionid (instead X-Sessionid) is deprecated and will be removed soon'
+        raise web.HTTPBadRequest(
+            reason=f'Django Middleware: use Header different from X-Sessionid is not available'
         )
     return sessionid
 
 async def django_middleware(app, handler):
     async def middleware(request):
         sessionid = get_sessionid(request)
+        request.user = None
         if not sessionid:
             if CREDENTIALS_REQUIRED is True:
-                request[SESSION_KEY] = None
                 raise web.HTTPUnauthorized(
-                    reason="Missing Session and Auth Required"
+                    reason="Django Middleware: Missing Session and Auth is Required"
                 )
             return await handler(request)
         try:
             request[SESSION_KEY] = sessionid
-            session = await get_session(request, new = False)
+            session = await get_session(
+                request, new = False
+            )
             if not session:
                 # we need to create a new one
                 session = await new_session(request)
@@ -50,14 +52,14 @@ async def django_middleware(app, handler):
                 else:
                     data = session[sessionid]
                     request[SESSION_KEY] = sessionid
+                    request[SESSION_USER_PROPERTY] = data
                     request["user_id"] = data["user_id"]
                     request["session"] = data
                     # this session already exists:
                     return await handler(request)
         except Exception as err:
-            print(err)
             raise web.HTTPBadRequest(
-                reason=f"Unknown Error on Django Middleware: {err!s}"
+                reason=f"Django Middleware: Error on Session: {err!s}"
             )
         try:
             # Fallback: recalculate again the session ID
@@ -65,13 +67,12 @@ async def django_middleware(app, handler):
             result = await redis.get("{}:{}".format(SESSION_PREFIX, sessionid))
             if not result:
                 raise web.HTTPBadRequest(
-                    reason="Invalid Django Session"
+                    reason="Django Middleware: Invalid Django Session"
                 )
             try:
                 data = base64.b64decode(result)
                 session_data = data.decode("utf-8").split(":", 1)
                 user = rapidjson.loads(session_data[1])
-                print(user)
                 data = {
                     "key": sessionid,
                     "session_id": session_data[0],
@@ -79,19 +80,17 @@ async def django_middleware(app, handler):
                 }
                 request["user_id"] = user["user_id"]
                 request["session"] = data
-                # session.set_data(data)
-                session["session"] = data
+                request[SESSION_USER_PROPERTY] = data
+                session["session"] = data # fallback compatibility
             except Exception as err:
-                print(err)
-                return web.json_response(
-                    {"message": "Error Decoding Django Session"}, status=400
+                raise web.HTTPBadRequest(
+                    reason=f'Django Mid: Error decoding Django Session {err!s}'
                 )
         except Exception as err:
             print(err)
             if CREDENTIALS_REQUIRED is True:
-                return web.json_response(
-                    {"error:": str(err), "message": "Invalid Session"},
-                    status=400
+                raise web.HTTPForbidden(
+                    reason='Access is Restricted'
                 )
         return await handler(request)
 

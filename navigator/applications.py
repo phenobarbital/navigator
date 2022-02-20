@@ -34,8 +34,6 @@ from navigator.conf import (
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
-from navigator.middlewares import basic_middleware
-
 # make a home and a ping class
 from navigator.resources import home, ping
 from navigator.functions import cPrint

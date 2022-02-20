@@ -1,10 +1,15 @@
 import jwt
 from aiohttp import web
-from datetime import datetime, timedelta
+from typing import (
+    Optional,
+    Coroutine,
+    Tuple
+)
 from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
-    CREDENTIALS_REQUIRED
+    CREDENTIALS_REQUIRED,
+    SESSION_USER_PROPERTY
 )
 from .abstract import base_middleware
 

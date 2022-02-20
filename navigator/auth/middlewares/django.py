@@ -3,7 +3,11 @@ import rapidjson
 import logging
 import time
 from aiohttp import web
-from datetime import datetime, timedelta
+from typing import (
+    Optional,
+    Coroutine,
+    Tuple
+)
 from navigator.conf import (
     SESSION_TIMEOUT,
     SESSION_KEY,

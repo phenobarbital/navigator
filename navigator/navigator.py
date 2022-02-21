@@ -83,8 +83,8 @@ class Application(object):
     def __init__(
         self,
         app: AppHandler = None,
-        enable_swagger: bool = True,
-        enable_debugtoolbar: bool = True,
+        enable_swagger: bool = False,
+        enable_debugtoolbar: bool = False,
         enable_jinja_parser: bool = True,
         use_ssl: bool = False,
         title: str = '',
@@ -307,6 +307,10 @@ class Application(object):
             return _wrap
 
         return _decorator
+
+    @property
+    def router(self):
+        return self.app.App.router
 
     def post(self, route: str):
         def _decorator(func):

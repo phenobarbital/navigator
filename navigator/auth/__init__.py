@@ -170,35 +170,36 @@ class AuthHandler(object):
             try:
                 userdata = await backend.authenticate(request)
                 if not userdata:
-                    raise InvalidAuth('User was not authenticated')
-                # at now: create the user-session
-                try:
-                    session = await self._session.new_session(request, userdata)
-                except Exception as err:
-                    raise web.HTTPUnauthorized(
-                        reason=f"Error Creating User Session: {err!s}"
+                    raise web.HTTPForbidden(
+                        reason='User was not authenticated'
                     )
-                return json_response(userdata, state=200)
             except FailedAuth as err:
                 raise web.HTTPClientError(
-                    reason=f"Authentication Error: Bad Credentials: {err!s}",
+                    reason=f"Bad Credentials: {err!s}",
                     status=err.state
                 )
             except InvalidAuth as err:
                 logging.exception(err)
-                raise web.HTTPUnauthorized(
-                    reason=f"Authentication Error: Invalid Authentication: {err!s}"
+                raise web.HTTPForbidden(
+                    reason=f"{err!s}"
                 )
             except UserDoesntExists as err:
-                print('UD ', err)
-                raise web.HTTPUnauthorized(
-                    reason="Unauthorized: User Doesn't exists"
+                raise web.HTTPForbidden(
+                    reason="User Doesn't exists: {err!s}"
                 )
             except Exception as err:
                 raise web.HTTPClientError(
-                    reason=f"Unauthorized Error {err!s}",
+                    reason=f"{err!s}",
                     status=406
                 )
+            # at now: create the user-session
+            try:
+                session = await self._session.new_session(request, userdata)
+            except Exception as err:
+                raise web.HTTPUnauthorized(
+                    reason=f"Error Creating User Session: {err!s}"
+                )
+            return json_response(userdata, state=200)
         else:
             # second: if no backend declared, will iterate over all backends
             userdata = None
@@ -222,7 +223,7 @@ class AuthHandler(object):
                     )
             # if not userdata, then raise an not Authorized
             if not userdata:
-                raise web.HTTPUnauthorized(
+                raise web.HTTPForbidden(
                     reason="User not Authorized"
                 )
             else:

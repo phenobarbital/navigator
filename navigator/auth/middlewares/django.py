@@ -41,7 +41,7 @@ class django_middleware(base_middleware):
             self.protected_routes = protected_routes
 
     def get_authorization_header(self, request: web.Request):
-        sessionid = request.headers.get("X-Sessionid", None)
+        sessionid = request.headers.get("x-sessionid", None)
         if not sessionid:
             raise web.HTTPBadRequest(
                 reason=f'Django Middleware: use Header different from X-Sessionid is not available'

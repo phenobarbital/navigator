@@ -32,7 +32,7 @@ from navigator.conf import (
 class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
-    def configure(self, app, router):
+    def configure(self, app, router, handler):
         async def _setup_redis(app):
             self.redis = aioredis.from_url(
                     SESSION_URL,
@@ -46,7 +46,7 @@ class DjangoAuth(BaseAuthBackend):
 
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
-        super(DjangoAuth, self).configure(app, router)
+        super(DjangoAuth, self).configure(app, router, handler)
 
     async def check_credentials(self, request):
         """ Authentication and create a session."""

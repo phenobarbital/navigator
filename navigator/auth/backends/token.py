@@ -31,35 +31,43 @@ class TokenAuth(BaseAuthBackend):
     """API Token Authentication Handler."""
 
     _pool = None
-    _scheme: str = "Bearer"
 
-    def configure(self, app, router):
-        async def _make_connection():
-            try:
-                kwargs = {
-                    "min_size": 1,
-                    "server_settings": {
-                        "application_name": 'AUTH-NAV',
-                        "client_min_messages": "notice",
-                        "max_parallel_workers": "48",
-                        "jit": "off",
-                        "statement_timeout": "3600",
-                        "effective_cache_size": "2147483647"
-                    },
-                }
-                self._pool = AsyncPool(
-                    "pg",
-                    dsn=default_dsn,
-                    **kwargs
-                )
-                await self._pool.connect()
-            except Exception as err:
-                print(err)
-                raise Exception(err)
+    def configure(self, app, router, handler):
+        super(TokenAuth, self).configure(app, router, handler)
 
-        asyncio.get_event_loop().run_until_complete(_make_connection())
-        # executing parent configurations
-        super(TokenAuth, self).configure(app, router)
+    async def on_startup(self, app: web.Application):
+        try:
+            kwargs = {
+                "min_size": 1,
+                "server_settings": {
+                    "application_name": 'AUTH-NAV',
+                    "client_min_messages": "notice",
+                    "max_parallel_workers": "48",
+                    "jit": "off",
+                    "statement_timeout": "3600",
+                    "effective_cache_size": "2147483647"
+                },
+            }
+            self._pool = AsyncPool(
+                "pg",
+                dsn=default_dsn,
+                **kwargs
+            )
+            await self._pool.connect()
+        except Exception as err:
+            print(err)
+            raise Exception(
+                f"Error Auth Token: please enable Connection Pool on AppHandler: {err}"
+            )
+
+    async def on_cleanup(self, app: web.Application):
+        """
+        Close the Pool when shutdown App.
+        """
+        try:
+            await self._pool.close()
+        except Exception as err:
+            logging.exception(err)
 
     async def get_payload(self, request):
         token = None
@@ -76,7 +84,7 @@ class TokenAuth(BaseAuthBackend):
                         "Invalid authorization Header",
                         state=400
                     )
-                if scheme != self._scheme:
+                if scheme != self.scheme:
                     raise NavException(
                         "Invalid Authorization Scheme",
                         state=400
@@ -88,7 +96,6 @@ class TokenAuth(BaseAuthBackend):
         except Exception as e:
             print(e)
             return None
-        print(tenant, token)
         return [tenant, token]
 
     async def reconnect(self):

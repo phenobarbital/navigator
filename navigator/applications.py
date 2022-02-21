@@ -30,7 +30,8 @@ from navigator.conf import (
     DEBUG,
     INSTALLED_APPS,
     STATIC_DIR,
-    SESSION_TIMEOUT
+    SESSION_TIMEOUT,
+    default_dsn
 )
 from navigator.connections import PostgresPool
 from navconfig.logging import logdir, logging_config
@@ -113,6 +114,7 @@ class AppHandler(ABC):
     auto_doc: bool = False
     enable_auth: bool = True
     staticdir: str = None
+    enable_pgpool: bool = True
 
     def __init__(
         self,
@@ -145,6 +147,9 @@ class AppHandler(ABC):
         if self.auto_home:
             self.app.router.add_route("GET", "/", home)
 
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
+        return self._loop
+
     def CreateApp(self) -> web.Application:
         if DEBUG:
             cPrint(f"SETUP APPLICATION: {self._name!s}", level="SUCCESS")
@@ -164,10 +169,19 @@ class AppHandler(ABC):
             )
             # configuring authentication endpoints
             # TODO: support multi-auth methods
-            self._auth.configure(app)
+            self._auth.configure(
+                app=app,
+                handler=self
+            )
             app["auth"] = self._auth
+            # startup operations over authentication backend
+            app.on_startup.append(
+                self._auth.on_startup
+            )
             # cleanup operations over authentication backend
-            app.on_cleanup.append(self._auth.on_cleanup)
+            app.on_cleanup.append(
+                self._auth.on_cleanup
+            )
         # add the other middlewares:
         try:
             for middleware in self._middleware:
@@ -304,77 +318,31 @@ class AppHandler(ABC):
             app["redis"] = rd
         except Exception:
             app['redis'] = None
+        # enabled pgpool
+        if self.enable_pgpool is True:
+            await self.create_connection(app, default_dsn)
 
     async def on_shutdown(self, app):
         """
         on_shutdown.
         description: Signal for customize the response when server is shutting down
         """
-        pass
-
-
-class AppBase(AppHandler):
-    _middleware = None
-
-
-class AppConfig(AppHandler):
-    """
-    AppConfig.
-
-    Class for Configuration of aiohttp SubApps
-    """
-
-    template: str = "templates"
-    path: Path = None
-    _middleware = None
-    enable_notify: bool = False
-    domain: str = ""
-    version: str = '0.0.1'
-    description: str = ''
-
-    def __init__(
-        self,
-        *args,
-        **kwargs
-    ):
-        self._name = type(self).__name__
-        super(AppConfig, self).__init__(*args, **kwargs)
-        self.path = APP_DIR.joinpath(self._name)
-        # configure templating:
-        # TODO: using Notify Logic about aiohttp jinja
-        if self.template:
-            template_dir = os.path.join(self.path, self.template)
-            # template_dir = self.path.resolve().joinpath(self.template)
-            aiohttp_jinja2.setup(
-                self.app,
-                loader=jinja2.FileSystemLoader(template_dir)
-        )
-        # set the setup_routes
-        self.setup_routes()
-        # setup swagger
-        if self.enable_swagger is True:
-            from aiohttp_swagger import setup_swagger
-            setup_swagger(
-                self.app,
-                api_base_url=f"/{self._name}",
-                title=f"{self._name} API",
-                api_version=self.version,
-                description=self.description,
-                swagger_url=f"/api/v1/doc",
-                ui_version=3,
-            )
-        ## add the authorization endpoint endpoint:
-        auth = self.authorization
-        self.app.router.add_get(
-            '/authorize', auth
-        )
+        if self.enable_pgpool is True:
+            try:
+                await app["database"].wait_close(timeout=5)
+            except Exception:
+                pass
 
     async def create_connection(self, app, dsn: str = ""):
         if 'database' in app:
             return True
         if not dsn:
             dsn = app["config"]["asyncpg_url"]
-        pool = PostgresPool(dsn=dsn, name=f"NAV-{self._name!s}", loop=self._loop)
+        pool = PostgresPool(
+            dsn=dsn,
+            name=f"NAV-{self._name!s}",
+            loop=self._loop
+        )
         try:
             await pool.startup(app=app)
             app["database"] = pool.connection()
@@ -416,11 +384,61 @@ class AppConfig(AppHandler):
         except Exception as err:
             raise Exception(err)
 
-    async def on_shutdown(self, app):
-        try:
-            await app["database"].wait_close(timeout=5)
-        except Exception:
-            pass
+
+class AppBase(AppHandler):
+    _middleware = None
+
+
+class AppConfig(AppHandler):
+    """
+    AppConfig.
+
+    Class for Configuration of aiohttp SubApps
+    """
+
+    template: str = "templates"
+    path: Path = None
+    _middleware = None
+    domain: str = ""
+    version: str = '0.0.1'
+    description: str = ''
+
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ):
+        self._name = type(self).__name__
+        super(AppConfig, self).__init__(*args, **kwargs)
+        self.path = APP_DIR.joinpath(self._name)
+        # configure templating:
+        # TODO: using Notify Logic about aiohttp jinja
+        if self.template:
+            template_dir = os.path.join(self.path, self.template)
+            # template_dir = self.path.resolve().joinpath(self.template)
+            aiohttp_jinja2.setup(
+                self.app,
+                loader=jinja2.FileSystemLoader(template_dir)
+        )
+        # set the setup_routes
+        self.setup_routes()
+        # setup swagger
+        if self.enable_swagger is True:
+            from aiohttp_swagger import setup_swagger
+            setup_swagger(
+                self.app,
+                api_base_url=f"/{self._name}",
+                title=f"{self._name} API",
+                api_version=self.version,
+                description=self.description,
+                swagger_url=f"/api/v1/doc",
+                ui_version=3,
+            )
+        ## add the authorization endpoint endpoint:
+        auth = self.authorization
+        self.app.router.add_get(
+            '/authorize', auth
+        )
 
     def listener(conn, pid, channel, payload, *args):
         print("Notification from {}: {}, {}".format(channel, payload, args))

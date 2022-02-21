@@ -98,6 +98,9 @@ class BaseAuthBackend(ABC):
         except ImportError:
             raise Exception(f"Error loading Auth Model {model}")
 
+    async def on_startup(self, app: web.Application):
+        pass
+
     async def get_user(self, **search):
         """Getting User Object."""
         # TODO: getting Groups based on User
@@ -122,7 +125,7 @@ class BaseAuthBackend(ABC):
             }
         return userdata
 
-    def configure(self, app, router):
+    def configure(self, app, router, handler):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
         pass

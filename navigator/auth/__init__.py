@@ -70,7 +70,9 @@ class AuthHandler(object):
     ):
         self._session = None
         self._template = dedent(self._template)
-        authz_backends = self.get_authorization_backends(AUTHORIZATION_BACKENDS)
+        authz_backends = self.get_authorization_backends(
+            AUTHORIZATION_BACKENDS
+        )
         args = {
             "credentials_required": CREDENTIALS_REQUIRED,
             "scheme": auth_scheme,
@@ -99,6 +101,20 @@ class AuthHandler(object):
             except ImportError:
                 raise Exception(f"Error loading Auth Backend {backend}")
         return backends
+
+    async def on_startup(self, app):
+        """
+        Some Authentication backends need to call an Startup.
+        """
+        print('ENTERING HERE ')
+        for name, backend in self.backends.items():
+            try:
+                await backend.on_startup(app)
+            except Exception as err:
+                print(err)
+                logging.exception(
+                    f"Error on Startup Auth Backend {name} init: {err!s}"
+                )
 
     async def on_cleanup(self, app):
         """
@@ -270,7 +286,11 @@ class AuthHandler(object):
         userdata = dict(session)
         return web.json_response(userdata, status=200)
 
-    def configure(self, app: web.Application) -> web.Application:
+    def configure(
+            self,
+            app: web.Application,
+            handler
+        ) -> web.Application:
         router = app.router
         router.add_route(
             "GET",
@@ -311,7 +331,7 @@ class AuthHandler(object):
         # if authentication backend needs initialization
         for name, backend in self.backends.items():
             try:
-                backend.configure(app, router)
+                backend.configure(app, router, handler)
                 if hasattr(backend, "auth_middleware"):
                     # add the middleware for Basic Authentication
                     mdl.append(backend.auth_middleware)

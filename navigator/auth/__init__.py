@@ -60,16 +60,15 @@ class AuthHandler(object):
             </body>
     """
     backends: Dict = None
-    _session = None
-    _user_property: str = "user"
     _required: bool = False
-    _middlewares: Iterable = []
+    _middlewares: Iterable = tuple()
 
     def __init__(
         self,
         auth_scheme="Bearer",
         **kwargs,
     ):
+        self._session = None
         self._template = dedent(self._template)
         authz_backends = self.get_authorization_backends(AUTHORIZATION_BACKENDS)
         args = {
@@ -118,7 +117,7 @@ class AuthHandler(object):
         return b
 
     def get_authorization_middlewares(self, backends: Iterable) -> tuple:
-        b = []
+        b = tuple()
         for backend in backends:
             try:
                 parts = backend.split(".")

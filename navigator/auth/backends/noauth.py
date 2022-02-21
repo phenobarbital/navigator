@@ -23,6 +23,26 @@ class NoAuth(BaseAuthBackend):
 
     user_attribute: str = "userid"
 
+    def __init__(
+        self,
+        user_attribute: str = "userid",
+        userid_attribute: str = "userid",
+        username_attribute: str = "username",
+        password_attribute: str = "password",
+        credentials_required: bool = False,
+        authorization_backends: tuple = (),
+        **kwargs,
+    ):
+        super(NoAuth, self).__init__(
+            user_attribute,
+            userid_attribute,
+            username_attribute,
+            password_attribute,
+            credentials_required,
+            authorization_backends,
+            **kwargs
+        )
+
     async def check_credentials(self, request):
         """ Authentication and create a session."""
         return True
@@ -32,6 +52,7 @@ class NoAuth(BaseAuthBackend):
         userdata = {
             AUTH_SESSION_OBJECT: {
                 "session": key,
+                self.user_property: key,
                 self.username_attribute: "Anonymous",
                 "first_name": "Anonymous",
                 "last_name": "User"
@@ -58,7 +79,7 @@ class NoAuth(BaseAuthBackend):
     async def auth_middleware(self, app, handler):
         """
          NoAuth Middleware.
-         Description: Basic Authentication for NoAuth, Basic and Django.
+         Description: Basic Authentication for NoAuth, Basic, Token and Django.
         """
         async def middleware(request):
             jwt_token = None
@@ -68,6 +89,7 @@ class NoAuth(BaseAuthBackend):
                 return await authz
             try:
                 if request['authenticated'] is True:
+                    # already authenticated
                     return await handler(request)
             except KeyError:
                 pass

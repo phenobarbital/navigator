@@ -58,9 +58,9 @@ class django_middleware(base_middleware):
             except Exception as err:
                 sessionid = None
             if self.path_protected(request): # is a protected site.
-                if not token:
+                if not sessionid:
                     raise web.HTTPForbidden(
-                        reason='Invalid authorization Token',
+                        reason='Django Middleware: Invalid authorization Token',
                     )
                 try:
                     redis = app["redis"]

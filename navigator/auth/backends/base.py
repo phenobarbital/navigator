@@ -17,7 +17,8 @@ from navigator.conf import (
     SESSION_TIMEOUT,
     CREDENTIALS_REQUIRED,
     SESSION_KEY,
-    SECRET_KEY
+    SECRET_KEY,
+    SESSION_USER_PROPERTY
 )
 
 from navigator.exceptions import (
@@ -28,14 +29,12 @@ from navigator.exceptions import (
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 
-JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
-
 exclude_list = (
     "/static/",
     "/api/v1/login",
-    # "/api/v1/logout",
+    "/api/v1/logout",
     "/login",
-    # "/logout",
+    "/logout",
     "/signin",
     "/signout",
     "/_debug/",
@@ -44,46 +43,43 @@ exclude_list = (
 
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
-
-    _session = None
-    user_model: Model = None
-    group_model: Model = None
-    user_property: str = "user"
-    user_attribute: str = "user"
-    password_attribute: str = "password"
     userid_attribute: str = "user_id"
     username_attribute: str = "username"
-    user_mapping: dict = {"user_id": "id", "username": "username"}
     session_key_property: str = SESSION_KEY
-    credentials_required: bool = False
+    credentials_required: bool = CREDENTIALS_REQUIRED
     scheme: str = "Bearer"
-    _authz_backends: List = []
-    user_mapping: dict = {}
+    session_timeout: int = int(SESSION_TIMEOUT)
 
     def __init__(
         self,
-        user_property: str = "user",
         user_attribute: str = "user",
         userid_attribute: str = "user_id",
         username_attribute: str = "username",
+        password_attribute: str = "password",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,
     ):
+        self._session = None
         # force using of credentials
         self.credentials_required = credentials_required
-        self.user_property = user_property
+        self.user_property = SESSION_USER_PROPERTY
         self.user_attribute = user_attribute
+        self.password_attribute = password_attribute
         self.userid_attribute = userid_attribute
         self.username_attribute = username_attribute
         # authentication scheme
-        self._scheme = kwargs["scheme"]
+        try:
+            self._scheme = kwargs["scheme"]
+        except KeyError:
+            pass
         # configuration Authorization Backends:
-        self._authz_backends = authorization_backends
+        self._authz_backends: List = authorization_backends
         # user and group models
         # getting User and Group Models
-        self.user_model = self.get_model(AUTH_USER_MODEL)
-        self.group_model = self.get_model(AUTH_GROUP_MODEL)
+        self.user_model: Model = self.get_model(AUTH_USER_MODEL)
+        self.group_model: Model = self.get_model(AUTH_GROUP_MODEL)
+        # user mapping
         self.user_mapping = USER_MAPPING
         if not SECRET_KEY:
             fernet_key = fernet.Fernet.generate_key()
@@ -158,7 +154,7 @@ class BaseAuthBackend(ABC):
         **kwargs: data to put in payload
         """
         if not expiration:
-            expiration = JWT_EXP_DELTA_SECONDS
+            expiration = self.session_timeout
         if not issuer:
             issuer = "urn:Navigator"
         payload = {

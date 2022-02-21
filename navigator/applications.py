@@ -287,14 +287,23 @@ class AppHandler(ABC):
         on_cleanup.
         description: Signal for customize the response when server is closing
         """
-        pass
+        try:
+            await app["redis"].close()
+        except Exception:
+            logging.error("Error closing Redis connection")
 
     async def on_startup(self, app):
         """
         on_startup.
         description: Signal for customize the response when server is started
         """
-        pass
+        # redis Pool
+        try:
+            rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
+            await rd.connection()
+            app["redis"] = rd
+        except Exception:
+            app['redis'] = None
 
     async def on_shutdown(self, app):
         """
@@ -359,19 +368,6 @@ class AppConfig(AppHandler):
         self.app.router.add_get(
             '/authorize', auth
         )
-
-    async def on_cleanup(self, app):
-        try:
-            await app["redis"].close()
-        except Exception:
-            logging.error("Error closing Redis connection")
-
-    async def on_startup(self, app):
-        # redis Pool
-        rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
-        await rd.connection()
-        app["redis"] = rd
-        # initialize models:
 
     async def create_connection(self, app, dsn: str = ""):
         if 'database' in app:

@@ -70,7 +70,7 @@ class BaseAuthBackend(ABC):
         self.username_attribute = AUTH_USERNAME_ATTRIBUTE
         # authentication scheme
         try:
-            self._scheme = kwargs["scheme"]
+            self.scheme = kwargs["scheme"]
         except KeyError:
             pass
         # configuration Authorization Backends:
@@ -187,7 +187,7 @@ class BaseAuthBackend(ABC):
                     "Invalid authorization Header",
                     state=400
                 )
-            if scheme != self._scheme:
+            if scheme != self.scheme:
                 raise NavException(
                     "Invalid Authorization Scheme",
                     state=400

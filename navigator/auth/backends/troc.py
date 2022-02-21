@@ -3,10 +3,10 @@
 Troc Authentication using RNC algorithm.
 """
 import jwt
+import logging
 from aiohttp import web
 import rapidjson
-from .base import BaseAuthBackend
-from navigator.libs.cypher import *
+from navigator.libs.cypher import Cipher
 from datetime import datetime, timedelta
 from navigator.exceptions import (
     NavException,
@@ -23,6 +23,7 @@ from navigator.conf import (
 import hashlib
 import base64
 import secrets
+from .base import BaseAuthBackend
 
 # TODO: add expiration logic when read the token
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
@@ -33,23 +34,20 @@ class TrocToken(BaseAuthBackend):
 
     user_attribute: str = "user"
     username_attribute: str = "email"
-    _scheme: str = "Bearer"
 
     def __init__(
         self,
-        user_property: str = "user",
-        user_attribute: str = "user",
+        user_attribute: str = "email",
         userid_attribute: str = "user_id",
-        username_attribute: str = "email",
+        password_attribute: str = "password",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,
     ):
         super().__init__(
-            user_property,
             user_attribute,
             userid_attribute,
-            username_attribute,
+            password_attribute,
             credentials_required,
             authorization_backends,
             **kwargs,
@@ -64,53 +62,59 @@ class TrocToken(BaseAuthBackend):
             user = await self.get_user(**search)
             return user
         except UserDoesntExists as err:
-            raise UserDoesntExists(f"User {login} doesnt exists")
+            raise UserDoesntExists(
+                f"User {login} doesn't exists"
+            )
         except Exception as err:
-            raise Exception(err)
-        return None
+            logging.exception(err)
+            raise
 
     async def get_payload(self, request):
         troctoken = None
         try:
             if "Authorization" in request.headers:
                 try:
-                    scheme, troctoken = (
+                    scheme, token = (
                         request.headers.get("Authorization").strip().split(" ")
                     )
                 except ValueError:
                     raise web.HTTPForbidden(
                         reason="Invalid authorization Header",
                     )
-                if scheme != self._scheme:
+                if scheme != self.scheme:
                     raise web.HTTPForbidden(
                         reason="Invalid Session scheme",
                     )
             else:
                 try:
-                    troctoken = request.query.get("auth", None)
+                    token = request.query.get("auth", None)
                 except Exception as e:
                     print(e)
                     return None
-        except Exception as e:
-            print(e)
+        except Exception as err:
+            logging.exception(err)
             return None
-        return troctoken
+        return token
 
     async def authenticate(self, request):
         """ Authenticate, refresh or return the user credentials."""
         try:
-            troctoken = await self.get_payload(request)
-            print('TOKEN: ', troctoken)
+            token = await self.get_payload(request)
         except Exception as err:
-            raise NavException(err, state=400)
-        if not troctoken:
-            raise InvalidAuth("Invalid Credentials", state=401)
+            raise NavException(
+                err, state=400
+            )
+        if not token:
+            raise InvalidAuth(
+                "Missing Credentials",
+                state=401
+            )
         else:
             # getting user information
             # TODO: making the validation of token and expiration
             try:
-                data = rapidjson.loads(CIPHER.decode(passphrase=troctoken))
-                print(data)
+                data = rapidjson.loads(CIPHER.decode(passphrase=token))
+                logging.debug(f'User data: {data!r}')
             except Exception as err:
                 raise InvalidAuth(
                     f"Invalid TROC Token: {err!s}", state=401
@@ -119,7 +123,9 @@ class TrocToken(BaseAuthBackend):
             try:
                 username = data[self.username_attribute]
             except KeyError as err:
-                raise InvalidAuth(f"Missing Email attribute: {err!s}", state=401)
+                raise InvalidAuth(
+                    f"Missing Email attribute: {err!s}", state=401
+                )
             try:
                 user = await self.validate_user(login=username)
             except UserDoesntExists as err:
@@ -141,6 +147,7 @@ class TrocToken(BaseAuthBackend):
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
                 }
+                request[self.user_property] = user[self.username_attribute]
                 token = self.create_jwt(data=payload)
                 return {
                     "token": token,

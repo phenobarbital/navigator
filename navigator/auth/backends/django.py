@@ -62,7 +62,7 @@ class DjangoAuth(BaseAuthBackend):
                     raise web.HTTPForbidden(
                         reason="Invalid authorization Header",
                     )
-                if scheme != self._scheme:
+                if scheme != self.scheme:
                     raise web.HTTPForbidden(
                         reason="Invalid Session scheme",
                     )

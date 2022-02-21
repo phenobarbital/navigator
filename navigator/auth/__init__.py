@@ -106,7 +106,6 @@ class AuthHandler(object):
         """
         Some Authentication backends need to call an Startup.
         """
-        print('ENTERING HERE ')
         for name, backend in self.backends.items():
             try:
                 await backend.on_startup(app)

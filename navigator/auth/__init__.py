@@ -174,9 +174,8 @@ class AuthHandler(object):
                         reason='User was not authenticated'
                     )
             except FailedAuth as err:
-                raise web.HTTPClientError(
-                    reason=f"Bad Credentials: {err!s}",
-                    status=err.state
+                raise web.HTTPForbidden(
+                    reason=f"{err!s}"
                 )
             except InvalidAuth as err:
                 logging.exception(err)

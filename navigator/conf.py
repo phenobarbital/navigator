@@ -158,7 +158,9 @@ AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
-
+AUTH_USERNAME_ATTRIBUTE = config.get(
+    'AUTH_USERNAME_ATTRIBUTE', fallback='username'
+)
 CREDENTIALS_REQUIRED = config.getboolean(
     "AUTH_CREDENTIALS_REQUIRED", fallback=False
 )

@@ -27,7 +27,6 @@ class NoAuth(BaseAuthBackend):
         self,
         user_attribute: str = "userid",
         userid_attribute: str = "userid",
-        username_attribute: str = "username",
         password_attribute: str = "password",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
@@ -36,7 +35,6 @@ class NoAuth(BaseAuthBackend):
         super(NoAuth, self).__init__(
             user_attribute,
             userid_attribute,
-            username_attribute,
             password_attribute,
             credentials_required,
             authorization_backends,

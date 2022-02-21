@@ -12,6 +12,7 @@ from navigator.conf import (
     AUTH_USER_MODEL,
     AUTH_GROUP_MODEL,
     AUTH_SESSION_OBJECT,
+    AUTH_USERNAME_ATTRIBUTE,
     JWT_ALGORITHM,
     USER_MAPPING,
     SESSION_TIMEOUT,
@@ -44,7 +45,7 @@ exclude_list = (
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
     userid_attribute: str = "user_id"
-    username_attribute: str = "username"
+    username_attribute: str = AUTH_USERNAME_ATTRIBUTE
     session_key_property: str = SESSION_KEY
     credentials_required: bool = CREDENTIALS_REQUIRED
     scheme: str = "Bearer"
@@ -54,7 +55,6 @@ class BaseAuthBackend(ABC):
         self,
         user_attribute: str = "user",
         userid_attribute: str = "user_id",
-        username_attribute: str = "username",
         password_attribute: str = "password",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
@@ -67,7 +67,7 @@ class BaseAuthBackend(ABC):
         self.user_attribute = user_attribute
         self.password_attribute = password_attribute
         self.userid_attribute = userid_attribute
-        self.username_attribute = username_attribute
+        self.username_attribute = AUTH_USERNAME_ATTRIBUTE
         # authentication scheme
         try:
             self._scheme = kwargs["scheme"]

@@ -153,8 +153,9 @@ class DjangoAuth(BaseAuthBackend):
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
-                request['userdata'] = userdata
-                request[SESSION_KEY] = sessionid
+                await self.remember(
+                    request, sessionid, userdata
+                )
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],

@@ -145,6 +145,10 @@ class TokenAuth(BaseAuthBackend):
                     "id": data["name"],
                     "user_id": data["name"],
                 }
+                # saving user-data into request:
+                await self.remember(
+                    request, data["name"], userdata
+                )
                 token = self.create_jwt(data=user)
                 return {
                     "token": f"{tenant}:{token}",

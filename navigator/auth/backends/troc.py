@@ -141,13 +141,16 @@ class TrocToken(BaseAuthBackend):
                     }
                 except Exception as err:
                     logging.exception(err)
-                userdata['id'] = user[self.username_attribute]
+                id = user[self.username_attribute]
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
                     "user_id": user[self.userid_attribute],
                 }
-                request[self.user_property] = user[self.username_attribute]
+                # saving user-data into request:
+                await self.remember(
+                    request, id, userdata
+                )
                 token = self.create_jwt(data=payload)
                 return {
                     "token": token,

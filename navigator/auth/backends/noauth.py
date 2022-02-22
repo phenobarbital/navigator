@@ -66,6 +66,9 @@ class NoAuth(BaseAuthBackend):
             self.username_attribute: "Anonymous",
             **userdata
         }
+        await self.remember(
+            request, key, userdata
+        )
         token = self.create_jwt(data=payload)
         return {
             "token": token,

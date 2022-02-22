@@ -37,7 +37,9 @@ from navigator.conf import (
     SESSION_STORAGE,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    JWT_ALGORITHM
+    JWT_ALGORITHM,
+    SESSION_KEY,
+    SESSION_USER_PROPERTY
 )
 from navigator.auth.sessions import get_session, new_session
 
@@ -344,3 +346,27 @@ class AuthHandler(object):
             for mid in self._middlewares:
                 mdl.append(mid)
         return app
+
+async def get_auth(
+        request: web.Request
+) -> str:
+    """
+    Get the current User ID from Request
+    """
+    id = request.get(SESSION_KEY, None)
+    if id:
+        return id
+
+async def get_userdata(
+        request: web.Request
+) -> str:
+    """
+    Get the current User ID from Request
+    """
+    data = request.get(self.user_property, None)
+    if data:
+        return data
+    else:
+        raise web.HTTPForbidden(
+            reason="Auth: User Data is missing on Request."
+        )

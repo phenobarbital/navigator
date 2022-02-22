@@ -1,7 +1,7 @@
 import logging
 import jwt
 import importlib
-from typing import List, Iterable
+from typing import List, Dict, Iterable
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
@@ -129,6 +129,24 @@ class BaseAuthBackend(ABC):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
         pass
+
+    async def remember(
+            self,
+            request: web.Request,
+            identity: str,
+            userdata: Dict
+        ):
+        """
+        Saves User Identity into request Object.
+        """
+        try:
+            request[SESSION_KEY] = identity
+            request['userdata'] = userdata
+            request[self.user_property] = userdata
+            # which Auth Method:
+            request['auth_method'] = self.__class__.__name__
+        except Exception as err:
+            logging.exception(err)
 
     async def authorization_backends(self, app, handler, request):
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404

@@ -150,12 +150,17 @@ class BasicAuth(BaseAuthBackend):
                 )
             try:
                 userdata = self.get_userdata(user)
-                userdata['id'] = user[self.userid_attribute]
+                userdata[self.username_attribute] = user[self.username_attribute]
+                id = user[self.userid_attribute]
+                userdata['id'] = id
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],
-                    "user_id": user[self.userid_attribute]
+                    "user_id": id
                 }
+                await self.remember(
+                    request, id, userdata
+                )
                 # Create the User session and returned.
                 token = self.create_jwt(data=payload)
                 return {

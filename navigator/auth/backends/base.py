@@ -145,6 +145,8 @@ class BaseAuthBackend(ABC):
             request[self.user_property] = userdata
             # which Auth Method:
             request['auth_method'] = self.__class__.__name__
+            # request.user =
+            # to allowing request.user.is_authenticated
         except Exception as err:
             logging.exception(err)
 
@@ -201,7 +203,7 @@ class BaseAuthBackend(ABC):
         if "Authorization" in request.headers:
             try:
                 scheme, id = (
-                    request.headers.get("Authorization").strip().split(" ", 1)
+                    request.headers.get(hdrs.AUTHORIZATION).strip().split(" ", 1)
                 )
             except ValueError:
                 raise NavException(

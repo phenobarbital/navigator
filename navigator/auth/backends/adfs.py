@@ -202,7 +202,7 @@ class ADFSAuth(BaseAuthBackend):
             )
 
     async def finish_auth(self, request):
-        self.end_authorization_endpoint = "http://navigator.dev.mobileinsight.com/oauth2/callback"
+        # self.end_authorization_endpoint = "http://navigator.dev.mobileinsight.com/oauth2/callback"
         try:
             response = {key: val for (key, val) in request.query.items()}
             authorization_code = response['code']
@@ -232,20 +232,19 @@ class ADFSAuth(BaseAuthBackend):
                 self.token_endpoint,
                 headers=headers,
                 data=query_params
-            ).json()
-
-            print(exchange, type(exchange))
-            if response.status_code == 400:
-                logging.error("ADFS server returned an error: " + response.json()["error_description"])
+            )
+            if exchange.status_code == 400:
+                logging.error("ADFS server returned an error: " + exchange.json()["error_description"])
                 # raise PermissionDenied
 
-            if response.status_code != 200:
-                logging.error("Unexpected ADFS response: " + response.content.decode())
+            if exchange.status_code != 200:
+                logging.error("Unexpected ADFS response: " + exchange.content.decode())
                 # raise PermissionDenied
             ## processing the exchange response:
-            access_token = exchange["access_token"]
-            token_type = exchange["token_type"] # ex: Bearer
-            id_token = exchange["id_token"]
+            response = exchange.json()
+            access_token = response["access_token"]
+            token_type = response["token_type"] # ex: Bearer
+            id_token = response["id_token"]
             logging.debug(f"Received access token: {access_token}")
             claims = jwt.decode(
                 id_token,

@@ -142,6 +142,7 @@ class TrocToken(BaseAuthBackend):
                 except Exception as err:
                     logging.exception(err)
                 id = user[self.username_attribute]
+                userdata[self.session_key_property] = id
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],

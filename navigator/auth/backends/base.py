@@ -29,6 +29,7 @@ from navigator.exceptions import (
 )
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
+from navigator.auth.sessions import get_session, new_session
 
 exclude_list = (
     "/static/",
@@ -140,12 +141,21 @@ class BaseAuthBackend(ABC):
         Saves User Identity into request Object.
         """
         try:
-            request[SESSION_KEY] = identity
+            request[self.session_key_property] = identity
             request['userdata'] = userdata
             request[self.user_property] = userdata
             # which Auth Method:
             request['auth_method'] = self.__class__.__name__
-            # request.user =
+            request.user = identity
+            # Session:
+            try:
+                session = await new_session(request, userdata)
+                session[self.session_key_property] = identity
+                request['session'] = session
+            except Exception as err:
+                raise web.HTTPForbidden(
+                    reason=f"Error Creating User Session: {err!s}"
+                )
             # to allowing request.user.is_authenticated
         except Exception as err:
             logging.exception(err)

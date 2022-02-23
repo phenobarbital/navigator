@@ -135,6 +135,7 @@ class TokenAuth(BaseAuthBackend):
             # TODO: Validate that partner (tenants table):
             try:
                 userdata = dict(data)
+                id = data["name"]
                 user = {
                     "name": data["name"],
                     "partner": username,
@@ -143,11 +144,12 @@ class TokenAuth(BaseAuthBackend):
                     "grants": grants,
                     "tenant": tenant,
                     "id": data["name"],
-                    "user_id": data["name"],
+                    "user_id": id,
                 }
+                userdata[self.session_key_property] = id
                 # saving user-data into request:
                 await self.remember(
-                    request, data["name"], userdata
+                    request, id, userdata
                 )
                 token = self.create_jwt(data=user)
                 return {

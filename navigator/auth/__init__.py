@@ -86,7 +86,7 @@ class AuthHandler(object):
         self._middlewares = self.get_authorization_middlewares(
             AUTHORIZATION_MIDDLEWARES
         )
-        # TODO: Session Support with parametrization:
+        # TODO: Session Support with parametrization (other backends):
         self._session = RedisStorage()
 
     def get_backends(self, **kwargs):
@@ -208,13 +208,6 @@ class AuthHandler(object):
                     reason=f"{err!s}",
                     status=406
                 )
-            # at now: create the user-session
-            try:
-                session = await self._session.new_session(request, userdata)
-            except Exception as err:
-                raise web.HTTPUnauthorized(
-                    reason=f"Error Creating User Session: {err!s}"
-                )
             return json_response(userdata, state=200)
         else:
             # second: if no backend declared, will iterate over all backends
@@ -240,7 +233,7 @@ class AuthHandler(object):
             # if not userdata, then raise an not Authorized
             if not userdata:
                 raise web.HTTPForbidden(
-                    reason="User not Authorized"
+                    reason="Login Failure in all Auth Methods."
                 )
             else:
                 # at now: create the user-session

@@ -1,6 +1,7 @@
 """Base Class for all Session Storages."""
 
 import abc
+import json
 import uuid
 import time
 import asyncio
@@ -25,6 +26,8 @@ from navigator.conf import (
     SESSION_OBJECT,
     SESSION_STORAGE
 )
+import jsonpickle
+
 
 class SessionData(MutableMapping[str, Any]):
     """Session dict-like object.
@@ -131,6 +134,44 @@ class SessionData(MutableMapping[str, Any]):
 
     def __getattr__(self, key: str) -> Any:
         return self._data[key]
+    
+    def encode(self, obj: Any) -> str:
+        """encode
+
+            Encode an object using jsonpickle.
+        Args:
+            obj (Any): Object to be encoded using jsonpickle
+
+        Raises:
+            RuntimeError: Error converting data to json.
+
+        Returns:
+            str: json version of the data
+        """
+        try:
+            return jsonpickle.encode(obj)
+        except Exception as err:
+            raise RuntimeError(err)
+    
+    def decode(self, key: str) -> Any:
+        """decode.
+
+            Decoding a Session Key using jsonpickle.
+        Args:
+            key (str): key name.
+
+        Raises:
+            RuntimeError: Error converting data from json.
+
+        Returns:
+            Any: object converted.
+        """
+        try:
+            value = self._data[key]
+            return jsonpickle.decode(value)
+        except Exception as err:
+            raise RuntimeError(err)
+
 
 class AbstractStorage(metaclass=abc.ABCMeta):
 

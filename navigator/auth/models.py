@@ -6,7 +6,7 @@ Model for User, Group and Roles for Navigator Auth.
 import uuid
 import asyncio
 import logging
-from asyncdb.models import Model, Column
+from asyncdb.models import Model, Column, Field
 from typing import (
     Optional,
     List,
@@ -97,3 +97,51 @@ class Group(Model):
 #         app_label = 'troc'
 #         strict = True
 #         frozen = False
+
+class AuthUser(Model):
+    """AuthUser
+
+    Model for any Authenticated User.
+    """
+    id: Any
+    first_name: str
+    last_name: str
+    email: str
+    username: str
+    # roles: List[Role]
+    # group: List[UserGroup]
+    # orgs: List[Organization]
+    data: InitVar[Dict] = Column(required=False, default_factory=dict)
+    userdata: Dict  = Column(required=False, default_factory={})
+    is_authenticated: bool = Column(equired=False, default=False)
+
+    class Meta:
+        strict = False
+        frozen = False
+        connection = None
+    
+    def __post_init__(self, data):
+        self.userdata = data
+        for key, value in data.items():
+            self.create_field(key, value)
+
+    def create_field(self, name: str, value: Any) -> None:
+        # create a new Field on Model (when strict is False).            
+        f = Field(required=False, default=value)
+        f.name = name
+        f.type = type(value)
+        self.__columns__[name] = f
+        setattr(self, name, value)
+        
+    def set(self, name: str, value: Any) -> None:
+        # alias for "create_field"
+        self.create_field(name, value)
+
+    """
+    User Methods.
+    """
+    def groups(self, grp: List):
+        self.group = grp
+        
+    def organizations(self, orgs: List):
+        self.orgs = orgs

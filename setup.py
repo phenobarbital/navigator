@@ -46,7 +46,6 @@ setup(
     setup_requires=[
         "wheel==0.37.0",
         "Cython==0.29.28",
-        "numpy==1.21.1",
         "asyncio==3.4.3",
         "cchardet==2.1.7",
         'cryptography==3.4.7',
@@ -55,7 +54,6 @@ setup(
     install_requires=[
         "wheel==0.37.0",
         "Cython==0.29.28",
-        "numpy==1.21.1",
         "asyncio==3.4.3",
         "uvloop==0.16.0",
         "asyncdb @ git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb",
@@ -81,7 +79,8 @@ setup(
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
-        "aiohttp-debugtoolbar==0.6.0"
+        "aiohttp-debugtoolbar==0.6.0",
+        "jsonpickle==2.1.0"
     ],
     tests_require=[
             'pytest>=5.4.0',

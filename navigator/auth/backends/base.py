@@ -1,7 +1,7 @@
 import logging
 import jwt
 import importlib
-from typing import List, Dict, Iterable
+from typing import List, Dict, Iterable, Any
 from abc import ABC, ABCMeta, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
@@ -30,6 +30,7 @@ from navigator.exceptions import (
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 from navigator.auth.sessions import get_session, new_session
+
 
 exclude_list = (
     "/static/",
@@ -135,23 +136,27 @@ class BaseAuthBackend(ABC):
             self,
             request: web.Request,
             identity: str,
-            userdata: Dict
+            userdata: Dict,
+            user: Any
         ):
         """
         Saves User Identity into request Object.
         """
         try:
             request[self.session_key_property] = identity
-            request['userdata'] = userdata
             request[self.user_property] = userdata
             # which Auth Method:
             request['auth_method'] = self.__class__.__name__
-            request.user = identity
+            # saving the user
+            request.user = user
             # Session:
             try:
                 session = await new_session(request, userdata)
+                user.is_authenticated = True # if session, then, user is authenticated.
                 session[self.session_key_property] = identity
+                session['user'] = session.encode(user)
                 request['session'] = session
+                print('User Authenticated: ', user)
             except Exception as err:
                 raise web.HTTPForbidden(
                     reason=f"Error Creating User Session: {err!s}"

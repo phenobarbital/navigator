@@ -205,8 +205,7 @@ class AuthHandler(object):
                 )
             except Exception as err:
                 raise web.HTTPClientError(
-                    reason=f"{err!s}",
-                    status=406
+                    reason=f"{err!s}"
                 )
             return json_response(userdata, state=200)
         else:

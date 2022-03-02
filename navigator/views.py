@@ -25,7 +25,7 @@ from aiohttp.web_exceptions import (
 )
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
-from asyncdb.meta import asyncORM
+from asyncdb.meta import AsyncORM
 from asyncdb.models import Model
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
@@ -391,7 +391,7 @@ class DataView(BaseView):
             pool = request.app["database"]
             if pool.is_connected():
                 conn = await pool.acquire()
-                db = asyncORM(db=conn, loop=self._loop)
+                db = AsyncORM(db=conn, loop=self._loop)
                 return db
         finally:
             return db

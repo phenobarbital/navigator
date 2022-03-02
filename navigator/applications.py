@@ -114,7 +114,7 @@ class AppHandler(ABC):
     auto_doc: bool = False
     enable_auth: bool = True
     staticdir: str = None
-    enable_pgpool: bool = True
+    enable_pgpool: bool = False
 
     def __init__(
         self,

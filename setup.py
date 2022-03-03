@@ -91,10 +91,6 @@ setup(
             'pytest-xdist==2.1.0',
             'pytest-assume==2.4.2'
     ],
-    dependency_links=[
-        'git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb',
-        'git+https://github.com/phenobarbital/NavConfig.git@new-version#egg=navconfig'
-    ],
     project_urls={
         'Source': 'https://github.com/phenobarbital/navigator-api',
         'Funding': 'https://paypal.me/phenobarbital',

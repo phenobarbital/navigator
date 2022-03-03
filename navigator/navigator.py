@@ -23,22 +23,21 @@ import asyncio
 import uvloop
 from navigator.conf import (
     DEBUG,
-    APP_DIR,
     APP_NAME,
     APP_HOST,
     APP_PORT,
-    BASE_DIR,
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
-    STATIC_DIR,
     Context,
-    config,
     SSL_CERT,
     SSL_KEY,
     loglevel,
-    TEMPLATE_DIR
+    TEMPLATE_DIR,
+    CACHE_URL,
+    default_dsn
 )
+from navigator.connections import PostgresPool, RedisPool
 from navigator.applications import AppBase, AppHandler, app_startup
 # Exception Handlers
 from navigator.handlers import (
@@ -48,6 +47,7 @@ from navigator.handlers import (
 from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
+
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -121,7 +121,6 @@ class Application(object):
                     shutdown(self._loop, s)
                 )
             )
-        self._executor = ThreadPoolExecutor()
         self.parser = argparse.ArgumentParser(
             description="Navigator App"
         )
@@ -185,6 +184,31 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
+        if self.enable_jinja_parser is True:
+            try:
+                parser = TemplateParser(
+                    directory=TEMPLATE_DIR
+                )
+                app['template'] = parser
+            except Exception:
+                raise
+        # create the pool-based connections (shared):
+        name = app["name"]
+        redis = RedisPool(
+            dsn=CACHE_URL,
+            name=f"NAV-{name!s}",
+            loop=self._loop
+        )
+        redis.configure(app)
+        app['redis'] = redis.connection()
+        # Database Pool:
+        db = PostgresPool(
+            dsn=default_dsn,
+            name=f"NAV-{name!s}",
+            loop=self._loop
+        )
+        db.configure(app)
+        app['database'] = db.connection()
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes
@@ -203,14 +227,6 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
-        if self.enable_jinja_parser is True:
-            try:
-                parser = TemplateParser(
-                    directory=TEMPLATE_DIR
-                )
-                app['template'] = parser
-            except Exception:
-                raise
         return app
 
     def add_websockets(self) -> None:
@@ -258,7 +274,7 @@ class Application(object):
                         )
 
                     result = await self._loop.run_in_executor(
-                        self._executor, blocking_function
+                        ThreadPoolExecutor(max_workers=1), blocking_function
                     )
                 else:
                     result = await func(request)

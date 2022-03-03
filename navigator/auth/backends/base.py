@@ -102,6 +102,9 @@ class BaseAuthBackend(ABC):
 
     async def on_startup(self, app: web.Application):
         pass
+    
+    async def on_cleanup(self, app: web.Application):
+        pass
 
     async def get_user(self, **search):
         """Getting User Object."""

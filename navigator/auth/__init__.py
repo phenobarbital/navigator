@@ -121,7 +121,14 @@ class AuthHandler(object):
         """
         Cleanup the processes
         """
-        pass
+        for name, backend in self.backends.items():
+            try:
+                await backend.on_cleanup(app)
+            except Exception as err:
+                print(err)
+                logging.exception(
+                    f"Error on Cleanup Auth Backend {name} init: {err!s}"
+                )
 
     def get_authorization_backends(self, backends: Iterable) -> tuple:
         b = []
@@ -284,6 +291,15 @@ class AuthHandler(object):
             app: web.Application,
             handler
         ) -> web.Application:
+        # first, add signals:
+        # startup operations over authentication backend
+        app.on_startup.append(
+            self.on_startup
+        )
+        # cleanup operations over authentication backend
+        app.on_cleanup.append(
+            self.on_cleanup
+        )
         router = app.router
         router.add_route(
             "GET",

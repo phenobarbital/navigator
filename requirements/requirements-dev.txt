@@ -1,6 +1,7 @@
-pytest
-pytest-cov
+pytest==7.0.1
+pytest-cov==3.0.0
+pytest-cov==3.0.0
 pytest-asyncio
-pytest-xdist
+pytest-xdist==2.5.0
 pytest-assume
 tox

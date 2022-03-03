@@ -1,44 +1,64 @@
 # -*- coding: utf-8 -*-
+import os
+import sys
 import base64
 import json
 import importlib
 import logging
-import os
-import sys
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Dict, List, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple
+)
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, EXTENSION_DIR, config
+from navconfig import (
+    BASE_DIR,
+    EXTENSION_DIR,
+    config,
+    DEBUG
+)
 from navconfig.logging import logdir, loglevel, logging_config
 
 """
 Routes
 """
+APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_DIR = BASE_DIR.joinpath("apps")
+APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
+APP_PORT = config.get('APP_PORT', fallback=5000)
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
-FILES_DIR = config.get("ETL_PATH", fallback="/home/ubuntu/symbits/")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 STATIC_DIR = BASE_DIR.joinpath("static")
+TEMPLATE_DIR = BASE_DIR.joinpath("templates")
 SERVICES_DIR = BASE_DIR.joinpath("services")
+HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+DOMAIN = config.get("DOMAIN", fallback="dev.local")
+# Temp File Path
+files_path = BASE_DIR.joinpath("temp")
 
 """
 Security and debugging
 """
 # SECURITY WARNING: keep the secret key used in production secret!
 fernet_key = fernet.Fernet.generate_key()
-SECRET_KEY = base64.urlsafe_b64decode(fernet_key)
-# SECRET_KEY = config.get('TROC_KEY')
+new_secret = base64.urlsafe_b64decode(fernet_key)
+SECRET_KEY = config.get("SECRET_KEY", fallback=new_secret)
+
+# used by tokenauth with RNC.
 PARTNER_KEY = config.get("PARTNER_KEY")
 CYPHER_TYPE = config.get("CYPHER_TYPE", fallback="RNC")
-HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
-DOMAIN = config.get("DOMAIN", fallback="dev.local")
 
+"""
+Development
+"""
 # Debug
 #
-DEBUG = config.getboolean("DEBUG", fallback=True)
+DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
@@ -48,7 +68,7 @@ Timezone
 """
 # Timezone (For parsedate)
 # https://dateparser.readthedocs.io/en/latest/#timezone-and-utc-offset
-TIMEZONE = config.get("TIMEZONE", "US/Eastern")
+TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 
 """
 Environment
@@ -81,17 +101,11 @@ else:
         SSL_KEY = None
         PREFERRED_URL_SCHEME = "http"
 
-# Temp File Path
-files_path = BASE_DIR.joinpath("temp")
-
 """
 Basic Information
 """
 EMAIL_CONTACT = config.get("EMAIL_CONTACT", section="info", fallback="foo@example.com")
 API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
-
-# get settings
-from navconfig.conf import *
 
 #######################
 ##
@@ -101,7 +115,6 @@ from navconfig.conf import *
 """
 Main Database
 """
-TIMEZONE = config.get("TIMEZONE", fallback="America/New_York")
 PG_USER = config.get("DBUSER")
 PG_HOST = config.get("DBHOST", fallback="localhost")
 PG_PWD = config.get("DBPWD")
@@ -118,17 +131,17 @@ Auth and Cache
 """
 
 """
-REDIS
+REDIS SESSIONS
 """
 CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
 CACHE_PORT = config.get("CACHEPORT", fallback=6379)
 CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
 REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
+CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 
 """
 Authentication System
 """
-# NAV_AUTH_BACKEND = config.get("AUTH_BACKEND", fallback="navigator.auth.backends.NoAuth")
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -136,16 +149,30 @@ AUTHORIZATION_BACKENDS = [
     )
 ]
 
+AUTHORIZATION_MIDDLEWARES = (
+)
+
+
 # Basic Authentication
 AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
-
-CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
-NAV_AUTH_USER = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
-NAV_AUTH_GROUP = config.get("AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group")
-NAV_SESSION_OBJECT = config.get("AUTH_SESSION_OBJECT", fallback="session")
+AUTH_USERNAME_ATTRIBUTE = config.get(
+    'AUTH_USERNAME_ATTRIBUTE', fallback='username'
+)
+CREDENTIALS_REQUIRED = config.getboolean(
+    "AUTH_CREDENTIALS_REQUIRED", fallback=False
+)
+AUTH_USER_MODEL = config.get(
+    "AUTH_USER_MODEL", fallback="navigator.auth.models.User"
+)
+AUTH_GROUP_MODEL = config.get(
+    "AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group"
+)
+AUTH_SESSION_OBJECT = config.get(
+    "AUTH_SESSION_OBJECT", fallback="session"
+)
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",
@@ -178,12 +205,22 @@ SESSION_NAME = "{}_SESSION".format(
     config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 )
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
+SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
+SESSION_KEY = config.get('SESSION_KEY', fallback='id')
+SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
+SESSION_OBJECT = 'NAV_SESSION'
+SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
+SESSION_USER_PROPERTY = config.get('SESSION_USER_PROPERTY', fallback='user')
 
 """
  Memcache
 """
 MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
 MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
+
+# get configuration settings (user can override settings).
+from navconfig.conf import *
 
 """
 Final: Config dict for aiohttp
@@ -208,7 +245,6 @@ DATABASES: Dict = {}
 
 if APP_DIR.is_dir():
     for item in APP_DIR.iterdir():
-        # for item in os.listdir(APPS_DIR):
         if item.name != "__pycache__":
             if item.is_dir():
                 name = item.name
@@ -226,15 +262,11 @@ if APP_DIR.is_dir():
                         continue
                     # schema configuration
                     DATABASES[item.name] = {
-                        # "ENGINE": config.get("DBENGINE"),
                         "NAME": PG_DATABASE,
                         "USER": PG_USER,
                         "OPTIONS": {
                             "options": "-c search_path=" + item.name + ",public",
                         },
-                        #'PARAMS': {
-                        #    'readonly': True,
-                        # },
                         "SCHEMA": item.name,
                         "PASSWORD": PG_PWD,
                         "HOST": PG_HOST,

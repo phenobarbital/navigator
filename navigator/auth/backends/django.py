@@ -25,17 +25,14 @@ from navigator.conf import (
     SECRET_KEY,
     SESSION_PREFIX,
     SESSION_KEY,
-    NAV_SESSION_OBJECT
+    AUTH_SESSION_OBJECT
 )
 
 
 class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
 
-    redis = None
-    _scheme: str = "Bearer"
-
-    def configure(self, app, router):
+    def configure(self, app, router, handler):
         async def _setup_redis(app):
             self.redis = aioredis.from_url(
                     SESSION_URL,
@@ -49,7 +46,7 @@ class DjangoAuth(BaseAuthBackend):
 
         asyncio.get_event_loop().run_until_complete(_setup_redis(app))
         # executing parent configurations
-        super(DjangoAuth, self).configure(app, router)
+        super(DjangoAuth, self).configure(app, router, handler)
 
     async def check_credentials(self, request):
         """ Authentication and create a session."""
@@ -65,14 +62,13 @@ class DjangoAuth(BaseAuthBackend):
                     raise web.HTTPForbidden(
                         reason="Invalid authorization Header",
                     )
-                if scheme != self._scheme:
+                if scheme != self.scheme:
                     raise web.HTTPForbidden(
                         reason="Invalid Session scheme",
                     )
-            elif "X-Sessionid" in request.headers:
-                id = request.headers.get("X-Sessionid", None)
+            elif "x-sessionid" in request.headers:
+                id = request.headers.get("x-sessionid", None)
         except Exception as e:
-            print(e)
             return None
         return id
 
@@ -80,9 +76,8 @@ class DjangoAuth(BaseAuthBackend):
         try:
             async with await self.redis as redis:
                 result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
-                print(result)
             if not result:
-                raise Exception('Empty or non-existing Session')
+                raise Exception('Django Auth: non-existing Session')
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
             user = rapidjson.loads(session_data[1])
@@ -94,7 +89,7 @@ class DjangoAuth(BaseAuthBackend):
             return session
         except Exception as err:
             logging.debug("Django Decoding Error: {}".format(err))
-            raise Exception("Django Decoding Error: {}".format(err))
+            raise
 
     async def validate_user(self, login: str = None):
         # get the user based on Model
@@ -104,8 +99,8 @@ class DjangoAuth(BaseAuthBackend):
             return user
         except UserDoesntExists as err:
             raise UserDoesntExists(f"User {login} doesn\'t exists")
-        except Exception as err:
-            raise Exception(err)
+        except Exception:
+            raise
         return None
 
     async def authenticate(self, request):
@@ -117,27 +112,31 @@ class DjangoAuth(BaseAuthBackend):
             raise NavException(err, state=400)
         if not sessionid:
             raise InvalidAuth(
-                "Auth: Invalid Credentials",
+                "Django Auth: Missing Credentials",
                 state=401
             )
         else:
             try:
-                data = await self.validate_session(key=sessionid)
+                data = await self.validate_session(
+                    key=sessionid
+                )
             except Exception as err:
-                raise InvalidAuth(f"Invalid Session: {err!s}", state=401)
+                raise InvalidAuth(f"{err!s}", state=401)
             # making validation
             if not data:
-                raise InvalidAuth("Missing User Information", state=403)
+                raise InvalidAuth("Django Auth: Missing User Info", state=403)
             try:
                 u = data[self.user_property]
                 username = u[self.userid_attribute]
             except KeyError as err:
-                print(err)
                 raise InvalidAuth(
-                    f"Missing {self.userid_attribute} attribute: {err!s}", state=401
+                    f"Missing {self.userid_attribute} attribute: {err!s}",
+                    state=401
                 )
             try:
-                user = await self.validate_user(login=username)
+                user = await self.validate_user(
+                    login=username
+                )
             except UserDoesntExists as err:
                 raise UserDoesntExists(err)
             except Exception as err:
@@ -146,15 +145,17 @@ class DjangoAuth(BaseAuthBackend):
                 userdata = self.get_userdata(user)
                 try:
                     # merging both session objects
-                    userdata[NAV_SESSION_OBJECT] = {
-                        **userdata[NAV_SESSION_OBJECT], **data
+                    userdata[AUTH_SESSION_OBJECT] = {
+                        **userdata[AUTH_SESSION_OBJECT],
+                        **data
                     }
                 except Exception as err:
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
-                request['userdata'] = userdata
-                request[SESSION_KEY] = sessionid
+                await self.remember(
+                    request, sessionid, userdata
+                )
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: user[self.username_attribute],

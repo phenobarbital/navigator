@@ -2,6 +2,7 @@
 import os
 import sys
 import typing
+import asyncio
 from abc import ABC, abstractmethod
 import importlib
 import inspect
@@ -15,36 +16,24 @@ from typing import Any, Callable, Dict, List
 import aiohttp_cors
 import aiohttp_jinja2
 import jinja2
+from navigator.templating import TemplateParser
 
 import aiohttp
 from aiohttp import web
 from aiohttp.abc import AbstractView
-from aiohttp.web import middleware
-from asyncdb import AsyncPool
-from asyncdb.providers.redis import redis
 
 from navigator.conf import (
-    API_NAME,
     APP_DIR,
-    BASE_DIR,
     DEBUG,
-    INSTALLED_APPS,
     STATIC_DIR,
-    SESSION_TIMEOUT
+    SESSION_TIMEOUT,
+    default_dsn
 )
 from navigator.connections import PostgresPool
-from navconfig.logging import logdir, logging_config
-from navigator.middlewares import basic_middleware
-
+from navconfig.logging import logging_config
 # make a home and a ping class
 from navigator.resources import home, ping
 from navigator.functions import cPrint
-import asyncio
-import uvloop
-
-# make asyncio use the event loop provided by uvloop
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
 # get the authentication library
 from navigator.auth import AuthHandler
 
@@ -93,11 +82,21 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             obj = getattr(app_class, name)
             instance = obj(context, **kwargs)
             domain = getattr(instance, "domain", None)
+            sub_app = instance.App
             if domain:
-                app.add_domain(domain, instance.App)
+                app.add_domain(domain, sub_app)
             else:
-                app.add_subapp("/{}/".format(name), instance.App)
+                app.add_subapp("/{}/".format(name), sub_app)
             # TODO: build automatic documentation
+            # add other elements:
+            try:
+                sub_app['template'] = app["template"]
+                # redis connection
+                sub_app['redis'] = app['redis']
+                if 'database' in app:
+                    sub_app['database'] = app['database']
+            except Exception as err:
+                logging.warning(err)
         except ImportError as err:
             print(err)
             continue
@@ -107,34 +106,39 @@ class AppHandler(ABC):
     """
     AppHandler.
 
-    Main Class for registration of Callbacks, Signals, Route Initialization, etc
+    Main Class for registration from Main aiohttp App Creation.
+    can register Callbacks, Signals, Route Initialization, etc
      * TODO: adding support for middlewares
      * TODO: get APP names
     """
-
-    _name = None
-    logger = None
-    _loop = None
-    debug = False
-    app: web.Application = None
-    app_name: str = ""
-    __version__: str = "0.0.1"
-    app_description: str = ""
-    cors = None
-    _middleware: Any = None
+    _middleware: List = []
     auto_home: bool = True
     enable_notify: bool = False
     enable_static: bool = True
     enable_swagger: bool = True
     auto_doc: bool = False
     enable_auth: bool = True
-    staticdir: str = ""
+    staticdir: str = None
 
-    def __init__(self, context: dict, *args: List, **kwargs: dict):
-        self._name = type(self).__name__
+    def __init__(
+        self,
+        context: dict,
+        app_name: str = None,
+        *args,
+        **kwargs
+    ) -> None:
+        # App Name
+        if not app_name:
+            self._name = type(self).__name__
+        else:
+            self._name = app_name
+        self.debug = DEBUG
+        if not self.staticdir:
+            self.staticdir = STATIC_DIR
         self.logger = logging.getLogger(self._name)
         # configuring asyncio loop
-        self._loop = self.get_loop()
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -148,24 +152,20 @@ class AppHandler(ABC):
         if self.auto_home:
             self.app.router.add_route("GET", "/", home)
 
+    def get_event_loop(self) -> asyncio.AbstractEventLoop:
+        return self._loop
+
     def CreateApp(self) -> web.Application:
         if DEBUG:
-            if not self.app_name:
-                name = self._name
-            else:
-                name = self.app_name
-            cPrint(f"SETUP APPLICATION: {name!s}", level="SUCCESS")
+            cPrint(f"SETUP APPLICATION: {self._name!s}", level="SUCCESS")
         middlewares = {}
         self.cors = None
         app = web.Application(
             logger=self.logger,
-            client_max_size=(1024 * 1024) * 1024,
-            loop=self._loop,
-            # **middlewares,
+            client_max_size=(1024 * 1024) * 1024
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app.router.add_get("/", home, name="home")
-        # print(app)
         app["name"] = self._name
         # Setup Authentication:
         if self.enable_auth is True:
@@ -173,11 +173,11 @@ class AppHandler(ABC):
                 session_timeout=SESSION_TIMEOUT
             )
             # configuring authentication endpoints
-            # TODO: support multi-auth methods
-            self._auth.configure(app)
+            self._auth.configure(
+                app=app,
+                handler=self
+            )
             app["auth"] = self._auth
-            # cleanup operations over authentication backend
-            app.on_cleanup.append(self._auth.on_cleanup)
         # add the other middlewares:
         try:
             for middleware in self._middleware:
@@ -199,14 +199,6 @@ class AppHandler(ABC):
         )
         return app
 
-    def get_loop(self, new: bool = False):
-        if new is True:
-            loop = uvloop.get_event_loop()
-            asyncio.set_event_loop(loop)
-            return loop
-        else:
-            return asyncio.get_event_loop()
-
     @property
     def App(self) -> web.Application:
         return self.app
@@ -220,16 +212,14 @@ class AppHandler(ABC):
         configure.
             making configuration of routes
         """
-        if self.enable_static:
+        if self.enable_static is True:
             # adding statics
-            # TODO: can personalize the path
-            static = self.staticdir if self.staticdir else STATIC_DIR
             self.app.router.add_static(
-                "/static/", path=static, name="static", append_version=True
+                "/static/",
+                path=self.staticdir,
+                name="static",
+                append_version=True
             )
-            # self.app.add_routes(
-            #     [web.static('/static', static, append_version=True)]
-            # )
 
     def setup_docs(self) -> None:
         """
@@ -338,32 +328,44 @@ class AppConfig(AppHandler):
     template: str = "templates"
     path: Path = None
     _middleware = None
-    enable_notify: bool = False
     domain: str = ""
+    version: str = '0.0.1'
+    description: str = ''
+    enable_pgpool: bool = False
+    _listener: Callable = None
 
-    def __init__(self, *args: List, **kwargs: dict):
+    def __init__(
+        self,
+        *args,
+        **kwargs
+    ):
         self._name = type(self).__name__
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
         # configure templating:
-        # TODO: using Notify Logic about aiohttp jinja
+        # TODO: Using the Template Handler exactly like others.
         if self.template:
-            template_dir = os.path.join(self.path, self.template)
-            # template_dir = self.path.resolve().joinpath(self.template)
-            aiohttp_jinja2.setup(self.app, loader=jinja2.FileSystemLoader(template_dir))
+            try:
+                template_dir = self.path.resolve().joinpath(self.template)
+                if template_dir.exists():
+                    self.app['template'] = TemplateParser(
+                        directory=template_dir
+                    )
+            except Exception as err:
+                logging.warning(
+                    f'Error Loading Template Parser for SubApp {self._name}: {err}'
+                )
         # set the setup_routes
         self.setup_routes()
-        # setup cors:
-        # self.setup_cors(self.cors)
+        # setup swagger
         if self.enable_swagger is True:
             from aiohttp_swagger import setup_swagger
-
             setup_swagger(
                 self.app,
                 api_base_url=f"/{self._name}",
                 title=f"{self._name} API",
-                api_version=self.__version__,
-                description=self.app_description,
+                api_version=self.version,
+                description=self.description,
                 swagger_url=f"/api/v1/doc",
                 ui_version=3,
             )
@@ -373,25 +375,17 @@ class AppConfig(AppHandler):
             '/authorize', auth
         )
 
-    async def on_cleanup(self, app):
-        try:
-            await app["redis"].close()
-        except Exception:
-            logging.error("Error closing Redis connection")
-
-    async def on_startup(self, app):
-        # redis Pool
-        rd = redis(dsn=app["config"]["cache_url"], loop=self._loop)
-        await rd.connection()
-        app["redis"] = rd
-        # initialize models:
-
-    async def create_connection(self, app, dsn: str = ""):
-        if 'database' in app:
-            return True
+    def listener(conn, pid, channel, payload, *args):
+        print("Notification from {}: {}, {}".format(channel, payload, args))
+        
+    async def create_connection(self, app, dsn: str = None):
         if not dsn:
-            dsn = app["config"]["asyncpg_url"]
-        pool = PostgresPool(dsn=dsn, name=f"NAV-{self._name!s}", loop=self._loop)
+            dsn = default_dsn
+        pool = PostgresPool(
+            dsn=dsn,
+            name=f"NAV-{self._name!s}",
+            loop=self._loop
+        )
         try:
             await pool.startup(app=app)
             app["database"] = pool.connection()
@@ -399,15 +393,13 @@ class AppConfig(AppHandler):
             print(err)
             raise Exception(err)
         if self.enable_notify is True:
-            await self.open_connection(app)
+            await self.open_connection(app, self._listener)
         return pool.connection()
 
-    async def close_connection(self, conn):
-        if 'database' in app:
-            # can't close the connection of a shared connection
-            return True
+    async def close_connection(self, app):
         try:
             if self.enable_notify is True:
+                conn = app["connection"]
                 if conn:
                     await conn.engine().remove_listener(self._name, self.listener)
                     await asyncio.sleep(1)
@@ -415,32 +407,37 @@ class AppConfig(AppHandler):
         except Exception as err:
             logging.error("Error closing Interface connection {}".format(err))
 
-    async def open_connection(self, app, listener: Callable = None):
+    async def open_connection(self, app: web.Application, listener: Callable = None):
         if not listener:
             listener = self.listener
         try:
             conn = await app["database"].acquire()
             app["connection"] = conn
             if conn:
-                if self.enable_notify:
-                    connection = conn.engine()
-                    await connection.add_listener(self._name, listener)
-                    await connection.execute(
-                        "NOTIFY \"{}\", '= Starting Navigator Notify System = '".format(
-                            self._name
-                        )
+                connection = conn.engine()
+                await connection.add_listener(self._name, listener)
+                await connection.execute(
+                    "NOTIFY \"{}\", '= Starting Navigator Notify System = '".format(
+                        self._name
                     )
+                )
         except Exception as err:
             raise Exception(err)
 
-    async def on_shutdown(self, app):
-        try:
-            await app["database"].wait_close(timeout=5)
-        except Exception:
-            pass
+    async def on_startup(self, app):
+        # enabled pgpool
+        if self.enable_pgpool is True:
+            try:
+                await self.create_connection(app, default_dsn)
+            except Exception:
+                pass
 
-    def listener(conn, pid, channel, payload, *args):
-        print("Notification from {}: {}, {}".format(channel, payload, args))
+    async def on_shutdown(self, app):
+        if self.enable_pgpool is True:
+            try:
+                await self.close_connection(app)
+            except Exception:
+                pass
 
     def setup_routes(self):
         """Setup Routes (URLS) pointing to paths on AppConfig."""

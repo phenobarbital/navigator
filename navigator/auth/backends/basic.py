@@ -27,37 +27,47 @@ from navigator.conf import (
 
 
 class BasicAuth(BaseAuthBackend):
-    """Basic User/pasword with JWT Authentication."""
+    """Basic User/password Authentication."""
 
     user_attribute: str = "user"
-    username_attribute: str = "username"
     pwd_atrribute: str = "password"
-    scheme: str = "Bearer"
 
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
-        search = {self.username_attribute: login}
         try:
+            search = {self.username_attribute: login}
             user = await self.get_user(**search)
         except UserDoesntExists as err:
-            raise UserDoesntExists(f"User {login} doesnt exists")
-        except Exception as err:
-            raise Exception(err)
+            raise UserDoesntExists(
+                f"User {login} doesn't exists"
+            )
+        except Exception:
+            raise
         try:
             # later, check the password
             pwd = user[self.pwd_atrribute]
+        except KeyError:
+            raise ValidationError(
+                'Missing Password attribute on User Account'
+            )
+        try:
             if self.check_password(pwd, password):
                 # return the user Object
                 return user
             else:
-                raise FailedAuth("Invalid Credentials")
-        except Exception as err:
-            print(err)
-            raise Exception(err)
+                raise FailedAuth(
+                    "Basic Auth: Invalid Credentials"
+                )
+        except Exception:
+            raise
         return None
 
     def set_password(
-        self, password, token_num: int = 6, iterations: int = 80000, salt: str = None
+        self,
+        password: str,
+        token_num: int = 6,
+        iterations: int = 80000,
+        salt: str = None
     ):
         if not salt:
             salt = secrets.token_hex(token_num)
@@ -75,7 +85,7 @@ class BasicAuth(BaseAuthBackend):
         try:
             algorithm, iterations, salt, hash = current_password.split("$", 3)
         except ValueError:
-            raise InvalidAuth('Invalid Password Algorithm')
+            raise InvalidAuth('Basic Auth: Invalid Password Algorithm')
         assert algorithm == AUTH_PWD_ALGORITHM
         compare_hash = self.set_password(
             password,
@@ -93,7 +103,7 @@ class BasicAuth(BaseAuthBackend):
                 password = request.query.get(self.pwd_atrribute, None)
                 return [user, password]
             except Exception:
-                return None
+                return [None, None]
         elif ctype in ("multipart/mixed", "multipart/form-data", "application/x-www-form-urlencoded"):
             data = await request.post()
             if len(data) > 0:
@@ -101,7 +111,7 @@ class BasicAuth(BaseAuthBackend):
                 password = data.get(self.pwd_atrribute, None)
                 return [user, password]
             else:
-                return None
+                return [None, None]
         elif ctype == "application/json":
             try:
                 data = await request.json()
@@ -109,9 +119,9 @@ class BasicAuth(BaseAuthBackend):
                 password = data[self.pwd_atrribute]
                 return [user, password]
             except Exception:
-                return None
+                return [None, None]
         else:
-            return None
+            return [None, None]
 
     async def authenticate(self, request):
         """ Authenticate, refresh or return the user credentials."""
@@ -120,27 +130,39 @@ class BasicAuth(BaseAuthBackend):
         except Exception as err:
             raise NavException(err, state=400)
         if not pwd and not user:
-            raise InvalidAuth("Invalid Credentials", state=401)
+            raise InvalidAuth(
+                "Basic Auth: Invalid Credentials",
+                state=401
+            )
         else:
             # making validation
             try:
                 user = await self.validate_user(login=user, password=pwd)
-            except FailedAuth:
-                raise
+            except FailedAuth as err:
+                raise FailedAuth(err)
             except UserDoesntExists as err:
                 raise UserDoesntExists(err)
-            except InvalidAuth as err:
+            except (ValidationError, InvalidAuth) as err:
                 raise InvalidAuth(err, state=401)
             except Exception as err:
-                raise NavException(err, state=500)
+                raise NavException(
+                    err, state=500
+                )
             try:
                 userdata = self.get_userdata(user)
-                userdata['id'] = user[self.userid_attribute]
+                username = user[self.username_attribute]
+                id = user[self.userid_attribute]
+                userdata[self.username_attribute] = username
+                userdata[self.session_key_property] = username
                 payload = {
                     self.user_property: user[self.userid_attribute],
-                    self.username_attribute: user[self.username_attribute],
-                    "user_id": user[self.userid_attribute]
+                    self.username_attribute: username,
+                    "user_id": id,
+                    self.session_key_property: username
                 }
+                await self.remember(
+                    request, username, userdata
+                )
                 # Create the User session and returned.
                 token = self.create_jwt(data=payload)
                 return {
@@ -148,7 +170,6 @@ class BasicAuth(BaseAuthBackend):
                     **userdata
                 }
             except Exception as err:
-                print(err)
                 return False
 
     async def check_credentials(self, request):

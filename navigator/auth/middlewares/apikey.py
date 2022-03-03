@@ -1,7 +1,7 @@
 """
-RNC Token Authorization Middleware.
-This token use a RNC algorithm to create a token-based authorization
-for Navigator.
+APIKEY infraestructure for NAVIGATOR.
+
+Simple API Key/Secret Validator for Navigator using a Middleware.
 """
 from aiohttp import web
 from typing import (

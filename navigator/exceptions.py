@@ -6,7 +6,7 @@ class NavException(Exception):
 
     state: int = 0
 
-    def __init__(self, message, state: int = 0, *args, **kwargs):
+    def __init__(self, message: str = '', state: int = 0, *args, **kwargs):
         super().__init__(message)
         self.message = message
         self.state = int(state)

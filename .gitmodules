@@ -1,3 +1,0 @@
-[submodule "extensions/asyncdb"]
-	path = extensions/asyncdb
-	url = https://github.com/phenobarbital/asyncdb.git

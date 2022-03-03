@@ -45,7 +45,16 @@ async def get_session(
                 "Missing Configuration for Session Middleware."
             )
         # using the storage session for Load an existing Session
-        session = await storage.load_session(request, userdata, new)
+        try:
+            session = await storage.load_session(
+                request=request,
+                userdata=userdata,
+                new=new
+            )
+        except Exception as err:
+            raise RuntimeError(
+                "Error Loading user Session."
+            )
         request[SESSION_OBJECT] = session
         request['session'] = session
         if new is True and not isinstance(session, SessionData):

@@ -82,7 +82,8 @@ setup(
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
-        "jsonpickle==2.1.0"
+        "jsonpickle==2.1.0",
+        "platformdirs==2.5.1"
     ],
     tests_require=[
             'pytest>=5.4.0',

@@ -57,9 +57,9 @@ setup(
         "Cython==0.29.28",
         "asyncio==3.4.3",
         "uvloop==0.16.0",
-        "asyncdb==2.0.10",
+        "asyncdb==2.0.11",
         "navconfig==0.7.4",
-        "async-notify==0.5.6",
+        "async-notify==0.5.7",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
         "sockjs==0.11.0",
@@ -82,7 +82,8 @@ setup(
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
-        "jsonpickle==2.1.0"
+        "jsonpickle==2.1.0",
+        'slugify==0.0.1'
     ],
     tests_require=[
             'pytest>=5.4.0',

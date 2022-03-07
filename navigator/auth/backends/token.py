@@ -22,9 +22,16 @@ from navigator.conf import (
     JWT_ALGORITHM,
     SESSION_PREFIX,
     default_dsn,
-    AUTH_SESSION_OBJECT
+    AUTH_SESSION_OBJECT,
+    AUTH_TOKEN_ISSUER
 )
 from navigator.auth.sessions import get_session
+from navigator.auth.models import AuthUser
+from asyncdb.models import Column
+
+class TokenUser(AuthUser):
+    tenant: str
+    programs: list = Column(default_factory=[])
 
 
 class TokenAuth(BaseAuthBackend):
@@ -139,7 +146,7 @@ class TokenAuth(BaseAuthBackend):
                 user = {
                     "name": data["name"],
                     "partner": username,
-                    "issuer": "Mobileinsight",
+                    "issuer": AUTH_TOKEN_ISSUER,
                     "programs": programs,
                     "grants": grants,
                     "tenant": tenant,
@@ -147,9 +154,15 @@ class TokenAuth(BaseAuthBackend):
                     "user_id": id,
                 }
                 userdata[self.session_key_property] = id
+                usr = TokenUser(data=userdata)
+                usr.id = id
+                usr.set(self.username_attribute, id)
+                usr.programs = programs
+                usr.tenant = tenant
+                print(f'User Created: ', usr)
                 # saving user-data into request:
                 await self.remember(
-                    request, id, userdata
+                    request, id, userdata, usr
                 )
                 token = self.create_jwt(data=user)
                 return {
@@ -192,8 +205,11 @@ class TokenAuth(BaseAuthBackend):
             authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return await authz
+            print('START MIDDLEWARE')
             try:
-                if request['authenticated'] is True:
+                auth = request.get('authenticated', False)
+                if auth is True:
+                    # already authenticated
                     return await handler(request)
             except KeyError:
                 pass
@@ -215,16 +231,16 @@ class TokenAuth(BaseAuthBackend):
                         session["grants"] = result["grants"]
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
+                        request.user = session.decode('user')
+                        print('USER> ', request.user, type(request.user))
+                        request.user.is_authenticated = True
                         request['authenticated'] = True
                 except (jwt.DecodeError, jwt.InvalidTokenError) as err:
-                    logging.error(f"Invalid authorization token: {err!r}")
-                    pass
+                    logging.exception(f"Invalid authorization token: {err!r}")
                 except (jwt.ExpiredSignatureError) as err:
-                    logging.error(f"TokenAuth: token expired: {err!s}")
-                    pass
+                    logging.exception(f"TokenAuth: token expired: {err!s}")
                 except Exception as err:
                     print(err, err.__class__.__name__)
-                    pass
             return await handler(request)
 
         return middleware

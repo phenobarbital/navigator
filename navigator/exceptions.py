@@ -27,3 +27,7 @@ class InvalidAuth(NavException):
 
 class FailedAuth(NavException):
     state: int = 403
+
+
+class ValidationError(NavException):
+    state: int = 406

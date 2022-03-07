@@ -13,7 +13,8 @@ from navigator.exceptions import (
     NavException,
     FailedAuth,
     UserDoesntExists,
-    InvalidAuth
+    InvalidAuth,
+    ValidationError,
 )
 from navigator.conf import (
     SESSION_TIMEOUT,
@@ -21,8 +22,20 @@ from navigator.conf import (
     AUTH_PWD_DIGEST,
     AUTH_PWD_ALGORITHM,
     AUTH_PWD_LENGTH,
-    AUTH_PWD_SALT_LENGTH
+    AUTH_PWD_SALT_LENGTH,
+    AUTH_SESSION_OBJECT
 )
+from navigator.auth.models import AuthUser
+
+
+class BasicUser(AuthUser):
+    """BasicAuth.
+    
+    Basic authenticated user (user:password).
+    """
+    pass
+
+
 # "%s$%d$%s$%s" % (algorithm, iterations, salt, hash)
 
 
@@ -154,6 +167,10 @@ class BasicAuth(BaseAuthBackend):
                 id = user[self.userid_attribute]
                 userdata[self.username_attribute] = username
                 userdata[self.session_key_property] = username
+                usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
+                usr.id = id
+                usr.set(self.username_attribute, username)
+                print(f'User Created: ', usr)
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,
@@ -161,7 +178,7 @@ class BasicAuth(BaseAuthBackend):
                     self.session_key_property: username
                 }
                 await self.remember(
-                    request, username, userdata
+                    request, username, userdata, usr
                 )
                 # Create the User session and returned.
                 token = self.create_jwt(data=payload)

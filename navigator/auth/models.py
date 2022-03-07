@@ -3,9 +3,12 @@ Model System for Navigator Auth.
 
 Model for User, Group and Roles for Navigator Auth.
 """
+from email.policy import default
+import re
 import uuid
 import asyncio
 import logging
+import slugify
 from asyncdb.models import Model, Column, Field
 from typing import (
     Optional,
@@ -98,6 +101,53 @@ class Group(Model):
 #         strict = True
 #         frozen = False
 
+class Organization(Model):
+    org_id: str
+    org_name: str
+    slug: str
+    
+    def __post_init__(self) -> None:
+        super(Organization, self).__post_init__()
+        if not self.slug:
+            self.slug = slugify(self.org_name)
+    class Meta:
+        strict = False
+        frozen = False
+        connection = None
+        
+
+class Program(Model):
+    program_id: int
+    program_name: str = Column(required=True)
+    program_slug: str = Column(default='')
+    
+    def __post_init__(self) -> None:
+        super(Program, self).__post_init__()
+        if not self.program_slug:
+            self.program_slug = slugify(self.program_name)
+
+    class Meta:
+        strict = False
+        frozen = False
+        connection = None
+
+
+class AuthGroup(Model):
+    """AuthGroup.
+    
+    Association (group) were users belongs to.
+    """
+    group_id: int
+    group_name: str = Column(required=True)
+
+    class Meta:
+        strict = False
+        frozen = False
+        connection = None
+
+
+guest = AuthGroup(group_id = 0, group_name = 'guest')
+
 class AuthUser(Model):
     """AuthUser
 
@@ -108,9 +158,11 @@ class AuthUser(Model):
     last_name: str
     email: str
     username: str
-    # roles: List[Role]
-    # group: List[UserGroup]
-    # orgs: List[Organization]
+    # group: List[AuthGroup]
+    # organizations: List[Organization]
+    # programs: List[Program]
+    enabled: bool = Column(required=True, default=True)
+    superuser: bool = Column(required=True, default=False)
     data: InitVar[Dict] = Column(required=False, default_factory=dict)
     userdata: Dict  = Column(required=False, default_factory={})
     is_authenticated: bool = Column(equired=False, default=False)

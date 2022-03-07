@@ -83,7 +83,8 @@ setup(
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
         "jsonpickle==2.1.0",
-        'slugify==0.0.1'
+        'slugify==0.0.1',
+        "platformdirs==2.5.1"
     ],
     tests_require=[
             'pytest>=5.4.0',
@@ -91,10 +92,6 @@ setup(
             'pytest-asyncio==0.14.0',
             'pytest-xdist==2.1.0',
             'pytest-assume==2.4.2'
-    ],
-    dependency_links=[
-        'git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb',
-        'git+https://github.com/phenobarbital/NavConfig.git@new-version#egg=navconfig'
     ],
     project_urls={
         'Source': 'https://github.com/phenobarbital/navigator-api',

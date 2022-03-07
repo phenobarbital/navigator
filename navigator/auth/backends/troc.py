@@ -24,6 +24,7 @@ import hashlib
 import base64
 import secrets
 from .base import BaseAuthBackend
+from .basic import BasicUser
 
 # TODO: add expiration logic when read the token
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
@@ -142,15 +143,20 @@ class TrocToken(BaseAuthBackend):
                 except Exception as err:
                     logging.exception(err)
                 id = user[self.username_attribute]
+                username = user[self.username_attribute]
                 userdata[self.session_key_property] = id
+                usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
+                usr.id = id
+                usr.set(self.username_attribute, username)
+                print(f'User Created: ', usr)
                 payload = {
                     self.user_property: user[self.userid_attribute],
-                    self.username_attribute: user[self.username_attribute],
+                    self.username_attribute: username,
                     "user_id": user[self.userid_attribute],
                 }
                 # saving user-data into request:
                 await self.remember(
-                    request, id, userdata
+                    request, id, userdata, usr
                 )
                 token = self.create_jwt(data=payload)
                 return {

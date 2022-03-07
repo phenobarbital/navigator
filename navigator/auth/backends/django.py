@@ -27,6 +27,16 @@ from navigator.conf import (
     SESSION_KEY,
     AUTH_SESSION_OBJECT
 )
+from navigator.auth.models import AuthUser
+
+
+class DjangoUser(AuthUser):
+    """DjangoUser.
+    
+    user authenticated with Django Session (sessionid bearer).
+    """
+    pass
+
 
 
 class DjangoAuth(BaseAuthBackend):
@@ -149,12 +159,16 @@ class DjangoAuth(BaseAuthBackend):
                         **userdata[AUTH_SESSION_OBJECT],
                         **data
                     }
+                    usr = DjangoUser(data=userdata[AUTH_SESSION_OBJECT])
+                    usr.id = sessionid
+                    usr.set(self.username_attribute, user[self.username_attribute])
+                    print(f'User Created: ', user)
                 except Exception as err:
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid
                 # saving user-data into request:
                 await self.remember(
-                    request, sessionid, userdata
+                    request, sessionid, userdata, usr
                 )
                 payload = {
                     self.user_property: user[self.userid_attribute],

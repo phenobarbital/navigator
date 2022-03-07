@@ -264,6 +264,7 @@ class AuthHandler(object):
         session = None
         try:
             session = await self._session.get_session(request)
+            print('SESSION : ', session)
         except NavException as err:
             response = {
                 "message": "Session Error",
@@ -284,6 +285,10 @@ class AuthHandler(object):
                 # always return a null session for user:
                 session = await self._session.new_session(request, {})
         userdata = dict(session)
+        try:
+            del userdata['user']
+        except KeyError:
+            pass
         return web.json_response(userdata, status=200)
 
     def configure(

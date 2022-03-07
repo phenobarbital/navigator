@@ -18,7 +18,7 @@ from navigator.exceptions import (
     FailedAuth,
     InvalidAuth
 )
-from navigator.auth.models import AuthUser
+from navigator.auth.models import AuthUser, guest
 
 
 class AnonymousUser(AuthUser):
@@ -70,7 +70,7 @@ class NoAuth(BaseAuthBackend):
         userdata, key = self.get_userdata()
         user = AnonymousUser(data=userdata[AUTH_SESSION_OBJECT])
         user.id = key
-        # user.groups(['guest'])
+        user.groups([guest])
         user.set(self.username_attribute, 'Anonymous')
         print(f'User Created: ', user)
         payload = {
@@ -98,7 +98,6 @@ class NoAuth(BaseAuthBackend):
          Description: Basic Authentication for NoAuth, Basic, Token and Django.
         """
         async def middleware(request):
-            print('START MIDDLEWARE')
             jwt_token = None
             try:
                 authz = await self.authorization_backends(app, handler, request)
@@ -106,7 +105,10 @@ class NoAuth(BaseAuthBackend):
                     # Authorization Exception
                     return await authz
             except Exception as err:
-                logging.exception(f'Error Processing Authorization Middlewares {err!s}')
+                logging.exception(
+                    f'Error Processing Authorization Middlewares {err!s}'
+                )
+            print('START MIDDLEWARE')
             try:
                 auth = request.get('authenticated', False)
                 if auth is True:

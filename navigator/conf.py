@@ -142,6 +142,9 @@ CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 """
 Authentication System
 """
+AUTHENTICATION_BACKENDS = (
+)
+
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -154,6 +157,7 @@ AUTHORIZATION_MIDDLEWARES = (
 
 
 # Basic Authentication
+AUTH_TOKEN_ISSUER = config.get('AUTH_TOKEN_ISSUER', fallback='Navigator')
 AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)

@@ -27,10 +27,9 @@ from navigator.exceptions import (
     FailedAuth
 )
 from navigator.conf import (
-    AUTHORIZATION_BACKENDS,
     CREDENTIALS_REQUIRED,
-    SESSION_TIMEOUT,
     AUTHENTICATION_BACKENDS,
+    AUTHORIZATION_BACKENDS,
     AUTHORIZATION_MIDDLEWARES,
     DOMAIN,
     SESSION_NAME,
@@ -41,7 +40,7 @@ from navigator.conf import (
     SESSION_KEY,
     SESSION_USER_PROPERTY
 )
-from navigator.auth.sessions import get_session, new_session
+# from navigator.auth.sessions import get_session, new_session
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""

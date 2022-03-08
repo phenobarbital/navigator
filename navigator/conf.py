@@ -18,17 +18,23 @@ from cryptography import fernet
 # Import Config Class
 from navconfig import (
     BASE_DIR,
-    EXTENSION_DIR,
     config,
     DEBUG
 )
-from navconfig.logging import logdir, loglevel, logging_config
+from navconfig.logging import (
+    logdir,
+    loglevel,
+    logging_config
+)
 
 """
 Routes
 """
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_DIR = BASE_DIR.joinpath("apps")
+
+logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
+
 APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
 APP_PORT = config.get('APP_PORT', fallback=5000)
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
@@ -224,7 +230,10 @@ MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
 MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 
 # get configuration settings (user can override settings).
-from navconfig.conf import *
+try:
+    from navconfig.conf import *
+except ImportError:
+    from settings.settings import *
 
 """
 Final: Config dict for aiohttp

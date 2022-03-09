@@ -59,7 +59,7 @@ setup(
         "uvloop==0.16.0",
         "asyncdb>=2.0.12",
         "navconfig==0.7.6",
-        "async-notify>=0.5.11",
+        "async-notify>=0.5.14",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
         "sockjs==0.11.0",

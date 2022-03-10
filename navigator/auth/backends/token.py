@@ -15,15 +15,16 @@ from .base import BaseAuthBackend
 from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from datetime import datetime, timedelta
 from navigator.conf import (
+    CREDENTIALS_REQUIRED,
     SESSION_URL,
     SESSION_TIMEOUT,
     SECRET_KEY,
-    PARTNER_KEY,
     JWT_ALGORITHM,
     SESSION_PREFIX,
     default_dsn,
     AUTH_SESSION_OBJECT,
-    AUTH_TOKEN_ISSUER
+    AUTH_TOKEN_ISSUER,
+    AUTH_TOKEN_SECRET
 )
 from navigator.auth.sessions import get_session
 from navigator.auth.models import AuthUser
@@ -122,12 +123,14 @@ class TokenAuth(BaseAuthBackend):
             )
         else:
             payload = jwt.decode(
-                token, PARTNER_KEY, algorithms=[JWT_ALGORITHM], leeway=30
+                token, AUTH_TOKEN_SECRET, algorithms=[JWT_ALGORITHM], leeway=30
             )
             logging.debug(f"Decoded Token: {payload!s}")
             data = await self.check_token_info(request, tenant, payload)
             if not data:
-                raise InvalidAuth(f"Invalid Session: {token!s}", state=401)
+                raise InvalidAuth(
+                    f"Invalid Session: {token!s}", state=401
+                )
             # getting user information
             # making validation
             try:
@@ -160,7 +163,7 @@ class TokenAuth(BaseAuthBackend):
                 usr.set(self.username_attribute, id)
                 usr.programs = programs
                 usr.tenant = tenant
-                logging.debug(f'User Created: ', usr)
+                logging.debug(f'User Created: {usr}')
                 # saving user-data into request:
                 await self.remember(
                     request, id, userdata, usr
@@ -185,13 +188,13 @@ class TokenAuth(BaseAuthBackend):
             return False
         sql = f"""
         SELECT name, partner, grants, programs FROM troc.api_keys
-        WHERE name='{name}' AND partner='{partner}'
-        AND enabled = TRUE AND revoked = FALSE AND '{tenant}'= ANY(programs)
+        WHERE name=$1 AND partner=$2
+        AND enabled = TRUE AND revoked = FALSE AND $3= ANY(programs)
         """
         try:
             result = None
             async with await self._pool.acquire() as conn:
-                result, error = await conn.queryrow(sql)
+                result, error = await conn.queryrow(sql, name, partner, tenant)
             if error or not result:
                 return False
             else:
@@ -202,6 +205,7 @@ class TokenAuth(BaseAuthBackend):
 
     async def auth_middleware(self, app, handler):
         async def middleware(request):
+            logging.debug(f'MIDDLEWARE: {self.__class__.__name__}')
             request.user = None
             authz = await self.authorization_backends(app, handler, request)
             if authz:
@@ -217,23 +221,29 @@ class TokenAuth(BaseAuthBackend):
             if jwt_token:
                 try:
                     payload = jwt.decode(
-                        jwt_token, PARTNER_KEY, algorithms=[JWT_ALGORITHM], leeway=30
+                        jwt_token, AUTH_TOKEN_SECRET, algorithms=[JWT_ALGORITHM], leeway=30
                     )
                     logging.debug(f"Decoded Token: {payload!s}")
                     result = await self.check_token_info(request, tenant, payload)
                     if not result:
-                        raise web.HTTPForbidden(
-                            reason="API Key Not Authorized",
-                        )
+                        if CREDENTIALS_REQUIRED is True:
+                            raise web.HTTPForbidden(
+                                reason="API Key Not Authorized",
+                            )
                     else:
+                        request[self.session_key_property] = payload['name']
                         # TRUE because if data doesnt exists, returned
                         session = await get_session(request, payload, new = True)
+                        print('::::: SESSION: ', session)
                         session["grants"] = result["grants"]
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
-                        request.user = session.decode('user')
+                        try:
+                            request.user = session.decode('user')
+                            request.user.is_authenticated = True
+                        except KeyError:
+                            pass
                         # print('USER> ', request.user, type(request.user))
-                        request.user.is_authenticated = True
                         request['authenticated'] = True
                 except (jwt.exceptions.ExpiredSignatureError) as err:
                     logging.error(f"TokenAuth: token expired: {err!s}")

@@ -142,3 +142,7 @@ target/
 
 # Mac
 .DS_Store
+
+# other files
+resources/*
+settings/__init__.py

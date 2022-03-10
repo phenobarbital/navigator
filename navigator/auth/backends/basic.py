@@ -17,8 +17,6 @@ from navigator.exceptions import (
     ValidationError,
 )
 from navigator.conf import (
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     AUTH_PWD_DIGEST,
     AUTH_PWD_ALGORITHM,
     AUTH_PWD_LENGTH,
@@ -170,7 +168,7 @@ class BasicAuth(BaseAuthBackend):
                 usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                print(f'User Created: ', usr)
+                # print(f'User Created: ', usr)
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,
@@ -187,6 +185,7 @@ class BasicAuth(BaseAuthBackend):
                     **userdata
                 }
             except Exception as err:
+                logging.exception(f'DjangoAuth: Authentication Error: {err}')
                 return False
 
     async def check_credentials(self, request):

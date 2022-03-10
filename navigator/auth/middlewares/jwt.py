@@ -5,11 +5,14 @@ from typing import (
     Coroutine,
     Tuple
 )
+from navconfig import config
 from navigator.conf import (
     SESSION_TIMEOUT,
     SECRET_KEY,
     CREDENTIALS_REQUIRED,
-    SESSION_USER_PROPERTY
+    SESSION_USER_PROPERTY,
+    JWT_SECRET,
+    JWT_ALGORITHM
 )
 from .abstract import base_middleware
 

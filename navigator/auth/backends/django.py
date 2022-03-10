@@ -162,7 +162,7 @@ class DjangoAuth(BaseAuthBackend):
                     usr = DjangoUser(data=userdata[AUTH_SESSION_OBJECT])
                     usr.id = sessionid
                     usr.set(self.username_attribute, user[self.username_attribute])
-                    print(f'User Created: ', user)
+                    # print(f'User Created: ', user)
                 except Exception as err:
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid
@@ -184,5 +184,5 @@ class DjangoAuth(BaseAuthBackend):
                     **userdata
                 }
             except Exception as err:
-                print(err)
+                logging.exception(f'DjangoAuth: Authentication Error: {err}')
                 return False

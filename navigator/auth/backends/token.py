@@ -100,8 +100,8 @@ class TokenAuth(BaseAuthBackend):
                     tenant, token = id.split(":")
                 except ValueError:
                     token = id
-        except Exception as e:
-            print(e)
+        except Exception as err:
+            logging.exception(f"TokenAuth: Error getting payload: {err}")
             return None
         return [tenant, token]
 
@@ -113,12 +113,13 @@ class TokenAuth(BaseAuthBackend):
         """ Authenticate, refresh or return the user credentials."""
         try:
             tenant, token = await self.get_payload(request)
-            print(tenant, token)
             logging.debug(f"Tenant ID: {tenant}")
         except Exception as err:
             raise NavException(err, state=400)
         if not token:
-            raise InvalidAuth("Invalid Credentials", state=401)
+            raise InvalidAuth(
+                "Invalid Credentials", state=401
+            )
         else:
             payload = jwt.decode(
                 token, PARTNER_KEY, algorithms=[JWT_ALGORITHM], leeway=30
@@ -159,7 +160,7 @@ class TokenAuth(BaseAuthBackend):
                 usr.set(self.username_attribute, id)
                 usr.programs = programs
                 usr.tenant = tenant
-                print(f'User Created: ', usr)
+                logging.debug(f'User Created: ', usr)
                 # saving user-data into request:
                 await self.remember(
                     request, id, userdata, usr
@@ -170,7 +171,7 @@ class TokenAuth(BaseAuthBackend):
                     **user
                 }
             except Exception as err:
-                print(err)
+                logging.exception(f'DjangoAuth: Authentication Error: {err}')
                 return False
 
     async def check_credentials(self, request):
@@ -205,7 +206,6 @@ class TokenAuth(BaseAuthBackend):
             authz = await self.authorization_backends(app, handler, request)
             if authz:
                 return await authz
-            print('START MIDDLEWARE')
             try:
                 auth = request.get('authenticated', False)
                 if auth is True:
@@ -232,15 +232,17 @@ class TokenAuth(BaseAuthBackend):
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
                         request.user = session.decode('user')
-                        print('USER> ', request.user, type(request.user))
+                        # print('USER> ', request.user, type(request.user))
                         request.user.is_authenticated = True
                         request['authenticated'] = True
-                except (jwt.DecodeError, jwt.InvalidTokenError) as err:
-                    logging.exception(f"Invalid authorization token: {err!r}")
-                except (jwt.ExpiredSignatureError) as err:
-                    logging.exception(f"TokenAuth: token expired: {err!s}")
+                except (jwt.exceptions.ExpiredSignatureError) as err:
+                    logging.error(f"TokenAuth: token expired: {err!s}")
+                except (jwt.exceptions.InvalidSignatureError) as err:
+                    logging.error(f"Invalid Credentials: {err!r}")
+                except (jwt.exceptions.DecodeError, jwt.exceptions.InvalidTokenError) as err:
+                    logging.error(f"Invalid authorization token: {err!r}")
                 except Exception as err:
-                    print(err, err.__class__.__name__)
+                    logging.exception(f"Error on Token Middleware: {err}")
             return await handler(request)
 
         return middleware

@@ -16,7 +16,8 @@ from navigator.auth.sessions import get_session, new_session
 from navigator.exceptions import (
     NavException,
     FailedAuth,
-    InvalidAuth
+    InvalidAuth,
+    AuthExpired
 )
 from navigator.auth.models import AuthUser, guest
 
@@ -117,26 +118,40 @@ class NoAuth(BaseAuthBackend):
             except KeyError:
                 pass
             try:
-                print('START DECODING')
                 tenant, payload = self.decode_token(request)
-                print('PAYLOAD ', payload)
                 if payload:
                     # load session information
                     session = await get_session(request, payload, new = False)
                     print('SESSION ', session)
                     try:
                         request.user = session.decode('user')
-                        print('USER> ', request.user, type(request.user))
+                        # print('USER> ', request.user, type(request.user))
                         request.user.is_authenticated = True
                         request['authenticated'] = True
                     except Exception:
-                        logging.error('Missing User Object from Session')
+                        logging.error(
+                            'Missing User Object from Session'
+                        )
+            except (AuthExpired, FailedAuth) as err:
+                logging.error('Auth Middleware: Auth Credentials were expired')
+                if CREDENTIALS_REQUIRED is True:
+                    raise web.HTTPForbidden(
+                        reason=err
+                    )
             except NavException as err:
                 logging.error('Auth Middleware: Invalid Signature or secret')
-                pass # NoAuth can pass silently when no token was generated
+                if CREDENTIALS_REQUIRED is True:
+                    raise web.HTTPClientError(
+                        reason=err.message,
+                        state=err.state
+                    )
             except Exception as err:
                 logging.error(f"Bad Request: {err!s}")
-                pass
+                if CREDENTIALS_REQUIRED is True:
+                    raise web.HTTPClientError(
+                        reason=err.message,
+                        state=err.state
+                    )
             print('END MIDDLEWARE')
             return await handler(request)
 

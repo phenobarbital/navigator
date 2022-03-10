@@ -11,7 +11,7 @@ from navigator.conf import (
     SECRET_KEY,
     CREDENTIALS_REQUIRED,
     SESSION_USER_PROPERTY,
-    JWT_SECRET,
+    SECRET_KEY,
     JWT_ALGORITHM
 )
 from .abstract import base_middleware
@@ -107,24 +107,22 @@ class jwt_middleware(base_middleware):
                     )
             return await handler(request)
         return middleware
+# async def jwt_middleware(app, handler):
+#     async def middleware(request):
+#         request.user = None
+#         jwt_token = request.headers.get("Authorization", None)
+#         if jwt_token:
+#             try:
+#                 payload = jwt.decode(
+#                     jwt_token,
+#                     SECRET_KEY,
+#                     algorithms=[JWT_ALGORITHM]
+#                 )
+#                 print(payload)
+#                 request.user = payload
+#             except (jwt.DecodeError, jwt.ExpiredSignatureError) as err:
+#                 print(err)
+#                 return web.json_response({"message": "Invalid Token"}, status=400)
+#         return await handler(request)
 
-
-async def jwt_middleware(app, handler):
-    async def middleware(request):
-        request.user = None
-        jwt_token = request.headers.get("Authorization", None)
-        if jwt_token:
-            try:
-                payload = jwt.decode(
-                    jwt_token,
-                    JWT_SECRET,
-                    algorithms=[JWT_ALGORITHM]
-                )
-                print(payload)
-                request.user = payload
-            except (jwt.DecodeError, jwt.ExpiredSignatureError) as err:
-                print(err)
-                return web.json_response({"message": "Invalid Token"}, status=400)
-        return await handler(request)
-
-    return middleware
+#     return middleware

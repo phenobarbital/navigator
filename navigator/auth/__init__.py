@@ -263,7 +263,6 @@ class AuthHandler(object):
         session = None
         try:
             session = await self._session.get_session(request)
-            print('SESSION : ', session)
         except NavException as err:
             response = {
                 "message": "Session Error",

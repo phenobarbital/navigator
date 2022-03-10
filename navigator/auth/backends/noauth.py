@@ -73,7 +73,7 @@ class NoAuth(BaseAuthBackend):
         user.id = key
         user.groups([guest])
         user.set(self.username_attribute, 'Anonymous')
-        print(f'User Created: ', user)
+        # print(f'User Created: ', user)
         payload = {
             self.session_key_property: key,
             self.user_property: None,
@@ -85,7 +85,6 @@ class NoAuth(BaseAuthBackend):
         )
         request.user = user
         token = self.create_jwt(data=payload)
-        print('END AUTH')
         return {
             "token": token,
             self.session_key_property: key,
@@ -99,6 +98,7 @@ class NoAuth(BaseAuthBackend):
          Description: Basic Authentication for NoAuth, Basic, Token and Django.
         """
         async def middleware(request):
+            logging.debug(f'MIDDLEWARE: {self.__class__.__name__}')
             jwt_token = None
             try:
                 authz = await self.authorization_backends(app, handler, request)
@@ -109,7 +109,6 @@ class NoAuth(BaseAuthBackend):
                 logging.exception(
                     f'Error Processing Authorization Middlewares {err!s}'
                 )
-            print('START MIDDLEWARE')
             try:
                 auth = request.get('authenticated', False)
                 if auth is True:
@@ -122,7 +121,6 @@ class NoAuth(BaseAuthBackend):
                 if payload:
                     # load session information
                     session = await get_session(request, payload, new = False)
-                    print('SESSION ', session)
                     try:
                         request.user = session.decode('user')
                         # print('USER> ', request.user, type(request.user))
@@ -152,7 +150,6 @@ class NoAuth(BaseAuthBackend):
                         reason=err.message,
                         state=err.state
                     )
-            print('END MIDDLEWARE')
             return await handler(request)
 
         return middleware

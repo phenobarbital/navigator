@@ -161,7 +161,6 @@ class BaseAuthBackend(ABC):
                 session[self.session_key_property] = identity
                 session['user'] = session.encode(user)
                 request['session'] = session
-                print('User Authenticated: ', user)
             except Exception as err:
                 raise web.HTTPForbidden(
                     reason=f"Error Creating User Session: {err!s}"

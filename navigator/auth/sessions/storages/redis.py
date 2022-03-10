@@ -109,7 +109,7 @@ class RedisStorage(AbstractStorage):
         if session_id is None and new is False:
             return False
         # we need to load session data from redis
-        print(f':::::: LOAD SESSION {session_id} ::::: ')
+        print(f':::::: LOAD SESSION FOR {session_id} ::::: ')
         try:
             data = await conn.get(session_id)
         except Exception as err:
@@ -117,7 +117,6 @@ class RedisStorage(AbstractStorage):
             data = None
         if data is None:
             if new is True:
-                print(':::: CREATING A NEW SESSION :::: ')
                 # create a new session if not exists:
                 return await self.new_session(request, userdata)
             else:
@@ -185,7 +184,7 @@ class RedisStorage(AbstractStorage):
                 session_id = data[SESSION_KEY]
             except KeyError:
                 session_id = self.id_factory()
-        print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
+        print(f':::::: START CREATING A NEW SESSION FOR {session_id} ::::: ')
         if not data:
             data = {}
         # saving this new session on DB

@@ -60,6 +60,7 @@ setup(
         "asyncdb",
         "navconfig",
         "async-notify",
+        "typing-extensions==4.1.1",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
         "sockjs==0.11.0",

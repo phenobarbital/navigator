@@ -3,25 +3,17 @@ APIKEY infraestructure for NAVIGATOR.
 
 Simple API Key/Secret Validator for Navigator using a Middleware.
 """
+import logging
 from aiohttp import web
 from typing import (
     Optional,
     Coroutine,
     Tuple
 )
-from navigator.libs.cypher import Cipher
-from navigator.conf import (
-    PARTNER_KEY,
-    CYPHER_TYPE,
-    PARTNER_SESSION_TIMEOUT
-)
 from .abstract import base_middleware
 
-# TODO: add expiration logic when read the token
-CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
 
-
-class troctoken_middleware(base_middleware):
+class apikey_middleware(base_middleware):
     def __init__(
         self,
         user_fn: Optional[Coroutine] = None,
@@ -42,47 +34,73 @@ class troctoken_middleware(base_middleware):
         if protected_routes:
             self.protected_routes = protected_routes
 
+    def get_authorization_header(
+            self,
+            request: web.Request,
+            scheme: Optional[str] = None
+        ):
+        """
+        Get the key and secret from header
+        """
+        token = None
+        if 'x-api-key' in request.headers:
+            try:
+                token = request.headers['x-api-key'].strip()
+            except KeyError:
+                raise web.HTTPUnauthorized(
+                    reason='API Key Auth: Missing authorization header',
+                )
+            except ValueError:
+                raise web.HTTPForbidden(
+                    reason='API Key Auth: Invalid authorization header',
+            )
+        else:
+            try:
+                token = request.query.get("api_key").strip()
+            except KeyError as err:
+                token = None
+        return token
+
     async def middleware(self, app, handler):
         @web.middleware
         async def middleware(request):
             if await self.valid_routes(request):
                 return await handler(request)
             try:
-                token, scheme = self.get_authorization_header(request)
+                key = self.get_authorization_header(request)
             except Exception as err:
-                print(err)
-                token = None
+                logging.exception(err)
+                key = None
             if self.path_protected(request): # is a protected site.
-                if not token:
+                if not key:
                     raise web.HTTPForbidden(
-                        reason='Invalid authorization Token',
+                        reason='Missing API Key Authentication',
                     )
                 try:
-                    payload = CIPHER.decode(
-                        passphrase=token
-                    )
+                    db = app['database']
+                    async with await db.acquire() as conn:
+                        payload = await conn.fetch_one(
+                            "SELECT user_id, name from public.api_keys where token = $1 AND (expiration >= extract(epoch from now()) or expiration = 0)",
+                            key
+                        )
                     if not payload:
                         raise web.HTTPForbidden(
-                            reason="Invalid authorization Token"
+                            reason="Access is Restricted"
                         )
-                except ValueError as err:
-                    raise web.HTTPUnauthorized(
-                        reason="Token Decryption Error"
-                    )
                 except Exception as err:
                     raise web.HTTPBadRequest(
-                        reason=f"Token Decryption Error: {err}"
+                        reason=f"API Key Decryption Error: {err}"
                     )
                 try:
-                    user = await self._fn(payload, request)
-                    if user:
-                        request[self.user_property] = user
-                        request.user = user
-                        print(user)
-                    else:
-                        raise web.HTTPForbidden(
-                            reason='Access Restricted'
-                        )
+                    if self._fn:
+                        user = await self._fn(payload, request)
+                        if user:
+                            request[self.user_property] = user
+                            request.user = user
+                        else:
+                            raise web.HTTPForbidden(
+                                reason='Access Restricted'
+                            )
                 except Exception as err:
                     raise web.HTTPBadRequest(
                         reason=f'Exception on Callable called by {__name__!s} {err!s}'

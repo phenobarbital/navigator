@@ -25,7 +25,9 @@ from navigator.conf import (
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
-    InvalidAuth
+    InvalidAuth,
+    FailedAuth,
+    AuthExpired
 )
 from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
@@ -249,18 +251,15 @@ class BaseAuthBackend(ABC):
                 )
                 logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
-            except (jwt.exceptions.InvalidSignatureError):
-                raise NavException("Invalid Signature Error")
-            except (jwt.DecodeError) as err:
-                raise NavException(f"Token Decoding Error: {err}", state=400)
-            except jwt.InvalidTokenError as err:
-                print(err)
-                raise NavException(f"Invalid authorization token {err!s}")
-            except (jwt.ExpiredSignatureError) as err:
-                print(err)
-                raise NavException(f"Token Expired {err!s}", state=403)
+            except jwt.exceptions.ExpiredSignatureError as err:
+                raise AuthExpired(f"Credentials Expired: {err!s}")
+            except jwt.exceptions.InvalidSignatureError as err:
+                raise AuthExpired(f"Signature Failed or Expired: {err!s}")
+            except jwt.exceptions.DecodeError as err:
+                raise FailedAuth(f"Token Decoding Error: {err}")
+            except jwt.exceptions.InvalidTokenError as err:
+                raise InvalidAuth(f"Invalid authorization token {err!s}")
             except Exception as err:
-                print(err)
                 raise NavException(err, state=501)
         else:
             return [tenant, payload]

@@ -93,7 +93,7 @@ class TrocToken(BaseAuthBackend):
                     print(e)
                     return None
         except Exception as err:
-            logging.exception(err)
+            logging.exception(f"TrocAuth: Error getting payload: {err}")
             return None
         return token
 
@@ -118,7 +118,7 @@ class TrocToken(BaseAuthBackend):
                 logging.debug(f'User data: {data!r}')
             except Exception as err:
                 raise InvalidAuth(
-                    f"Invalid TROC Token: {err!s}", state=401
+                    f"Invalid Token: {err!s}", state=401
                 )
             # making validation
             try:
@@ -148,7 +148,7 @@ class TrocToken(BaseAuthBackend):
                 usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                print(f'User Created: ', usr)
+                # print(f'User Created: ', usr)
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,
@@ -164,7 +164,7 @@ class TrocToken(BaseAuthBackend):
                     **userdata
                 }
             except Exception as err:
-                print(err)
+                logging.exception(f'DjangoAuth: Authentication Error: {err}')
                 return False
 
     async def check_credentials(self, request):

@@ -178,6 +178,10 @@ class AppHandler(ABC):
                 handler=self
             )
             app["auth"] = self._auth
+            ## add the authorization endpoint endpoint:
+            app.router.add_get(
+                '/{program}/authorize', self.app_authorization
+            )
         # add the other middlewares:
         try:
             for middleware in self._middleware:
@@ -277,6 +281,19 @@ class AppHandler(ABC):
             except (Exception, ValueError) as err:
                 # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
+            
+    async def app_authorization(self, request: web.Request) -> web.Response:
+        app = request.app
+        try:
+            program = request.match_info['program']
+        except Exception as err:
+            print(err)
+            program = None
+        authorization = {
+            "status": "Tenant Authorized",
+            "program": program
+        }
+        return web.json_response(authorization, status=200)
 
     async def on_prepare(self, request, response):
         """
@@ -369,10 +386,8 @@ class AppConfig(AppHandler):
                 swagger_url=f"/api/v1/doc",
                 ui_version=3,
             )
-        ## add the authorization endpoint endpoint:
-        auth = self.authorization
         self.app.router.add_get(
-            '/authorize', auth
+            '/authorize', self.app_authorization
         )
 
     def listener(conn, pid, channel, payload, *args):
@@ -536,15 +551,14 @@ class AppConfig(AppHandler):
                         return False
                     self.cors.add(r)
 
-    async def authorization(self, request: web.Request) -> web.Response:
+    async def app_authorization(self, request: web.Request) -> web.Response:
         app = request.app
         try:
-            program = self.__class__.__name__
+            program = request.match_info['program']
         except Exception as err:
-            print(err)
-            program = self._name
+            program = self.__class__.__name__
         authorization = {
-            "status": "User Authorized",
+            "status": "Tenant Authorized",
             "program": program
         }
         return web.json_response(authorization, status=200)

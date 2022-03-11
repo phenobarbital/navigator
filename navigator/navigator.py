@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-import argparse
 import ssl
-import sys
-import typing
 import aiohttp_cors
-import logging
 import signal
 import sockjs
 import traceback
+import argparse
 from aiohttp import web
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
@@ -32,7 +29,6 @@ from navigator.conf import (
     Context,
     SSL_CERT,
     SSL_KEY,
-    loglevel,
     TEMPLATE_DIR,
     CACHE_URL,
     default_dsn
@@ -47,7 +43,7 @@ from navigator.handlers import (
 from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
-
+from navconfig.logging import logging
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -174,12 +170,7 @@ class Application(object):
     def __getitem__(self, k):
         return self.app.App[k]
 
-    def get_logger(self, name:str = "Navigator"):
-        logging_format = f"[%(asctime)s] %(levelname)-5s %(name)-{len(name)}s "
-        logging_format += "%(message)s"
-        logging.basicConfig(
-            format=logging_format, level=loglevel, datefmt="%Y:%m:%d %H:%M:%S"
-        )
+    def get_logger(self, name:str = APP_NAME):
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:

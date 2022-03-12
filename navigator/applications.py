@@ -1,21 +1,13 @@
 #!/usr/bin/env python3
-import os
-import sys
-import typing
 import asyncio
 from abc import ABC, abstractmethod
 import importlib
 import inspect
-
-# logging system
-import logging
-from logging.config import dictConfig
+import asyncio
+import uvloop
 from pathlib import Path
 from typing import Any, Callable, Dict, List
-
 import aiohttp_cors
-import aiohttp_jinja2
-import jinja2
 from navigator.templating import TemplateParser
 
 import aiohttp
@@ -23,6 +15,7 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 
 from navigator.conf import (
+    APP_NAME,
     APP_DIR,
     DEBUG,
     STATIC_DIR,
@@ -30,15 +23,15 @@ from navigator.conf import (
     default_dsn
 )
 from navigator.connections import PostgresPool
-from navconfig.logging import logging_config
 # make a home and a ping class
 from navigator.resources import home, ping
 from navigator.functions import cPrint
 # get the authentication library
 from navigator.auth import AuthHandler
+from navconfig.logging import logging
 
-loglevel = logging.INFO
-dictConfig(logging_config)
+
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
 #######################
 ##
@@ -135,7 +128,7 @@ class AppHandler(ABC):
         self.debug = DEBUG
         if not self.staticdir:
             self.staticdir = STATIC_DIR
-        self.logger = logging.getLogger(self._name)
+        self.logger = logging.getLogger(APP_NAME)
         # configuring asyncio loop
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)

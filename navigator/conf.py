@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import os
 import sys
 import base64
 import json
 import importlib
-import logging
 from pathlib import Path
 from types import ModuleType
 from typing import (
@@ -14,7 +12,6 @@ from typing import (
     Tuple
 )
 from cryptography import fernet
-
 # Import Config Class
 from navconfig import (
     BASE_DIR,
@@ -22,9 +19,7 @@ from navconfig import (
     DEBUG
 )
 from navconfig.logging import (
-    logdir,
-    loglevel,
-    logging_config
+    logging
 )
 
 """

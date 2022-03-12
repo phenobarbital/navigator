@@ -12,7 +12,7 @@ from textwrap import dedent
 import importlib
 import logging
 from aiohttp import web
-from typing import Dict, List, Iterable
+from typing import Dict, Iterable
 from .authorizations import *
 from navigator.functions import json_response
 
@@ -31,14 +31,8 @@ from navigator.conf import (
     AUTHENTICATION_BACKENDS,
     AUTHORIZATION_BACKENDS,
     AUTHORIZATION_MIDDLEWARES,
-    DOMAIN,
-    SESSION_NAME,
-    SESSION_STORAGE,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
-    JWT_ALGORITHM,
-    SESSION_KEY,
-    SESSION_USER_PROPERTY
+    AUTH_USER_MODEL,
+    SESSION_KEY
 )
 # from navigator.auth.sessions import get_session, new_session
 
@@ -74,10 +68,17 @@ class AuthHandler(object):
         authz_backends = self.get_authorization_backends(
             AUTHORIZATION_BACKENDS
         )
+        # Get User Model:
+        try:
+            user_model = self.get_usermodel(AUTH_USER_MODEL)
+        except Exception:
+            # TODO: more feature content, exceptions.
+            raise
         args = {
             "credentials_required": CREDENTIALS_REQUIRED,
             "scheme": auth_scheme,
             "authorization_backends": authz_backends,
+            "user_model": user_model,
             **kwargs,
         }
         # get the authentication backends (all of the list)
@@ -102,6 +103,17 @@ class AuthHandler(object):
             except ImportError:
                 raise Exception(f"Error loading Auth Backend {backend}")
         return backends
+
+    def get_usermodel(self, model: str, **kwargs):
+        try:
+            parts = model.split(".")
+            name = parts[-1]
+            classpath = ".".join(parts[:-1])
+            module = importlib.import_module(classpath, package=name)
+            obj = getattr(module, name)
+            return obj
+        except ImportError:
+            raise Exception(f"Error loading Auth User Model {model}")
 
     async def on_startup(self, app):
         """

@@ -148,17 +148,18 @@ class TrocToken(BaseAuthBackend):
                 usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                # print(f'User Created: ', usr)
+                logging.debug(f'User Created > ', usr)
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,
                     "user_id": user[self.userid_attribute],
                 }
+                token = self.create_jwt(data=payload)
+                usr.access_token = token
                 # saving user-data into request:
                 await self.remember(
                     request, id, userdata, usr
                 )
-                token = self.create_jwt(data=payload)
                 return {
                     "token": token,
                     **userdata

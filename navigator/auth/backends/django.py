@@ -11,14 +11,13 @@ import asyncio
 
 # redis pool
 import aioredis
-from aiohttp import web, hdrs
+from aiohttp import web
 from .base import BaseAuthBackend
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
     InvalidAuth
 )
-from datetime import datetime, timedelta
 from navigator.conf import (
     SESSION_URL,
     SESSION_TIMEOUT,
@@ -27,15 +26,16 @@ from navigator.conf import (
     SESSION_KEY,
     AUTH_SESSION_OBJECT
 )
-from navigator.auth.models import AuthUser
 
+# User Identity
+from navigator.auth.identities import AuthUser, Column
 
 class DjangoUser(AuthUser):
     """DjangoUser.
     
     user authenticated with Django Session (sessionid bearer).
     """
-    pass
+    sessionid: str = Column(required=True)
 
 
 
@@ -161,6 +161,7 @@ class DjangoAuth(BaseAuthBackend):
                     }
                     usr = DjangoUser(data=userdata[AUTH_SESSION_OBJECT])
                     usr.id = sessionid
+                    usr.sessionid = sessionid
                     usr.set(self.username_attribute, user[self.username_attribute])
                     # print(f'User Created: ', user)
                 except Exception as err:

@@ -2,13 +2,11 @@
 
 Navigator Authentication using JSON Web Tokens.
 """
-import jwt
+import logging
 import hashlib
 import base64
 import secrets
-from aiohttp import web
 from .base import BaseAuthBackend
-from datetime import datetime, timedelta
 from navigator.exceptions import (
     NavException,
     FailedAuth,
@@ -23,13 +21,13 @@ from navigator.conf import (
     AUTH_PWD_SALT_LENGTH,
     AUTH_SESSION_OBJECT
 )
-from navigator.auth.models import AuthUser
-
+# Authenticated Entity
+from navigator.auth.identities import AuthUser
 
 class BasicUser(AuthUser):
     """BasicAuth.
     
-    Basic authenticated user (user:password).
+    Basic authenticated user.
     """
     pass
 
@@ -168,18 +166,19 @@ class BasicAuth(BaseAuthBackend):
                 usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                # print(f'User Created: ', usr)
+                logging.debug(f'User Created > {usr}')
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,
                     "user_id": id,
                     self.session_key_property: username
                 }
+                # Create the User session and returned.
+                token = self.create_jwt(data=payload)
+                usr.access_token = token
                 await self.remember(
                     request, username, userdata, usr
                 )
-                # Create the User session and returned.
-                token = self.create_jwt(data=payload)
                 return {
                     "token": token,
                     **userdata

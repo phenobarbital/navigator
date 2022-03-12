@@ -10,7 +10,8 @@ from .base import BaseAuthBackend
 import uuid
 from navigator.conf import (
     CREDENTIALS_REQUIRED,
-    AUTH_SESSION_OBJECT
+    AUTH_SESSION_OBJECT,
+    SECRET_KEY
 )
 from navigator.auth.sessions import get_session, new_session
 from navigator.exceptions import (
@@ -19,8 +20,9 @@ from navigator.exceptions import (
     InvalidAuth,
     AuthExpired
 )
-from navigator.auth.models import AuthUser, guest
 
+# Authenticated Entity
+from navigator.auth.identities import AuthUser, Guest
 
 class AnonymousUser(AuthUser):
     first_name: str = 'Anonymous'
@@ -71,20 +73,20 @@ class NoAuth(BaseAuthBackend):
         userdata, key = self.get_userdata()
         user = AnonymousUser(data=userdata[AUTH_SESSION_OBJECT])
         user.id = key
-        user.groups([guest])
+        user.add_group(Guest)
         user.set(self.username_attribute, 'Anonymous')
-        # print(f'User Created: ', user)
+        logging.debug(f'User Created > {user}')
         payload = {
             self.session_key_property: key,
             self.user_property: None,
             self.username_attribute: "Anonymous",
             **userdata
         }
+        token = self.create_jwt(data=payload)
+        user.access_token = token
         await self.remember(
             request, key, userdata, user
         )
-        request.user = user
-        token = self.create_jwt(data=payload)
         return {
             "token": token,
             self.session_key_property: key,
@@ -123,7 +125,7 @@ class NoAuth(BaseAuthBackend):
                     session = await get_session(request, payload, new = False)
                     try:
                         request.user = session.decode('user')
-                        # print('USER> ', request.user, type(request.user))
+                        print('USER> ', request.user, type(request.user))
                         request.user.is_authenticated = True
                         request['authenticated'] = True
                     except Exception:

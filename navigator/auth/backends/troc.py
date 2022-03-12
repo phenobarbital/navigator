@@ -148,7 +148,7 @@ class TrocToken(BaseAuthBackend):
                 usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                logging.debug(f'User Created > ', usr)
+                logging.debug(f'User Created > {usr}')
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,

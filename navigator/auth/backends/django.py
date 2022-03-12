@@ -163,7 +163,7 @@ class DjangoAuth(BaseAuthBackend):
                     usr.id = sessionid
                     usr.sessionid = sessionid
                     usr.set(self.username_attribute, user[self.username_attribute])
-                    # print(f'User Created: ', user)
+                    logging.debug(f'User Created > {usr}')
                 except Exception as err:
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid

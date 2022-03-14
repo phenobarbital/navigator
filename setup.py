@@ -44,6 +44,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', )),
     include_package_data=True,
     license=__license__,
+    license_files = 'LICENSE',
     setup_requires=[
         "wheel==0.37.0",
         "Cython==0.29.28",

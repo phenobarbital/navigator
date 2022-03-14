@@ -3,11 +3,9 @@ import datetime
 import inspect
 import json
 import rapidjson
-import logging
 import traceback
 from abc import ABC, ABCMeta, abstractmethod, abstractproperty
 from functools import partial
-from logging.config import dictConfig
 from typing import Any, Callable, Dict, List, Optional
 from urllib import parse
 
@@ -29,11 +27,8 @@ from asyncdb.meta import AsyncORM
 from asyncdb.models import Model
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
-from navconfig.logging import logging_config, loglevel
-
+from navconfig.logging import logging, loglevel
 from navigator.libs import SafeDict
-
-dictConfig(logging_config)
 
 
 class BaseHandler(CorsViewMixin):
@@ -56,7 +51,7 @@ class BaseHandler(CorsViewMixin):
         CorsViewMixin.__init__(self)
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
-        self.logger = logging.getLogger("Navigator")
+        self.logger = logging.getLogger('navigator')
         self.logger.setLevel(loglevel)
         self.post_init(self, *args, **kwargs)
 

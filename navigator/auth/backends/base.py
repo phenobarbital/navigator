@@ -1,8 +1,8 @@
 import logging
 import jwt
 import importlib
-from typing import List, Dict, Iterable, Any
-from abc import ABC, ABCMeta, abstractmethod
+from typing import List, Dict
+from abc import ABC, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.models import Model
@@ -21,7 +21,6 @@ from navigator.conf import (
     SECRET_KEY,
     SESSION_USER_PROPERTY
 )
-
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
@@ -29,10 +28,11 @@ from navigator.exceptions import (
     FailedAuth,
     AuthExpired
 )
-from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
 from navigator.auth.sessions import get_session, new_session
 
+# Authenticated Identity
+from navigator.auth.identities import Identity
 
 exclude_list = (
     "/static/",
@@ -81,8 +81,7 @@ class BaseAuthBackend(ABC):
         self._authz_backends: List = authorization_backends
         # user and group models
         # getting User and Group Models
-        self.user_model: Model = self.get_model(AUTH_USER_MODEL)
-        self.group_model: Model = self.get_model(AUTH_GROUP_MODEL)
+        self.user_model: Model = kwargs["user_model"]
         # user mapping
         self.user_mapping = USER_MAPPING
         if not SECRET_KEY:
@@ -90,17 +89,6 @@ class BaseAuthBackend(ABC):
             self.secret_key = base64.urlsafe_b64decode(fernet_key)
         else:
             self.secret_key = SECRET_KEY
-
-    def get_model(self, model, **kwargs):
-        try:
-            parts = model.split(".")
-            name = parts[-1]
-            classpath = ".".join(parts[:-1])
-            module = importlib.import_module(classpath, package=name)
-            obj = getattr(module, name)
-            return obj
-        except ImportError:
-            raise Exception(f"Error loading Auth Model {model}")
 
     async def on_startup(self, app: web.Application):
         pass
@@ -142,22 +130,22 @@ class BaseAuthBackend(ABC):
             request: web.Request,
             identity: str,
             userdata: Dict,
-            user: Any
+            user: Identity
         ):
         """
         Saves User Identity into request Object.
         """
         try:
             request[self.session_key_property] = identity
-            request[self.user_property] = userdata
-            # which Auth Method:
-            request['auth_method'] = self.__class__.__name__
+            # request[self.user_property] = userdata
             # saving the user
             request.user = user
             # Session:
             try:
                 session = await new_session(request, userdata)
                 user.is_authenticated = True # if session, then, user is authenticated.
+                # which Auth Method:
+                user.auth_method = self.__class__.__name__
                 session[self.session_key_property] = identity
                 session['user'] = session.encode(user)
                 request['session'] = session

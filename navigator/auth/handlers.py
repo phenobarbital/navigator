@@ -1,20 +1,9 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
-
-import asyncio
-import base64
 import json
-import os
-import sys
-
 from aiohttp import web
-
 from navigator.conf import (
-    DEBUG,
-    SESSION_PREFIX,
-    SESSION_URL,
-    SESSION_KEY,
-    config
+    SESSION_KEY
 )
 from navigator.handlers import nav_exception_handler
 from navigator.exceptions import (
@@ -22,10 +11,9 @@ from navigator.exceptions import (
     UserDoesntExists,
     InvalidAuth
 )
-
-from navigator.auth.sessions import get_session, new_session
+from navigator.auth.sessions import get_session
 from navigator.views import BaseView, BaseHandler
-from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
+from asyncdb.utils.encoders import DefaultEncoder
 from navigator.auth.models import User
 
 class UserHandler(BaseView):
@@ -51,13 +39,13 @@ class UserHandler(BaseView):
                 return self.no_content(headers=headers)
             else:
                 try:
-                    sessionid = session[SESSION_KEY]
+                    id = session[SESSION_KEY]
                 except KeyError:
                     return self.error('Invalid Session, missing Session ID')
                 headers = {"x-status": "OK", "x-message": "Session OK"}
                 userdata = dict(session)
                 data = {
-                    "session_id": sessionid,
+                    "session_id": id,
                     **userdata
                 }
                 if data:

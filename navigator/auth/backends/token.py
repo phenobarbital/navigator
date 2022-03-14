@@ -27,13 +27,13 @@ from navigator.conf import (
     AUTH_TOKEN_SECRET
 )
 from navigator.auth.sessions import get_session
-from navigator.auth.models import AuthUser
-from asyncdb.models import Column
+# Authenticated Entity
+from navigator.auth.identities import AuthUser, Program
+from typing import List
 
 class TokenUser(AuthUser):
     tenant: str
-    programs: list = Column(default_factory=[])
-
+    programs: List[Program]
 
 class TokenAuth(BaseAuthBackend):
     """API Token Authentication Handler."""
@@ -164,11 +164,12 @@ class TokenAuth(BaseAuthBackend):
                 usr.programs = programs
                 usr.tenant = tenant
                 logging.debug(f'User Created: {usr}')
+                token = self.create_jwt(data=user)
+                usr.access_token = token
                 # saving user-data into request:
                 await self.remember(
                     request, id, userdata, usr
                 )
-                token = self.create_jwt(data=user)
                 return {
                     "token": f"{tenant}:{token}",
                     **user

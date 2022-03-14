@@ -26,8 +26,27 @@ from navigator.conf import (
     SESSION_OBJECT,
     SESSION_STORAGE
 )
+from jsonpickle.unpickler import loadclass
 import jsonpickle
+from asyncdb.models import Model
 
+class ModelHandler(jsonpickle.handlers.BaseHandler):
+    def flatten(self, obj, data):
+        data['__dict__'] = self.context.flatten(obj.__dict__, reset=False)
+        return data
+    
+    def restore(self, data):
+        module_and_type = data['py/object']
+        cls = loadclass(module_and_type)
+        if hasattr(cls, '__new__'):
+            obj = cls.__new__(cls)
+        else:
+            obj = object.__new__(cls)
+
+        obj.__dict__ = self.context.restore(data['__dict__'], reset=False)
+        return obj
+        
+jsonpickle.handlers.registry.register(Model, ModelHandler)
 
 class SessionData(MutableMapping[str, Any]):
     """Session dict-like object.
@@ -167,10 +186,13 @@ class SessionData(MutableMapping[str, Any]):
             Any: object converted.
         """
         try:
+            print('AQUI ==================')
             value = self._data[key]
             return jsonpickle.decode(value)
         except Exception as err:
             raise RuntimeError(err)
+        finally:
+            print('Y AQUI ===========')
 
 
 class AbstractStorage(metaclass=abc.ABCMeta):

@@ -3,11 +3,9 @@ import datetime
 import inspect
 import json
 import rapidjson
-import logging
 import traceback
 from abc import ABC, ABCMeta, abstractmethod, abstractproperty
 from functools import partial
-from logging.config import dictConfig
 from typing import Any, Callable, Dict, List, Optional
 from urllib import parse
 
@@ -25,15 +23,12 @@ from aiohttp.web_exceptions import (
 )
 from aiohttp_cors import CorsViewMixin
 from asyncdb.providers.memcache import memcache
-from asyncdb.meta import asyncORM
+from asyncdb.meta import AsyncORM
 from asyncdb.models import Model
 from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
 from asyncdb.exceptions import *
-from navconfig.logging import logging_config, loglevel
-
+from navconfig.logging import logging, loglevel
 from navigator.libs import SafeDict
-
-dictConfig(logging_config)
 
 
 class BaseHandler(CorsViewMixin):
@@ -56,7 +51,7 @@ class BaseHandler(CorsViewMixin):
         CorsViewMixin.__init__(self)
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
-        self.logger = logging.getLogger("Navigator")
+        self.logger = logging.getLogger('navigator')
         self.logger.setLevel(loglevel)
         self.post_init(self, *args, **kwargs)
 
@@ -391,7 +386,7 @@ class DataView(BaseView):
             pool = request.app["database"]
             if pool.is_connected():
                 conn = await pool.acquire()
-                db = asyncORM(db=conn, loop=self._loop)
+                db = AsyncORM(db=conn, loop=self._loop)
                 return db
         finally:
             return db
@@ -552,14 +547,14 @@ class DataView(BaseView):
 
 
 async def load_models(app: str, model, tablelist: list = []):
-    db = await app["database"].acquire()
-    name = app["name"]
-    for table in tablelist:
-        try:
-            query = await Model.makeModel(name=table, schema=name, db=db)
-            model[table] = query
-        except Exception as err:
-            logging.error(f"Error loading Model {table}: {err!s}")
+    async with await app["database"].acquire() as conn:
+        name = app["name"]
+        for table in tablelist:
+            try:
+                query = await Model.makeModel(name=table, schema=name, db=conn)
+                model[table] = query
+            except Exception as err:
+                logging.error(f"Error loading Model {table}: {err!s}")
 
 
 class ModelView(BaseView):

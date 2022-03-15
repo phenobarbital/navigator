@@ -160,11 +160,17 @@ class GoogleAuth(BaseAuthBackend):
             userdata = await self.google.openid_connect.get_user_info(
                 user_creds
             )
-            # print(userdata)
+            print(userdata)
+            id = userdata['id']
             payload = {
-                "user_id": userdata['id'],
+                "user_id": id,
                 **userdata
             }
+            userdata[self.session_key_property] = id
+            # saving Auth data.
+            await self.remember(
+                request, id, userdata
+            )
             # Create the User session.
             token = self.create_jwt(data=payload)
             data = {

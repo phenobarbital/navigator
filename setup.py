@@ -12,8 +12,9 @@ def get_path(filename):
     return path.join(path.dirname(path.abspath(__file__)), filename)
 
 
-with open(get_path('README.md')) as readme:
-    README = readme.read()
+def readme():
+    with open(get_path('README.md')) as readme:
+        return readme.read()
 
 with open(get_path('navigator/version.py')) as meta:
     exec(meta.read())
@@ -25,10 +26,10 @@ setup(
     url="https://github.com/phenobarbital/navigator-api",
     description=__description__,
     platforms=['POSIX'],
-    long_description=README,
+    long_description=readme(),
     long_description_content_type="text/markdown",
     classifiers=[
-        "Development Status :: 3 - Alpha",
+        "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
         "Intended Audience :: Information Technology",
         "Intended Audience :: System Administrators",
@@ -43,10 +44,10 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', )),
     include_package_data=True,
     license=__license__,
+    license_files = 'LICENSE',
     setup_requires=[
         "wheel==0.37.0",
         "Cython==0.29.28",
-        "numpy==1.21.1",
         "asyncio==3.4.3",
         "cchardet==2.1.7",
         'cryptography==3.4.7',
@@ -55,11 +56,12 @@ setup(
     install_requires=[
         "wheel==0.37.0",
         "Cython==0.29.28",
-        "numpy==1.21.1",
         "asyncio==3.4.3",
         "uvloop==0.16.0",
-        "asyncdb @ git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb",
-        "navconfig @ git+https://github.com/phenobarbital/NavConfig.git@new-version#egg=navconfig",
+        "asyncdb",
+        "navconfig",
+        "async-notify",
+        "typing-extensions==4.1.1",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
         "sockjs==0.11.0",
@@ -81,7 +83,10 @@ setup(
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
-        "aiohttp-debugtoolbar==0.6.0"
+        "aiohttp-debugtoolbar==0.6.0",
+        "jsonpickle==2.1.0",
+        'slugify==0.0.1',
+        "platformdirs==2.5.1"
     ],
     tests_require=[
             'pytest>=5.4.0',
@@ -89,10 +94,6 @@ setup(
             'pytest-asyncio==0.14.0',
             'pytest-xdist==2.1.0',
             'pytest-assume==2.4.2'
-    ],
-    dependency_links=[
-        'git+https://github.com/phenobarbital/asyncdb.git@fix-versions#egg=asyncdb',
-        'git+https://github.com/phenobarbital/NavConfig.git@new-version#egg=navconfig'
     ],
     project_urls={
         'Source': 'https://github.com/phenobarbital/navigator-api',

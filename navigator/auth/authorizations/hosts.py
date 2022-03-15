@@ -18,7 +18,7 @@ class authz_hosts(BaseAuthzHandler):
             return True
         try:
             if request.headers["origin"] in HOSTS:
-                logging.debug('Authorized based on HOST Authorization')
+                logging.debug('Authorization based on HOST')
                 return True
         except KeyError:
             return False

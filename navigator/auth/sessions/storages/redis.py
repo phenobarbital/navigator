@@ -25,7 +25,7 @@ class RedisStorage(AbstractStorage):
                 decode_responses=True,
                 encoding='utf-8'
         )
-        print('REDIS CACHE:  ', SESSION_URL, redis)
+        # print('REDIS CACHE:  ', SESSION_URL, redis)
         async def close_redis(app):
             await redis.disconnect(inuse_connections = True)
         app.on_cleanup.append(close_redis)
@@ -85,7 +85,7 @@ class RedisStorage(AbstractStorage):
         self,
         request: web.Request,
         userdata: dict = {},
-        new: bool = True
+        new: bool = False
     ) -> SessionData:
         """
         Load Session.
@@ -98,13 +98,18 @@ class RedisStorage(AbstractStorage):
         """
         # TODO: first: for security, check if cookie csrf_secure exists
         # if not, session is missed, expired, bad session, etc
-        conn = aioredis.Redis(connection_pool=self._redis)
+        try:
+            conn = aioredis.Redis(connection_pool=self._redis)
+        except Exception as err:
+            logging.exception(f'Error loading Redis Session: {err!s}')
         session_id = request.get(SESSION_KEY, None)
         if not session_id:
             session_id = userdata.get(SESSION_KEY, None) if userdata else None
             # TODO: getting from cookie
+        if session_id is None and new is False:
+            return False
         # we need to load session data from redis
-        print(f':::::: LOAD SESSION {session_id} ::::: ')
+        print(f':::::: LOAD SESSION FOR {session_id} ::::: ')
         try:
             data = await conn.get(session_id)
         except Exception as err:
@@ -112,7 +117,6 @@ class RedisStorage(AbstractStorage):
             data = None
         if data is None:
             if new is True:
-                print(':::: CREATING A NEW SESSION :::: ')
                 # create a new session if not exists:
                 return await self.new_session(request, userdata)
             else:
@@ -180,7 +184,7 @@ class RedisStorage(AbstractStorage):
                 session_id = data[SESSION_KEY]
             except KeyError:
                 session_id = self.id_factory()
-        print(f':::::: START CREATING A NEW SESSION {session_id} ::::: ')
+        print(f':::::: START CREATING A NEW SESSION FOR {session_id} ::::: ')
         if not data:
             data = {}
         # saving this new session on DB

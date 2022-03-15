@@ -1,8 +1,8 @@
 import logging
 import jwt
 import importlib
-from typing import List, Iterable
-from abc import ABC, ABCMeta, abstractmethod
+from typing import List, Dict
+from abc import ABC, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.models import Model
@@ -12,30 +12,34 @@ from navigator.conf import (
     AUTH_USER_MODEL,
     AUTH_GROUP_MODEL,
     AUTH_SESSION_OBJECT,
+    AUTH_USERNAME_ATTRIBUTE,
     JWT_ALGORITHM,
     USER_MAPPING,
     SESSION_TIMEOUT,
     CREDENTIALS_REQUIRED,
     SESSION_KEY,
-    SECRET_KEY
+    SECRET_KEY,
+    SESSION_USER_PROPERTY
 )
-
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
-    InvalidAuth
+    InvalidAuth,
+    FailedAuth,
+    AuthExpired
 )
-from navigator.functions import json_response
 from aiohttp.web_urldispatcher import SystemRoute
+from navigator.auth.sessions import get_session, new_session
 
-JWT_EXP_DELTA_SECONDS = int(SESSION_TIMEOUT)
+# Authenticated Identity
+from navigator.auth.identities import Identity
 
 exclude_list = (
     "/static/",
     "/api/v1/login",
-    # "/api/v1/logout",
+    "/api/v1/logout",
     "/login",
-    # "/logout",
+    "/logout",
     "/signin",
     "/signout",
     "/_debug/",
@@ -44,46 +48,41 @@ exclude_list = (
 
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
-
-    _session = None
-    user_model: Model = None
-    group_model: Model = None
-    user_property: str = "user"
-    user_attribute: str = "user"
-    password_attribute: str = "password"
     userid_attribute: str = "user_id"
-    username_attribute: str = "username"
-    user_mapping: dict = {"user_id": "id", "username": "username"}
+    username_attribute: str = AUTH_USERNAME_ATTRIBUTE
     session_key_property: str = SESSION_KEY
-    credentials_required: bool = False
+    credentials_required: bool = CREDENTIALS_REQUIRED
     scheme: str = "Bearer"
-    _authz_backends: List = []
-    user_mapping: dict = {}
+    session_timeout: int = int(SESSION_TIMEOUT)
 
     def __init__(
         self,
-        user_property: str = "user",
         user_attribute: str = "user",
         userid_attribute: str = "user_id",
-        username_attribute: str = "username",
+        password_attribute: str = "password",
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,
     ):
+        self._session = None
         # force using of credentials
         self.credentials_required = credentials_required
-        self.user_property = user_property
+        self.user_property = SESSION_USER_PROPERTY
         self.user_attribute = user_attribute
+        self.password_attribute = password_attribute
         self.userid_attribute = userid_attribute
-        self.username_attribute = username_attribute
+        self.username_attribute = AUTH_USERNAME_ATTRIBUTE
         # authentication scheme
-        self._scheme = kwargs["scheme"]
+        try:
+            self.scheme = kwargs["scheme"]
+        except KeyError:
+            pass
         # configuration Authorization Backends:
-        self._authz_backends = authorization_backends
+        self._authz_backends: List = authorization_backends
         # user and group models
         # getting User and Group Models
-        self.user_model = self.get_model(AUTH_USER_MODEL)
-        self.group_model = self.get_model(AUTH_GROUP_MODEL)
+        self.user_model: Model = kwargs["user_model"]
+        # user mapping
         self.user_mapping = USER_MAPPING
         if not SECRET_KEY:
             fernet_key = fernet.Fernet.generate_key()
@@ -91,16 +90,11 @@ class BaseAuthBackend(ABC):
         else:
             self.secret_key = SECRET_KEY
 
-    def get_model(self, model, **kwargs):
-        try:
-            parts = model.split(".")
-            name = parts[-1]
-            classpath = ".".join(parts[:-1])
-            module = importlib.import_module(classpath, package=name)
-            obj = getattr(module, name)
-            return obj
-        except ImportError:
-            raise Exception(f"Error loading Auth Model {model}")
+    async def on_startup(self, app: web.Application):
+        pass
+    
+    async def on_cleanup(self, app: web.Application):
+        pass
 
     async def get_user(self, **search):
         """Getting User Object."""
@@ -126,10 +120,42 @@ class BaseAuthBackend(ABC):
             }
         return userdata
 
-    def configure(self, app, router):
+    def configure(self, app, router, handler):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
         pass
+
+    async def remember(
+            self,
+            request: web.Request,
+            identity: str,
+            userdata: Dict,
+            user: Identity
+        ):
+        """
+        Saves User Identity into request Object.
+        """
+        try:
+            request[self.session_key_property] = identity
+            # request[self.user_property] = userdata
+            # saving the user
+            request.user = user
+            # Session:
+            try:
+                session = await new_session(request, userdata)
+                user.is_authenticated = True # if session, then, user is authenticated.
+                # which Auth Method:
+                user.auth_method = self.__class__.__name__
+                session[self.session_key_property] = identity
+                session['user'] = session.encode(user)
+                request['session'] = session
+            except Exception as err:
+                raise web.HTTPForbidden(
+                    reason=f"Error Creating User Session: {err!s}"
+                )
+            # to allowing request.user.is_authenticated
+        except Exception as err:
+            logging.exception(err)
 
     async def authorization_backends(self, app, handler, request):
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
@@ -158,7 +184,7 @@ class BaseAuthBackend(ABC):
         **kwargs: data to put in payload
         """
         if not expiration:
-            expiration = JWT_EXP_DELTA_SECONDS
+            expiration = self.session_timeout
         if not issuer:
             issuer = "urn:Navigator"
         payload = {
@@ -184,14 +210,14 @@ class BaseAuthBackend(ABC):
         if "Authorization" in request.headers:
             try:
                 scheme, id = (
-                    request.headers.get("Authorization").strip().split(" ", 1)
+                    request.headers.get(hdrs.AUTHORIZATION).strip().split(" ", 1)
                 )
             except ValueError:
                 raise NavException(
                     "Invalid authorization Header",
                     state=400
                 )
-            if scheme != self._scheme:
+            if scheme != self.scheme:
                 raise NavException(
                     "Invalid Authorization Scheme",
                     state=400
@@ -212,18 +238,15 @@ class BaseAuthBackend(ABC):
                 )
                 logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
-            except (jwt.exceptions.InvalidSignatureError):
-                raise NavException("Invalid Signature Error")
-            except (jwt.DecodeError) as err:
-                raise NavException(f"Token Decoding Error: {err}", state=400)
-            except jwt.InvalidTokenError as err:
-                print(err)
-                raise NavException(f"Invalid authorization token {err!s}")
-            except (jwt.ExpiredSignatureError) as err:
-                print(err)
-                raise NavException(f"Token Expired {err!s}", state=403)
+            except jwt.exceptions.ExpiredSignatureError as err:
+                raise AuthExpired(f"Credentials Expired: {err!s}")
+            except jwt.exceptions.InvalidSignatureError as err:
+                raise AuthExpired(f"Signature Failed or Expired: {err!s}")
+            except jwt.exceptions.DecodeError as err:
+                raise FailedAuth(f"Token Decoding Error: {err}")
+            except jwt.exceptions.InvalidTokenError as err:
+                raise InvalidAuth(f"Invalid authorization token {err!s}")
             except Exception as err:
-                print(err)
                 raise NavException(err, state=501)
         else:
             return [tenant, payload]

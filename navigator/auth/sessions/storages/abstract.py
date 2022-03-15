@@ -1,6 +1,7 @@
 """Base Class for all Session Storages."""
 
 import abc
+import json
 import uuid
 import time
 import asyncio
@@ -25,6 +26,27 @@ from navigator.conf import (
     SESSION_OBJECT,
     SESSION_STORAGE
 )
+from jsonpickle.unpickler import loadclass
+import jsonpickle
+from asyncdb.models import Model
+
+class ModelHandler(jsonpickle.handlers.BaseHandler):
+    def flatten(self, obj, data):
+        data['__dict__'] = self.context.flatten(obj.__dict__, reset=False)
+        return data
+    
+    def restore(self, data):
+        module_and_type = data['py/object']
+        cls = loadclass(module_and_type)
+        if hasattr(cls, '__new__'):
+            obj = cls.__new__(cls)
+        else:
+            obj = object.__new__(cls)
+
+        obj.__dict__ = self.context.restore(data['__dict__'], reset=False)
+        return obj
+        
+jsonpickle.handlers.registry.register(Model, ModelHandler)
 
 class SessionData(MutableMapping[str, Any]):
     """Session dict-like object.
@@ -131,6 +153,47 @@ class SessionData(MutableMapping[str, Any]):
 
     def __getattr__(self, key: str) -> Any:
         return self._data[key]
+    
+    def encode(self, obj: Any) -> str:
+        """encode
+
+            Encode an object using jsonpickle.
+        Args:
+            obj (Any): Object to be encoded using jsonpickle
+
+        Raises:
+            RuntimeError: Error converting data to json.
+
+        Returns:
+            str: json version of the data
+        """
+        try:
+            return jsonpickle.encode(obj)
+        except Exception as err:
+            raise RuntimeError(err)
+    
+    def decode(self, key: str) -> Any:
+        """decode.
+
+            Decoding a Session Key using jsonpickle.
+        Args:
+            key (str): key name.
+
+        Raises:
+            RuntimeError: Error converting data from json.
+
+        Returns:
+            Any: object converted.
+        """
+        try:
+            print('AQUI ==================')
+            value = self._data[key]
+            return jsonpickle.decode(value)
+        except Exception as err:
+            raise RuntimeError(err)
+        finally:
+            print('Y AQUI ===========')
+
 
 class AbstractStorage(metaclass=abc.ABCMeta):
 

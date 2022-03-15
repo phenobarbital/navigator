@@ -212,6 +212,9 @@ class OktaAuth(BaseAuthBackend):
         ).json()
         print(userdata)
         userdata['id'] = userdata["sub"]
+        userdata[self.session_key_property] = userdata["sub"]
+        userdata['access_token'] = access_token
+        userdata['id_token'] = id_token
         # get user data
         # unique_id = userdata["sub"]
         # user_email = userdata["email"]
@@ -221,6 +224,10 @@ class OktaAuth(BaseAuthBackend):
             "user_id": userdata["sub"],
             **userdata
         }
+        # saving Auth data.
+        await self.remember(
+            request, userdata["sub"], userdata
+        )
         # Create the User session.
         token = self.create_jwt(data=payload)
         data = {

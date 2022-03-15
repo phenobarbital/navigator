@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import os
 import sys
 import base64
 import json
 import importlib
-import logging
 from pathlib import Path
 from types import ModuleType
 from typing import (
@@ -14,21 +12,24 @@ from typing import (
     Tuple
 )
 from cryptography import fernet
-
 # Import Config Class
 from navconfig import (
     BASE_DIR,
-    EXTENSION_DIR,
     config,
     DEBUG
 )
-from navconfig.logging import logdir, loglevel, logging_config
+from navconfig.logging import (
+    logging
+)
 
 """
 Routes
 """
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_DIR = BASE_DIR.joinpath("apps")
+
+logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
+
 APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
 APP_PORT = config.get('APP_PORT', fallback=5000)
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
@@ -142,6 +143,9 @@ CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 """
 Authentication System
 """
+AUTHENTICATION_BACKENDS = (
+)
+
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
@@ -154,11 +158,14 @@ AUTHORIZATION_MIDDLEWARES = (
 
 
 # Basic Authentication
+AUTH_TOKEN_ISSUER = config.get('AUTH_TOKEN_ISSUER', fallback='Navigator')
 AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
-
+AUTH_USERNAME_ATTRIBUTE = config.get(
+    'AUTH_USERNAME_ATTRIBUTE', fallback='username'
+)
 CREDENTIALS_REQUIRED = config.getboolean(
     "AUTH_CREDENTIALS_REQUIRED", fallback=False
 )
@@ -209,6 +216,7 @@ SESSION_KEY = config.get('SESSION_KEY', fallback='id')
 SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
 SESSION_OBJECT = 'NAV_SESSION'
 SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
+SESSION_USER_PROPERTY = config.get('SESSION_USER_PROPERTY', fallback='user')
 
 """
  Memcache
@@ -217,7 +225,10 @@ MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
 MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 
 # get configuration settings (user can override settings).
-from navconfig.conf import *
+try:
+    from navconfig.conf import *
+except ImportError:
+    from settings.settings import *
 
 """
 Final: Config dict for aiohttp

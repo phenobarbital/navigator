@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
-import argparse
 import ssl
-import sys
-import typing
 import aiohttp_cors
-import logging
 import signal
 import sockjs
 import traceback
+import argparse
 from aiohttp import web
 from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
@@ -23,22 +20,20 @@ import asyncio
 import uvloop
 from navigator.conf import (
     DEBUG,
-    APP_DIR,
     APP_NAME,
     APP_HOST,
     APP_PORT,
-    BASE_DIR,
     EMAIL_CONTACT,
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
-    STATIC_DIR,
     Context,
-    config,
     SSL_CERT,
     SSL_KEY,
-    loglevel,
-    TEMPLATE_DIR
+    TEMPLATE_DIR,
+    CACHE_URL,
+    default_dsn
 )
+from navigator.connections import PostgresPool, RedisPool
 from navigator.applications import AppBase, AppHandler, app_startup
 # Exception Handlers
 from navigator.handlers import (
@@ -48,6 +43,7 @@ from navigator.handlers import (
 from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
+from navconfig.logging import logging
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -83,8 +79,8 @@ class Application(object):
     def __init__(
         self,
         app: AppHandler = None,
-        enable_swagger: bool = True,
-        enable_debugtoolbar: bool = True,
+        enable_swagger: bool = False,
+        enable_debugtoolbar: bool = False,
         enable_jinja_parser: bool = True,
         use_ssl: bool = False,
         title: str = '',
@@ -121,7 +117,6 @@ class Application(object):
                     shutdown(self._loop, s)
                 )
             )
-        self._executor = ThreadPoolExecutor()
         self.parser = argparse.ArgumentParser(
             description="Navigator App"
         )
@@ -175,16 +170,36 @@ class Application(object):
     def __getitem__(self, k):
         return self.app.App[k]
 
-    def get_logger(self, name:str = "Navigator"):
-        logging_format = f"[%(asctime)s] %(levelname)-5s %(name)-{len(name)}s "
-        logging_format += "%(message)s"
-        logging.basicConfig(
-            format=logging_format, level=loglevel, datefmt="%Y:%m:%d %H:%M:%S"
-        )
+    def get_logger(self, name:str = APP_NAME):
         return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
+        if self.enable_jinja_parser is True:
+            try:
+                parser = TemplateParser(
+                    directory=TEMPLATE_DIR
+                )
+                app['template'] = parser
+            except Exception:
+                raise
+        # create the pool-based connections (shared):
+        name = app["name"]
+        redis = RedisPool(
+            dsn=CACHE_URL,
+            name=f"NAV-{name!s}",
+            loop=self._loop
+        )
+        redis.configure(app)
+        app['redis'] = redis.connection()
+        # Database Pool:
+        db = PostgresPool(
+            dsn=default_dsn,
+            name=f"NAV-{name!s}",
+            loop=self._loop
+        )
+        db.configure(app)
+        app['database'] = db.connection()
         # setup The Application and Sub-Applications Startup
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes
@@ -203,14 +218,6 @@ class Application(object):
         )
         self.app.setup_cors(cors)
         self.app.setup_docs()
-        if self.enable_jinja_parser is True:
-            try:
-                parser = TemplateParser(
-                    directory=TEMPLATE_DIR
-                )
-                app['template'] = parser
-            except Exception:
-                raise
         return app
 
     def add_websockets(self) -> None:
@@ -258,7 +265,7 @@ class Application(object):
                         )
 
                     result = await self._loop.run_in_executor(
-                        self._executor, blocking_function
+                        ThreadPoolExecutor(max_workers=1), blocking_function
                     )
                 else:
                     result = await func(request)
@@ -307,6 +314,10 @@ class Application(object):
             return _wrap
 
         return _decorator
+
+    @property
+    def router(self):
+        return self.app.App.router
 
     def post(self, route: str):
         def _decorator(func):

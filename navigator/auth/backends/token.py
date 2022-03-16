@@ -208,9 +208,14 @@ class TokenAuth(BaseAuthBackend):
         async def middleware(request):
             logging.debug(f'MIDDLEWARE: {self.__class__.__name__}')
             request.user = None
-            authz = await self.authorization_backends(app, handler, request)
-            if authz:
-                return await authz
+            try:
+                authz = await self.authorization_backends(app, handler, request)
+                if authz:
+                    return await handler(request)
+            except Exception as err:
+                logging.exception(
+                    f'Error Processing Base Authorization Backend: {err!s}'
+                )
             try:
                 auth = request.get('authenticated', False)
                 if auth is True:

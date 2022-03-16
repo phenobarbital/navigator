@@ -32,13 +32,15 @@ logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
 
 APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
 APP_PORT = config.get('APP_PORT', fallback=5000)
+APP_URL = config.get('APP_URL', fallback=f"http://localhost:{APP_PORT}")
+
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
-STATIC_DIR = BASE_DIR.joinpath("static")
 TEMPLATE_DIR = BASE_DIR.joinpath("templates")
 SERVICES_DIR = BASE_DIR.joinpath("services")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
+STATIC_DIR = config.get('STATIC_DIR', fallback='static/')
 # Temp File Path
 files_path = BASE_DIR.joinpath("temp")
 
@@ -178,6 +180,8 @@ AUTH_GROUP_MODEL = config.get(
 AUTH_SESSION_OBJECT = config.get(
     "AUTH_SESSION_OBJECT", fallback="session"
 )
+AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
+AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",
@@ -198,9 +202,10 @@ else:
     USER_MAPPING = DEFAULT_MAPPING
 
 USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
+
 ALLOWED_HOSTS = [
     e.strip()
-    for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+    for e in list(config.get("ALLOWED_HOSTS", section="auth", fallback="localhost*").split(","))
 ]
 
 """

@@ -48,29 +48,37 @@ exclude_list = (
 
 class BaseAuthBackend(ABC):
     """Abstract Base for Authentication."""
+    user_attribute: str = "user"
+    password_attribute: str = "password"
     userid_attribute: str = "user_id"
     username_attribute: str = AUTH_USERNAME_ATTRIBUTE
     session_key_property: str = SESSION_KEY
     credentials_required: bool = CREDENTIALS_REQUIRED
     scheme: str = "Bearer"
     session_timeout: int = int(SESSION_TIMEOUT)
+    _service: str = None
 
     def __init__(
         self,
-        user_attribute: str = "user",
-        userid_attribute: str = "user_id",
-        password_attribute: str = "password",
+        user_attribute: str = None,
+        userid_attribute: str = None,
+        password_attribute: str = None,
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,
     ):
+        self._service = self.__class__.__name__
         self._session = None
         # force using of credentials
         self.credentials_required = credentials_required
+        self._credentials = None
         self.user_property = SESSION_USER_PROPERTY
-        self.user_attribute = user_attribute
-        self.password_attribute = password_attribute
-        self.userid_attribute = userid_attribute
+        if user_attribute:
+            self.user_attribute = user_attribute
+        if password_attribute:
+            self.password_attribute = password_attribute
+        if userid_attribute:
+            self.userid_attribute = userid_attribute
         self.username_attribute = AUTH_USERNAME_ATTRIBUTE
         # authentication scheme
         try:
@@ -145,7 +153,7 @@ class BaseAuthBackend(ABC):
                 session = await new_session(request, userdata)
                 user.is_authenticated = True # if session, then, user is authenticated.
                 # which Auth Method:
-                user.auth_method = self.__class__.__name__
+                user.auth_method = self._service
                 session[self.session_key_property] = identity
                 session['user'] = session.encode(user)
                 request['session'] = session
@@ -158,18 +166,24 @@ class BaseAuthBackend(ABC):
             logging.exception(err)
 
     async def authorization_backends(self, app, handler, request):
-        if isinstance(request.match_info.route, SystemRoute):  # eg. 404
-            return await handler(request)
+        try:
+            if isinstance(request.match_info.route, SystemRoute):  # eg. 404
+                return True
+        except Exception as err:
+            logging.error(err)
         # avoid authorization on exclude list
         if request.path in exclude_list:
-            return handler(request)
+            return True
         # avoid authorization backend on excluded methods:
         if request.method == hdrs.METH_OPTIONS:
-            return handler(request)
-        # logic for authorization backends
-        for backend in self._authz_backends:
-            if await backend.check_authorization(request):
-                return handler(request)
+            return True
+        try:
+            # logic for authorization backends
+            for backend in self._authz_backends:
+                if backend.check_authorization(request):
+                    return True
+        except Exception as err:
+            logging.error(err)
         return None
 
     def create_jwt(

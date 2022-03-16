@@ -31,14 +31,14 @@ class AnonymousUser(AuthUser):
 
 class NoAuth(BaseAuthBackend):
     """Basic Handler for No authentication."""
-
+    userid_attribute: str = "userid"
     user_attribute: str = "userid"
 
     def __init__(
         self,
-        user_attribute: str = "userid",
-        userid_attribute: str = "userid",
-        password_attribute: str = "password",
+        user_attribute: str = None,
+        userid_attribute: str = None,
+        password_attribute: str = None,
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,
@@ -104,12 +104,12 @@ class NoAuth(BaseAuthBackend):
             jwt_token = None
             try:
                 authz = await self.authorization_backends(app, handler, request)
-                if authz:
+                if authz is not None:
                     # Authorization Exception
-                    return await authz
+                    return await handler(request)
             except Exception as err:
                 logging.exception(
-                    f'Error Processing Authorization Middlewares {err!s}'
+                    f'Error Processing Base Authorization Backend: {err!s}'
                 )
             try:
                 auth = request.get('authenticated', False)
@@ -153,5 +153,4 @@ class NoAuth(BaseAuthBackend):
                         state=err.state
                     )
             return await handler(request)
-
         return middleware

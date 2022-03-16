@@ -214,8 +214,10 @@ class AppHandler(ABC):
             self.app.router.add_static(
                 "/static/",
                 path=self.staticdir,
-                name="static",
-                append_version=True
+                name='static',
+                append_version=True,
+                show_index=True,
+                follow_symlinks=True
             )
 
     def setup_docs(self) -> None:

@@ -58,36 +58,10 @@ class OktaAuth(ExternalAuth):
         self._issuer = f"https://{OKTA_DOMAIN}/oauth2/default"
         self._token_uri = f"https://{OKTA_DOMAIN}/oauth2/default/v1/token"
         self._introspection_uri = f"https://{OKTA_DOMAIN}/oauth2/default/v1/introspect"
-        
-        
+
 
     async def get_payload(self, request):
-        ctype = request.content_type
-        if request.method == "GET":
-            try:
-                user = request.query.get(self.username_attribute, None)
-                password = request.query.get(self.pwd_atrribute, None)
-                return [user, password]
-            except Exception:
-                return None
-        elif ctype in ("multipart/mixed", "application/x-www-form-urlencoded"):
-            data = await request.post()
-            if len(data) > 0:
-                user = data.get(self.username_attribute, None)
-                password = data.get(self.pwd_atrribute, None)
-                return [user, password]
-            else:
-                return None
-        elif ctype == "application/json":
-            try:
-                data = await request.json()
-                user = data[self.username_attribute]
-                password = data[self.pwd_atrribute]
-                return [user, password]
-            except Exception:
-                return None
-        else:
-            return None
+        pass
 
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials."""

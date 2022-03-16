@@ -49,7 +49,7 @@ class ExternalAuth(BaseAuthBackend):
         self._token_uri: str = ''
         # TODO: know the host we already are running
         self.login_failed_uri = AUTH_LOGIN_FAILED_URI
-        self.redirect_uri = "http://nav-api.dev.local:5000/auth/{}/callback/".format(self._service_name)
+        self.redirect_uri = "http://localhost:5000/auth/{}/callback/".format(self._service_name)
         # start login
         router.add_route(
             "GET",
@@ -83,7 +83,7 @@ class ExternalAuth(BaseAuthBackend):
         """redirect.
             Making the redirection to External Auth Page.
         """
-        logging.debug(f'Okta URI: {uri}')
+        logging.debug(f'{self.__class__.__name__} URI: {uri}')
         return web.HTTPFound(uri)
     
     def home_redirect(self):

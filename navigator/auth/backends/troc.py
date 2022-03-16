@@ -38,9 +38,9 @@ class TrocToken(BaseAuthBackend):
 
     def __init__(
         self,
-        user_attribute: str = "email",
-        userid_attribute: str = "user_id",
-        password_attribute: str = "password",
+        user_attribute: str = None,
+        userid_attribute: str = None,
+        password_attribute: str = None,
         credentials_required: bool = False,
         authorization_backends: tuple = (),
         **kwargs,

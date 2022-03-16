@@ -180,8 +180,8 @@ AUTH_GROUP_MODEL = config.get(
 AUTH_SESSION_OBJECT = config.get(
     "AUTH_SESSION_OBJECT", fallback="session"
 )
-AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', fallback=APP_URL)
-AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', fallback=APP_URL)
+AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
+AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",
@@ -203,12 +203,9 @@ else:
 
 USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
 
-print('HERE ============= ')
-print(config.get("ALLOWED_HOSTS"))
-
 ALLOWED_HOSTS = [
     e.strip()
-    for e in list(config.get("ALLOWED_HOSTS", fallback="localhost*").split(","))
+    for e in list(config.get("ALLOWED_HOSTS", section="auth", fallback="localhost*").split(","))
 ]
 
 """

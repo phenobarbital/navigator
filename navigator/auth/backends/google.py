@@ -4,8 +4,6 @@ Description: Backend Authentication/Authorization using Google AUTH API.
 """
 import logging
 from aiohttp import web
-from .base import BaseAuthBackend
-from typing import Dict, Any
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
@@ -115,8 +113,8 @@ class GoogleAuth(ExternalAuth):
                 id = userdata['id']
                 access_token = user_creds['id_token_jwt']
                 userdata[self.session_key_property] = id
-                await self.create_user(request, id, userdata, access_token)
-                return self.home_redirect()
+                data = await self.create_user(request, id, userdata, access_token)
+                return self.home_redirect(request, token=data['token'], token_type='Bearer')
             except Exception as err:
                 logging.exception(f"Okta Auth Error: {err}")
                 return self.redirect(uri=self.login_failed_uri)

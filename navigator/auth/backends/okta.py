@@ -156,8 +156,8 @@ class OktaAuth(ExternalAuth):
             userdata['id_token'] = id_token
             # get user data
             # TODO: Optional: get User info from Nav
-            await self.create_user(request, id, userdata, access_token)
-            return self.home_redirect()
+            data = await self.create_user(request, id, userdata, access_token)
+            return self.home_redirect(request, token=data['token'], token_type='Bearer')
         except Exception as err:
             logging.exception(f"Okta Auth Error: {err}")
             return self.redirect(uri=self.login_failed_uri)

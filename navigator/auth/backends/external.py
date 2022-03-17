@@ -3,7 +3,7 @@
 Abstract Model to any Oauth2 or external Auth Support.
 """
 import logging
-from aiohttp import web
+from aiohttp import web, hdrs
 from .base import BaseAuthBackend
 from typing import (
     Dict,
@@ -18,13 +18,15 @@ from navigator.conf import (
 )
 from navigator.auth.identities import AuthUser
 from typing import List
+from aiohttp.client import ClientTimeout, ClientSession, _RequestContextManager
+from requests.models import PreparedRequest
 
 class OauthUser(AuthUser):
     token: str
     given_name: str
     family_name: str
     
-    def __post_init__(self, data):
+    def __post_init__(self, data): 
         super(OauthUser, self).__post_init__(data)
         self.first_name = self.given_name
         self.last_name = self.family_name
@@ -86,9 +88,21 @@ class ExternalAuth(BaseAuthBackend):
         logging.debug(f'{self.__class__.__name__} URI: {uri}')
         return web.HTTPFound(uri)
     
-    def home_redirect(self):
+    def home_redirect(self, request: web.Request, token: str = None, token_type: str = 'Bearer', **kwargs):
         logging.debug(f'Finish Auth URI::: {AUTH_REDIRECT_URI}')
-        return web.HTTPFound(AUTH_REDIRECT_URI)
+        headers = {
+            "x-authenticated": 'true'
+        }
+        req = PreparedRequest()
+        params = {}
+        if token:
+            headers["x-auth-token"] = token
+            headers["x-auth-token-type"] = token_type
+            params = {
+                "token" : token, "type":  token_type
+            }
+        req.prepare_url(AUTH_REDIRECT_URI, params)
+        return web.HTTPFound(req.url, headers=headers)
 
     @abstractmethod
     async def authenticate(self, request: web.Request):
@@ -146,3 +160,36 @@ class ExternalAuth(BaseAuthBackend):
     async def check_credentials(self, request: web.Request):
         """Check the validity of the current issued credentials."""
         pass
+
+    def get(self, url, **kwargs) -> web.Response:
+        """Perform an HTTP GET request."""
+        return self.request(url, method=hdrs.METH_GET, **kwargs)
+
+    def post(self, url, **kwargs) -> web.Response:
+        """Perform an HTTP POST request."""
+        return self.request(url, method=hdrs.METH_POST, **kwargs)
+    
+    async def request(self, url: str, method: str ='get', token: Dict = None, token_type: str = 'Bearer', **kwargs) -> web.Response:
+        """
+        request.
+            connect to an http source using aiohttp
+        """
+        timeout = ClientTimeout(total=120)
+        headers = {}
+        if token:
+            headers["Authorization"] = f"{token_type} {token}"
+        headers["Content-type"] = "application/json"
+        response = None
+        async with ClientSession(trust_env=True) as client:
+            async with client.request(
+                method,
+                url,
+                headers=headers,
+                timeout=timeout,
+                allow_redirects=True,
+                **kwargs
+            ) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    raise Exception('Error getting Session Information')

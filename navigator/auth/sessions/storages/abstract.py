@@ -186,13 +186,12 @@ class SessionData(MutableMapping[str, Any]):
             Any: object converted.
         """
         try:
-            print('AQUI ==================')
             value = self._data[key]
             return jsonpickle.decode(value)
         except Exception as err:
             raise RuntimeError(err)
         finally:
-            print('Y AQUI ===========')
+            pass
 
 
 class AbstractStorage(metaclass=abc.ABCMeta):

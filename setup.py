@@ -86,7 +86,8 @@ setup(
         "aiohttp-debugtoolbar==0.6.0",
         "jsonpickle==2.1.0",
         'slugify==0.0.1',
-        "platformdirs==2.5.1"
+        "platformdirs==2.5.1",
+        "O365==2.0.18.1"
     ],
     tests_require=[
             'pytest>=5.4.0',

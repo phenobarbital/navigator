@@ -10,6 +10,7 @@ from .token import TokenAuth
 from .google import GoogleAuth
 from .okta import OktaAuth
 from .adfs import ADFSAuth
+from .azure import AzureAuth
 
 __all__ = [
     "NoAuth",
@@ -19,5 +20,6 @@ __all__ = [
     "TokenAuth",
     "GoogleAuth",
     "OktaAuth",
-    "ADFSAuth"
+    "ADFSAuth",
+    "AzureAuth",
 ]

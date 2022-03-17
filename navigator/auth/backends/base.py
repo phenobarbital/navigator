@@ -153,7 +153,7 @@ class BaseAuthBackend(ABC):
                 session = await new_session(request, userdata)
                 user.is_authenticated = True # if session, then, user is authenticated.
                 # which Auth Method:
-                user.auth_method = self._service
+                # user.auth_method = self._service
                 session[self.session_key_property] = identity
                 session['user'] = session.encode(user)
                 request['session'] = session

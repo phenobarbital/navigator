@@ -11,6 +11,7 @@ from .google import GoogleAuth
 from .okta import OktaAuth
 from .adfs import ADFSAuth
 from .azure import AzureAuth
+from .github import GithubAuth
 
 __all__ = [
     "NoAuth",
@@ -22,4 +23,5 @@ __all__ = [
     "OktaAuth",
     "ADFSAuth",
     "AzureAuth",
+    'GithubAuth'
 ]

@@ -135,7 +135,6 @@ class ADFSAuth(ExternalAuth):
             login = ADFS_LOGIN_REDIRECT_URL
         else:
             login = "/api/v1/auth/{}/".format(self._service_name)
-        print('LOGIN ', login)
 
         if ADFS_CALLBACK_REDIRECT_URL is not None:
             callback = ADFS_CALLBACK_REDIRECT_URL
@@ -143,7 +142,6 @@ class ADFSAuth(ExternalAuth):
         else:
             callback = "/auth/{}/callback/".format(self._service_name)
         # Login and Redirect Routes:
-        print('CALLBACK ', callback)
         router.add_route(
             "*",
             login,
@@ -151,7 +149,6 @@ class ADFSAuth(ExternalAuth):
             name="{}_login".format(self._service_name)
         )
         # finish login (callback)
-        print('CALL ', callback)
         router.add_route(
             "*",
             callback,

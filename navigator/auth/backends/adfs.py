@@ -7,7 +7,7 @@ import logging
 import asyncio
 import base64
 from aiohttp import web, hdrs
-from .base import BaseAuthBackend
+from .external import ExternalAuth
 from typing import List, Dict, Any
 import jwt
 # needed by ADFS
@@ -40,7 +40,7 @@ from navigator.conf import (
 )
 
 
-def load_certs():
+def load_certs(response):
     """Extract token signing certificates."""
     xml_tree = ElementTree.fromstring(response.content)
     cert_nodes = xml_tree.findall(
@@ -63,22 +63,27 @@ def load_certs():
         )
     return new_keys
 
-class ADFSAuth(BaseAuthBackend):
+class ADFSAuth(ExternalAuth):
     """ADFSAuth.
 
     Description: Authentication Backend using
     Active Directory Federation Service (ADFS).
     """
+    _service_name: str = "adfs"
     user_attribute: str = "user"
     username_attribute: str = "username"
     pwd_atrribute: str = "password"
-    _credentials: Dict = {}
-    _adfs: Any = None
     version = 'v1.0'
+    _user_mapping: Dict = {
+        'email': 'userPrincipalName',
+        'given_name': 'givenName',
+        'family_name': 'surname',
+        'name': 'displayName'
+    }
 
     def configure(self, app, router, handler):
+        super(ADFSAuth, self).configure(app, router, handler)
         # URIs:
-        router = app.router
         if ADFS_TENANT_ID:
             self.server = AZURE_AD_SERVER
             self.tenant_id = ADFS_TENANT_ID
@@ -91,173 +96,111 @@ class ADFSAuth(BaseAuthBackend):
             self.username_claim = USERNAME_CLAIM
             self.groups_claim = GROUP_CLAIM
             self.claim_mapping = ADFS_CLAIM_MAPPING
+        
         self.base_uri = f"https:://{self.server}/"
         self.end_session_endpoint = f"https://{self.server}/{self.tenant_id}/ls/?wa=wsignout1.0"
-        self.issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
-        self.authorization_endpoint = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
-        self.token_endpoint = f"https://{self.server}/{self.tenant_id}/oauth2/token"
-        async def _setup_adfs(app):
-            pass
-        asyncio.get_event_loop().run_until_complete(_setup_adfs(app))
-        # creating the Paths
-        router.add_route(
-            "GET",
-            "/auth/adfs/callback",
-            self.finish_auth,
-            name="adfs_complete_login"
-        )
-        router.add_route(
-            "GET",
-            "/auth/adfs/login",
-            self.authenticate,
-            name="adfs_api_login"
-        )
-        router.add_route(
-            "GET",
-            "/auth/adfs/logout",
-            self.logout,
-            name="adfs_api_logout"
-        )
-        router.add_route(
-            "GET",
-            "/auth/adfs/complete_logout",
-            self.finish_logout,
-            name="adfs_complete_logout"
-        )
-        # executing parent configurations
-        super(ADFSAuth, self).configure(app, router, handler)
-
-    async def get_payload(self, request):
-        ctype = request.content_type
-        if request.method == "GET":
-            try:
-                user = request.query.get(self.username_attribute, None)
-                password = request.query.get(self.pwd_atrribute, None)
-                return [user, password]
-            except Exception:
-                return None
-        elif ctype in ("multipart/mixed", "application/x-www-form-urlencoded"):
-            data = await request.post()
-            if len(data) > 0:
-                user = data.get(self.username_attribute, None)
-                password = data.get(self.pwd_atrribute, None)
-                return [user, password]
-            else:
-                return None
-        elif ctype == "application/json":
-            try:
-                data = await request.json()
-                user = data[self.username_attribute]
-                password = data[self.pwd_atrribute]
-                return [user, password]
-            except Exception:
-                return None
-        else:
-            return None
+        self._issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
+        self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
+        self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
 
     async def authenticate(self, request):
         """ Authenticate, refresh or return the user credentials.
 
         Description: This function returns the ADFS authorization URL.
         """
-        app = request.app
-        # print(app)
         absolute_uri = str(request.url)
-        print('URL: ', absolute_uri)
-        domain_url = absolute_uri.replace(str(request.rel_url), '')
-        print('DOMAIN: ', domain_url)
-        self.end_authorization_endpoint = f"{domain_url}/auth/adfs/callback"
-        try:
-            self.redirect_uri = "{}{}".format(
-                domain_url,
-                app.router["home"].url_for()
-            )
-        except Exception as err:
-            print(err)
+        DOMAIN_URL = absolute_uri.replace(str(request.rel_url), '')
+        print('DOMAIN: ', DOMAIN_URL)            
+        if ADFS_LOGIN_REDIRECT_URL:
             self.redirect_uri = ADFS_LOGIN_REDIRECT_URL
+        else:
+            self.redirect_uri = f"{DOMAIN_URL}/auth/adfs/callback/"
         print('REDIRECT: ', self.redirect_uri)
         try:
             self.state = base64.urlsafe_b64encode(self.redirect_uri.encode()).decode()
             query_params = {
                 "client_id": ADFS_CLIENT_ID,
                 "response_type": "code",
-                "redirect_uri": self.end_authorization_endpoint,
+                "redirect_uri": self.redirect_uri,
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": "openid",
-                "grant_type": "client_credentials"
+                "scope": "openid,offline_access"
             }
-            uri = "{base_uri}?{query_params}".format(
-                base_uri=self.authorization_endpoint,
+            login_url = "{base_uri}?{query_params}".format(
+                base_uri=self.authorize_uri,
                 query_params=requests.compat.urlencode(query_params)
             )
             # Step A: redirect
-            logging.debug(f'ADFS URI: {uri}')
-            return web.HTTPFound(uri)
+            return self.redirect(login_url)
         except Exception as err:
             print('HERE: ', err)
             raise NavException(
                 f"Client doesn't have info for ADFS Authentication: {err}"
             )
 
-    async def finish_auth(self, request):
-        # self.end_authorization_endpoint = "http://navigator.dev.mobileinsight.com/oauth2/callback"
+    async def auth_callback(self, request: web.Request):
+        absolute_uri = str(request.url)
+        DOMAIN_URL = absolute_uri.replace(str(request.rel_url), '')          
+        if ADFS_LOGIN_REDIRECT_URL:
+            self.redirect_uri = ADFS_LOGIN_REDIRECT_URL
+        else:
+            self.redirect_uri = f"{DOMAIN_URL}/auth/adfs/callback/"
         try:
-            response = {key: val for (key, val) in request.query.items()}
-            authorization_code = response['code']
-            state = response['state']
-            request_id = response['client-request-id']
+            auth_response = dict(request.rel_url.query.items())
+            authorization_code = auth_response['code']
+            state = auth_response['state']
+            request_id = auth_response['client-request-id']
         except Exception as err:
             print(err)
             raise NavException(
                 f"ADFS: Invalid Callback response: {err}"
             )
         print(authorization_code, state, request_id)
-        logging.debug("Received authorization token: " + code)
+        logging.debug("Received authorization token: " + authorization_code)
         # getting an Access Token
         query_params = {
+            "code": authorization_code,
             "client_id": ADFS_CLIENT_ID,
             "grant_type": "authorization_code",
-            "code": authorization_code,
-            "redirect_uri": self.end_authorization_endpoint
+            "redirect_uri": self.redirect_uri,
+            "scope": "https://graph.microsoft.com/.default"
         }
-        query_params = requests.compat.urlencode(query_params)
-        print(query_params)
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
         }
         try:
-            exchange = requests.post(
-                self.token_endpoint,
-                headers=headers,
-                data=query_params
-            )
-            if exchange.status_code == 400:
-                logging.error("ADFS server returned an error: " + exchange.json()["error_description"])
-                # raise PermissionDenied
-
-            if exchange.status_code != 200:
-                logging.error("Unexpected ADFS response: " + exchange.content.decode())
-                # raise PermissionDenied
-            ## processing the exchange response:
-            response = exchange.json()
-            access_token = response["access_token"]
-            token_type = response["token_type"] # ex: Bearer
-            id_token = response["id_token"]
-            logging.debug(f"Received access token: {access_token}")
-            claims = jwt.decode(
-                id_token,
-                algorithms=['RS256', 'RS384', 'RS512'],
-                verify=False
-            )
-            logging.debug(f"JWT claims:\n {claims}")
-            claims = None
-            # validate:
-            #
+            exchange = await self.post(self._token_uri, data=query_params, headers=headers)
+            if 'error' in exchange:
+                error = exchange.get('error')
+                desc = exchange.get('error_description')
+                message = f"Azure {error}: {desc}¡"
+                logging.exception(message)
+                raise web.HTTPForbidden(
+                    reason=message
+                )
+            else:
+                ## processing the exchange response:
+                access_token = exchange["access_token"]
+                token_type = exchange["token_type"] # ex: Bearer
+                id_token = exchange["id_token"]
+                logging.debug(f"Received access token: {access_token}")
+                # getting user information:
+                try:
+                    data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                    # build user information:
+                    userdata, uid = self.build_user_info(data)
+                    userdata['id_token'] = id_token
+                    data = await self.create_user(request, uid, userdata, access_token)
+                except Exception as err:
+                    logging.exception(f'ADFS: Error getting User information: {err}')
+                    raise web.HTTPForbidden(
+                        reason=f"ADFS: Error with User Information: {err}"
+                    )
         except Exception as err:
-            print(err)
-        return web.Response(body="Hello World")
+            raise web.HTTPForbidden(
+                reason=f"ADFS: Invalid Response from Server {err}."
+            )
 
     async def logout(self, request):
         # first: removing the existing session

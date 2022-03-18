@@ -111,7 +111,7 @@ class ADFSAuth(ExternalAuth):
 
         if ADFS_CALLBACK_REDIRECT_URL is not None:
             callback = ADFS_CALLBACK_REDIRECT_URL
-            self.redirect_uri = "{domain}/" + callback
+            self.redirect_uri = "{domain}" + callback
         else:
             callback = "/auth/{}/callback/".format(self._service_name)
         # Login and Redirect Routes:
@@ -145,7 +145,7 @@ class ADFSAuth(ExternalAuth):
             query_params = {
                 "client_id": ADFS_CLIENT_ID,
                 "response_type": "code",
-                "redirect_uri": self.redirect_uri,
+                "redirect_uri": requests.compat.urlencode(self.redirect_uri),
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,

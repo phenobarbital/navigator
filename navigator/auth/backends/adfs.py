@@ -68,6 +68,7 @@ def load_certs(response):
 
 def get_kid(token):
     headers = jwt.get_unverified_header(token)
+    print('HEADERS: ', headers)
     if not headers:
         raise Exception('missing headers')
     try:

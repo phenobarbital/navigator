@@ -28,10 +28,16 @@ async def channel_handler(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     # TODO: connection is not defined, I dont understand this code
-    socket = {"ws": ws, "conn": connection}
-    request.app["websockets"].append(socket)
-    print(socket)
-    print("Websocket Channel connection ready")
+    # socket = {"ws": ws, "conn": connection}
+    try:
+        socket = {"ws": ws}
+        request.app["websockets"].append(socket)
+        print(socket)
+        print("Websocket Channel connection ready")
+    except asyncio.CancelledError:
+        request.app['sockets'].remove(socket)
+        for ws in request.app['sockets']:
+            await ws.send_str('Someone disconnected.')
     try:
         async for msg in ws:
             print(msg)

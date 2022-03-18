@@ -4,7 +4,7 @@ Description: Backend Authentication/Authorization using Okta Service.
 """
 import logging
 from aiohttp import web
-from .external import ExternalAuth
+from .oauth import OauthAuth
 import requests
 from navigator.exceptions import (
     NavException
@@ -37,7 +37,7 @@ async def is_id_token_valid(token, issuer, client_id, nonce):
         return False
 
 
-class OktaAuth(ExternalAuth):
+class OktaAuth(OauthAuth):
     """OktaAuth.
 
     Description: Authentication Backend using Third-party Okta Service.
@@ -59,37 +59,20 @@ class OktaAuth(ExternalAuth):
         self._token_uri = f"https://{OKTA_DOMAIN}/oauth2/default/v1/token"
         self._introspection_uri = f"https://{OKTA_DOMAIN}/oauth2/default/v1/introspect"
 
-
-    async def get_payload(self, request):
-        pass
-
-    async def authenticate(self, request: web.Request):
-        """ Authenticate, refresh or return the user credentials."""
-        user = None
-        try:
-            # Build the URL
-            APP_STATE = 'ApplicationState'
-            self.nonce = 'SampleNonce'
-            query_params = {
-              "client_id": f"{OKTA_CLIENT_ID}",
-              # "client_secret": f"{OKTA_CLIENT_SECRET}",
-              "redirect_uri": self.redirect_uri,
-              'scope': "openid email profile",
-              'state': APP_STATE,
-              'nonce': self.nonce,
-              'response_type': 'code',
-              'response_mode': 'query',
-            }
-            uri = "{auth_uri}?{query_params}".format(
-                auth_uri=self.authorize_uri,
-                query_params=requests.compat.urlencode(query_params)
-            )
-            # Step A: redirect
-            return self.redirect(uri)
-        except Exception as err:
-            raise NavException(
-                f"Client doesn't have info for Okta Authentication: {err}"
-            )
+    async def get_credentials(self, request: web.Request):
+        APP_STATE = 'ApplicationState'
+        self.nonce = 'SampleNonce'
+        qs = {
+            "client_id": f"{OKTA_CLIENT_ID}",
+            # "client_secret": f"{OKTA_CLIENT_SECRET}",
+            "redirect_uri": self.redirect_uri,
+            'scope': "openid email profile",
+            'state': APP_STATE,
+            'nonce': self.nonce,
+            'response_type': 'code',
+            'response_mode': 'query',
+        }
+        return qs
 
     async def auth_callback(self, request: web.Request):
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
@@ -145,18 +128,14 @@ class OktaAuth(ExternalAuth):
 
         # Authorization flow successful, get userinfo and login user
         try:
-            userdata = requests.get(
+            data = requests.get(
                 self.userinfo_uri,
                 headers={'Authorization': f'Bearer {access_token}'}
             ).json()
-            id = userdata[self.userid_attribute]
-            userdata['id'] = id
-            userdata[self.session_key_property] = id
-            userdata['access_token'] = access_token
-            userdata['id_token'] = id_token
+            userdata, uid = self.build_user_info(data)
             # get user data
             # TODO: Optional: get User info from Nav
-            data = await self.create_user(request, id, userdata, access_token)
+            data = await self.create_user(request, uid, userdata, access_token)
             return self.home_redirect(request, token=data['token'], token_type='Bearer')
         except Exception as err:
             logging.exception(f"Okta Auth Error: {err}")

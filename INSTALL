@@ -1,1 +1,1 @@
-python3.9-minimal python3.9-venv python3-pip python3.9-distutils python3.9-dev libmemcached-dev zlib1g-dev
+python3.9-minimal python3.9-venv python3-pip python3.9-distutils python3.9-dev libmemcached-dev zlib1g-dev unixodbc-dev

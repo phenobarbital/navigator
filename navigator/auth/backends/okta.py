@@ -62,6 +62,8 @@ class OktaAuth(OauthAuth):
     async def get_credentials(self, request: web.Request):
         APP_STATE = 'ApplicationState'
         self.nonce = 'SampleNonce'
+        domain_url = self.get_domain(request)        
+        self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         qs = {
             "client_id": f"{OKTA_CLIENT_ID}",
             # "client_secret": f"{OKTA_CLIENT_SECRET}",
@@ -76,6 +78,8 @@ class OktaAuth(OauthAuth):
 
     async def auth_callback(self, request: web.Request):
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+        domain_url = self.get_domain(request)        
+        self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         code = request.query.get("code")
         if not code:
             response = {

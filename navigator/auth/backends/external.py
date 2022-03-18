@@ -53,7 +53,7 @@ class ExternalAuth(BaseAuthBackend):
         self._token_uri: str = ''
         # TODO: know the host we already are running
         self.login_failed_uri = AUTH_LOGIN_FAILED_URI
-        self.redirect_uri = "http://localhost:5000/auth/{}/callback/".format(self._service_name)
+        self.redirect_uri = "{domain}/auth/{service}/callback/"
         # start login
         router.add_route(
             "*",
@@ -82,6 +82,12 @@ class ExternalAuth(BaseAuthBackend):
             name="{}_complete_logout".format(self._service_name)
         )
         super(ExternalAuth, self).configure(app, router, handler)
+        
+    def get_domain(self, request: web.Request) -> str:
+        absolute_uri = str(request.url)
+        domain_url = absolute_uri.replace(str(request.rel_url), '')
+        logging.debug('DOMAIN: ', domain_url)
+        return domain_url
  
     def redirect(self, uri: str):
         """redirect.

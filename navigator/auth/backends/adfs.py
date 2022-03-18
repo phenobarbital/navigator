@@ -35,7 +35,7 @@ from navigator.conf import (
     USERNAME_CLAIM,
     GROUP_CLAIM,
     ADFS_CLAIM_MAPPING,
-    ADFS_LOGIN_REDIRECT_URL,
+    ADFS_CALLBACK_REDIRECT_URL,
     AZURE_AD_SERVER
 )
 
@@ -103,18 +103,16 @@ class ADFSAuth(ExternalAuth):
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
 
-    async def authenticate(self, request):
+    async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials.
 
         Description: This function returns the ADFS authorization URL.
         """
-        absolute_uri = str(request.url)
-        DOMAIN_URL = absolute_uri.replace(str(request.rel_url), '')
-        print('DOMAIN: ', DOMAIN_URL)            
-        if ADFS_LOGIN_REDIRECT_URL:
-            self.redirect_uri = ADFS_LOGIN_REDIRECT_URL
+        domain_url = self.get_domain(request)        
+        if ADFS_CALLBACK_REDIRECT_URL:
+            self.redirect_uri = ADFS_CALLBACK_REDIRECT_URL
         else:
-            self.redirect_uri = f"{DOMAIN_URL}/auth/adfs/callback/"
+            self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         print('REDIRECT: ', self.redirect_uri)
         try:
             self.state = base64.urlsafe_b64encode(self.redirect_uri.encode()).decode()

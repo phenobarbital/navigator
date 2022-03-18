@@ -38,9 +38,6 @@ class GoogleAuth(ExternalAuth):
             "scopes": GOOGLE_API_SCOPES,
             "redirect_uri": self.redirect_uri,
         }
-        self.google = Aiogoogle(
-            client_creds=self._credentials
-        )
 
 
     async def get_payload(self, request):
@@ -54,6 +51,12 @@ class GoogleAuth(ExternalAuth):
         self._nonce = (
             create_secret()
         )  # Shouldn't be a global or a hardcoded variable. should be tied to a session or a user and shouldn't be used more than once
+        domain_url = self.get_domain(request)        
+        self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
+        self._credentials["redirect_uri"] = self.redirect_uri
+        self.google = Aiogoogle(
+            client_creds=self._credentials
+        )
         if self.google.openid_connect.is_ready(self._credentials):
             uri = self.google.openid_connect.authorization_url(
                 client_creds=self._credentials,

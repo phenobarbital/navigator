@@ -28,6 +28,8 @@ class OauthAuth(ExternalAuth):
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials."""
         try:
+            domain_url = self.get_domain(request)        
+            self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
             # Build the URL
             params = await self.get_credentials(request)
             url = self.prepare_url(self.authorize_uri, params)

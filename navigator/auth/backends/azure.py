@@ -174,6 +174,8 @@ class AzureAuth(ExternalAuth):
                         reason=f"Azure: Invalid Response from Server {err}."
                     )
         else:
+            domain_url = self.get_domain(request)        
+            self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
             SCOPE = ["https://graph.microsoft.com/.default"]
             app = self.get_msal_app()
             try:

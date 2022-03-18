@@ -42,7 +42,7 @@ class ExternalAuth(BaseAuthBackend):
     username_attribute: str = "username"
     pwd_atrribute: str = "password"
     _service_name: str = "service"
-
+    _user_mapping: Dict = {}
 
     def configure(self, app, router, handler):
         # add the callback url
@@ -56,7 +56,7 @@ class ExternalAuth(BaseAuthBackend):
         self.redirect_uri = "http://localhost:5000/auth/{}/callback/".format(self._service_name)
         # start login
         router.add_route(
-            "GET",
+            "*",
             "/api/v1/auth/{}/".format(self._service_name),
             self.authenticate,
             name="{}_api_login".format(self._service_name)
@@ -131,6 +131,19 @@ class ExternalAuth(BaseAuthBackend):
         """finish_logout, Finish Logout Method."""
         pass
     
+    def build_user_info(self, userdata: Dict) -> Dict:
+        # User ID:
+        userid = userdata[self.userid_attribute]
+        userdata['id'] = userid
+        userdata[self.session_key_property] = userid
+        # TODO: mapping
+        for key, val in self._user_mapping.items():
+            try:
+                userdata[key] = userdata[val]
+            except KeyError:
+                pass
+        return (userdata, userid)
+    
     async def create_user(self, request: web.Request, user_id: Any, userdata: Any, token: str):
         # TODO: only creates after validation:
         data = None
@@ -144,7 +157,7 @@ class ExternalAuth(BaseAuthBackend):
             except KeyError:
                 user.username = user_id
             user.token = token # issued token:
-            logging.debug(f'User Created > {user}')
+            # logging.debug(f'User Created > {user}')
             payload = {
                 "user_id": user_id,
                 **userdata

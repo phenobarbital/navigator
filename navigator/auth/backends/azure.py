@@ -1,6 +1,6 @@
-"""GoogleAuth.
+"""AzureAuth.
 
-Description: Backend Authentication/Authorization using Google AUTH API.
+Description: Backend Authentication/Authorization using Microsoft authentication.
 """
 import logging
 from aiohttp import web
@@ -20,11 +20,13 @@ import msal
 import json
 import jwt
 from .external import ExternalAuth
-from typing import Any
+from typing import Any, Dict
 from msal.authority import (
     AuthorityBuilder,
     AZURE_PUBLIC
 )
+
+logging.getLogger("msal").setLevel(logging.INFO)
 
 class AzureAuth(ExternalAuth):
     """AzureAuth.
@@ -33,11 +35,19 @@ class AzureAuth(ExternalAuth):
     """
     user_attribute: str = "user"
     username_attribute: str = "username"
+    userid_attribute: str = 'userPrincipalName'
     pwd_atrribute: str = "password"
     _service_name: str = "azure"
+    _user_mapping: Dict = {
+        'email': 'userPrincipalName',
+        'given_name': 'givenName',
+        'family_name': 'surname',
+        'name': 'displayName'
+    }
 
     def configure(self, app, router, handler):
         super(AzureAuth, self).configure(app, router, handler)
+
         # TODO: build the callback URL and append to routes
         self.base_url: str = 'https://login.microsoftonline.com/{tenant}'.format(
             tenant=AZURE_ADFS_TENANT_ID
@@ -46,6 +56,8 @@ class AzureAuth(ExternalAuth):
             tenant=AZURE_ADFS_TENANT_ID
         )
         self.userinfo_uri = "https://graph.microsoft.com/v1.0/me"
+        
+        # issuer:
         self._issuer = "https://login.microsoftonline.com/{tenant}".format(
             tenant=AZURE_ADFS_TENANT_ID
         )
@@ -53,20 +65,46 @@ class AzureAuth(ExternalAuth):
             tenant=AZURE_ADFS_TENANT_ID
         )
         self.authority = AuthorityBuilder(AZURE_PUBLIC, "contoso.onmicrosoft.com")
+        self.users_info = "https://graph.microsoft.com/v1.0/users"
 
 
     async def get_payload(self, request):
-        pass
+        ctype = request.content_type
+        if request.method == "POST":
+            if ctype in ("multipart/mixed", "multipart/form-data", "application/x-www-form-urlencoded"):
+                data = await request.post()
+                if len(data) > 0:
+                    user = data.get(self.username_attribute, None)
+                    password = data.get(self.pwd_atrribute, None)
+                    return [user, password]
+                else:
+                    return [None, None]
+            elif ctype == "application/json":
+                try:
+                    data = await request.json()
+                    user = data[self.username_attribute]
+                    password = data[self.pwd_atrribute]
+                    return [user, password]
+                except Exception:
+                    return [None, None]
+        else:
+            return [None, None]
+
     
-    def get_cache(self, request: web.Request):
+    async def get_cache(self, request: web.Request, state: str):
         cache = msal.SerializableTokenCache()
-        if request.get("token_cache"):
-            cache.deserialize(request["token_cache"])
+        result = None
+        async with await request.app['redis'].acquire() as redis:
+            result = await redis.get(f'azure_cache_{state}')
+        if result:
+            cache.deserialize(result)
         return cache
     
-    def save_cache(self, request: web.Request, cache):
+    async def save_cache(self, request: web.Request, state: str, cache: msal.SerializableTokenCache):
         if cache.has_state_changed:
-            request['token_cache'] = cache.serialize()
+            result = cache.serialize()
+            async with await request.app['redis'].acquire() as redis:
+                await redis.setex(f'azure_cache_{state}', result, timeout=120)
             
     def get_msal_app(self):
         authority = self._issuer if self._issuer else self.authority
@@ -77,28 +115,83 @@ class AzureAuth(ExternalAuth):
             validate_authority=True
             # token_cache=cache
         )
+        
+    def get_msal_client(self):
+        authority = self._issuer if self._issuer else self.authority
+        return msal.ClientApplication(
+            AZURE_ADFS_CLIENT_ID,
+            authority=authority,
+            client_credential = AZURE_ADFS_CLIENT_SECRET,
+            validate_authority=True
+        )
 
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials."""
-        authority = self._issuer if self._issuer else self.authority
-        app = self.get_msal_app()
-        SCOPE = ["https://graph.microsoft.com/.default"]
         try:
-            flow = app.initiate_auth_code_flow(
-                scopes=SCOPE,
-                redirect_uri=self.redirect_uri,
-                domain_hint=AZURE_ADFS_DOMAIN,
-                max_age=120
-            )
-            async with await request.app['redis'].acquire() as redis:
-                state = flow['state']
-                await redis.setex(f'azure_auth_{state}', json.dumps(flow), timeout=120)
-            login_url = flow['auth_uri']
-            return self.redirect(login_url)
+            user, pwd = await self.get_payload(request)
         except Exception as err:
-            raise NavException(
-                f"Azure: Client doesn't have info for Authentication: {err}"
-            )
+            pass
+        if user and pwd:
+            Default_SCOPE = ["User.ReadBasic.All"]
+            # will use User/Pass Authentication
+            app = self.get_msal_client()
+            # Firstly, check the cache to see if this end user has signed in before
+            accounts = app.get_accounts(username=user)
+            result = None
+            if accounts:
+                result = app.acquire_token_silent(Default_SCOPE, account=accounts[0])
+            if not result:
+                # we need to get a new token from AAD
+                result = app.acquire_token_by_username_password(
+                    user, pwd, Default_SCOPE
+                )
+                try:
+                    if 'access_token' in result:
+                        access_token = result['access_token']
+                        data = await self.get(url=self.userinfo_uri, token=access_token, token_type='Bearer')
+                        userdata, uid = self.build_user_info(data)
+                        # also, user information:
+                        data = await self.create_user(request, uid, userdata, access_token)
+                        # Redirect User to HOME
+                        return self.home_redirect(request, token=data["token"], token_type='Bearer')
+                    else:
+                        if 65001 in result.get('error_codes', []):
+                            # AAD requires user consent for U/P flow
+                            print(
+                                "Visit this to consent:", app.get_authorization_request_url(Default_SCOPE)
+                            )
+                        else:
+                            error = result.get('error')
+                            desc = result.get('error_description')
+                            correlation = result.get("correlation_id")
+                            message = f"Azure {error}: {desc}, correlation id: {correlation}"
+                            logging.exception(message)
+                            raise web.HTTPForbidden(
+                                reason=message
+                            )
+                except Exception as err:
+                    raise web.HTTPForbidden(
+                        reason=f"Azure: Invalid Response from Server {err}."
+                    )
+        else:
+            SCOPE = ["https://graph.microsoft.com/.default"]
+            app = self.get_msal_app()
+            try:
+                flow = app.initiate_auth_code_flow(
+                    scopes=SCOPE,
+                    redirect_uri=self.redirect_uri,
+                    domain_hint=AZURE_ADFS_DOMAIN,
+                    max_age=120
+                )
+                async with await request.app['redis'].acquire() as redis:
+                    state = flow['state']
+                    await redis.setex(f'azure_auth_{state}', json.dumps(flow), timeout=120)
+                login_url = flow['auth_uri']
+                return self.redirect(login_url)
+            except Exception as err:
+                raise NavException(
+                    f"Azure: Client doesn't have info for Authentication: {err}"
+                )
 
 
     async def auth_callback(self, request: web.Request):
@@ -144,22 +237,19 @@ class AzureAuth(ExternalAuth):
                     claims = result['id_token_claims']
                     # getting user information:
                     try:
-                        userdata = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                        data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
                         # build user information:
-                        id = userdata['userPrincipalName']
-                        userdata['id'] = id
-                        userdata[self.session_key_property] = id
+                        userdata, uid = self.build_user_info(data)
                         #userdata['access_token'] = access_token
                         userdata['id_token'] = id_token
                         #userdata['refresh_token'] = refresh_token
                         userdata['claims'] = claims
-                        # also, user information:
-                        userdata['email'] = userdata['userPrincipalName']
-                        userdata['given_name'] = userdata['givenName']
-                        userdata['family_name'] = userdata['surname']
-                        data = await self.create_user(request, id, userdata, access_token)
+                        data = await self.create_user(request, uid, userdata, access_token)
                     except Exception as err:
                         logging.exception('Azure: Error getting User information')
+                        raise web.HTTPForbidden(
+                            reason=f"Azure: Error with User Information: {err}"
+                        )
                     # Redirect User to HOME
                     return self.home_redirect(request, token=data['token'], token_type=token_type)
                 elif 'error' in result:
@@ -170,7 +260,13 @@ class AzureAuth(ExternalAuth):
                     response = {
                         "message": message
                     }
-                    return web.json_response(response, status=403)
+                    raise web.HTTPForbidden(
+                        reason=message
+                    )
+                else:
+                    raise web.HTTPForbidden(
+                        reason="Azure: Invalid Response from Server."
+                    )
             except Exception as err:
                 logging.exception(err)
                 return self.redirect(uri=self.login_failed_uri)

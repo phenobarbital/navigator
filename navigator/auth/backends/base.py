@@ -1,12 +1,19 @@
 import logging
 import jwt
-import importlib
-from typing import List, Dict
+import asyncio
+from typing import (
+    List,
+    Dict,
+    Optional,
+    Callable
+)
 from abc import ABC, abstractmethod
 from aiohttp import web, hdrs
 from datetime import datetime, timedelta
 from asyncdb.models import Model
 from cryptography import fernet
+from functools import partial, wraps
+from concurrent.futures import ThreadPoolExecutor
 import base64
 from navigator.conf import (
     AUTH_USER_MODEL,
@@ -97,6 +104,8 @@ class BaseAuthBackend(ABC):
             self.secret_key = base64.urlsafe_b64decode(fernet_key)
         else:
             self.secret_key = SECRET_KEY
+        # starts the Executor
+        self.executor = ThreadPoolExecutor(max_workers=1)
 
     async def on_startup(self, app: web.Application):
         pass
@@ -269,3 +278,23 @@ class BaseAuthBackend(ABC):
     async def check_credentials(self, request):
         """ Authenticate against user credentials (token, user/password)."""
         pass
+
+    def threaded_function(self, func: Callable, loop: asyncio.AbstractEventLoop = None, threaded: bool = True):
+        """Wraps a Function into an Executor Thread."""
+        @wraps(func)
+        async def _wrap(*args, loop: asyncio.AbstractEventLoop = None, **kwargs):
+            result = None
+            if loop is None:
+                loop = asyncio.new_event_loop()
+            try:
+                if threaded:
+                    fn = partial(func, *args, **kwargs)
+                    result = await loop.run_in_executor(
+                        self.executor, fn
+                    )
+                else:
+                    result = await func(*args, **kwargs)
+                return result
+            except Exception as err:
+                logging.exception(err)
+        return _wrap

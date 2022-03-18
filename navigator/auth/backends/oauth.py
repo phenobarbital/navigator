@@ -51,15 +51,3 @@ class OauthAuth(ExternalAuth):
                 f"Auth Error: {self._service_name} Code not accessible"
             )
         return code
-    
-    def build_user_info(self, userdata: Dict) -> Dict:
-        # User ID:
-        userid = userdata[self.userid_attribute]
-        userdata['id'] = userid
-        userdata[self.session_key_property] = userid
-        # TODO: mapping
-        try:
-            userdata['email'] = userdata[self.username_attribute]
-        except KeyError:
-            pass
-        return (userdata, userid)

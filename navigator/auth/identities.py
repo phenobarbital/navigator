@@ -98,6 +98,7 @@ class AuthUser(Identity):
     """
     first_name: str
     last_name: str
+    name: str
     email: str
     username: str
     groups: List[Group] = Column(required=False, default_factory=list)

@@ -149,7 +149,7 @@ class ADFSAuth(ExternalAuth):
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": ['openid', 'profile', 'offline_access']
+                "scope": ['openid']
             }
             login_url = "{base_uri}?{query_params}".format(
                 base_uri=self.authorize_uri,

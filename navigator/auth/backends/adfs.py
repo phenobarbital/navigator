@@ -2,6 +2,7 @@
 
 Description: Backend Authentication/Authorization using Okta Service.
 """
+from numpy import True_
 import rapidjson
 import logging
 import asyncio
@@ -10,6 +11,7 @@ from aiohttp import web, hdrs
 from .external import ExternalAuth
 from typing import List, Dict, Any
 import jwt
+from .jwksutils import rsa_pem_from_jwk, jwks
 # needed by ADFS
 from xml.etree import ElementTree
 import requests
@@ -64,6 +66,28 @@ def load_certs(response):
         )
     return new_keys
 
+def get_kid(token):
+    headers = jwt.get_unverified_header(token)
+    if not headers:
+        raise Exception('missing headers')
+    try:
+        return headers['kid']
+    except KeyError:
+        raise Exception('missing kid')
+
+def get_jwk(kid):
+    for jwk in jwks.get('keys'):
+        if jwk.get('kid') == kid:
+            return jwk
+    raise Exception('kid not recognized')
+
+def get_public_key(token):
+    return rsa_pem_from_jwk(
+        get_jwk(
+            get_kid(token)
+    )
+)
+
 class ADFSAuth(ExternalAuth):
     """ADFSAuth.
 
@@ -76,10 +100,11 @@ class ADFSAuth(ExternalAuth):
     pwd_atrribute: str = "password"
     version = 'v1.0'
     _user_mapping: Dict = {
-        'email': 'userPrincipalName',
-        'given_name': 'givenName',
-        'family_name': 'surname',
-        'name': 'displayName'
+        'email': 'upn',
+        'given_name': 'given_name',
+        'family_name': 'family_name',
+        'name': 'display-Name',
+        'groups': "group"
     }
 
     def configure(self, app, router, handler):
@@ -103,6 +128,8 @@ class ADFSAuth(ExternalAuth):
         self._issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
+        self.userinfo_uri = "https://graph.microsoft.com/v1.0/me"
+
         if ADFS_LOGIN_REDIRECT_URL is not None:
             login = ADFS_LOGIN_REDIRECT_URL
         else:
@@ -149,7 +176,7 @@ class ADFSAuth(ExternalAuth):
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": ['openid']
+                "scope": 'openid'
             }
             login_url = "{base_uri}?{query_params}".format(
                 base_uri=self.authorize_uri,
@@ -168,6 +195,7 @@ class ADFSAuth(ExternalAuth):
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         try:
             auth_response = dict(request.rel_url.query.items())
+            print(auth_response)
             authorization_code = auth_response['code']
             state = auth_response['state']
             request_id = auth_response['client-request-id']
@@ -206,8 +234,30 @@ class ADFSAuth(ExternalAuth):
                 id_token = exchange["id_token"]
                 logging.debug(f"Received access token: {access_token}")
                 # getting user information:
+                options = {
+                    'verify_signature': True,
+                    'verify_exp': True,
+                    'verify_nbf': True,
+                    'verify_iat': True,
+                    'verify_aud': True,
+                    'verify_iss': True,
+                    'require_exp': False,
+                    'require_iat': False,
+                    'require_nbf': False
+                }
+                public_key = get_public_key(access_token)
+                # Validate token and extract claims
+                data = jwt.decode(
+                    access_token,
+                    key=public_key,
+                    algorithms=['RS256', 'RS384', 'RS512'],
+                    verify=True,
+                    audience=ADFS_AUDIENCE,
+                    issuer=ADFS_ISSUER,
+                    options=options,
+                )
+                print('CLAIMS: ', data)
                 try:
-                    data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
                     # build user information:
                     userdata, uid = self.build_user_info(data)
                     userdata['id_token'] = id_token

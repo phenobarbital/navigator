@@ -36,6 +36,7 @@ from navigator.conf import (
     GROUP_CLAIM,
     ADFS_CLAIM_MAPPING,
     ADFS_CALLBACK_REDIRECT_URL,
+    ADFS_LOGIN_REDIRECT_URL,
     AZURE_AD_SERVER
 )
 
@@ -102,6 +103,34 @@ class ADFSAuth(ExternalAuth):
         self._issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
+        if ADFS_LOGIN_REDIRECT_URL is not None:
+            login = ADFS_LOGIN_REDIRECT_URL
+        else:
+            login = "/api/v1/auth/{}/".format(self._service_name)
+        print('LOGIN ', login)
+
+        if ADFS_CALLBACK_REDIRECT_URL is not None:
+            callback = ADFS_CALLBACK_REDIRECT_URL
+            self.redirect_uri = "{domain}/" + callback
+        else:
+            callback = "/auth/{}/callback/".format(self._service_name)
+        # Login and Redirect Routes:
+        print('CALLBACK ', callback)
+        router.add_route(
+            "*",
+            login,
+            self.authenticate,
+            name="{}_login".format(self._service_name)
+        )
+        # finish login (callback)
+        print('CALL ', callback)
+        router.add_route(
+            "*",
+            callback,
+            self.auth_callback,
+            name="{}_callback_login".format(self._service_name)
+        )
+        
 
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials.
@@ -109,10 +138,7 @@ class ADFSAuth(ExternalAuth):
         Description: This function returns the ADFS authorization URL.
         """
         domain_url = self.get_domain(request)        
-        if ADFS_CALLBACK_REDIRECT_URL:
-            self.redirect_uri = ADFS_CALLBACK_REDIRECT_URL
-        else:
-            self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
+        self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         print('REDIRECT: ', self.redirect_uri)
         try:
             self.state = base64.urlsafe_b64encode(self.redirect_uri.encode()).decode()
@@ -137,13 +163,9 @@ class ADFSAuth(ExternalAuth):
                 f"Client doesn't have info for ADFS Authentication: {err}"
             )
 
-    async def auth_callback(self, request: web.Request):
-        absolute_uri = str(request.url)
-        DOMAIN_URL = absolute_uri.replace(str(request.rel_url), '')          
-        if ADFS_LOGIN_REDIRECT_URL:
-            self.redirect_uri = ADFS_LOGIN_REDIRECT_URL
-        else:
-            self.redirect_uri = f"{DOMAIN_URL}/auth/adfs/callback/"
+    async def auth_callback(self, request: web.Request):     
+        domain_url = self.get_domain(request)        
+        self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         try:
             auth_response = dict(request.rel_url.query.items())
             authorization_code = auth_response['code']

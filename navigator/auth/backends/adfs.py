@@ -145,11 +145,11 @@ class ADFSAuth(ExternalAuth):
             query_params = {
                 "client_id": ADFS_CLIENT_ID,
                 "response_type": "code",
-                "redirect_uri": requests.compat.urlencode(self.redirect_uri),
+                "redirect_uri": self.redirect_uri,
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": "openid,offline_access"
+                "scope": ['openid', 'profile', 'offline_access']
             }
             login_url = "{base_uri}?{query_params}".format(
                 base_uri=self.authorize_uri,

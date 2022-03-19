@@ -43,39 +43,39 @@ class TokenAuth(BaseAuthBackend):
     def configure(self, app, router, handler):
         super(TokenAuth, self).configure(app, router, handler)
 
-    async def on_startup(self, app: web.Application):
-        try:
-            kwargs = {
-                "min_size": 1,
-                "server_settings": {
-                    "application_name": 'AUTH-NAV',
-                    "client_min_messages": "notice",
-                    "max_parallel_workers": "48",
-                    "jit": "off",
-                    "statement_timeout": "3600",
-                    "effective_cache_size": "2147483647"
-                },
-            }
-            self._pool = AsyncPool(
-                "pg",
-                dsn=default_dsn,
-                **kwargs
-            )
-            await self._pool.connect()
-        except Exception as err:
-            print(err)
-            raise Exception(
-                f"Error Auth Token: please enable Connection Pool on AppHandler: {err}"
-            )
+    # async def on_startup(self, app: web.Application):
+    #     try:
+    #         kwargs = {
+    #             "min_size": 1,
+    #             "server_settings": {
+    #                 "application_name": 'AUTH-NAV',
+    #                 "client_min_messages": "notice",
+    #                 "max_parallel_workers": "48",
+    #                 "jit": "off",
+    #                 "statement_timeout": "3600",
+    #                 "effective_cache_size": "2147483647"
+    #             },
+    #         }
+    #         self._pool = AsyncPool(
+    #             "pg",
+    #             dsn=default_dsn,
+    #             **kwargs
+    #         )
+    #         await self._pool.connect()
+    #     except Exception as err:
+    #         print(err)
+    #         raise Exception(
+    #             f"Error Auth Token: please enable Connection Pool on AppHandler: {err}"
+    #         )
 
-    async def on_cleanup(self, app: web.Application):
-        """
-        Close the Pool when shutdown App.
-        """
-        try:
-            await self._pool.close()
-        except Exception as err:
-            logging.exception(err)
+    # async def on_cleanup(self, app: web.Application):
+    #     """
+    #     Close the Pool when shutdown App.
+    #     """
+    #     try:
+    #         await self._pool.close()
+    #     except Exception as err:
+    #         logging.exception(err)
 
     async def get_payload(self, request):
         token = None
@@ -192,14 +192,16 @@ class TokenAuth(BaseAuthBackend):
         WHERE name=$1 AND partner=$2
         AND enabled = TRUE AND revoked = FALSE AND $3= ANY(programs)
         """
+        app = request.app
+        pool = app['database']
         try:
             result = None
-            async with await self._pool.acquire() as conn:
+            async with await pool.acquire() as conn:
                 result, error = await conn.queryrow(sql, name, partner, tenant)
-            if error or not result:
-                return False
-            else:
-                return result
+                if error or not result:
+                    return False
+                else:
+                    return result
         except Exception as err:
             logging.exception(err)
             return False

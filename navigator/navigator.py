@@ -227,7 +227,7 @@ class Application(object):
         """
         app = self.get_app()
         if self.debug:
-            logging.debug("Enabling WebSockets")
+            logging.debug(":: Enabling WebSockets ::")
         # websockets
         app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels

@@ -3,37 +3,29 @@ import asyncio
 import json
 from functools import wraps
 from pathlib import Path
-
+import logging
 import aiohttp
 from aiohttp import WSCloseCode, WSMsgType, web
 from aiohttp.http_exceptions import HttpBadRequest
 from aiohttp.web import Request, Response
 from aiohttp.web_exceptions import HTTPMethodNotAllowed
 from aiohttp_swagger import *
-
+from navigator.auth.sessions import get_session
 from navigator.conf import BASE_DIR
-
-
-def callback_channel(ws):
-    def listen(connection, pid, channel, payload):
-        print("Running Callback Channel for {}: {}".format(channel, payload))
-        asyncio.ensure_future(ws.send_str(payload))
-
-    return listen
 
 
 async def channel_handler(request):
     channel = request.match_info.get("channel", "navigator")
-    print("Websocket connection starting for channel {}".format(channel))
+    logging.debug(f"Websocket connection starting for channel {channel}")
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     # TODO: connection is not defined, I dont understand this code
     # socket = {"ws": ws, "conn": connection}
     try:
         socket = {"ws": ws}
-        request.app["websockets"].append(socket)
+        request.app["sockets"].append(socket)
         print(socket)
-        print("Websocket Channel connection ready")
+        logging.debug(f"WS Channel :: {channel} :: connection ready")
     except asyncio.CancelledError:
         request.app['sockets'].remove(socket)
         for ws in request.app['sockets']:
@@ -48,7 +40,7 @@ async def channel_handler(request):
                 else:
                     await ws.send_str(msg.data + "/answer")
     finally:
-        request.app["websockets"].remove(socket)
+        request.app["sockets"].remove(socket)
     return ws
 
 
@@ -63,26 +55,32 @@ class WebSocket(web.View):
         print("Websocket connection starting")
         ws = web.WebSocketResponse()
         await ws.prepare(self.request)
-        self.request.app["websockets"].append(ws)
-        print("Websocket connection ready")
-        # ws.start(request)
-        # session = await get_session(self.request)
-        # user = User(self.request.db, {'id': session.get('user')})
-        # login = await user.get_login()
-        try:
-            async for msg in ws:
-                print(msg)
-                if msg.type == WSMsgType.TEXT:
-                    print(msg.data)
-                    if msg.data == "close":
-                        await ws.close()
-                    else:
-                        await ws.send_str(msg.data + "/answer")
-                elif msg.type == WSMsgType.ERROR:
-                    print("ws connection closed with exception %s" % ws.exception())
-        finally:
-            self.request.app["websockets"].remove(ws)
 
+        for _ws in self.request.app["websockets"]:
+            _ws.send_str(f'Someone Joined.')
+            
+        self.request.app["websockets"].append(ws)
+        session = await get_session(self.request)
+        if session:
+            session['socket'] = ws
+        print("Websocket connection ready")
+        async for msg in ws:
+            print(msg)
+            if msg.type == WSMsgType.TEXT:
+                if msg.data == "close":
+                    await ws.close()
+                else:
+                    print(msg.data)
+                    await ws.send_str(msg.data + "/answer")
+            elif msg.type == WSMsgType.ERROR:
+                exp = ws.exception()
+                logging.error(f"ws connection closed with exception {exp}")
+            else:
+                pass
+        self.request.app["websockets"].remove(ws)
+        session['socket'] = None
+        for _ws in self.request.app["websockets"]:
+            _ws.send_str(f'Someone Disconnected.')
         print("Websocket connection closed")
         return ws
 

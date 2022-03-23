@@ -125,7 +125,7 @@ class NoAuth(BaseAuthBackend):
                     session = await get_session(request, payload, new = False)
                     try:
                         request.user = session.decode('user')
-                        print('USER> ', request.user, type(request.user))
+                        # print('USER> ', request.user, type(request.user))
                         request.user.is_authenticated = True
                         request['authenticated'] = True
                     except Exception:

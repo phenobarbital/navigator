@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List
 import aiohttp_cors
 from navigator.templating import TemplateParser
-
+from .resources import Router
 import aiohttp
 from aiohttp import web
 from aiohttp.abc import AbstractView
@@ -94,7 +94,6 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             print(err)
             continue
 
-
 class AppHandler(ABC):
     """
     AppHandler.
@@ -155,7 +154,8 @@ class AppHandler(ABC):
         self.cors = None
         app = web.Application(
             logger=self.logger,
-            client_max_size=(1024 * 1024) * 1024
+            client_max_size=(1024 * 1024) * 1024,
+            router=Router()
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app.router.add_get("/", home, name="home")
@@ -171,10 +171,6 @@ class AppHandler(ABC):
                 handler=self
             )
             app["auth"] = self._auth
-            ## add the authorization endpoint endpoint:
-            app.router.add_get(
-                '/{program}/authorize', self.app_authorization
-            )
         # add the other middlewares:
         try:
             for middleware in self._middleware:
@@ -276,19 +272,6 @@ class AppHandler(ABC):
             except (Exception, ValueError) as err:
                 # logging.warning(f"Warning on Adding CORS: {err!r}")
                 pass
-            
-    async def app_authorization(self, request: web.Request) -> web.Response:
-        app = request.app
-        try:
-            program = request.match_info['program']
-        except Exception as err:
-            print(err)
-            program = None
-        authorization = {
-            "status": "Tenant Authorized",
-            "program": program
-        }
-        return web.json_response(authorization, status=200)
 
     async def on_prepare(self, request, response):
         """
@@ -381,6 +364,7 @@ class AppConfig(AppHandler):
                 swagger_url=f"/api/v1/doc",
                 ui_version=3,
             )
+        # authorization
         self.app.router.add_get(
             '/authorize', self.app_authorization
         )
@@ -547,6 +531,15 @@ class AppConfig(AppHandler):
                     self.cors.add(r)
 
     async def app_authorization(self, request: web.Request) -> web.Response:
+        """app_authorization.
+        
+        We can extend this function to allow/deny access to certain applications.
+        Args:
+            request (web.Request): aiohttp web Request.
+
+        Returns:
+            web.Response:
+        """
         app = request.app
         try:
             program = request.match_info['program']

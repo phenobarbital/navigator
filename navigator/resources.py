@@ -5,13 +5,37 @@ from functools import wraps
 from pathlib import Path
 import logging
 import aiohttp
-from aiohttp import WSCloseCode, WSMsgType, web
+from aiohttp import WSCloseCode, WSMsgType, web, web_urldispatcher
 from aiohttp.http_exceptions import HttpBadRequest
 from aiohttp.web import Request, Response
 from aiohttp.web_exceptions import HTTPMethodNotAllowed
 from aiohttp_swagger import *
 from navigator.auth.sessions import get_session
 from navigator.conf import BASE_DIR
+
+
+class Router(web.UrlDispatcher):
+    async def resolve(self, request):
+        res = await super().resolve(request)
+        if isinstance(res, web_urldispatcher.MatchInfoError):
+            if res.http_exception.status == 404:
+                url = str(request.rel_url)
+                if '/authorize' in url:
+                    authorization = {
+                        "status": "Tenant Authorized",
+                        "program": 'Navigator'
+                    }
+                    return web_urldispatcher.MatchInfoError( 
+                        web.HTTPAccepted(
+                            reason=authorization,
+                            content_type='application/json'
+                        )
+                    )
+                else:
+                    return web_urldispatcher.MatchInfoError(
+                        web.HTTPNotFound()
+                    )
+        return res
 
 
 async def channel_handler(request):

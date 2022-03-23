@@ -24,7 +24,8 @@ from navigator.conf import (
     SECRET_KEY,
     SESSION_PREFIX,
     SESSION_KEY,
-    AUTH_SESSION_OBJECT
+    AUTH_SESSION_OBJECT,
+    DJANGO_USER_MAPPING
 )
 
 # User Identity
@@ -41,6 +42,7 @@ class DjangoUser(AuthUser):
 
 class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
+    _user_object = 'user'
 
     def configure(self, app, router, handler):
         async def _setup_redis(app):
@@ -153,11 +155,28 @@ class DjangoAuth(BaseAuthBackend):
                 raise NavException(err, state=500)
             try:
                 userdata = self.get_userdata(user)
+                print('USER DATA: ', data, AUTH_SESSION_OBJECT)
+                # extract data from Django Session to Session Object:
+                udata = {}
+                for k, v in data[self._user_object].items():
+                    if k in DJANGO_USER_MAPPING.keys():
+                        if k in userdata:
+                            if isinstance(userdata[k], list):
+                                # if userdata of k is a list, we need to mix with data:
+                                udata[k] = v + userdata[k]
+                            elif isinstance(userdata[k], dict):
+                                udata[k] = {**v, ** userdata[k]}
+                            else:
+                                # data override current employee data.
+                                udata[k] = v
+                        else:
+                            udata[k] = v
                 try:
                     # merging both session objects
                     userdata[AUTH_SESSION_OBJECT] = {
                         **userdata[AUTH_SESSION_OBJECT],
-                        **data
+                        **data,
+                        **udata
                     }
                     usr = DjangoUser(data=userdata[AUTH_SESSION_OBJECT])
                     usr.id = sessionid

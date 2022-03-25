@@ -286,9 +286,11 @@ def session_middleware(
             # likely got websocket or streaming
             return response
         if response.prepared:
-            raise RuntimeError(
-                "We Cannot save session data into on prepared responses"
-            )
+            # avoid saving info into Prepared responses
+            return response
+            # raise RuntimeError(
+            #     "We Cannot save session data into on prepared responses"
+            # )
         session = request.get(SESSION_OBJECT)
         if isinstance(session, SessionData):
             if session.is_changed:

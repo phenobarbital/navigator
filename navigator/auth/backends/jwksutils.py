@@ -63,6 +63,7 @@ def _fetch_discovery_meta(tenant_id=None, discovery_url: str = None):
         else:
             discovery_url = f'https://login.microsoftonline.com/{tenant_id}/.well-known/openid-configuration'
     try:
+        print('DISCOVERY URL: ', discovery_url)
         response = requests.get(discovery_url)
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
@@ -82,6 +83,7 @@ def get_kid(token):
 
 def get_jwks_uri(tenant_id: str = None, discovery_url: str = None):
     meta = _fetch_discovery_meta(tenant_id, discovery_url)
+    print('META JWKS: ', meta)
     if 'jwks_uri' in meta:
         return meta['jwks_uri']
     else:

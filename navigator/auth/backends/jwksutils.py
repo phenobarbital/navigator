@@ -93,7 +93,7 @@ def get_jwks_uri(tenant_id: str = None, discovery_url: str = None):
 
 @functools.lru_cache
 def get_jwks(tenant_id: str = None, discovery_url: str = None):
-    jwks_uri= get_jwks_uri(tenant_id, tenant_id)
+    jwks_uri= get_jwks_uri(tenant_id, discovery_url)
     try:
         response = requests.get(jwks_uri)
         response.raise_for_status()

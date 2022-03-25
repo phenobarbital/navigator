@@ -1,20 +1,40 @@
+import logging
 import base64
+import functools
+import requests
+import jwt
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.backends.openssl.backend import backend
+from cryptography.x509 import load_der_x509_certificate
+from xml.etree import ElementTree
 
-jwks = {
-	"keys": [{
-		"kty": "RSA",
-		"use": "sig",
-		"alg": "RS256",
-		"kid": "cqBwnFCbgnNyi8JAOO2ltuS74hU",
-		"x5t": "cqBwnFCbgnNyi8JAOO2ltuS74hU",
-		"n": "umCZZTQM4CGG7uXbNawtFb6ryN_g6XwhHXKHusTGxSw3ZjfaWRjvc7qPaFLk4dXofj62pL5PcnXPdGa4_R6XO44e34X1nmLhOu45M6Wjs8s8tYDQjAvxBbKFW0HE4etxYqWl9rGZwCeLVBrjVhHF1WMG9FKxXZnltg52zdG7t_veVV0d7pRX5bov6VlFRDPNfnLj8hKJegAIGfLZ9keXRlqvE6sHRLXUHD8MPGUIAAl9KCKSOI3x4Fh1NuSF3s7GU6zPVGJzAt7xZ-fplh_1AlhIGE7a1JzGsSpTBGAQqZXz6gWRTPCVpWWDHqgi64vf0Gl9xrGXHZfe3Df38Fm3-w",
-		"e": "AQAB",
-		"x5c": ["MIIC4DCCAcigAwIBAgIQPTdeDjW1y4BL34vWvRdU4zANBgkqhkiG9w0BAQsFADAsMSowKAYDVQQDEyFBREZTIFNpZ25pbmcgLSBzc28udHJvY2dsb2JhbC5jb20wHhcNMTcxMDA3MDIwNDQ2WhcNMjcxMDA1MDIwNDQ2WjAsMSowKAYDVQQDEyFBREZTIFNpZ25pbmcgLSBzc28udHJvY2dsb2JhbC5jb20wggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC6YJllNAzgIYbu5ds1rC0VvqvI3+DpfCEdcoe6xMbFLDdmN9pZGO9zuo9oUuTh1eh+Prakvk9ydc90Zrj9Hpc7jh7fhfWeYuE67jkzpaOzyzy1gNCMC\/EFsoVbQcTh63FipaX2sZnAJ4tUGuNWEcXVYwb0UrFdmeW2DnbN0bu3+95VXR3ulFflui\/pWUVEM81+cuPyEol6AAgZ8tn2R5dGWq8TqwdEtdQcPww8ZQgACX0oIpI4jfHgWHU25IXezsZTrM9UYnMC3vFn5+mWH\/UCWEgYTtrUnMaxKlMEYBCplfPqBZFM8JWlZYMeqCLri9\/QaX3GsZcdl97cN\/fwWbf7AgMBAAEwDQYJKoZIhvcNAQELBQADggEBAD3tN1Lf1PtEZF5uK3sKNoDh+V57N1GzEusIVp8\/0BkWtrw8PS54kPRfey16uz7K0lO1ASiLgjzyFelSkwsUWPINEktyFqr89uJMTYneGPiNnEYe+f28gQo1vNoZckileOoH4DyDsGek0jxx9FuGtxEVjZdDBvfDogLxGKhgAlkXHt+GGLSO9iffIED8UaTywe2nkbvOLfMTWkTuHJ24b19VaJOP7wk5NYSaiEdR+GWl9Sw72zxEpVSbm8ppgJmqsXBEcLURAUvdKQ\/uNbWIfySnOB8Vn5VSDMLNcCVYTR8h75ryH93KuMHBgFN+k0Q9\/Ma4v4gVuOiFCg6E8\/I0HTw="]
-	}]
-}
+class InvalidToken(Exception):
+    pass
+
+def load_certs(response):
+    """Extract token signing certificates."""
+    xml_tree = ElementTree.fromstring(response.content)
+    cert_nodes = xml_tree.findall(
+            "./{urn:oasis:names:tc:SAML:2.0:metadata}RoleDescriptor"
+            "[@{http://www.w3.org/2001/XMLSchema-instance}type='fed:SecurityTokenServiceType']"
+            "/{urn:oasis:names:tc:SAML:2.0:metadata}KeyDescriptor[@use='signing']"
+            "/{http://www.w3.org/2000/09/xmldsig#}KeyInfo"
+            "/{http://www.w3.org/2000/09/xmldsig#}X509Data"
+            "/{http://www.w3.org/2000/09/xmldsig#}X509Certificate"
+    )
+    signing_certificates = [node.text for node in cert_nodes]
+    new_keys = []
+    for cert in signing_certificates:
+        logging.debug("Loading public key from certificate: %s", cert)
+        cert_obj = load_der_x509_certificate(
+            base64.b64decode(cert), backend
+        )
+        new_keys.append(
+            cert_obj.public_key()
+        )
+    return new_keys
 
 def ensure_bytes(key):
     if isinstance(key, str):
@@ -35,3 +55,60 @@ def rsa_pem_from_jwk(jwk):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo
     )
+
+def _fetch_discovery_meta(tenant_id=None, discovery_url: str = None):
+    if not discovery_url:
+        if not tenant_id:
+            discovery_url = 'https://login.microsoftonline.com/common/.well-known/openid-configuration'
+        else:
+            discovery_url = f'https://login.microsoftonline.com/{tenant_id}/.well-known/openid-configuration'
+    try:
+        response = requests.get(discovery_url)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        logging.debug(response.text)
+        raise InvalidToken(f'Error getting issuer discovery meta from {discovery_url}', err)
+    return response.json()
+
+def get_kid(token):
+    headers = jwt.get_unverified_header(token)
+    print('KID HEADERS: ', headers)
+    if not headers:
+        raise InvalidToken('missing headers')
+    try:
+        return headers['kid']
+    except KeyError:
+        raise InvalidToken('missing kid')
+
+def get_jwks_uri(tenant_id: str = None, discovery_url: str = None):
+    meta = _fetch_discovery_meta(tenant_id, discovery_url)
+    if 'jwks_uri' in meta:
+        return meta['jwks_uri']
+    else:
+        raise InvalidToken(
+            'JWKS_URI not found in the issuer Meta'
+        )
+
+@functools.lru_cache
+def get_jwks(tenant_id: str = None, discovery_url: str = None):
+    jwks_uri= get_jwks_uri(tenant_id, tenant_id)
+    try:
+        response = requests.get(jwks_uri)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as err:
+        logging.debug(response.text)
+        raise InvalidToken(f'Error getting issuer jwks from {jwks_uri}', err)
+    return response.json()
+
+def get_jwk(kid, tenant_id: str = None, discovery_url: str = None):
+    for jwk in get_jwks(tenant_id, discovery_url).get('keys'):
+        if jwk.get('kid') == kid:
+            return jwk
+    raise InvalidToken('Unknown kid')
+
+
+def get_public_key(token, tenant_id: str = None, discovery_url: str = None):
+    kid = get_kid(token)
+    jwk = get_jwk(kid, tenant_id, discovery_url)
+    return rsa_pem_from_jwk(jwk)
+    # return rsa_pem_from_jwk(get_jwk(get_kid(token)))

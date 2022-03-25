@@ -11,14 +11,12 @@ from aiohttp import web, hdrs
 from .external import ExternalAuth
 from typing import List, Dict, Any
 import jwt
-from .jwksutils import rsa_pem_from_jwk, jwks
+from .jwksutils import get_public_key
 # needed by ADFS
-from xml.etree import ElementTree
 import requests
 import requests.adapters
 from urllib3.util.retry import Retry
-from cryptography.hazmat.backends.openssl.backend import backend
-from cryptography.x509 import load_der_x509_certificate
+
 
 from navigator.exceptions import (
     NavException,
@@ -42,52 +40,7 @@ from navigator.conf import (
     AZURE_AD_SERVER
 )
 
-
-def load_certs(response):
-    """Extract token signing certificates."""
-    xml_tree = ElementTree.fromstring(response.content)
-    cert_nodes = xml_tree.findall(
-            "./{urn:oasis:names:tc:SAML:2.0:metadata}RoleDescriptor"
-            "[@{http://www.w3.org/2001/XMLSchema-instance}type='fed:SecurityTokenServiceType']"
-            "/{urn:oasis:names:tc:SAML:2.0:metadata}KeyDescriptor[@use='signing']"
-            "/{http://www.w3.org/2000/09/xmldsig#}KeyInfo"
-            "/{http://www.w3.org/2000/09/xmldsig#}X509Data"
-            "/{http://www.w3.org/2000/09/xmldsig#}X509Certificate"
-    )
-    signing_certificates = [node.text for node in cert_nodes]
-    new_keys = []
-    for cert in signing_certificates:
-        logging.debug("Loading public key from certificate: %s", cert)
-        cert_obj = load_der_x509_certificate(
-            base64.b64decode(cert), backend
-        )
-        new_keys.append(
-            cert_obj.public_key()
-        )
-    return new_keys
-
-def get_kid(token):
-    headers = jwt.get_unverified_header(token)
-    print('HEADERS: ', headers)
-    if not headers:
-        raise Exception('missing headers')
-    try:
-        return headers['kid']
-    except KeyError:
-        raise Exception('missing kid')
-
-def get_jwk(kid):
-    for jwk in jwks.get('keys'):
-        if jwk.get('kid') == kid:
-            return jwk
-    raise Exception('kid not recognized')
-
-def get_public_key(token):
-    return rsa_pem_from_jwk(
-        get_jwk(
-            get_kid(token)
-    )
-)
+_jwks_cache = {}
 
 class ADFSAuth(ExternalAuth):
     """ADFSAuth.
@@ -117,12 +70,15 @@ class ADFSAuth(ExternalAuth):
             self.username_claim = "upn"
             self.groups_claim = "groups"
             self.claim_mapping = ADFS_CLAIM_MAPPING
+            self.discovery_oid_uri = f'https://login.microsoftonline.com/{self.tenant_id}/.well-known/openid-configuration'
         else:
             self.server = ADFS_SERVER
             self.tenant_id = 'adfs'
             self.username_claim = USERNAME_CLAIM
             self.groups_claim = GROUP_CLAIM
             self.claim_mapping = ADFS_CLAIM_MAPPING
+            self.discovery_oid_uri = f'https://{self.server}/adfs/.well-known/openid-configuration'
+            self._discovery_keys_uri = f'https://{self.server}/adfs/discovery/keys'
         
         self.base_uri = f"https:://{self.server}/"
         self.end_session_endpoint = f"https://{self.server}/{self.tenant_id}/ls/?wa=wsignout1.0"
@@ -130,6 +86,7 @@ class ADFSAuth(ExternalAuth):
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
         self.userinfo_uri = "https://graph.microsoft.com/v1.0/me"
+
 
         if ADFS_LOGIN_REDIRECT_URL is not None:
             login = ADFS_LOGIN_REDIRECT_URL
@@ -231,6 +188,7 @@ class ADFSAuth(ExternalAuth):
                 token_type = exchange["token_type"] # ex: Bearer
                 id_token = exchange["id_token"]
                 logging.debug(f"Received access token: {access_token}")
+                # decipher the Access Token:
                 # getting user information:
                 options = {
                     'verify_signature': True,
@@ -243,7 +201,7 @@ class ADFSAuth(ExternalAuth):
                     'require_iat': False,
                     'require_nbf': False
                 }
-                public_key = get_public_key(access_token)
+                public_key = get_public_key(access_token, self.tenant_id, self.discovery_oid_uri)
                 # Validate token and extract claims
                 data = jwt.decode(
                     access_token,

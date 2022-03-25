@@ -78,7 +78,7 @@ def get_kid(token):
     try:
         return headers['kid']
     except KeyError:
-        raise InvalidToken('missing kid')
+        return headers['x5t']
 
 def get_jwks_uri(tenant_id: str = None, discovery_url: str = None):
     meta = _fetch_discovery_meta(tenant_id, discovery_url)

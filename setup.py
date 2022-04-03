@@ -85,7 +85,7 @@ setup(
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
         "jsonpickle==2.1.0",
-        'slugify==0.0.1',
+        'python-slugify==6.1.1',
         "platformdirs==2.5.1"
     ],
     tests_require=[

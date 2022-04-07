@@ -115,6 +115,7 @@ class ExternalAuth(BaseAuthBackend):
                 "token" : token, "type":  token_type
             }
         url = self.prepare_url(AUTH_REDIRECT_URI, params)
+        print('FINAL URI is: ', url, headers)
         return web.HTTPFound(url, headers=headers)
 
     @abstractmethod

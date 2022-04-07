@@ -1,4 +1,4 @@
-import slugify
+from slugify import slugify
 from asyncdb.models import Model, Column, Field
 from dataclasses import dataclass, InitVar
 from typing import (

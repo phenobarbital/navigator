@@ -110,7 +110,8 @@ class PostgresPool(AbstractConnection):
                 "client_min_messages": "notice",
                 "max_parallel_workers": "48",
                 "jit": "off",
-                "statement_timeout": "60",
+                "statement_timeout": "36000",
+                "idle_in_transaction_session_timeout": '5min',
                 "effective_cache_size": "2147483647"
             },
         }

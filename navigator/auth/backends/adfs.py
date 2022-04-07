@@ -50,15 +50,19 @@ class ADFSAuth(ExternalAuth):
     """
     _service_name: str = "adfs"
     user_attribute: str = "user"
+    userid_attribute: str = 'upn'
     username_attribute: str = "username"
     pwd_atrribute: str = "password"
     version = 'v1.0'
     _user_mapping: Dict = {
-        'email': 'upn',
+        'user_id': 'upn',
+        'email': 'email',
         'given_name': 'given_name',
         'family_name': 'family_name',
         'name': 'display-Name',
-        'groups': "group"
+        'groups': "group",
+        'department': 'Department',
+        'name': 'Display-Name'
     }
 
     def configure(self, app, router, handler):
@@ -140,7 +144,7 @@ class ADFSAuth(ExternalAuth):
             # Step A: redirect
             return self.redirect(login_url)
         except Exception as err:
-            print('HERE: ', err)
+            logging.exception(err)
             raise NavException(
                 f"Client doesn't have info for ADFS Authentication: {err}"
             )
@@ -150,7 +154,6 @@ class ADFSAuth(ExternalAuth):
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         try:
             auth_response = dict(request.rel_url.query.items())
-            print(auth_response)
             authorization_code = auth_response['code']
             state = auth_response['state']
             request_id = auth_response['client-request-id']
@@ -159,7 +162,7 @@ class ADFSAuth(ExternalAuth):
             raise NavException(
                 f"ADFS: Invalid Callback response: {err}"
             )
-        print(authorization_code, state, request_id)
+        # print(authorization_code, state, request_id)
         logging.debug("Received authorization token: " + authorization_code)
         # getting an Access Token
         query_params = {
@@ -212,7 +215,7 @@ class ADFSAuth(ExternalAuth):
                     issuer=ADFS_ISSUER,
                     options=options,
                 )
-                print('CLAIMS: ', data)
+                # print('CLAIMS: ', data)
                 try:
                     # build user information:
                     userdata, uid = self.build_user_info(data)
@@ -223,6 +226,8 @@ class ADFSAuth(ExternalAuth):
                     raise web.HTTPForbidden(
                         reason=f"ADFS: Error with User Information: {err}"
                     )
+                # Redirect User to HOME
+                return self.home_redirect(request, token=data['token'], token_type='Bearer')
         except Exception as err:
             raise web.HTTPForbidden(
                 reason=f"ADFS: Invalid Response from Server {err}."

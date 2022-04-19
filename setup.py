@@ -22,7 +22,7 @@ with open(get_path('navigator/version.py')) as meta:
 setup(
     name=__title__,
     version=__version__,
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.0",
     url="https://github.com/phenobarbital/navigator-api",
     description=__description__,
     platforms=['POSIX'],
@@ -37,7 +37,7 @@ setup(
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Software Development :: Libraries",
-        "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
     ],
     author=__author__,
     author_email=__author_email__,

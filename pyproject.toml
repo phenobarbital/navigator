@@ -4,15 +4,14 @@ authors = [
     {name = "Jesus Lara G.", email = "jesuslarag@gmail.com"},
 ]
 readme = "README.md"
-requires-python = ">=3.8.5"
+requires-python = ">=3.9.0"
 license = {file = "LICENSE"}
 keywords = ["framework", "asyncio", "uvloop", "aiohttp", "navigator"]
 classifiers=[
-  "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Intended Audience :: System Administrators",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
   "Programming Language :: Python",
   "Typing :: Typed",
   "Development Status :: 4 - Beta",
@@ -46,7 +45,7 @@ author = "Jesus Lara Gimenez"
 author-email = "jesuslarag@gmail.com"
 home-page = "https://github.com/phenobarbital/navigator-api"
 description-file = "README.md"
-requires-python = ">=3.8.5"
+requires-python = ">=3.9.0"
 
 [tool.pytest.ini_options]
 addopts = [

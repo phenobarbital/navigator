@@ -50,7 +50,6 @@ setup(
         "Cython==0.29.28",
         "asyncio==3.4.3",
         "cchardet==2.1.7",
-        'cryptography==3.4.7',
         "cpython==0.0.6"
     ],
     install_requires=[
@@ -61,7 +60,7 @@ setup(
         "asyncdb",
         "navconfig",
         "async-notify",
-        "typing-extensions==4.1.1",
+        "typing-extensions>=4.1.1",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
         "sockjs==0.11.0",

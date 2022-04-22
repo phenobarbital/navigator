@@ -9,14 +9,22 @@ from setuptools import find_packages, setup
 
 
 def get_path(filename):
+    """get_path.
+    Get relative path for a file.
+    """
     return path.join(path.dirname(path.abspath(__file__)), filename)
 
 
 def readme():
-    with open(get_path('README.md')) as readme:
-        return readme.read()
+    """readme.
+    Get the content of README file.
+    Returns:
+        str: string of README file.
+    """
+    with open(get_path('README.md'), encoding='utf-8') as file:
+        return file.read()
 
-with open(get_path('navigator/version.py')) as meta:
+with open(get_path('navigator/version.py'), encoding='utf-8') as meta:
     exec(meta.read())
 
 setup(

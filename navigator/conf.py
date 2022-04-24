@@ -63,8 +63,7 @@ Development
 #
 DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
-LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
-USE_SSL = config.getboolean("ssl", "SSL", fallback=False)
+LOCAL_DEVELOPMENT = DEBUG is True and sys.argv[0] == "run.py"
 
 """
 Timezone
@@ -74,38 +73,39 @@ Timezone
 TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 
 """
-Environment
+SSL Support.
 """
-if DEBUG and LOCAL_DEVELOPMENT:
-    ENV = "development"
-    CSRF_ENABLED = False
-    SSL = False
+USE_SSL = config.getboolean("SSL", section="ssl", fallback=False)
+
+if USE_SSL is True:
+    SSL_CERT = config.get("CERT", section="ssl", fallback=None)
+    SSL_KEY = config.get("KEY", section="ssl", fallback=None)
+    CA_FILE = config.get('ROOT_CA', section="ssl", fallback=None)
+    PREFERRED_URL_SCHEME = config.get("PREFERRED_URL_SCHEME", section="ssl", fallback='http')
+    if SSL_KEY is None:
+        PREFERRED_URL_SCHEME = "http"
+else:
     SSL_VERIFY = False
     SSL_CERT = None
     SSL_KEY = None
+    CA_FILE = None
     PREFERRED_URL_SCHEME = "http"
-    ENABLE_TOKEN_APP = False
-else:
-    if PRODUCTION == False and DEBUG == True:
-        ENV = "development"
-        CSRF_ENABLED = False
-    elif PRODUCTION == True and DEBUG == True:
-        ENV = "staging"
-        CSRF_ENABLED = True
-    else:
-        ENV = "production"
-        CSRF_ENABLED = True
-    try:
-        SSL_CERT = config.get("CERT")
-        SSL_KEY = config.get("KEY")
-        PREFERRED_URL_SCHEME = "https"
-    except Exception as e:
-        SSL_CERT = None
-        SSL_KEY = None
-        PREFERRED_URL_SCHEME = "http"
 
 """
-Basic Information
+Environment.
+"""
+if DEBUG and LOCAL_DEVELOPMENT:
+    ENV = "dev"
+else:
+    if PRODUCTION is False and DEBUG is True:
+        ENV = "dev"
+    elif PRODUCTION is True and DEBUG is True:
+        ENV = "staging"
+    else:
+        ENV = "production"
+
+"""
+Basic Information.
 """
 EMAIL_CONTACT = config.get("EMAIL_CONTACT", section="info", fallback="foo@example.com")
 API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
@@ -124,9 +124,7 @@ PG_PWD = config.get("DBPWD")
 PG_DATABASE = config.get("DBNAME", fallback="navigator")
 PG_PORT = config.get("DBPORT", fallback=5432)
 
-asyncpg_url = "postgres://{user}:{password}@{host}:{port}/{db}".format(
-    user=PG_USER, password=PG_PWD, host=PG_HOST, port=PG_PORT, db=PG_DATABASE
-)
+asyncpg_url = f"postgres://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
 default_dsn = asyncpg_url
 
 """
@@ -138,7 +136,7 @@ REDIS SESSIONS
 """
 CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
 CACHE_PORT = config.get("CACHEPORT", fallback=6379)
-CACHE_URL = "redis://{}:{}".format(CACHE_HOST, CACHE_PORT)
+CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}"
 REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 

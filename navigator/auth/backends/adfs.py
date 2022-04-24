@@ -2,32 +2,22 @@
 
 Description: Backend Authentication/Authorization using Okta Service.
 """
-from numpy import True_
-import rapidjson
 import logging
-import asyncio
 import base64
-from aiohttp import web, hdrs
+from aiohttp import web
 from .external import ExternalAuth
-from typing import List, Dict, Any
+from typing import Dict
 import jwt
 from .jwksutils import get_public_key
 # needed by ADFS
 import requests
 import requests.adapters
-from urllib3.util.retry import Retry
-
-
 from navigator.exceptions import (
-    NavException,
-    UserDoesntExists,
-    InvalidAuth,
-    FailedAuth
+    NavException
 )
 from navigator.conf import (
     ADFS_SERVER,
     ADFS_CLIENT_ID,
-    ADFS_RELYING_PARTY_ID,
     ADFS_TENANT_ID,
     ADFS_RESOURCE,
     ADFS_AUDIENCE,
@@ -59,7 +49,6 @@ class ADFSAuth(ExternalAuth):
         'email': 'email',
         'given_name': 'given_name',
         'family_name': 'family_name',
-        'name': 'display-Name',
         'groups': "group",
         'department': 'Department',
         'name': 'Display-Name'
@@ -89,43 +78,41 @@ class ADFSAuth(ExternalAuth):
         self._issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
-        self.userinfo_uri = "https://graph.microsoft.com/v1.0/me"
+        self.userinfo_uri = f"https://{self.server}/{self.tenant_id}/userinfo"
 
 
         if ADFS_LOGIN_REDIRECT_URL is not None:
             login = ADFS_LOGIN_REDIRECT_URL
         else:
-            login = "/api/v1/auth/{}/".format(self._service_name)
+            login = f"/api/v1/auth/{self._service_name}/"
 
         if ADFS_CALLBACK_REDIRECT_URL is not None:
             callback = ADFS_CALLBACK_REDIRECT_URL
             self.redirect_uri = "{domain}" + callback
         else:
-            callback = "/auth/{}/callback/".format(self._service_name)
+            callback = f"/auth/{self._service_name}/callback/"
         # Login and Redirect Routes:
         router.add_route(
             "*",
             login,
             self.authenticate,
-            name="{}_login".format(self._service_name)
+            name=f"{self._service_name}_login"
         )
         # finish login (callback)
         router.add_route(
             "*",
             callback,
             self.auth_callback,
-            name="{}_callback_login".format(self._service_name)
+            name=f"{self._service_name}_callback_login"
         )
-        
 
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials.
 
         Description: This function returns the ADFS authorization URL.
         """
-        domain_url = self.get_domain(request)        
+        domain_url = self.get_domain(request)
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
-        print('REDIRECT: ', self.redirect_uri)
         try:
             self.state = base64.urlsafe_b64encode(self.redirect_uri.encode()).decode()
             query_params = {
@@ -137,17 +124,15 @@ class ADFSAuth(ExternalAuth):
                 "state": self.state,
                 "scope": 'openid'
             }
-            login_url = "{base_uri}?{query_params}".format(
-                base_uri=self.authorize_uri,
-                query_params=requests.compat.urlencode(query_params)
-            )
+            params = requests.compat.urlencode(query_params)
+            login_url = f"{self.authorize_uri}?{params}"
             # Step A: redirect
             return self.redirect(login_url)
         except Exception as err:
             logging.exception(err)
             raise NavException(
                 f"Client doesn't have info for ADFS Authentication: {err}"
-            )
+            ) from err
 
     async def auth_callback(self, request: web.Request):     
         domain_url = self.get_domain(request)        
@@ -161,9 +146,9 @@ class ADFSAuth(ExternalAuth):
             print(err)
             raise NavException(
                 f"ADFS: Invalid Callback response: {err}"
-            )
+            ) from err
         # print(authorization_code, state, request_id)
-        logging.debug("Received authorization token: " + authorization_code)
+        logging.debug("Received authorization token: %s", authorization_code)
         # getting an Access Token
         query_params = {
             "code": authorization_code,
@@ -215,9 +200,11 @@ class ADFSAuth(ExternalAuth):
                     issuer=ADFS_ISSUER,
                     options=options,
                 )
-                # print('CLAIMS: ', data)
+                print('CLAIMS : ', data)
                 try:
                     # build user information:
+                    data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                    print('USER DATA: ', data)
                     userdata, uid = self.build_user_info(data)
                     userdata['id_token'] = id_token
                     data = await self.create_user(request, uid, userdata, access_token)

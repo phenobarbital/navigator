@@ -18,13 +18,12 @@ from navigator.conf import (
 )
 import msal
 import json
-import jwt
-from .external import ExternalAuth
-from typing import Any, Dict
 from msal.authority import (
     AuthorityBuilder,
     AZURE_PUBLIC
 )
+from .external import ExternalAuth
+from typing import Dict
 
 logging.getLogger("msal").setLevel(logging.INFO)
 
@@ -49,21 +48,12 @@ class AzureAuth(ExternalAuth):
         super(AzureAuth, self).configure(app, router, handler)
 
         # TODO: build the callback URL and append to routes
-        self.base_url: str = 'https://login.microsoftonline.com/{tenant}'.format(
-            tenant=AZURE_ADFS_TENANT_ID
-        )
-        self.authorize_uri = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/authorize".format(
-            tenant=AZURE_ADFS_TENANT_ID
-        )
+        self.base_url: str = f'https://login.microsoftonline.com/{AZURE_ADFS_TENANT_ID}'
+        self.authorize_uri = f"https://login.microsoftonline.com/{AZURE_ADFS_TENANT_ID}/oauth2/v2.0/authorize"
         self.userinfo_uri = "https://graph.microsoft.com/v1.0/me"
-        
         # issuer:
-        self._issuer = "https://login.microsoftonline.com/{tenant}".format(
-            tenant=AZURE_ADFS_TENANT_ID
-        )
-        self._token_uri = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token".format(
-            tenant=AZURE_ADFS_TENANT_ID
-        )
+        self._issuer = f"https://login.microsoftonline.com/{AZURE_ADFS_TENANT_ID}"
+        self._token_uri = f"https://login.microsoftonline.com/{AZURE_ADFS_TENANT_ID}/oauth2/v2.0/token"
         self.authority = AuthorityBuilder(AZURE_PUBLIC, "contoso.onmicrosoft.com")
         self.users_info = "https://graph.microsoft.com/v1.0/users"
 
@@ -130,7 +120,7 @@ class AzureAuth(ExternalAuth):
         try:
             user, pwd = await self.get_payload(request)
         except Exception as err:
-            pass
+            logging.error(err)
         if user and pwd:
             Default_SCOPE = ["User.ReadBasic.All"]
             # will use User/Pass Authentication
@@ -174,7 +164,7 @@ class AzureAuth(ExternalAuth):
                         reason=f"Azure: Invalid Response from Server {err}."
                     )
         else:
-            domain_url = self.get_domain(request)        
+            domain_url = self.get_domain(request)
             self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
             SCOPE = ["https://graph.microsoft.com/.default"]
             app = self.get_msal_app()
@@ -193,7 +183,7 @@ class AzureAuth(ExternalAuth):
             except Exception as err:
                 raise NavException(
                     f"Azure: Client doesn't have info for Authentication: {err}"
-                )
+                ) from err
 
 
     async def auth_callback(self, request: web.Request):
@@ -203,20 +193,24 @@ class AzureAuth(ExternalAuth):
             except Exception as err:
                 raise Exception(
                     f'Azure Auth: Cannot get a Redis Cache connection: {err}'
-                )
+                ) from err
             auth_response = dict(request.rel_url.query.items())
             state = None
-            SCOPE = ["https://graph.microsoft.com/.default"]
+            # SCOPE = ["https://graph.microsoft.com/.default"]
             try:
                 state = auth_response['state']
             except Exception as err:
-                raise Exception('Azure: Wrong authentication Callback, missing State.')
+                raise Exception(
+                    'Azure: Wrong authentication Callback, missing State.'
+                ) from err
             try:
                 async with await request.app['redis'].acquire() as redis:
                     result = await redis.get(f'azure_auth_{state}')
                     flow = json.loads(result)
             except Exception as err:
-                raise Exception(f'Azure: Error reading Flow State from Cache: {err}')
+                raise Exception(
+                    f'Azure: Error reading Flow State from Cache: {err}'
+                )  from err
             app = self.get_msal_app()
             try:
                 result = app.acquire_token_by_auth_code_flow(
@@ -225,23 +219,18 @@ class AzureAuth(ExternalAuth):
                 )
                 if 'token_type' in result:
                     token_type = result['token_type']
-                    expires_in = result['expires_in']
+                    # expires_in = result['expires_in']
                     access_token = result['access_token']
-                    refresh_token = result['refresh_token']
+                    # refresh_token = result['refresh_token']
                     id_token = result['id_token']
-                    # logging.debug(f"Received access token: {id_token}")
-                    # claims = jwt.decode(
-                    #     id_token,
-                    #     algorithms=['RS256', 'RS384', 'RS512'],
-                    #     verify=False
-                    # )
-                    # print(f"JWT claims:\n {claims}")
                     claims = result['id_token_claims']
                     # getting user information:
                     try:
                         data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                        print('USER DATA: ', data)
                         # build user information:
                         userdata, uid = self.build_user_info(data)
+                        print(userdata, uid)
                         #userdata['access_token'] = access_token
                         userdata['id_token'] = id_token
                         #userdata['refresh_token'] = refresh_token
@@ -259,9 +248,6 @@ class AzureAuth(ExternalAuth):
                     desc = result['error_description']
                     message = f"Azure {error}: {desc}"
                     logging.exception(message)
-                    response = {
-                        "message": message
-                    }
                     raise web.HTTPForbidden(
                         reason=message
                     )

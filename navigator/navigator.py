@@ -14,6 +14,7 @@ from aiohttp import web
 import sockjs
 import aiohttp_cors
 import uvloop
+from aiohttp_swagger import setup_swagger
 # make asyncio use the event loop provided by uvloop
 from navconfig.logging import logging
 from navigator.conf import (
@@ -185,8 +186,9 @@ class Application(object):
                     directory=TEMPLATE_DIR
                 )
                 app['template'] = parser
-            except Exception:
-                raise
+            except Exception as e:
+                logging.exception(e)
+                raise Exception from e
         # create the pool-based connections (shared):
         name = app["name"]
         redis = RedisPool(
@@ -345,6 +347,9 @@ class Application(object):
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
     def run(self):
+        """run.
+        Starting App.
+        """
         # getting the resource App
         app = self.setup_app()
         if self.debug:
@@ -352,7 +357,6 @@ class Application(object):
         if self.enable_swagger is True:
             # previous to run, setup swagger:
             # auto-configure swagger
-            from aiohttp_swagger import setup_swagger
             setup_swagger(
                 app,
                 api_base_url="/",
@@ -365,15 +369,16 @@ class Application(object):
             )
         if self.debug is True:
             if LOCAL_DEVELOPMENT:
-                if self.enable_debugtoolbar is True:
-                    import aiohttp_debugtoolbar
-                    from aiohttp_debugtoolbar import toolbar_middleware_factory
-                    aiohttp_debugtoolbar.setup(
-                        app,
-                        hosts=[self.host, "127.0.0.1", "::1"],
-                        enabled=True,
-                        path_prefix="/_debug",
-                    )
+                pass
+                # if self.enable_debugtoolbar is True:
+                #     import aiohttp_debugtoolbar
+                #     from aiohttp_debugtoolbar import toolbar_middleware_factory
+                #     aiohttp_debugtoolbar.setup(
+                #         app,
+                #         hosts=[self.host, "127.0.0.1", "::1"],
+                #         enabled=True,
+                #         path_prefix="/_debug",
+                #     )
         if self.use_ssl:
             if CA_FILE:
                 ssl_context = ssl.create_default_context(

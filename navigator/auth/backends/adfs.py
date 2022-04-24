@@ -155,7 +155,8 @@ class ADFSAuth(ExternalAuth):
             "client_id": ADFS_CLIENT_ID,
             "grant_type": "authorization_code",
             "redirect_uri": self.redirect_uri,
-            "scope": "https://graph.microsoft.com/.default"
+            # "scope": "https://graph.microsoft.com/.default"
+            "scope": ["openid", "profile"]
         }
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -200,10 +201,17 @@ class ADFSAuth(ExternalAuth):
                     issuer=ADFS_ISSUER,
                     options=options,
                 )
-                print('CLAIMS : ', data)
                 try:
                     # build user information:
-                    data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                    try:
+                        params = {
+                            "resource": "urn:microsoft:userinfo"
+                        }
+                        url = self.prepare_url(self.userinfo_uri, params)
+                        print('Userinfo URL: ', url)
+                        data = await self.get(url=url, token=access_token, token_type=token_type)
+                    except Exception as err:
+                        logging.error(err)
                     print('USER DATA: ', data)
                     userdata, uid = self.build_user_info(data)
                     userdata['id_token'] = id_token

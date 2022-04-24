@@ -239,6 +239,7 @@ class ExternalAuth(BaseAuthBackend):
                 allow_redirects=True,
                 **kwargs
             ) as response:
+                logging.debug(f'{url} with response: {response.status}, {response!s}')
                 if response.status == 200:
                     try:
                         return await response.json()

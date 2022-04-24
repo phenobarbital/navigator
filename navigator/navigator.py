@@ -1,23 +1,21 @@
 #!/usr/bin/env python3
 import ssl
-import aiohttp_cors
 import signal
-import sockjs
-import traceback
+import asyncio
 import argparse
-from aiohttp import web
-from concurrent.futures import ThreadPoolExecutor
 from functools import wraps
+from concurrent.futures import ThreadPoolExecutor
 from typing import (
-    List,
     Dict,
     Any,
-    Callable,
-    Optional
+    Callable
 )
-# make asyncio use the event loop provided by uvloop
-import asyncio
+from aiohttp import web
+import sockjs
+import aiohttp_cors
 import uvloop
+# make asyncio use the event loop provided by uvloop
+from navconfig.logging import logging
 from navigator.conf import (
     DEBUG,
     APP_NAME,
@@ -27,8 +25,10 @@ from navigator.conf import (
     INSTALLED_APPS,
     LOCAL_DEVELOPMENT,
     Context,
+    USE_SSL,
     SSL_CERT,
     SSL_KEY,
+    CA_FILE,
     TEMPLATE_DIR,
     CACHE_URL,
     default_dsn
@@ -43,7 +43,7 @@ from navigator.handlers import (
 from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
-from navconfig.logging import logging
+
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 
@@ -76,26 +76,30 @@ def Response(
 
 
 class Application(object):
+    """Application.
+
+        Main class for Navigator Application.
+    Args:
+        object (_type_): _description_
+    """
     def __init__(
         self,
+        *args,
         app: AppHandler = None,
         enable_swagger: bool = False,
         enable_debugtoolbar: bool = False,
         enable_jinja_parser: bool = True,
-        use_ssl: bool = False,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
-        swagger_options: Dict = {},
-
-        *args,
+        swagger_options: Dict = None,
         **kwargs
     ) -> None:
         self.version = version
         self.enable_debugtoolbar = enable_debugtoolbar
         self.enable_swagger = enable_swagger
-        self.use_ssl = use_ssl
+        self.use_ssl = USE_SSL
         self.description = description
         self.contact = contact
         if not contact:
@@ -370,19 +374,22 @@ class Application(object):
                         enabled=True,
                         path_prefix="/_debug",
                     )
-            try:
-                web.run_app(app, host=self.host, port=self.port)
-            except Exception as err:
-                print(traceback.format_exc())
-                print(err)
-        else:
-            if self.use_ssl:
+        if self.use_ssl:
+            if CA_FILE:
+                ssl_context = ssl.create_default_context(
+                    ssl.Purpose.SERVER_AUTH, cafile=CA_FILE
+                )
+            else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-                ssl_context.load_cert_chain(SSL_CERT, SSL_KEY)
+            ssl_context.load_cert_chain(SSL_CERT, SSL_KEY)
+            try:
                 web.run_app(
                     app, host=self.host, port=self.port, ssl_context=ssl_context
                 )
-            if self.path:
-                web.run_app(app, path=self.path)
-            else:
-                web.run_app(app, host=self.host, port=self.port)
+            except Exception as err:
+                logging.exception(err, stack_info=True)
+                raise
+        elif self.path:
+            web.run_app(app, path=self.path)
+        else:
+            web.run_app(app, host=self.host, port=self.port)

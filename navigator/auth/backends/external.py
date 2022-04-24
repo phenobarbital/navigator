@@ -239,7 +239,7 @@ class ExternalAuth(BaseAuthBackend):
                 allow_redirects=True,
                 **kwargs
             ) as response:
-                print(response)
+                logging.debug(f'{url} with response: {response.status}, {response!s}')
                 if response.status == 200:
                     try:
                         return await response.json()
@@ -247,6 +247,5 @@ class ExternalAuth(BaseAuthBackend):
                         resp = await response.read()
                         return parse_qs(resp.decode("utf-8"))
                 else:
-                    print(response)
                     resp = await response.read()
                     raise Exception(f'Error getting Session Information: {resp}')

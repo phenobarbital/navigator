@@ -200,10 +200,12 @@ class ADFSAuth(ExternalAuth):
                     issuer=ADFS_ISSUER,
                     options=options,
                 )
-                print('CLAIMS : ', data)
                 try:
                     # build user information:
-                    data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                    try:
+                        data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
+                    except Exception as err:
+                        logging.error(err)
                     print('USER DATA: ', data)
                     userdata, uid = self.build_user_info(data)
                     userdata['id_token'] = id_token

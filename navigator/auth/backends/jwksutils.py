@@ -68,7 +68,7 @@ def _fetch_discovery_meta(tenant_id=None, discovery_url: str = None):
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
         logging.debug(response.text)
-        raise InvalidToken(f'Error getting issuer discovery meta from {discovery_url}', err)
+        raise InvalidToken(f'Error getting issuer discovery meta from {discovery_url}', err) from err
     return response.json()
 
 def get_kid(token):
@@ -99,7 +99,7 @@ def get_jwks(tenant_id: str = None, discovery_url: str = None):
         response.raise_for_status()
     except requests.exceptions.HTTPError as err:
         logging.debug(response.text)
-        raise InvalidToken(f'Error getting issuer jwks from {jwks_uri}', err)
+        raise InvalidToken(f'Error getting issuer jwks from {jwks_uri}', err) from err
     return response.json()
 
 def get_jwk(kid, tenant_id: str = None, discovery_url: str = None):

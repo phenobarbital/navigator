@@ -60,6 +60,7 @@ disable=print-statement,
         old-raise-syntax,
         backtick,
         long-suffix,
+        broad-except,
         old-ne-operator,
         old-octal-literal,
         import-star-module-level,
@@ -137,14 +138,14 @@ disable=print-statement,
         too-many-public-methods,
         duplicate-bases,
         cyclic-import,
-        no-else-return
+        no-else-return,
+        C0103
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
 enable=c-extension-no-member
-
 
 [REPORTS]
 
@@ -542,10 +543,3 @@ max-statements=50
 
 # Minimum number of public methods for a class (see R0903).
 min-public-methods=0
-
-
-[EXCEPTIONS]
-
-# Exceptions that will emit a warning when being caught. Defaults to
-# "Exception"
-overgeneral-exceptions=Exception

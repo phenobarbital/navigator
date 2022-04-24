@@ -186,8 +186,9 @@ class Application(object):
                     directory=TEMPLATE_DIR
                 )
                 app['template'] = parser
-            except Exception:
-                raise
+            except Exception as e:
+                logging.exception(e)
+                raise Exception from e
         # create the pool-based connections (shared):
         name = app["name"]
         redis = RedisPool(

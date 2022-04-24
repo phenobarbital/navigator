@@ -3,25 +3,27 @@
 Abstract Model to any Oauth2 or external Auth Support.
 """
 import logging
-import aiohttp
-from aiohttp import web, hdrs
 from .base import BaseAuthBackend
 from typing import (
     Dict,
-    List,
     Any
 )
 from abc import abstractmethod
+import aiohttp
+from aiohttp import web, hdrs
+from aiohttp.client import (
+    ClientTimeout,
+    ClientSession
+)
+from navigator.auth.identities import AuthUser
 from navigator.conf import (
     AUTH_SESSION_OBJECT,
     AUTH_LOGIN_FAILED_URI,
-    AUTH_REDIRECT_URI
+    AUTH_REDIRECT_URI,
+    PREFERRED_URL_SCHEME
 )
-from navigator.auth.identities import AuthUser
-from typing import List
-from aiohttp.client import ClientTimeout, ClientSession, _RequestContextManager
 from requests.models import PreparedRequest
-from urllib.parse import urlsplit, parse_qs
+from urllib.parse import parse_qs
 
 class OauthUser(AuthUser):
     token: str
@@ -44,42 +46,62 @@ class ExternalAuth(BaseAuthBackend):
     _service_name: str = "service"
     _user_mapping: Dict = {}
 
-    def configure(self, app, router, handler):
-        # add the callback url
-        router = app.router
+    def __init__(
+        self,
+        user_attribute: str = None,
+        userid_attribute: str = None,
+        password_attribute: str = None,
+        credentials_required: bool = False,
+        authorization_backends: tuple = (),
+        **kwargs,
+    ):
+        super().__init__(
+            user_attribute,
+            userid_attribute,
+            password_attribute,
+            credentials_required,
+            authorization_backends,
+            **kwargs
+        )
         self.base_url: str = ''
         self.authorize_uri: str = ''
         self.userinfo_uri: str = ''
         self._token_uri: str = ''
-        # TODO: know the host we already are running
         self.login_failed_uri = AUTH_LOGIN_FAILED_URI
         self.redirect_uri = "{domain}/auth/{service}/callback/"
+        self._issuer: str = None
+        self.users_info: str = None
+
+    def configure(self, app, router, handler):
+        # add the callback url
+        router = app.router
+        # TODO: know the host we already are running
         # start login
         router.add_route(
             "*",
-            "/api/v1/auth/{}/".format(self._service_name),
+            f"/api/v1/auth/{self._service_name}/",
             self.authenticate,
-            name="{}_api_login".format(self._service_name)
+            name=f"{self._service_name}_api_login"
         )
         # finish login (callback)
         router.add_route(
             "GET",
-            "/auth/{}/callback/".format(self._service_name),
+            f"/auth/{self._service_name}/callback/",
             self.auth_callback,
-            name="{}_complete_login".format(self._service_name)
+            name=f"{self._service_name}_complete_login"
         )
         # logout process
         router.add_route(
             "GET",
-            "/api/v1/auth/{}/logout".format(self._service_name),
+            f"/api/v1/auth/{self._service_name}/logout",
             self.logout,
-            name="{}_api_logout".format(self._service_name)
+            name=f"{self._service_name}_api_logout"
         )
         router.add_route(
             "GET",
-            "/auth/{}/logout".format(self._service_name),
+            f"/auth/{self._service_name}/logout",
             self.finish_logout,
-            name="{}_complete_logout".format(self._service_name)
+            name=f"{self._service_name}_complete_logout"
         )
         super(ExternalAuth, self).configure(app, router, handler)
         
@@ -102,11 +124,11 @@ class ExternalAuth(BaseAuthBackend):
         return req.url
         
     def home_redirect(self, request: web.Request, token: str = None, token_type: str = 'Bearer', **kwargs):
-        logging.debug(f'Finish Auth URI::: {AUTH_REDIRECT_URI}')
+        domain_url = self.get_domain(request)
+        redirect_url = f"{domain_url}{AUTH_REDIRECT_URI}"
         headers = {
             "x-authenticated": 'true'
         }
-        req = PreparedRequest()
         params = {}
         if token:
             headers["x-auth-token"] = token
@@ -114,36 +136,30 @@ class ExternalAuth(BaseAuthBackend):
             params = {
                 "token" : token, "type":  token_type
             }
-        url = self.prepare_url(AUTH_REDIRECT_URI, params)
-        print('FINAL URI is: ', url, headers)
+        url = self.prepare_url(redirect_url, params)
         return web.HTTPFound(url, headers=headers)
 
     @abstractmethod
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials."""
-        pass
     
     @abstractmethod
     async def auth_callback(self, request: web.Request):
         """auth_callback, Finish method for authentication."""
-        pass
     
     @abstractmethod
     async def logout(self, request: web.Request):
         """logout, forgot credentials and remove the user session."""
-        pass
     
     @abstractmethod
     async def finish_logout(self, request: web.Request):
         """finish_logout, Finish Logout Method."""
-        pass
     
     def build_user_info(self, userdata: Dict) -> Dict:
         # User ID:
         userid = userdata[self.userid_attribute]
         userdata['id'] = userid
         userdata[self.session_key_property] = userid
-        # TODO: mapping
         for key, val in self._user_mapping.items():
             try:
                 userdata[key] = userdata[val]
@@ -188,10 +204,6 @@ class ExternalAuth(BaseAuthBackend):
     @abstractmethod
     async def check_credentials(self, request: web.Request):
         """Check the validity of the current issued credentials."""
-        pass
-    
-    def base_url(self):
-        return self.base_url
 
     def get(self, url, **kwargs) -> web.Response:
         """Perform an HTTP GET request."""

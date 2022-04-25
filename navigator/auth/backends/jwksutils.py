@@ -73,7 +73,7 @@ def _fetch_discovery_meta(tenant_id=None, discovery_url: str = None):
 
 def get_kid(token):
     headers = jwt.get_unverified_header(token)
-    print('KID HEADERS: ', headers)
+    # print('KID HEADERS: ', headers)
     if not headers:
         raise InvalidToken('missing headers')
     try:
@@ -83,7 +83,7 @@ def get_kid(token):
 
 def get_jwks_uri(tenant_id: str = None, discovery_url: str = None):
     meta = _fetch_discovery_meta(tenant_id, discovery_url)
-    print('META JWKS: ', meta)
+    # print('META JWKS: ', meta)
     if 'jwks_uri' in meta:
         return meta['jwks_uri']
     else:

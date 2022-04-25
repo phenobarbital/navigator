@@ -79,7 +79,8 @@ class ADFSAuth(ExternalAuth):
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
         self.userinfo_uri = f"https://{self.server}/{self.tenant_id}/userinfo"
-
+        self.scope_uri = f"https://{self.server}/{self.tenant_id}/.default"
+        self.default_scope_uri = 'https://graph.microsoft.com/.default'
 
         if ADFS_LOGIN_REDIRECT_URL is not None:
             login = ADFS_LOGIN_REDIRECT_URL
@@ -122,7 +123,7 @@ class ADFSAuth(ExternalAuth):
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": 'openid'
+                "scope": self.scope_uri
             }
             params = requests.compat.urlencode(query_params)
             login_url = f"{self.authorize_uri}?{params}"
@@ -140,7 +141,7 @@ class ADFSAuth(ExternalAuth):
         try:
             auth_response = dict(request.rel_url.query.items())
             authorization_code = auth_response['code']
-            state = auth_response['state']
+            state = auth_response['state'] # TODO: making validation with previous state
             request_id = auth_response['client-request-id']
         except Exception as err:
             print(err)
@@ -155,8 +156,7 @@ class ADFSAuth(ExternalAuth):
             "client_id": ADFS_CLIENT_ID,
             "grant_type": "authorization_code",
             "redirect_uri": self.redirect_uri,
-            # "scope": "https://graph.microsoft.com/.default"
-            "scope": ["openid", "profile"]
+            "scope": self.scope_uri
         }
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"
@@ -204,12 +204,7 @@ class ADFSAuth(ExternalAuth):
                 try:
                     # build user information:
                     try:
-                        params = {
-                            "resource": "urn:microsoft:userinfo"
-                        }
-                        url = self.prepare_url(self.userinfo_uri, params)
-                        print('Userinfo URL: ', url)
-                        data = await self.get(url=url, token=access_token, token_type=token_type)
+                        data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
                     except Exception as err:
                         logging.error(err)
                     print('USER DATA: ', data)

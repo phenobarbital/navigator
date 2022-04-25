@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
-from abc import ABC, abstractmethod
+from abc import ABC
 import importlib
 import inspect
-import asyncio
 import uvloop
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Callable, List
 import aiohttp_cors
-from navigator.templating import TemplateParser
 from .resources import Router
 import aiohttp
 from aiohttp import web
@@ -22,6 +20,7 @@ from navigator.conf import (
     SESSION_TIMEOUT,
     default_dsn
 )
+from navigator.templating import TemplateParser
 from navigator.connections import PostgresPool
 # make a home and a ping class
 from navigator.resources import home, ping
@@ -79,9 +78,8 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
             if domain:
                 app.add_domain(domain, sub_app)
             else:
-                app.add_subapp("/{}/".format(name), sub_app)
+                app.add_subapp(f"/{name}/", sub_app)
             # TODO: build automatic documentation
-            # add other elements:
             try:
                 sub_app['template'] = app["template"]
                 # redis connection
@@ -369,7 +367,7 @@ class AppConfig(AppHandler):
             '/authorize', self.app_authorization
         )
 
-    def listener(conn, pid, channel, payload, *args):
+    def listener(self, conn, pid, channel, payload, *args):
         print("Notification from {}: {}, {}".format(channel, payload, args))
         
     async def create_connection(self, app, dsn: str = None):
@@ -485,12 +483,9 @@ class AppConfig(AppHandler):
                             route.url, route.handler, name=route.name
                         )
                     else:
-                        raise (
-                            "Unsupported Method for Route {}, program: {}".format(
-                                route.method, self._name
-                            )
+                        raise Exception(
+                            f"Unsupported Method for Route {route.method}, program: {self._name}"
                         )
-                        return False
                     self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
@@ -522,12 +517,9 @@ class AppConfig(AppHandler):
                             route.url, route.handler, name=route.name
                         )
                     else:
-                        raise (
-                            "Unsupported Method for Route {}, program: {}".format(
-                                route.method, self._name
-                            )
+                        raise Exception(
+                            f"Unsupported Method for Route {route.method}, program: {self._name}"
                         )
-                        return False
                     self.cors.add(r)
 
     async def app_authorization(self, request: web.Request) -> web.Response:

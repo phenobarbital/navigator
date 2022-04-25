@@ -63,7 +63,7 @@ Development
 #
 DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
-LOCAL_DEVELOPMENT = DEBUG is True and sys.argv[0] == "run.py"
+LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
 
 """
 Timezone
@@ -76,6 +76,7 @@ TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 SSL Support.
 """
 USE_SSL = config.getboolean("SSL", section="ssl", fallback=False)
+print('USE SSL ', USE_SSL)
 
 if USE_SSL is True:
     SSL_CERT = config.get("CERT", section="ssl", fallback=None)

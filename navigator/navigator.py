@@ -85,21 +85,18 @@ class Application(object):
     """
     def __init__(
         self,
-        *args,
         app: AppHandler = None,
-        enable_swagger: bool = False,
-        enable_debugtoolbar: bool = False,
-        enable_jinja_parser: bool = True,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
+        enable_jinja_parser: bool = True,
+        enable_swagger: bool = False,
         swagger_options: Dict = None,
+        *args,
         **kwargs
     ) -> None:
         self.version = version
-        self.enable_debugtoolbar = enable_debugtoolbar
-        self.enable_swagger = enable_swagger
         self.use_ssl = USE_SSL
         self.description = description
         self.contact = contact
@@ -108,7 +105,10 @@ class Application(object):
         self.title = title
         if not title:
             self.title = APP_NAME
+        # swagger:
+        self.enable_swagger = enable_swagger
         self.swagger_options = swagger_options
+        # template parser
         self.enable_jinja_parser = enable_jinja_parser
         # configuring asyncio loop
         # TODO: work in an exception handler for NAV
@@ -140,6 +140,7 @@ class Application(object):
             self.app = AppBase(Context)
         else:
             self.app = app(Context)
+        print('HERE: ', app)
         # getting the application Logger
         self._logger = self.get_logger(self.app.Name)
 
@@ -180,6 +181,7 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
+        print(app)
         if self.enable_jinja_parser is True:
             try:
                 parser = TemplateParser(

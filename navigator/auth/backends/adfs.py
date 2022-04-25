@@ -21,6 +21,7 @@ from navigator.conf import (
     ADFS_TENANT_ID,
     ADFS_RESOURCE,
     ADFS_AUDIENCE,
+    ADFS_SCOPES,
     ADFS_ISSUER,
     USERNAME_CLAIM,
     GROUP_CLAIM,
@@ -79,8 +80,6 @@ class ADFSAuth(ExternalAuth):
         self.authorize_uri = f"https://{self.server}/{self.tenant_id}/oauth2/authorize/"
         self._token_uri = f"https://{self.server}/{self.tenant_id}/oauth2/token"
         self.userinfo_uri = f"https://{self.server}/{self.tenant_id}/userinfo"
-        self.scope_uri = f"https://{self.server}/{self.tenant_id}/.default"
-        self.default_scope_uri = 'https://graph.microsoft.com/.default'
 
         if ADFS_LOGIN_REDIRECT_URL is not None:
             login = ADFS_LOGIN_REDIRECT_URL
@@ -123,7 +122,7 @@ class ADFSAuth(ExternalAuth):
                 "resource": ADFS_RESOURCE,
                 "response_mode": "query",
                 "state": self.state,
-                "scope": self.scope_uri
+                "scope": ADFS_SCOPES
             }
             params = requests.compat.urlencode(query_params)
             login_url = f"{self.authorize_uri}?{params}"
@@ -156,7 +155,7 @@ class ADFSAuth(ExternalAuth):
             "client_id": ADFS_CLIENT_ID,
             "grant_type": "authorization_code",
             "redirect_uri": self.redirect_uri,
-            "scope": self.scope_uri
+            "scope": ADFS_SCOPES
         }
         headers = {
             "Content-Type": "application/x-www-form-urlencoded"

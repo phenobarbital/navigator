@@ -23,7 +23,7 @@ from navigator.conf import (
     PREFERRED_URL_SCHEME
 )
 from requests.models import PreparedRequest
-from urllib.parse import parse_qs
+from urllib.parse import urlparse, parse_qs
 
 class OauthUser(AuthUser):
     token: str
@@ -125,7 +125,11 @@ class ExternalAuth(BaseAuthBackend):
         
     def home_redirect(self, request: web.Request, token: str = None, token_type: str = 'Bearer', **kwargs):
         domain_url = self.get_domain(request)
-        redirect_url = f"{domain_url}{AUTH_REDIRECT_URI}"
+        if bool(urlparse(AUTH_REDIRECT_URI).netloc):
+            # is an absolute URI
+            redirect_url = AUTH_REDIRECT_URI
+        else:
+            redirect_url = f"{domain_url}{AUTH_REDIRECT_URI}"
         headers = {
             "x-authenticated": 'true'
         }

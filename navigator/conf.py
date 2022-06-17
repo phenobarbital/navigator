@@ -261,6 +261,7 @@ if APP_DIR.is_dir():
             if item.is_dir():
                 name = item.name
                 if not name in INSTALLED_APPS:
+                    # TODO: avoid load apps.dataintegration
                     app_name = "apps.{}".format(item.name)
                     path = APP_DIR.joinpath(name)
                     url_file = path.joinpath("urls.py")

@@ -112,14 +112,13 @@ class NoAuth(BaseAuthBackend):
                     f'Error Processing Base Authorization Backend: {err!s}'
                 )
             try:
-                auth = request.get('authenticated', False)
-                if auth is True:
+                if request.get('authenticated', False) is True:
                     # already authenticated
                     return await handler(request)
             except KeyError:
                 pass
             try:
-                tenant, payload = self.decode_token(request)
+                _, payload = self.decode_token(request)
                 if payload:
                     # load session information
                     session = await get_session(request, payload, new = False)
@@ -142,15 +141,13 @@ class NoAuth(BaseAuthBackend):
                 logging.error('Auth Middleware: Invalid Signature or secret')
                 if CREDENTIALS_REQUIRED is True:
                     raise web.HTTPClientError(
-                        reason=err.message,
-                        state=err.state
+                        reason=err.message
                     )
             except Exception as err:
                 logging.error(f"Bad Request: {err!s}")
                 if CREDENTIALS_REQUIRED is True:
                     raise web.HTTPClientError(
-                        reason=err.message,
-                        state=err.state
+                        reason=err
                     )
             return await handler(request)
         return middleware

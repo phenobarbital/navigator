@@ -25,7 +25,7 @@ class Router(web.UrlDispatcher):
                         "status": "Tenant Authorized",
                         "program": 'Navigator'
                     }
-                    return web_urldispatcher.MatchInfoError( 
+                    return web_urldispatcher.MatchInfoError(
                         web.HTTPAccepted(
                             reason=authorization,
                             content_type='application/json'
@@ -47,7 +47,11 @@ async def channel_handler(request):
     # socket = {"ws": ws, "conn": connection}
     try:
         socket = {"ws": ws}
-        request.app["sockets"].append(socket)
+        try:
+            request.app["sockets"].append(socket)
+        except KeyError:
+            request.app["sockets"] = []
+            request.app["sockets"].append(socket)
         print(socket)
         logging.debug(f"WS Channel :: {channel} :: connection ready")
     except asyncio.CancelledError:
@@ -80,10 +84,10 @@ class WebSocket(web.View):
         ws = web.WebSocketResponse()
         await ws.prepare(self.request)
 
-        for _ws in self.request.app["websockets"]:
+        for _ws in self.request.app["sockets"]:
             _ws.send_str(f'Someone Joined.')
-            
-        self.request.app["websockets"].append(ws)
+
+        self.request.app["sockets"].append(ws)
         session = await get_session(self.request)
         if session:
             session['socket'] = ws
@@ -101,9 +105,9 @@ class WebSocket(web.View):
                 logging.error(f"ws connection closed with exception {exp}")
             else:
                 pass
-        self.request.app["websockets"].remove(ws)
+        self.request.app["sockets"].remove(ws)
         session['socket'] = None
-        for _ws in self.request.app["websockets"]:
+        for _ws in self.request.app["sockets"]:
             _ws.send_str(f'Someone Disconnected.')
         print("Websocket connection closed")
         return ws

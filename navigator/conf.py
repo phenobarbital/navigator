@@ -24,6 +24,8 @@ from .apps import APP_DIR, ApplicationInstaller
 Routes
 """
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
+APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
+
 logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
 
 APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
@@ -190,11 +192,15 @@ DEFAULT_MAPPING = {
     "last_login": "last_login",
     "title": "title",
 }
+USER_MAPPING = DEFAULT_MAPPING
 mapping = config.get('AUTH_USER_MAPPING')
-if mapping:
+try:
     USER_MAPPING = json.loads(mapping)
-else:
-    USER_MAPPING = DEFAULT_MAPPING
+except Exception:
+    logging.exception(
+        'NAV: Invalid User Mapping on *AUTH_USER_MAPPING*'
+    )
+
 
 USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
 
@@ -206,11 +212,9 @@ ALLOWED_HOSTS = [
 """
 Session Storage
 """
-SESSION_NAME = "{}_SESSION".format(
-    config.get("APP_TITLE", fallback="NAVIGATOR").upper()
-)
+SESSION_NAME = f"{APP_TITLE}_SESSION"
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
-SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_PREFIX = f'{CACHE_PREFIX}_session'
 SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
 SESSION_KEY = config.get('SESSION_KEY', fallback='id')
 SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
@@ -257,7 +261,7 @@ Per-Program Settings
 """
 # program: str
 for program in INSTALLED_APPS:
-    settings = "apps.{}.settings".format(program)
+    settings = f"apps.{program}.settings"
     try:
         i = importlib.import_module(settings)
         globals()[program] = i

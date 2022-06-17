@@ -140,7 +140,6 @@ class Application(object):
             self.app = AppBase(Context)
         else:
             self.app = app(Context)
-        print('HERE: ', app)
         # getting the application Logger
         self._logger = self.get_logger(self.app.Name)
 
@@ -181,7 +180,6 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        print(app)
         if self.enable_jinja_parser is True:
             try:
                 parser = TemplateParser(

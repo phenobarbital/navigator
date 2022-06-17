@@ -589,9 +589,11 @@ class ModelView(BaseView):
                 self.Meta.tablename = table
             try:
                 return self.models[table]
-            except KeyError:
+            except KeyError as err:
                 # Model doesn't exists
-                raise NoDataFound(f"Model {table} Doesnt Exists")
+                raise NoDataFound(
+                    f"Model {table} Doesnt Exists"
+                ) from err
 
     def __init__(self, *args, **kwargs):
         super(ModelView, self).__init__(*args, **kwargs)
@@ -599,7 +601,7 @@ class ModelView(BaseView):
         try:
             self.model = self.get_schema()
         except NoDataFound as err:
-            raise Exception(err)
+            raise Exception(err) from err
 
     async def get_data(self, params, args):
         try:

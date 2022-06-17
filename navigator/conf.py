@@ -3,13 +3,10 @@ import sys
 import base64
 import json
 import importlib
-from pathlib import Path
 from types import ModuleType
 from typing import (
-    Any,
     Dict,
-    List,
-    Tuple
+    List
 )
 from cryptography import fernet
 # Import Config Class
@@ -21,13 +18,12 @@ from navconfig import (
 from navconfig.logging import (
     logging
 )
+from .apps import APP_DIR, ApplicationInstaller
 
 """
 Routes
 """
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
-APP_DIR = BASE_DIR.joinpath("apps")
-
 logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
 
 APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
@@ -63,7 +59,7 @@ Development
 #
 DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
-LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
+LOCAL_DEVELOPMENT = DEBUG is True and sys.argv[0] == "run.py"
 
 """
 Timezone
@@ -252,46 +248,14 @@ Context = {
 """
 Applications
 """
-INSTALLED_APPS: List = []
-DATABASES: Dict = {}
-
-if APP_DIR.is_dir():
-    for item in APP_DIR.iterdir():
-        if item.name != "__pycache__":
-            if item.is_dir():
-                name = item.name
-                if not name in INSTALLED_APPS:
-                    # TODO: avoid load apps.dataintegration
-                    app_name = "apps.{}".format(item.name)
-                    path = APP_DIR.joinpath(name)
-                    url_file = path.joinpath("urls.py")
-                    try:
-                        i = importlib.import_module(app_name, package="apps")
-                        if isinstance(i, ModuleType):
-                            # is a Navigator Program
-                            INSTALLED_APPS += (app_name,)
-                    except ImportError as err:
-                        print("ERROR: ", err)
-                        continue
-                    # schema configuration
-                    DATABASES[item.name] = {
-                        "NAME": PG_DATABASE,
-                        "USER": PG_USER,
-                        "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",public",
-                        },
-                        "SCHEMA": item.name,
-                        "PASSWORD": PG_PWD,
-                        "HOST": PG_HOST,
-                        "PORT": PG_PORT,
-                    }
-
-Context["DATABASES"] = DATABASES
+installer = ApplicationInstaller()
+INSTALLED_APPS: List = installer.installed_apps()
+Context["INSTALLED_APPS"] = INSTALLED_APPS
 
 """
 Per-Program Settings
 """
-program: str
+# program: str
 for program in INSTALLED_APPS:
     settings = "apps.{}.settings".format(program)
     try:

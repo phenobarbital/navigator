@@ -64,6 +64,7 @@ class BaseAuthBackend(ABC):
     scheme: str = "Bearer"
     session_timeout: int = int(SESSION_TIMEOUT)
     _service: str = None
+    _ident: Identity = Identity
 
     def __init__(
         self,
@@ -109,7 +110,7 @@ class BaseAuthBackend(ABC):
 
     async def on_startup(self, app: web.Application):
         pass
-    
+
     async def on_cleanup(self, app: web.Application):
         pass
 
@@ -120,13 +121,23 @@ class BaseAuthBackend(ABC):
             user = await self.user_model.get(**search)
         except Exception as err:
             logging.error(f"Error getting User {search!s}")
-            raise Exception(err)
+            raise Exception(err) from err
         # if not exists, return error of missing
         if not user:
             raise UserDoesntExists(f"User doesnt exists")
         return user
 
-    def get_userdata(self, user):
+    async def create_user(self, userdata) -> Identity:
+        try:
+            usr = self._ident(
+                        data=userdata
+            )
+            logging.debug(f'User Created > {usr}')
+            return usr
+        except Exception as err:
+            raise Exception(err) from err
+
+    def get_userdata(self, user = None):
         userdata = {}
         for name, item in self.user_mapping.items():
             if name != self.password_attribute:
@@ -161,8 +172,6 @@ class BaseAuthBackend(ABC):
             try:
                 session = await new_session(request, userdata)
                 user.is_authenticated = True # if session, then, user is authenticated.
-                # which Auth Method:
-                # user.auth_method = self._service
                 session[self.session_key_property] = identity
                 session['user'] = session.encode(user)
                 request['session'] = session
@@ -262,22 +271,32 @@ class BaseAuthBackend(ABC):
                 logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
             except jwt.exceptions.ExpiredSignatureError as err:
-                raise AuthExpired(f"Credentials Expired: {err!s}")
+                raise AuthExpired(
+                    f"Credentials Expired: {err!s}"
+                ) from err
             except jwt.exceptions.InvalidSignatureError as err:
-                raise AuthExpired(f"Signature Failed or Expired: {err!s}")
+                raise AuthExpired(
+                    f"Signature Failed or Expired: {err!s}"
+                ) from err
             except jwt.exceptions.DecodeError as err:
-                raise FailedAuth(f"Token Decoding Error: {err}")
+                raise FailedAuth(
+                    f"Token Decoding Error: {err}"
+                ) from err
             except jwt.exceptions.InvalidTokenError as err:
-                raise InvalidAuth(f"Invalid authorization token {err!s}")
+                raise InvalidAuth(
+                    f"Invalid authorization token {err!s}"
+                ) from err
             except Exception as err:
-                raise NavException(err, state=501)
+                raise NavException(
+                    err,
+                    state=501
+                ) from err
         else:
             return [tenant, payload]
 
     @abstractmethod
     async def check_credentials(self, request):
         """ Authenticate against user credentials (token, user/password)."""
-        pass
 
     def threaded_function(self, func: Callable, loop: asyncio.AbstractEventLoop = None, threaded: bool = True):
         """Wraps a Function into an Executor Thread."""

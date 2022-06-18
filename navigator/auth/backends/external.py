@@ -17,10 +17,8 @@ from aiohttp.client import (
 )
 from navigator.auth.identities import AuthUser
 from navigator.conf import (
-    AUTH_SESSION_OBJECT,
     AUTH_LOGIN_FAILED_URI,
-    AUTH_REDIRECT_URI,
-    PREFERRED_URL_SCHEME
+    AUTH_REDIRECT_URI
 )
 from requests.models import PreparedRequest
 from urllib.parse import urlparse, parse_qs
@@ -29,8 +27,8 @@ class OauthUser(AuthUser):
     token: str
     given_name: str
     family_name: str
-    
-    def __post_init__(self, data): 
+
+    def __post_init__(self, data):
         super(OauthUser, self).__post_init__(data)
         self.first_name = self.given_name
         self.last_name = self.family_name
@@ -45,6 +43,7 @@ class ExternalAuth(BaseAuthBackend):
     pwd_atrribute: str = "password"
     _service_name: str = "service"
     _user_mapping: Dict = {}
+    _ident: AuthUser = OauthUser
 
     def __init__(
         self,
@@ -104,13 +103,13 @@ class ExternalAuth(BaseAuthBackend):
             name=f"{self._service_name}_complete_logout"
         )
         super(ExternalAuth, self).configure(app, router, handler)
-        
+
     def get_domain(self, request: web.Request) -> str:
         absolute_uri = str(request.url)
         domain_url = absolute_uri.replace(str(request.rel_url), '')
         logging.debug(f'DOMAIN: {domain_url}')
         return domain_url
- 
+
     def redirect(self, uri: str):
         """redirect.
             Making the redirection to External Auth Page.
@@ -122,8 +121,8 @@ class ExternalAuth(BaseAuthBackend):
         req = PreparedRequest()
         req.prepare_url(url, params)
         return req.url
-        
-    def home_redirect(self, request: web.Request, token: str = None, token_type: str = 'Bearer', **kwargs):
+
+    def home_redirect(self, request: web.Request, token: str = None, token_type: str = 'Bearer'):
         domain_url = self.get_domain(request)
         if bool(urlparse(AUTH_REDIRECT_URI).netloc):
             # is an absolute URI
@@ -146,19 +145,19 @@ class ExternalAuth(BaseAuthBackend):
     @abstractmethod
     async def authenticate(self, request: web.Request):
         """ Authenticate, refresh or return the user credentials."""
-    
+
     @abstractmethod
     async def auth_callback(self, request: web.Request):
         """auth_callback, Finish method for authentication."""
-    
+
     @abstractmethod
     async def logout(self, request: web.Request):
         """logout, forgot credentials and remove the user session."""
-    
+
     @abstractmethod
     async def finish_logout(self, request: web.Request):
         """finish_logout, Finish Logout Method."""
-    
+
     def build_user_info(self, userdata: Dict) -> Dict:
         # User ID:
         userid = userdata[self.userid_attribute]
@@ -170,12 +169,14 @@ class ExternalAuth(BaseAuthBackend):
             except KeyError:
                 pass
         return (userdata, userid)
-    
-    async def create_user(self, request: web.Request, user_id: Any, userdata: Any, token: str):
+
+    async def get_user_session(self, request: web.Request, user_id: Any, userdata: Any, token: str):
         # TODO: only creates after validation:
         data = None
         try:
-            user = OauthUser(data=userdata)
+            user = await self.create_user(
+                userdata
+            )
             user.id = user_id
             user.auth_method = self._service_name
             user.access_token = token
@@ -184,7 +185,6 @@ class ExternalAuth(BaseAuthBackend):
             except KeyError:
                 user.username = user_id
             user.token = token # issued token:
-            # logging.debug(f'User Created > {user}')
             payload = {
                 "user_id": user_id,
                 **userdata
@@ -204,7 +204,7 @@ class ExternalAuth(BaseAuthBackend):
             logging.exception(err)
         finally:
             return data
-    
+
     @abstractmethod
     async def check_credentials(self, request: web.Request):
         """Check the validity of the current issued credentials."""
@@ -216,7 +216,7 @@ class ExternalAuth(BaseAuthBackend):
     def post(self, url, **kwargs) -> web.Response:
         """Perform an HTTP POST request."""
         return self.request(url, method=hdrs.METH_POST, **kwargs)
-    
+
     async def request(self, url: str, method: str ='get', token: str = None, token_type: str = 'Bearer', **kwargs) -> web.Response:
         """
         request.

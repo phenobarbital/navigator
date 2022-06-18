@@ -26,10 +26,9 @@ from navigator.auth.identities import AuthUser
 
 class BasicUser(AuthUser):
     """BasicAuth.
-    
+
     Basic authenticated user.
     """
-    pass
 
 
 # "%s$%d$%s$%s" % (algorithm, iterations, salt, hash)
@@ -40,6 +39,7 @@ class BasicAuth(BaseAuthBackend):
 
     user_attribute: str = "user"
     pwd_atrribute: str = "password"
+    _ident: AuthUser = BasicUser
 
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
@@ -49,15 +49,15 @@ class BasicAuth(BaseAuthBackend):
         except UserDoesntExists as err:
             raise UserDoesntExists(
                 f"User {login} doesn't exists"
-            )
-        except Exception:
-            raise
+            ) from err
+        except Exception as err:
+            raise Exception from err
         try:
             # later, check the password
             pwd = user[self.pwd_atrribute]
         except KeyError:
             raise ValidationError(
-                'Missing Password attribute on User Account'
+                'NAV: Missing Password attr on User Account'
             )
         try:
             if self.check_password(pwd, password):
@@ -67,9 +67,8 @@ class BasicAuth(BaseAuthBackend):
                 raise FailedAuth(
                     "Basic Auth: Invalid Credentials"
                 )
-        except Exception:
-            raise
-        return None
+        except Exception as err:
+            raise Exception from err
 
     def set_password(
         self,
@@ -87,14 +86,16 @@ class BasicAuth(BaseAuthBackend):
             iterations,
             dklen=AUTH_PWD_LENGTH,
         )
-        hash = base64.b64encode(key).decode("utf-8").strip()
-        return f"{AUTH_PWD_ALGORITHM}${iterations}${salt}${hash}"
+        hst = base64.b64encode(key).decode("utf-8").strip()
+        return f"{AUTH_PWD_ALGORITHM}${iterations}${salt}${hst}"
 
     def check_password(self, current_password, password):
         try:
             algorithm, iterations, salt, hash = current_password.split("$", 3)
         except ValueError:
-            raise InvalidAuth('Basic Auth: Invalid Password Algorithm')
+            raise InvalidAuth(
+                'Basic Auth: Invalid Password Algorithm'
+            )
         assert algorithm == AUTH_PWD_ALGORITHM
         compare_hash = self.set_password(
             password,
@@ -137,7 +138,7 @@ class BasicAuth(BaseAuthBackend):
         try:
             user, pwd = await self.get_payload(request)
         except Exception as err:
-            raise NavException(err, state=400)
+            raise NavException(err, state=400) from err
         if not pwd and not user:
             raise InvalidAuth(
                 "Basic Auth: Invalid Credentials",
@@ -148,22 +149,25 @@ class BasicAuth(BaseAuthBackend):
             try:
                 user = await self.validate_user(login=user, password=pwd)
             except FailedAuth as err:
-                raise FailedAuth(err)
+                raise FailedAuth(err) from err
             except UserDoesntExists as err:
-                raise UserDoesntExists(err)
+                raise UserDoesntExists(err) from err
             except (ValidationError, InvalidAuth) as err:
-                raise InvalidAuth(err, state=401)
+                raise InvalidAuth(err, state=401) from err
             except Exception as err:
                 raise NavException(
                     err, state=500
-                )
+                ) from err
             try:
                 userdata = self.get_userdata(user)
                 username = user[self.username_attribute]
                 id = user[self.userid_attribute]
                 userdata[self.username_attribute] = username
                 userdata[self.session_key_property] = username
-                usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
+                # usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
+                usr = await self.create_user(
+                    userdata[AUTH_SESSION_OBJECT]
+                )
                 usr.id = id
                 usr.set(self.username_attribute, username)
                 logging.debug(f'User Created > {usr}')
@@ -189,4 +193,3 @@ class BasicAuth(BaseAuthBackend):
 
     async def check_credentials(self, request):
         """ Using for check the user credentials to the backend."""
-        pass

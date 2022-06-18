@@ -44,6 +44,7 @@ class DjangoAuth(BaseAuthBackend):
     """Django SessionID Authentication Handler."""
     _user_object: str = 'user'
     _user_id_key: str = '_auth_user_id'
+    _ident: AuthUser = DjangoUser
 
     def configure(self, app, router, handler):
         async def _setup_redis(app):
@@ -81,14 +82,14 @@ class DjangoAuth(BaseAuthBackend):
                     )
             elif "x-sessionid" in request.headers:
                 id = request.headers.get("x-sessionid", None)
-        except Exception as e:
+        except Exception:
             return None
         return id
 
     async def validate_session(self, key: str = None):
         try:
             async with await self.redis as redis:
-                result = await redis.get("{}:{}".format(SESSION_PREFIX, key))
+                result = await redis.get(f"{SESSION_PREFIX}:{key}")
             if not result:
                 raise Exception('Django Auth: non-existing Session')
             data = base64.b64decode(result)
@@ -108,7 +109,9 @@ class DjangoAuth(BaseAuthBackend):
             }
             return session
         except Exception as err:
-            logging.debug("Django Decoding Error: {}".format(err))
+            logging.debug(
+                f"Django Decoding Error: {err}"
+            )
             raise
 
     async def validate_user(self, login: str = None):
@@ -118,10 +121,11 @@ class DjangoAuth(BaseAuthBackend):
             user = await self.get_user(**search)
             return user
         except UserDoesntExists as err:
-            raise UserDoesntExists(f"User {login} doesn\'t exists")
+            raise UserDoesntExists(
+                f"User {login} doesn\'t exists"
+            ) from err
         except Exception:
             raise
-        return None
 
     async def authenticate(self, request):
         """ Authenticate against user credentials (django session id)."""
@@ -129,7 +133,9 @@ class DjangoAuth(BaseAuthBackend):
             sessionid = await self.get_payload(request)
             logging.debug(f"Session ID: {sessionid}")
         except Exception as err:
-            raise NavException(err, state=400)
+            raise NavException(
+                err, state=400
+            ) from err
         if not sessionid:
             raise InvalidAuth(
                 "Django Auth: Missing Credentials",
@@ -189,13 +195,12 @@ class DjangoAuth(BaseAuthBackend):
                         **data,
                         **udata
                     }
-                    usr = DjangoUser(
-                        data=userdata[AUTH_SESSION_OBJECT]
+                    usr = await self.create_user(
+                        userdata[AUTH_SESSION_OBJECT]
                     )
                     usr.id = sessionid
                     usr.sessionid = sessionid
                     usr.set(self.username_attribute, user[self.username_attribute])
-                    logging.debug(f'User Created > {usr}')
                 except Exception as err:
                     logging.exception(err)
                 userdata[self.session_key_property] = sessionid

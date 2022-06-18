@@ -73,7 +73,7 @@ class ADFSAuth(ExternalAuth):
             self.claim_mapping = ADFS_CLAIM_MAPPING
             self.discovery_oid_uri = f'https://{self.server}/adfs/.well-known/openid-configuration'
             self._discovery_keys_uri = f'https://{self.server}/adfs/discovery/keys'
-        
+
         self.base_uri = f"https:://{self.server}/"
         self.end_session_endpoint = f"https://{self.server}/{self.tenant_id}/ls/?wa=wsignout1.0"
         self._issuer = f"https://{self.server}/{self.tenant_id}/services/trust"
@@ -134,8 +134,8 @@ class ADFSAuth(ExternalAuth):
                 f"Client doesn't have info for ADFS Authentication: {err}"
             ) from err
 
-    async def auth_callback(self, request: web.Request):     
-        domain_url = self.get_domain(request)        
+    async def auth_callback(self, request: web.Request):
+        domain_url = self.get_domain(request)
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         try:
             auth_response = dict(request.rel_url.query.items())
@@ -209,7 +209,7 @@ class ADFSAuth(ExternalAuth):
                     print('USER DATA: ', data)
                     userdata, uid = self.build_user_info(data)
                     userdata['id_token'] = id_token
-                    data = await self.create_user(request, uid, userdata, access_token)
+                    data = await self.get_user_session(request, uid, userdata, access_token)
                 except Exception as err:
                     logging.exception(f'ADFS: Error getting User information: {err}')
                     raise web.HTTPForbidden(

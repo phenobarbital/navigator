@@ -5,9 +5,7 @@ Description: Backend Authentication/Authorization using Google AUTH API.
 import logging
 from aiohttp import web
 from navigator.exceptions import (
-    NavException,
-    UserDoesntExists,
-    InvalidAuth
+    NavException
 )
 from aiogoogle import Aiogoogle
 from aiogoogle.auth.utils import create_secret
@@ -51,7 +49,7 @@ class GoogleAuth(ExternalAuth):
         self._nonce = (
             create_secret()
         )  # Shouldn't be a global or a hardcoded variable. should be tied to a session or a user and shouldn't be used more than once
-        domain_url = self.get_domain(request)        
+        domain_url = self.get_domain(request)
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         self._credentials["redirect_uri"] = self.redirect_uri
         self.google = Aiogoogle(
@@ -112,14 +110,13 @@ class GoogleAuth(ExternalAuth):
                 user_creds
             )
             try:
-                print(userdata)
                 id = userdata['id']
                 access_token = user_creds['id_token_jwt']
                 userdata[self.session_key_property] = id
-                data = await self.create_user(request, id, userdata, access_token)
+                data = await self.get_user_session(request, id, userdata, access_token)
                 return self.home_redirect(request, token=data['token'], token_type='Bearer')
             except Exception as err:
-                logging.exception(f"Okta Auth Error: {err}")
+                logging.exception(f"Google Auth Error: {err}")
                 return self.redirect(uri=self.login_failed_uri)
         else:
             response = {

@@ -80,7 +80,7 @@ class AzureAuth(ExternalAuth):
         else:
             return [None, None]
 
-    
+
     async def get_cache(self, request: web.Request, state: str):
         cache = msal.SerializableTokenCache()
         result = None
@@ -89,13 +89,13 @@ class AzureAuth(ExternalAuth):
         if result:
             cache.deserialize(result)
         return cache
-    
+
     async def save_cache(self, request: web.Request, state: str, cache: msal.SerializableTokenCache):
         if cache.has_state_changed:
             result = cache.serialize()
             async with await request.app['redis'].acquire() as redis:
                 await redis.setex(f'azure_cache_{state}', result, timeout=120)
-            
+
     def get_msal_app(self):
         authority = self._issuer if self._issuer else self.authority
         return msal.ConfidentialClientApplication(
@@ -105,7 +105,7 @@ class AzureAuth(ExternalAuth):
             validate_authority=True
             # token_cache=cache
         )
-        
+
     def get_msal_client(self):
         authority = self._issuer if self._issuer else self.authority
         return msal.ClientApplication(
@@ -141,7 +141,7 @@ class AzureAuth(ExternalAuth):
                         data = await self.get(url=self.userinfo_uri, token=access_token, token_type='Bearer')
                         userdata, uid = self.build_user_info(data)
                         # also, user information:
-                        data = await self.create_user(request, uid, userdata, access_token)
+                        data = await self.get_user_session(request, uid, userdata, access_token)
                         # Redirect User to HOME
                         return self.home_redirect(request, token=data["token"], token_type='Bearer')
                     else:
@@ -227,20 +227,16 @@ class AzureAuth(ExternalAuth):
                     # getting user information:
                     try:
                         data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
-                        print('USER DATA: ', data)
                         # build user information:
                         userdata, uid = self.build_user_info(data)
-                        print(userdata, uid)
-                        #userdata['access_token'] = access_token
                         userdata['id_token'] = id_token
-                        #userdata['refresh_token'] = refresh_token
                         userdata['claims'] = claims
-                        data = await self.create_user(request, uid, userdata, access_token)
+                        data = await self.get_user_session(request, uid, userdata, access_token)
                     except Exception as err:
                         logging.exception('Azure: Error getting User information')
                         raise web.HTTPForbidden(
                             reason=f"Azure: Error with User Information: {err}"
-                        )
+                        ) from err
                     # Redirect User to HOME
                     return self.home_redirect(request, token=data['token'], token_type=token_type)
                 elif 'error' in result:

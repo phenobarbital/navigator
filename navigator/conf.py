@@ -3,13 +3,10 @@ import sys
 import base64
 import json
 import importlib
-from pathlib import Path
 from types import ModuleType
 from typing import (
-    Any,
     Dict,
-    List,
-    Tuple
+    List
 )
 from cryptography import fernet
 # Import Config Class
@@ -21,12 +18,13 @@ from navconfig import (
 from navconfig.logging import (
     logging
 )
+from .apps import APP_DIR, ApplicationInstaller
 
 """
 Routes
 """
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
-APP_DIR = BASE_DIR.joinpath("apps")
+APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 
 logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
 
@@ -63,7 +61,7 @@ Development
 #
 DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
-LOCAL_DEVELOPMENT = DEBUG == True and sys.argv[0] == "run.py"
+LOCAL_DEVELOPMENT = DEBUG is True and sys.argv[0] == "run.py"
 
 """
 Timezone
@@ -194,11 +192,15 @@ DEFAULT_MAPPING = {
     "last_login": "last_login",
     "title": "title",
 }
+USER_MAPPING = DEFAULT_MAPPING
 mapping = config.get('AUTH_USER_MAPPING')
-if mapping:
+try:
     USER_MAPPING = json.loads(mapping)
-else:
-    USER_MAPPING = DEFAULT_MAPPING
+except Exception:
+    logging.exception(
+        'NAV: Invalid User Mapping on *AUTH_USER_MAPPING*'
+    )
+
 
 USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
 
@@ -210,11 +212,9 @@ ALLOWED_HOSTS = [
 """
 Session Storage
 """
-SESSION_NAME = "{}_SESSION".format(
-    config.get("APP_TITLE", fallback="NAVIGATOR").upper()
-)
+SESSION_NAME = f"{APP_TITLE}_SESSION"
 JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
-SESSION_PREFIX = '{}_session'.format(CACHE_PREFIX)
+SESSION_PREFIX = f'{CACHE_PREFIX}_session'
 SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
 SESSION_KEY = config.get('SESSION_KEY', fallback='id')
 SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
@@ -252,47 +252,16 @@ Context = {
 """
 Applications
 """
-INSTALLED_APPS: List = []
-DATABASES: Dict = {}
-
-if APP_DIR.is_dir():
-    for item in APP_DIR.iterdir():
-        if item.name != "__pycache__":
-            if item.is_dir():
-                name = item.name
-                if not name in INSTALLED_APPS:
-                    app_name = "apps.{}".format(item.name)
-                    path = APP_DIR.joinpath(name)
-                    url_file = path.joinpath("urls.py")
-                    try:
-                        i = importlib.import_module(app_name, package="apps")
-                        if isinstance(i, ModuleType):
-                            # is a Navigator Program
-                            INSTALLED_APPS += (app_name,)
-                    except ImportError as err:
-                        print("ERROR: ", err)
-                        continue
-                    # schema configuration
-                    DATABASES[item.name] = {
-                        "NAME": PG_DATABASE,
-                        "USER": PG_USER,
-                        "OPTIONS": {
-                            "options": "-c search_path=" + item.name + ",public",
-                        },
-                        "SCHEMA": item.name,
-                        "PASSWORD": PG_PWD,
-                        "HOST": PG_HOST,
-                        "PORT": PG_PORT,
-                    }
-
-Context["DATABASES"] = DATABASES
+installer = ApplicationInstaller()
+INSTALLED_APPS: List = installer.installed_apps()
+Context["INSTALLED_APPS"] = INSTALLED_APPS
 
 """
 Per-Program Settings
 """
-program: str
+# program: str
 for program in INSTALLED_APPS:
-    settings = "apps.{}.settings".format(program)
+    settings = f"apps.{program}.settings"
     try:
         i = importlib.import_module(settings)
         globals()[program] = i

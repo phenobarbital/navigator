@@ -2,12 +2,10 @@
 
 Troc Authentication using RNC algorithm.
 """
-import jwt
 import logging
 from aiohttp import web
 import rapidjson
 from navigator.libs.cypher import Cipher
-from datetime import datetime, timedelta
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
@@ -16,13 +14,8 @@ from navigator.exceptions import (
 from navigator.conf import (
     PARTNER_KEY,
     CYPHER_TYPE,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     AUTH_SESSION_OBJECT
 )
-import hashlib
-import base64
-import secrets
 from .base import BaseAuthBackend
 from .basic import BasicUser
 
@@ -35,6 +28,7 @@ class TrocToken(BaseAuthBackend):
 
     user_attribute: str = "user"
     username_attribute: str = "email"
+    _ident: BasicUser = BasicUser
 
     def __init__(
         self,
@@ -65,7 +59,7 @@ class TrocToken(BaseAuthBackend):
         except UserDoesntExists as err:
             raise UserDoesntExists(
                 f"User {login} doesn't exists"
-            )
+            ) from err
         except Exception as err:
             logging.exception(err)
             raise
@@ -104,7 +98,7 @@ class TrocToken(BaseAuthBackend):
         except Exception as err:
             raise NavException(
                 err, state=400
-            )
+            ) from err
         if not token:
             raise InvalidAuth(
                 "Missing Credentials",
@@ -115,24 +109,26 @@ class TrocToken(BaseAuthBackend):
             # TODO: making the validation of token and expiration
             try:
                 data = rapidjson.loads(CIPHER.decode(passphrase=token))
-                logging.debug(f'User data: {data!r}')
+                logging.debug(
+                    f'TrocToken: Decoded User data: {data!r}'
+                )
             except Exception as err:
                 raise InvalidAuth(
                     f"Invalid Token: {err!s}", state=401
-                )
+                ) from err
             # making validation
             try:
                 username = data[self.username_attribute]
             except KeyError as err:
                 raise InvalidAuth(
                     f"Missing Email attribute: {err!s}", state=401
-                )
+                ) from err
             try:
                 user = await self.validate_user(login=username)
             except UserDoesntExists as err:
-                raise UserDoesntExists(err)
+                raise UserDoesntExists(err) from err
             except Exception as err:
-                raise NavException(err, state=500)
+                raise NavException(err, state=500) from err
             try:
                 userdata = self.get_userdata(user)
                 try:
@@ -145,10 +141,11 @@ class TrocToken(BaseAuthBackend):
                 id = user[self.username_attribute]
                 username = user[self.username_attribute]
                 userdata[self.session_key_property] = id
-                usr = BasicUser(data=userdata[AUTH_SESSION_OBJECT])
+                usr = await self.create_user(
+                    userdata[AUTH_SESSION_OBJECT]
+                )
                 usr.id = id
                 usr.set(self.username_attribute, username)
-                logging.debug(f'User Created > {usr}')
                 payload = {
                     self.user_property: user[self.userid_attribute],
                     self.username_attribute: username,

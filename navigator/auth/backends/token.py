@@ -16,13 +16,7 @@ from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from datetime import datetime, timedelta
 from navigator.conf import (
     CREDENTIALS_REQUIRED,
-    SESSION_URL,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     JWT_ALGORITHM,
-    SESSION_PREFIX,
-    default_dsn,
-    AUTH_SESSION_OBJECT,
     AUTH_TOKEN_ISSUER,
     AUTH_TOKEN_SECRET
 )
@@ -39,6 +33,7 @@ class TokenAuth(BaseAuthBackend):
     """API Token Authentication Handler."""
 
     _pool = None
+    _ident: AuthUser = TokenUser
 
     def configure(self, app, router, handler):
         super(TokenAuth, self).configure(app, router, handler)
@@ -116,7 +111,9 @@ class TokenAuth(BaseAuthBackend):
             tenant, token = await self.get_payload(request)
             logging.debug(f"Tenant ID: {tenant}")
         except Exception as err:
-            raise NavException(err, state=400)
+            raise NavException(
+                err, state=400
+            ) from err
         if not token:
             raise InvalidAuth(
                 "Invalid Credentials", state=401
@@ -141,8 +138,9 @@ class TokenAuth(BaseAuthBackend):
             except KeyError as err:
                 print(err)
                 raise InvalidAuth(
-                    f"Missing attributes for Partner Token: {err!s}", state=401
-                )
+                    f"Missing attributes for Partner Token: {err!s}",
+                    state=401
+                ) from err
             # TODO: Validate that partner (tenants table):
             try:
                 userdata = dict(data)
@@ -158,7 +156,7 @@ class TokenAuth(BaseAuthBackend):
                     "user_id": id,
                 }
                 userdata[self.session_key_property] = id
-                usr = TokenUser(data=userdata)
+                usr = await self.create_user(userdata)
                 usr.id = id
                 usr.set(self.username_attribute, id)
                 usr.programs = programs

@@ -33,30 +33,13 @@ class NoAuth(BaseAuthBackend):
     """Basic Handler for No authentication."""
     userid_attribute: str = "userid"
     user_attribute: str = "userid"
-
-    def __init__(
-        self,
-        user_attribute: str = None,
-        userid_attribute: str = None,
-        password_attribute: str = None,
-        credentials_required: bool = False,
-        authorization_backends: tuple = (),
-        **kwargs,
-    ):
-        super(NoAuth, self).__init__(
-            user_attribute,
-            userid_attribute,
-            password_attribute,
-            credentials_required,
-            authorization_backends,
-            **kwargs
-        )
+    _ident: AuthUser = AnonymousUser
 
     async def check_credentials(self, request):
         """ Authentication and create a session."""
         return True
 
-    def get_userdata(self):
+    def get_userdata(self, user = None):
         key = uuid.uuid4().hex
         userdata = {
             AUTH_SESSION_OBJECT: {
@@ -71,7 +54,9 @@ class NoAuth(BaseAuthBackend):
 
     async def authenticate(self, request):
         userdata, key = self.get_userdata()
-        user = AnonymousUser(data=userdata[AUTH_SESSION_OBJECT])
+        user = await self.create_user(
+            userdata[AUTH_SESSION_OBJECT]
+        )
         user.id = key
         user.add_group(Guest)
         user.set(self.username_attribute, 'Anonymous')
@@ -112,21 +97,25 @@ class NoAuth(BaseAuthBackend):
                     f'Error Processing Base Authorization Backend: {err!s}'
                 )
             try:
-                auth = request.get('authenticated', False)
-                if auth is True:
+                if request.get('authenticated', False) is True:
                     # already authenticated
                     return await handler(request)
             except KeyError:
                 pass
             try:
-                tenant, payload = self.decode_token(request)
+                _, payload = self.decode_token(request)
                 if payload:
                     # load session information
                     session = await get_session(request, payload, new = False)
                     try:
-                        request.user = session.decode('user')
-                        # print('USER> ', request.user, type(request.user))
-                        request.user.is_authenticated = True
+                        try:
+                            request.user = session.decode('user')
+                            request.user.is_authenticated = True
+                        except RuntimeError:
+                            logging.error(
+                                'NAV: Unable to decode User session from jsonpickle.'
+                            )
+                            # Error decoding user session, try to create them instead
                         request['authenticated'] = True
                     except Exception:
                         logging.error(
@@ -142,15 +131,13 @@ class NoAuth(BaseAuthBackend):
                 logging.error('Auth Middleware: Invalid Signature or secret')
                 if CREDENTIALS_REQUIRED is True:
                     raise web.HTTPClientError(
-                        reason=err.message,
-                        state=err.state
+                        reason=err.message
                     )
             except Exception as err:
                 logging.error(f"Bad Request: {err!s}")
                 if CREDENTIALS_REQUIRED is True:
                     raise web.HTTPClientError(
-                        reason=err.message,
-                        state=err.state
+                        reason=err
                     )
             return await handler(request)
         return middleware

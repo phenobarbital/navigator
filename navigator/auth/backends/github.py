@@ -5,10 +5,6 @@ Description: Backend Authentication/Authorization using Okta Service.
 import logging
 from aiohttp import web
 from .oauth import OauthAuth
-import requests
-from navigator.exceptions import (
-    NavException
-)
 from navigator.conf import (
     GITHUB_CLIENT_ID,
     GITHUB_CLIENT_SECRET
@@ -27,7 +23,7 @@ class GithubAuth(OauthAuth):
 
     def configure(self, app, router, handler):
         super(GithubAuth, self).configure(app, router, handler) # first, configure parents
-        
+
         # auth paths.
         self.base_url = 'https://api.github.com/'
         self.authorize_uri = 'https://github.com/login/oauth/authorize'
@@ -35,7 +31,7 @@ class GithubAuth(OauthAuth):
         self._issuer = 'https://api.github.com/'
         self._token_uri = 'https://github.com/login/oauth/access_token'
 
-    
+
     async def get_credentials(self, request: web.Request):
         qs = {
             "client_id": f"{GITHUB_CLIENT_ID}",
@@ -82,7 +78,7 @@ class GithubAuth(OauthAuth):
                 if data:
                     userdata, uid = self.build_user_info(data)
                     # also, user information:
-                    data = await self.create_user(request, uid, userdata, access_token)
+                    data = await self.get_user_session(request, uid, userdata, access_token)
                     # Redirect User to HOME
                     return self.home_redirect(request, token=data["token"], token_type='Bearer')
                 else:

@@ -6,15 +6,11 @@ import logging
 from aiohttp import web
 from .oauth import OauthAuth
 import requests
-from navigator.exceptions import (
-    NavException
-)
 from navigator.conf import (
     OKTA_CLIENT_ID,
     OKTA_CLIENT_SECRET,
     OKTA_DOMAIN,
-    OKTA_APP_NAME,
-    AUTH_REDIRECT_URI
+    OKTA_APP_NAME
 )
 from okta_jwt_verifier import JWTVerifier
 
@@ -50,7 +46,7 @@ class OktaAuth(OauthAuth):
 
     def configure(self, app, router, handler):
         super(OktaAuth, self).configure(app, router, handler) # first, configure parents
-        
+
         # auth paths.
         self.base_url = f"https://{OKTA_DOMAIN}/"
         self.authorize_uri = f"https://{OKTA_DOMAIN}/oauth2/default/v1/authorize"
@@ -62,7 +58,7 @@ class OktaAuth(OauthAuth):
     async def get_credentials(self, request: web.Request):
         APP_STATE = 'ApplicationState'
         self.nonce = 'SampleNonce'
-        domain_url = self.get_domain(request)        
+        domain_url = self.get_domain(request)
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         qs = {
             "client_id": f"{OKTA_CLIENT_ID}",
@@ -78,7 +74,7 @@ class OktaAuth(OauthAuth):
 
     async def auth_callback(self, request: web.Request):
         headers = {'Content-Type': 'application/x-www-form-urlencoded'}
-        domain_url = self.get_domain(request)        
+        domain_url = self.get_domain(request)
         self.redirect_uri = self.redirect_uri.format(domain=domain_url, service=self._service_name)
         code = request.query.get("code")
         if not code:
@@ -138,8 +134,7 @@ class OktaAuth(OauthAuth):
             ).json()
             userdata, uid = self.build_user_info(data)
             # get user data
-            # TODO: Optional: get User info from Nav
-            data = await self.create_user(request, uid, userdata, access_token)
+            data = await self.get_user_session(request, uid, userdata, access_token)
             return self.home_redirect(request, token=data['token'], token_type='Bearer')
         except Exception as err:
             logging.exception(f"Okta Auth Error: {err}")

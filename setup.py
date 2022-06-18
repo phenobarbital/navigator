@@ -76,7 +76,7 @@ setup(
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
         "aiohttp-jrpc==0.1.0",
-        "PyJWT==2.3.0",
+        "PyJWT==2.4.0",
         "pycryptodome==3.14.1",
         "rncryptor==3.3.0",
         "aiohttp-jinja2==1.5",

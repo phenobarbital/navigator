@@ -192,14 +192,16 @@ DEFAULT_MAPPING = {
     "last_login": "last_login",
     "title": "title",
 }
+
 USER_MAPPING = DEFAULT_MAPPING
 mapping = config.get('AUTH_USER_MAPPING')
-try:
-    USER_MAPPING = json.loads(mapping)
-except Exception:
-    logging.exception(
-        'NAV: Invalid User Mapping on *AUTH_USER_MAPPING*'
-    )
+if mapping is not None:
+    try:
+        USER_MAPPING = json.loads(mapping)
+    except Exception:
+        logging.exception(
+            'NAV: Invalid User Mapping on *AUTH_USER_MAPPING*'
+        )
 
 
 USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")

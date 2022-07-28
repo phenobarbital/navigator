@@ -11,6 +11,7 @@ import asyncio
 
 # redis pool
 import aioredis
+from typing import Callable
 from aiohttp import web
 from .base import BaseAuthBackend
 from navigator.exceptions import (
@@ -20,14 +21,10 @@ from navigator.exceptions import (
 )
 from navigator.conf import (
     SESSION_URL,
-    SESSION_TIMEOUT,
-    SECRET_KEY,
     SESSION_PREFIX,
-    SESSION_KEY,
     AUTH_SESSION_OBJECT,
     DJANGO_USER_MAPPING
 )
-
 # User Identity
 from navigator.auth.identities import AuthUser, Column
 
@@ -45,20 +42,21 @@ class DjangoAuth(BaseAuthBackend):
     _user_object: str = 'user'
     _user_id_key: str = '_auth_user_id'
     _ident: AuthUser = DjangoUser
+    _redis: Callable = None
 
     def configure(self, app, router, handler):
         async def _setup_redis(app):
-            self.redis = aioredis.from_url(
+            self._redis = aioredis.from_url(
                     SESSION_URL,
                     decode_responses=True,
                     encoding='utf-8'
             )
-            async def _close_redis(app):
-                await self.redis.close()
-            app.on_cleanup.append(_close_redis)
-            return self.redis
-
-        asyncio.get_event_loop().run_until_complete(_setup_redis(app))
+            return self._redis
+        app.on_startup.append(_setup_redis)
+        # closing:
+        async def _close_redis(app: web.Application):
+            await self._redis.close()
+        app.on_cleanup.append(_close_redis)
         # executing parent configurations
         super(DjangoAuth, self).configure(app, router, handler)
 
@@ -88,7 +86,7 @@ class DjangoAuth(BaseAuthBackend):
 
     async def validate_session(self, key: str = None):
         try:
-            async with await self.redis as redis:
+            async with await self._redis as redis:
                 result = await redis.get(f"{SESSION_PREFIX}:{key}")
             if not result:
                 raise Exception('Django Auth: non-existing Session')

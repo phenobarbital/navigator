@@ -2,7 +2,6 @@
 import ssl
 import signal
 import asyncio
-import argparse
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
@@ -85,6 +84,7 @@ class Application(object):
     """
     def __init__(
         self,
+        *args,
         app: AppHandler = None,
         title: str = '',
         description: str = 'NAVIGATOR APP',
@@ -93,7 +93,6 @@ class Application(object):
         enable_jinja_parser: bool = True,
         enable_swagger: bool = False,
         swagger_options: Dict = None,
-        *args,
         **kwargs
     ) -> None:
         self.version = version
@@ -102,9 +101,11 @@ class Application(object):
         self.contact = contact
         if not contact:
             self.contact = EMAIL_CONTACT
-        self.title = title
-        if not title:
-            self.title = APP_NAME
+        self.title = title if title else APP_NAME
+        self.path = None
+        self.host = APP_HOST
+        self.port = APP_PORT
+        self.debug = DEBUG
         # swagger:
         self.enable_swagger = enable_swagger
         self.swagger_options = swagger_options
@@ -122,19 +123,6 @@ class Application(object):
                     shutdown(self._loop, s)
                 )
             )
-        self.parser = argparse.ArgumentParser(
-            description="Navigator App"
-        )
-        self.parser.add_argument("--path")
-        self.parser.add_argument("--host")
-        self.parser.add_argument("--port")
-        self.parser.add_argument(
-            "-d", "--debug", action="store_true", help="Enable Debug"
-        )
-        self.parser.add_argument(
-            "--traceback", action="store_true", help="Return Traceback on Error"
-        )
-        self.parse_arguments()
         if not app:
             # create an instance of AppHandler
             self.app = AppBase(Context)
@@ -142,29 +130,6 @@ class Application(object):
             self.app = app(Context)
         # getting the application Logger
         self._logger = self.get_logger(self.app.Name)
-
-    def parse_arguments(self):
-        args = self.parser.parse_args()
-        try:
-            self.path = args.path
-        except (KeyError, ValueError, TypeError):
-            self.path = None
-        try:
-            self.host = args.host
-            if not self.host:
-                self.host = APP_HOST
-        except (KeyError, ValueError, TypeError):
-            self.host = APP_HOST
-        try:
-            self.port = args.port
-            if not self.port:
-                self.port = APP_PORT
-        except (KeyError, ValueError, TypeError):
-            self.port = APP_PORT
-        try:
-            self.debug = args.debug
-        except (KeyError, ValueError, TypeError):
-            self.debug = DEBUG
 
     def get_app(self) -> web.Application:
         return self.app.App
@@ -241,12 +206,22 @@ class Application(object):
 
     def add_routes(self, routes: list) -> None:
         """
-        add_route
-        description: append a route to routes dict
+        add_routes
+        description: append a list of routes to routes dict
         """
         # TODO: avoid to add same route different times
         # self._routes.append(route)
         self.get_app().add_routes(routes)
+
+    def add_route(self, method: str = 'GET', route: str = None, fn: Callable = None) -> None:
+        """add_route.
+
+        Args:
+            method (str, optional): http method. Defaults to 'GET'.
+            route (str, optional): path. Defaults to None.
+            fn (Callable, optional): function callable. Defaults to None.
+        """
+        self.get_app().router.add_route(method, route, fn)
 
     def add_static(self, route: str, path: str):
         """
@@ -346,6 +321,11 @@ class Application(object):
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
+    def setup(self):
+        # getting the resource App
+        app = self.setup_app()
+        return app
+
     def run(self):
         """run.
         Starting App.
@@ -353,7 +333,7 @@ class Application(object):
         # getting the resource App
         app = self.setup_app()
         if self.debug:
-            logging.debug('Running in DEBUG mode.')
+            logging.debug(' :: Running in DEBUG mode :: ')
         if self.enable_swagger is True:
             # previous to run, setup swagger:
             # auto-configure swagger
@@ -367,18 +347,6 @@ class Application(object):
                 ui_version=3,
                 **self.swagger_options
             )
-        if self.debug is True:
-            if LOCAL_DEVELOPMENT:
-                pass
-                # if self.enable_debugtoolbar is True:
-                #     import aiohttp_debugtoolbar
-                #     from aiohttp_debugtoolbar import toolbar_middleware_factory
-                #     aiohttp_debugtoolbar.setup(
-                #         app,
-                #         hosts=[self.host, "127.0.0.1", "::1"],
-                #         enabled=True,
-                #         path_prefix="/_debug",
-                #     )
         if self.use_ssl:
             if CA_FILE:
                 ssl_context = ssl.create_default_context(

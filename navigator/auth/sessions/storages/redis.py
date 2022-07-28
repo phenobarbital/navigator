@@ -19,31 +19,30 @@ class RedisStorage(AbstractStorage):
     """Test version of Session Handler."""
     _redis = None
 
-    async def setup_redis(self, app: web.Application):
-        redis = aioredis.ConnectionPool.from_url(
-                SESSION_URL,
-                decode_responses=True,
-                encoding='utf-8'
-        )
-        # print('REDIS CACHE:  ', SESSION_URL, redis)
-        async def close_redis(app):
-            await redis.disconnect(inuse_connections = True)
-        app.on_cleanup.append(close_redis)
-        return redis
-
     def configure_session(self, app: web.Application) -> None:
         super(RedisStorage, self).configure_session(app)
         self._encoder = partial(
             rapidjson.dumps, datetime_mode=rapidjson.DM_ISO8601
         )
         self._decoder = rapidjson.loads
-        async def _make_mredis():
+        ## adding redis to loop:
+        async def _setup_redis(app: web.Application):
             try:
-                self._redis = await self.setup_redis(app)
+                self._redis = aioredis.ConnectionPool.from_url(
+                    SESSION_URL,
+                    decode_responses=True,
+                    encoding='utf-8'
+                )
             except Exception as err:
-                print(err)
+                logging.exception(err, stack_info=True)
                 return False
-        return asyncio.get_event_loop().run_until_complete(_make_mredis())
+        app.on_startup.append(_setup_redis)
+        async def close_redis(app: web.Application):
+            try:
+                await self._redis.disconnect(inuse_connections = True)
+            except Exception:
+                pass
+        app.on_cleanup.append(close_redis)
 
     async def get_session(self, request: web.Request, userdata: dict = {}) -> SessionData:
         try:

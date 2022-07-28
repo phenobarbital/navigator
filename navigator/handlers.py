@@ -12,7 +12,7 @@ async def shutdown(loop, signal=None):
             for t in asyncio.all_tasks()
             if t is not asyncio.current_task() and not t.done()
         ]
-        [task.cancel() for task in tasks]
+        result = [task.cancel() for task in tasks]
         # asyncio.gather(*asyncio.Task.all_tasks()).cancel()
         print(f"Cancelling {len(tasks)} outstanding tasks")
         await asyncio.gather(*tasks, return_exceptions=True)
@@ -28,18 +28,15 @@ def nav_exception_handler(loop, context):
     if context:
         loop.default_exception_handler(context)
         exception = context.get("exception")
-        # print(exception)
-        # print(context)
         try:
             msg = context.get("exception", context["message"])
             logging.error(f"Caught Exception: {msg}")
         except (TypeError, AttributeError, IndexError):
             logging.error(
-                "Caught Exception: {}, Context: {}".format(str(exception), str(context))
+                f"Caught Exception: {exception!s}, Context: {context!s}"
             )
         # Canceling pending tasks and stopping the loop
         try:
-            # loop.run_until_complete(shutdown(loop))
-            asyncio.create_task(shutdown(loop))
+            loop.run_until_complete(shutdown(loop))
         except Exception as e:
             print("Shutdown Error: ", e)

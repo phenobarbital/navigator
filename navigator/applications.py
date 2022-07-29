@@ -15,6 +15,7 @@ from aiohttp.abc import AbstractView
 from navigator.conf import (
     APP_NAME,
     APP_DIR,
+    ENABLE_AUTH,
     DEBUG,
     STATIC_DIR,
     SESSION_TIMEOUT,
@@ -159,7 +160,7 @@ class AppHandler(ABC):
         app.router.add_get("/", home, name="home")
         app["name"] = self._name
         # Setup Authentication:
-        if self.enable_auth is True:
+        if self.enable_auth is True and ENABLE_AUTH is True:
             self._auth = AuthHandler(
                 session_timeout=SESSION_TIMEOUT
             )
@@ -369,7 +370,7 @@ class AppConfig(AppHandler):
 
     def listener(self, conn, pid, channel, payload, *args):
         print("Notification from {}: {}, {}".format(channel, payload, args))
-        
+
     async def create_connection(self, app, dsn: str = None):
         if not dsn:
             dsn = default_dsn
@@ -524,7 +525,7 @@ class AppConfig(AppHandler):
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.
-        
+
         We can extend this function to allow/deny access to certain applications.
         Args:
             request (web.Request): aiohttp web Request.

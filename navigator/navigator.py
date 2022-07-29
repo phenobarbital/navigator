@@ -112,7 +112,6 @@ class Application(object):
         # template parser
         self.enable_jinja_parser = enable_jinja_parser
         # configuring asyncio loop
-        # TODO: work in an exception handler for NAV
         self._loop = asyncio.get_event_loop()
         self._loop.set_exception_handler(nav_exception_handler)
         # May want to catch other signals too

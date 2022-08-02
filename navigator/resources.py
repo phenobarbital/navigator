@@ -10,7 +10,7 @@ from aiohttp.http_exceptions import HttpBadRequest
 from aiohttp.web import Request, Response
 from aiohttp.web_exceptions import HTTPMethodNotAllowed
 from aiohttp_swagger import *
-from navigator.auth.sessions import get_session
+from navigator_session import get_session
 from navigator.conf import BASE_DIR
 
 

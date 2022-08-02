@@ -54,20 +54,21 @@ setup(
     license=__license__,
     license_files = 'LICENSE',
     setup_requires=[
-        "wheel==0.37.0",
-        "Cython==0.29.28",
+        "wheel==0.37.1",
+        "Cython==0.29.32",
         "asyncio==3.4.3",
         "cchardet==2.1.7",
         "cpython==0.0.6"
     ],
     install_requires=[
-        "wheel==0.37.0",
-        "Cython==0.29.28",
+        "wheel==0.37.1",
+        "Cython==0.29.32",
         "asyncio==3.4.3",
         "uvloop==0.16.0",
         "asyncdb",
         "navconfig",
         "async-notify",
+        "navigator-session>=0.0.8",
         "typing-extensions>=4.1.1",
         "aiofile==3.7.4",
         "aiofiles==0.8.0",
@@ -92,16 +93,16 @@ setup(
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
-        "jsonpickle==2.1.0",
+        "jsonpickle==2.2.0",
         'python-slugify==6.1.1',
         "platformdirs==2.5.1"
     ],
     tests_require=[
             'pytest>=5.4.0',
             'coverage',
-            'pytest-asyncio==0.14.0',
-            'pytest-xdist==2.1.0',
-            'pytest-assume==2.4.2'
+            'pytest-asyncio',
+            'pytest-xdist',
+            'pytest-assume'
     ],
     project_urls={
         'Source': 'https://github.com/phenobarbital/navigator-api',

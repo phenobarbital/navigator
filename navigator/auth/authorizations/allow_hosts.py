@@ -1,7 +1,7 @@
 """ Authorization based on Allowed HOSTS lists."""
 import fnmatch
 import logging
-from .base import BaseAuthzHandler
+from .abstract import BaseAuthzHandler
 from navigator.conf import ALLOWED_HOSTS
 from aiohttp import web
 

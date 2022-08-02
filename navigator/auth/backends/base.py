@@ -4,7 +4,6 @@ import asyncio
 from typing import (
     List,
     Dict,
-    Optional,
     Callable
 )
 from abc import ABC, abstractmethod
@@ -18,15 +17,11 @@ import base64
 from navigator.conf import (
     AUTH_USER_MODEL,
     AUTH_GROUP_MODEL,
-    AUTH_SESSION_OBJECT,
     AUTH_USERNAME_ATTRIBUTE,
-    JWT_ALGORITHM,
+    AUTH_JWT_ALGORITHM,
     USER_MAPPING,
-    SESSION_TIMEOUT,
     CREDENTIALS_REQUIRED,
-    SESSION_KEY,
-    SECRET_KEY,
-    SESSION_USER_PROPERTY
+    SECRET_KEY
 )
 from navigator.exceptions import (
     NavException,
@@ -36,7 +31,14 @@ from navigator.exceptions import (
     AuthExpired
 )
 from aiohttp.web_urldispatcher import SystemRoute
-from navigator.auth.sessions import get_session, new_session
+from navigator_session import (
+    get_session,
+    new_session,
+    AUTH_SESSION_OBJECT,
+    SESSION_TIMEOUT,
+    SESSION_KEY,
+    SESSION_USER_PROPERTY
+)
 
 # Authenticated Identity
 from navigator.auth.identities import Identity
@@ -228,7 +230,7 @@ class BaseAuthBackend(ABC):
         jwt_token = jwt.encode(
             payload,
             self.secret_key,
-            JWT_ALGORITHM,
+            AUTH_JWT_ALGORITHM,
         )
         return jwt_token
 
@@ -264,7 +266,7 @@ class BaseAuthBackend(ABC):
                 payload = jwt.decode(
                     jwt_token,
                     self.secret_key,
-                    algorithms=[JWT_ALGORITHM],
+                    algorithms=[AUTH_JWT_ALGORITHM],
                     iss=issuer,
                     leeway=30,
                 )

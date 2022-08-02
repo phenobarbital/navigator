@@ -5,13 +5,12 @@ from aiohttp import web
 from navigator.conf import (
     SESSION_KEY
 )
-from navigator.handlers import nav_exception_handler
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
     InvalidAuth
 )
-from navigator.auth.sessions import get_session
+from navigator_session import get_session
 from navigator.views import BaseView, BaseHandler
 from asyncdb.utils.encoders import DefaultEncoder
 from navigator.auth.models import User

@@ -16,11 +16,11 @@ from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
 from datetime import datetime, timedelta
 from navigator.conf import (
     CREDENTIALS_REQUIRED,
-    JWT_ALGORITHM,
+    AUTH_JWT_ALGORITHM,
     AUTH_TOKEN_ISSUER,
     AUTH_TOKEN_SECRET
 )
-from navigator.auth.sessions import get_session
+from navigator_session import get_session
 # Authenticated Entity
 from navigator.auth.identities import AuthUser, Program
 from typing import List
@@ -37,40 +37,6 @@ class TokenAuth(BaseAuthBackend):
 
     def configure(self, app, router, handler):
         super(TokenAuth, self).configure(app, router, handler)
-
-    # async def on_startup(self, app: web.Application):
-    #     try:
-    #         kwargs = {
-    #             "min_size": 1,
-    #             "server_settings": {
-    #                 "application_name": 'AUTH-NAV',
-    #                 "client_min_messages": "notice",
-    #                 "max_parallel_workers": "48",
-    #                 "jit": "off",
-    #                 "statement_timeout": "3600",
-    #                 "effective_cache_size": "2147483647"
-    #             },
-    #         }
-    #         self._pool = AsyncPool(
-    #             "pg",
-    #             dsn=default_dsn,
-    #             **kwargs
-    #         )
-    #         await self._pool.connect()
-    #     except Exception as err:
-    #         print(err)
-    #         raise Exception(
-    #             f"Error Auth Token: please enable Connection Pool on AppHandler: {err}"
-    #         )
-
-    # async def on_cleanup(self, app: web.Application):
-    #     """
-    #     Close the Pool when shutdown App.
-    #     """
-    #     try:
-    #         await self._pool.close()
-    #     except Exception as err:
-    #         logging.exception(err)
 
     async def get_payload(self, request):
         token = None
@@ -120,7 +86,7 @@ class TokenAuth(BaseAuthBackend):
             )
         else:
             payload = jwt.decode(
-                token, AUTH_TOKEN_SECRET, algorithms=[JWT_ALGORITHM], leeway=30
+                token, AUTH_TOKEN_SECRET, algorithms=[AUTH_JWT_ALGORITHM], leeway=30
             )
             logging.debug(f"Decoded Token: {payload!s}")
             data = await self.check_token_info(request, tenant, payload)
@@ -227,7 +193,7 @@ class TokenAuth(BaseAuthBackend):
             if jwt_token:
                 try:
                     payload = jwt.decode(
-                        jwt_token, AUTH_TOKEN_SECRET, algorithms=[JWT_ALGORITHM], leeway=30
+                        jwt_token, AUTH_TOKEN_SECRET, algorithms=[AUTH_JWT_ALGORITHM], leeway=30
                     )
                     logging.debug(f"Decoded Token: {payload!s}")
                     result = await self.check_token_info(request, tenant, payload)
@@ -245,7 +211,7 @@ class TokenAuth(BaseAuthBackend):
                         session["partner"] = result["partner"]
                         session["tenant"] = tenant
                         try:
-                            request.user = session.decode('user')
+                            request.user = session.decode('name')
                             request.user.is_authenticated = True
                         except KeyError:
                             pass

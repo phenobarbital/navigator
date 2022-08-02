@@ -6,7 +6,7 @@ AuthHandler is the Authentication/Authorization system for NAV,
 Supporting:
  * multiple authentication backends
  * authorization exceptions via middlewares
- * Session Support (in the top of aiohttp-session)
+ * Session Support (on top of navigator-session)
 """
 from textwrap import dedent
 import importlib
@@ -15,11 +15,6 @@ from aiohttp import web
 from typing import Dict, Iterable
 from .authorizations import *
 from navigator.functions import json_response
-
-from navigator.auth.sessions.storages import (
-    RedisStorage,
-)
-
 from navigator.exceptions import (
     NavException,
     UserDoesntExists,
@@ -31,10 +26,11 @@ from navigator.conf import (
     AUTHENTICATION_BACKENDS,
     AUTHORIZATION_BACKENDS,
     AUTHORIZATION_MIDDLEWARES,
-    AUTH_USER_MODEL,
-    SESSION_KEY
+    AUTH_USER_MODEL
 )
-# from navigator.auth.sessions import get_session, new_session
+from navigator_session import (
+    RedisStorage, get_session, new_session, SESSION_KEY
+)
 
 class AuthHandler(object):
     """Authentication Backend for Navigator."""

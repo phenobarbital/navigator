@@ -10,10 +10,13 @@ from .base import BaseAuthBackend
 import uuid
 from navigator.conf import (
     CREDENTIALS_REQUIRED,
-    AUTH_SESSION_OBJECT,
     SECRET_KEY
 )
-from navigator.auth.sessions import get_session, new_session
+from navigator_session import (
+    get_session,
+    new_session,
+    AUTH_SESSION_OBJECT
+)
 from navigator.exceptions import (
     NavException,
     FailedAuth,

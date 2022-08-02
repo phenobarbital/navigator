@@ -18,11 +18,12 @@ from navigator.conf import (
     AUTH_PWD_DIGEST,
     AUTH_PWD_ALGORITHM,
     AUTH_PWD_LENGTH,
-    AUTH_PWD_SALT_LENGTH,
-    AUTH_SESSION_OBJECT
+    AUTH_PWD_SALT_LENGTH
 )
 # Authenticated Entity
 from navigator.auth.identities import AuthUser
+from navigator_session import AUTH_SESSION_OBJECT
+
 
 class BasicUser(AuthUser):
     """BasicAuth.

@@ -1,6 +1,6 @@
 """ Authorization based on HOSTS lists."""
 
-from .base import BaseAuthzHandler
+from .abstract import BaseAuthzHandler
 from navigator.conf import HOSTS
 from aiohttp import web
 import logging

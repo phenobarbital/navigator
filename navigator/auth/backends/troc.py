@@ -13,11 +13,11 @@ from navigator.exceptions import (
 )
 from navigator.conf import (
     PARTNER_KEY,
-    CYPHER_TYPE,
-    AUTH_SESSION_OBJECT
+    CYPHER_TYPE
 )
 from .base import BaseAuthBackend
 from .basic import BasicUser
+from navigator_session import AUTH_SESSION_OBJECT
 
 # TODO: add expiration logic when read the token
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)

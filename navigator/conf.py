@@ -3,9 +3,7 @@ import sys
 import base64
 import json
 import importlib
-from types import ModuleType
 from typing import (
-    Dict,
     List
 )
 from cryptography import fernet
@@ -74,7 +72,7 @@ TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 SSL Support.
 """
 USE_SSL = config.getboolean("SSL", section="ssl", fallback=False)
-print('USE SSL ', USE_SSL)
+print('USE SSL:: ', USE_SSL)
 
 if USE_SSL is True:
     SSL_CERT = config.get("CERT", section="ssl", fallback=None)
@@ -136,7 +134,7 @@ REDIS SESSIONS
 CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
 CACHE_PORT = config.get("CACHEPORT", fallback=6379)
 CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}"
-REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
+# REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
 CACHE_PREFIX = config.get('CACHE_PREFIX', fallback='navigator')
 
 """
@@ -144,23 +142,25 @@ Authentication System
 """
 AUTHENTICATION_BACKENDS = (
 )
-
 AUTHORIZATION_BACKENDS = [
     e.strip()
     for e in list(
         config.get("AUTHORIZATION_BACKENDS", fallback="allow_hosts").split(",")
     )
 ]
-
 AUTHORIZATION_MIDDLEWARES = (
 )
 
 
 # Basic Authentication
+AUTH_SESSION_OBJECT = config.get(
+    "AUTH_SESSION_OBJECT", fallback="session"
+)
 AUTH_TOKEN_ISSUER = config.get('AUTH_TOKEN_ISSUER', fallback='Navigator')
 AUTH_PWD_DIGEST = config.get("AUTH_PWD_DIGEST", fallback="sha256")
 AUTH_PWD_ALGORITHM = config.get("AUTH_PWD_ALGORITHM", fallback="pbkdf2_sha256")
 AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
+AUTH_JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
 AUTH_USERNAME_ATTRIBUTE = config.get(
     'AUTH_USERNAME_ATTRIBUTE', fallback='username'
@@ -173,9 +173,6 @@ AUTH_USER_MODEL = config.get(
 )
 AUTH_GROUP_MODEL = config.get(
     "AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group"
-)
-AUTH_SESSION_OBJECT = config.get(
-    "AUTH_SESSION_OBJECT", fallback="session"
 )
 AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
 AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
@@ -214,15 +211,15 @@ ALLOWED_HOSTS = [
 """
 Session Storage
 """
-SESSION_NAME = f"{APP_TITLE}_SESSION"
-JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
-SESSION_PREFIX = f'{CACHE_PREFIX}_session'
-SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
-SESSION_KEY = config.get('SESSION_KEY', fallback='id')
-SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
-SESSION_OBJECT = 'NAV_SESSION'
-SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
-SESSION_USER_PROPERTY = config.get('SESSION_USER_PROPERTY', fallback='user')
+# SESSION_NAME = f"{APP_TITLE}_SESSION"
+#
+# SESSION_PREFIX = f'{CACHE_PREFIX}_session'
+# SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
+# SESSION_KEY = config.get('SESSION_KEY', fallback='id')
+# SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
+# SESSION_OBJECT = 'NAV_SESSION'
+# SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
+# SESSION_USER_PROPERTY = config.get('SESSION_USER_PROPERTY', fallback='user')
 
 """
  Memcache

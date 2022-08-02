@@ -3,7 +3,6 @@ Abstract Class for Authorization Policies and decorators
 """
 from aiohttp import web
 from abc import ABC, abstractmethod
-from functools import wraps
 
 class AuthorizationPolicy(ABC):
     @abstractmethod
@@ -20,4 +19,10 @@ class AuthorizationPolicy(ABC):
         Return the user_id of the user identified by the identity
         or 'None' if no user exists related to the identity.
         """
+        pass
+
+class BaseAuthzHandler(ABC):
+    """ Abstract handler for Authorization Middleware."""
+    @abstractmethod
+    def check_authorization(self, request: web.Request) -> bool:
         pass

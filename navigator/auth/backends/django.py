@@ -20,14 +20,15 @@ from navigator.exceptions import (
     InvalidAuth
 )
 from navigator.conf import (
-    SESSION_URL,
-    SESSION_PREFIX,
-    AUTH_SESSION_OBJECT,
     DJANGO_USER_MAPPING
 )
 # User Identity
 from navigator.auth.identities import AuthUser, Column
-
+from navigator_session import (
+    AUTH_SESSION_OBJECT,
+    SESSION_URL,
+    SESSION_PREFIX
+)
 class DjangoUser(AuthUser):
     """DjangoUser.
 

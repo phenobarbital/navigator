@@ -2,7 +2,7 @@ import asyncio
 from functools import wraps
 from typing import Callable
 from aiohttp import web
-from navigator.auth.sessions import get_session
+from navigator_session import get_session
 from navigator.auth import get_userdata
 
 def auth_required(func: Callable) -> Callable:

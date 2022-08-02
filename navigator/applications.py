@@ -11,7 +11,7 @@ from .resources import Router
 import aiohttp
 from aiohttp import web
 from aiohttp.abc import AbstractView
-
+from aiohttp_swagger import setup_swagger
 from navigator.conf import (
     APP_NAME,
     APP_DIR,
@@ -149,7 +149,6 @@ class AppHandler(ABC):
     def CreateApp(self) -> web.Application:
         if DEBUG:
             cPrint(f"SETUP APPLICATION: {self._name!s}", level="SUCCESS")
-        middlewares = {}
         self.cors = None
         app = web.Application(
             logger=self.logger,
@@ -268,8 +267,7 @@ class AppHandler(ABC):
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except (Exception, ValueError) as err:
-                # logging.warning(f"Warning on Adding CORS: {err!r}")
+            except (Exception, ValueError):
                 pass
 
     async def on_prepare(self, request, response):
@@ -277,35 +275,30 @@ class AppHandler(ABC):
         on_prepare.
         description: Signal for customize the response while is prepared.
         """
-        pass
 
     async def pre_cleanup(self, app):
         """
         pre_cleanup.
         description: Signal for customize the response when server is closing
         """
-        pass
 
     async def on_cleanup(self, app):
         """
         on_cleanup.
         description: Signal for customize the response when server is closing
         """
-        pass
 
     async def on_startup(self, app):
         """
         on_startup.
         description: Signal for customize the response when server is started
         """
-        pass
 
     async def on_shutdown(self, app):
         """
         on_shutdown.
         description: Signal for customize the response when server is shutting down
         """
-        pass
 
 
 class AppBase(AppHandler):
@@ -353,7 +346,6 @@ class AppConfig(AppHandler):
         self.setup_routes()
         # setup swagger
         if self.enable_swagger is True:
-            from aiohttp_swagger import setup_swagger
             setup_swagger(
                 self.app,
                 api_base_url=f"/{self._name}",
@@ -533,10 +525,9 @@ class AppConfig(AppHandler):
         Returns:
             web.Response:
         """
-        app = request.app
         try:
             program = request.match_info['program']
-        except Exception as err:
+        except Exception:
             program = self.__class__.__name__
         authorization = {
             "status": "Tenant Authorized",

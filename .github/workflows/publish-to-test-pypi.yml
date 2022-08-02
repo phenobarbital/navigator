@@ -10,7 +10,7 @@ jobs:
     - name: Set up Python 3.9
       uses: actions/setup-python@v1
       with:
-        python-version: 3.9  
+        python-version: 3.9
     - name: Install pypa/build
       run: >-
         python -m
@@ -23,13 +23,13 @@ jobs:
         build
         --sdist
         --wheel
-        --outdir dist/    
+        --outdir dist/
     - name: Publish distribution 📦 to Test PyPI
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
         password: ${{ secrets.NAVIGATOR_API_TEST_PYPI_API_TOKEN	 }}
         repository_url: https://test.pypi.org/legacy/
     - name: Publish distribution 📦 to PyPI
-      uses: pypa/gh-action-pypi-publish@master
+      uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }} 
+        password: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}

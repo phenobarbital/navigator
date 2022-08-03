@@ -7,9 +7,6 @@ and decrypt, after that, a session will be created.
 import base64
 import rapidjson
 import logging
-import asyncio
-
-# redis pool
 import aioredis
 from typing import Callable
 from aiohttp import web
@@ -20,14 +17,14 @@ from navigator.exceptions import (
     InvalidAuth
 )
 from navigator.conf import (
-    DJANGO_USER_MAPPING
+    DJANGO_USER_MAPPING,
+    DJANGO_SESSION_URL,
+    DJANGO_SESSION_PREFIX
 )
 # User Identity
 from navigator.auth.identities import AuthUser, Column
 from navigator_session import (
-    AUTH_SESSION_OBJECT,
-    SESSION_URL,
-    SESSION_PREFIX
+    AUTH_SESSION_OBJECT
 )
 class DjangoUser(AuthUser):
     """DjangoUser.
@@ -43,20 +40,43 @@ class DjangoAuth(BaseAuthBackend):
     _user_object: str = 'user'
     _user_id_key: str = '_auth_user_id'
     _ident: AuthUser = DjangoUser
-    _redis: Callable = None
+
+    def __init__(
+        self,
+        user_attribute: str = None,
+        userid_attribute: str = None,
+        password_attribute: str = None,
+        credentials_required: bool = False,
+        authorization_backends: tuple = (),
+        **kwargs,
+    ):
+        self._pool: Callable = None
+        super(
+            DjangoAuth, self
+        ).__init__(
+            user_attribute,
+            userid_attribute,
+            password_attribute,
+            credentials_required,
+            authorization_backends,
+            **kwargs
+        )
 
     def configure(self, app, router, handler):
-        async def _setup_redis(app):
-            self._redis = aioredis.from_url(
-                    SESSION_URL,
+        async def _setup_redis(app: web.Application):
+            self._pool = aioredis.ConnectionPool.from_url(
+            # self._redis = aioredis.from_url(
+                    DJANGO_SESSION_URL,
                     decode_responses=True,
                     encoding='utf-8'
             )
-            return self._redis
         app.on_startup.append(_setup_redis)
         # closing:
         async def _close_redis(app: web.Application):
-            await self._redis.close()
+            try:
+                await self._pool.disconnect(inuse_connections=True)
+            except Exception as e:
+                logging.warning(e)
         app.on_cleanup.append(_close_redis)
         # executing parent configurations
         super(DjangoAuth, self).configure(app, router, handler)
@@ -87,8 +107,8 @@ class DjangoAuth(BaseAuthBackend):
 
     async def validate_session(self, key: str = None):
         try:
-            async with await self._redis as redis:
-                result = await redis.get(f"{SESSION_PREFIX}:{key}")
+            async with aioredis.Redis(connection_pool=self._pool) as redis:
+                result = await redis.get(f"{DJANGO_SESSION_PREFIX}:{key}")
             if not result:
                 raise Exception('Django Auth: non-existing Session')
             data = base64.b64decode(result)
@@ -108,6 +128,7 @@ class DjangoAuth(BaseAuthBackend):
             }
             return session
         except Exception as err:
+            print('EEEE ', err )
             logging.debug(
                 f"Django Decoding Error: {err}"
             )
@@ -123,8 +144,8 @@ class DjangoAuth(BaseAuthBackend):
             raise UserDoesntExists(
                 f"User {login} doesn\'t exists"
             ) from err
-        except Exception:
-            raise
+        except Exception as e:
+            raise Exception(e) from e
 
     async def authenticate(self, request):
         """ Authenticate against user credentials (django session id)."""

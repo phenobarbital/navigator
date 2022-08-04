@@ -2,7 +2,7 @@
 
 Description: Backend Authentication/Authorization using Microsoft authentication.
 """
-import logging
+import base64
 from aiohttp import web
 from navigator.exceptions import (
     NavException,
@@ -16,6 +16,7 @@ from navigator.conf import (
     AZURE_ADFS_DOMAIN,
     AZURE_ADFS_TENANT_ID
 )
+from navconfig.logging import logging
 import msal
 import json
 from msal.authority import (
@@ -27,18 +28,39 @@ from typing import Dict
 
 logging.getLogger("msal").setLevel(logging.INFO)
 
+def decode_part(raw, encoding="utf-8"):
+    """Decode a part of the JWT.
+    JWT is encoded by padding-less base64url,
+    based on `JWS specs <https://tools.ietf.org/html/rfc7515#appendix-C>`_.
+    :param encoding:
+        If you are going to decode the first 2 parts of a JWT, i.e. the header
+        or the payload, the default value "utf-8" would work fine.
+        If you are going to decode the last part i.e. the signature part,
+        it is a binary string so you should use `None` as encoding here.
+    """
+    raw += '=' * (-len(raw) % 4)  # https://stackoverflow.com/a/32517907/728675
+    raw = str(
+        # On Python 2.7, argument of urlsafe_b64decode must be str, not unicode.
+        # This is not required on Python 3.
+        raw)
+    output = base64.urlsafe_b64decode(raw)
+    if encoding:
+        output = output.decode(encoding)
+    return output
+
 class AzureAuth(ExternalAuth):
     """AzureAuth.
 
     Authentication Backend for Microsoft Online Services.
     """
-    user_attribute: str = "user"
-    username_attribute: str = "username"
-    userid_attribute: str = 'userPrincipalName'
+    user_attribute: str = "id"
+    username_attribute: str = "userPrincipalName"
+    userid_attribute: str = 'id'
     pwd_atrribute: str = "password"
     _service_name: str = "azure"
     _user_mapping: Dict = {
-        'email': 'userPrincipalName',
+        'email': 'mail',
+        'username': 'userPrincipalName',
         'given_name': 'givenName',
         'family_name': 'surname',
         'name': 'displayName'
@@ -120,9 +142,11 @@ class AzureAuth(ExternalAuth):
         try:
             user, pwd = await self.get_payload(request)
         except Exception as err:
+            user = None
+            pwd = None
             logging.error(err)
         if user and pwd:
-            Default_SCOPE = ["User.ReadBasic.All"]
+            Default_SCOPE = ['User.ReadBasic.All']
             # will use User/Pass Authentication
             app = self.get_msal_client()
             # Firstly, check the cache to see if this end user has signed in before
@@ -135,13 +159,22 @@ class AzureAuth(ExternalAuth):
                 result = app.acquire_token_by_username_password(
                     user, pwd, Default_SCOPE
                 )
+                client_info = {}
+                if "client_info" in result:
+                    # It happens when client_info and profile are in request
+                    client_info = json.loads(decode_part(result["client_info"]))
                 try:
                     if 'access_token' in result:
                         access_token = result['access_token']
-                        data = await self.get(url=self.userinfo_uri, token=access_token, token_type='Bearer')
+                        data = await self.get(
+                            url=self.userinfo_uri,
+                            token=access_token,
+                            token_type='Bearer'
+                        )
+                        data = {**data, **client_info}
                         userdata, uid = self.build_user_info(data)
                         # also, user information:
-                        data = await self.get_user_session(request, uid, userdata, access_token)
+                        data = await self.validate_user_info(request, uid, userdata, access_token)
                         # Redirect User to HOME
                         return self.home_redirect(request, token=data["token"], token_type='Bearer')
                     else:
@@ -201,7 +234,7 @@ class AzureAuth(ExternalAuth):
                 state = auth_response['state']
             except Exception as err:
                 raise Exception(
-                    'Azure: Wrong authentication Callback, missing State.'
+                    f'Azure: Wrong authentication Callback, State: {err}'
                 ) from err
             try:
                 async with await request.app['redis'].acquire() as redis:
@@ -224,14 +257,19 @@ class AzureAuth(ExternalAuth):
                     # refresh_token = result['refresh_token']
                     id_token = result['id_token']
                     claims = result['id_token_claims']
+                    client_info = {}
+                    if "client_info" in result:
+                        # It happens when client_info and profile are in request
+                        client_info = json.loads(decode_part(result["client_info"]))
                     # getting user information:
                     try:
                         data = await self.get(url=self.userinfo_uri, token=access_token, token_type=token_type)
                         # build user information:
+                        data = {**data, **client_info}
                         userdata, uid = self.build_user_info(data)
                         userdata['id_token'] = id_token
                         userdata['claims'] = claims
-                        data = await self.get_user_session(request, uid, userdata, access_token)
+                        data = await self.validate_user_info(request, uid, userdata, access_token)
                     except Exception as err:
                         logging.exception('Azure: Error getting User information')
                         raise web.HTTPForbidden(

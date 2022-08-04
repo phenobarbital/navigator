@@ -118,21 +118,24 @@ class BaseAuthBackend(ABC):
 
     async def get_user(self, **search):
         """Getting User Object."""
-        # TODO: getting Groups based on User
         try:
             user = await self.user_model.get(**search)
-        except Exception as err:
+        except Exception as e:
             logging.error(f"Error getting User {search!s}")
-            raise Exception(err) from err
+            raise UserDoesntExists(
+                f"Error getting User {search!s}: {e!s}"
+            ) from e
         # if not exists, return error of missing
         if not user:
-            raise UserDoesntExists(f"User doesnt exists")
+            raise UserDoesntExists(
+                f"User {search!s} doesn't exists"
+            )
         return user
 
     async def create_user(self, userdata) -> Identity:
         try:
             usr = self._ident(
-                        data=userdata
+                data=userdata
             )
             logging.debug(f'User Created > {usr}')
             return usr
@@ -167,10 +170,8 @@ class BaseAuthBackend(ABC):
         """
         try:
             request[self.session_key_property] = identity
-            # request[self.user_property] = userdata
             # saving the user
             request.user = user
-            # Session:
             try:
                 session = await new_session(request, userdata)
                 user.is_authenticated = True # if session, then, user is authenticated.
@@ -246,11 +247,11 @@ class BaseAuthBackend(ABC):
                 scheme, id = (
                     request.headers.get(hdrs.AUTHORIZATION).strip().split(" ", 1)
                 )
-            except ValueError:
+            except ValueError as e:
                 raise NavException(
                     "Invalid authorization Header",
                     state=400
-                )
+                ) from e
             if scheme != self.scheme:
                 raise NavException(
                     "Invalid Authorization Scheme",
@@ -261,7 +262,7 @@ class BaseAuthBackend(ABC):
             except Exception:
                 # normal Token:
                 jwt_token = id
-            logging.debug(f'Session Token: {jwt_token}')
+            # logging.debug(f'Session Token: {jwt_token}')
             try:
                 payload = jwt.decode(
                     jwt_token,

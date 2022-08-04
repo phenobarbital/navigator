@@ -2,12 +2,16 @@
 
 Abstract Model to any Oauth2 or external Auth Support.
 """
+import asyncio
 from typing import (
     Dict,
     Any,
     Tuple,
     Callable
 )
+import importlib
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 from abc import abstractmethod
 import aiohttp
 from aiohttp import web, hdrs
@@ -223,7 +227,7 @@ class ExternalAuth(BaseAuthBackend):
         if user:
             # construir e invocar callbacks para actualizar data de usuario
             for fn in AUTH_SUCCESSFUL_CALLBACKS:
-                await self.auth_successful_callback(fn, userdata, user)
+                await self.auth_successful_callback(request, fn, userdata, user)
         try:
             user = await self.create_user(
                 userdata
@@ -309,7 +313,44 @@ class ExternalAuth(BaseAuthBackend):
                     resp = await response.read()
                     raise Exception(f'Error getting Session Information: {resp}')
 
-    async def auth_successful_callback(self, fn: str, userdata: Dict, user: Callable) -> None:
-        print('CALLING ', fn)
-        print('WITH USER ', user)
-        print(userdata)
+    async def auth_successful_callback(
+            self,
+            request: web.Request,
+            fn: str,
+            userdata: Dict,
+            user: Callable,
+        ) -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            func = partial(self.call_successful_callbacks, request, fn, user, userdata)
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                loop.run_in_executor(executor, func, loop)
+        except Exception as e:
+            print(e)
+
+    def call_successful_callbacks(
+        self,
+        request: web.Request,
+        fn: str,
+        user: Callable,
+        userdata: Dict,
+        loop: asyncio.AbstractEventLoop
+        ) -> None:
+        # start here:
+        asyncio.set_event_loop(loop)
+        print('Calling the Successful Callback')
+        obj = None
+        try:
+            pkg, module = fn.rsplit('.', 1)
+            mod = importlib.import_module(pkg)
+            obj = getattr(mod, module)
+            try:
+                loop.run_until_complete(
+                    obj(request, user, userdata)
+                )
+            except Exception as e:
+                logging.exception(e, stack_info=False)
+        except ImportError as e:
+            raise RuntimeError(
+                f"Auth Callback: Error importing Function: {fn}, {e!s}"
+            ) from e

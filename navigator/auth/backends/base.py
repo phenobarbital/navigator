@@ -271,7 +271,7 @@ class BaseAuthBackend(ABC):
                     iss=issuer,
                     leeway=30,
                 )
-                logging.info(f"Decoded Token: {payload!s}")
+                # logging.info(f"Decoded Token: {payload!s}")
                 return [tenant, payload]
             except jwt.exceptions.ExpiredSignatureError as err:
                 raise AuthExpired(

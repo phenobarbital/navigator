@@ -88,7 +88,7 @@ class TokenAuth(BaseAuthBackend):
             payload = jwt.decode(
                 token, AUTH_TOKEN_SECRET, algorithms=[AUTH_JWT_ALGORITHM], leeway=30
             )
-            logging.debug(f"Decoded Token: {payload!s}")
+            # logging.debug(f"Decoded Token: {payload!s}")
             data = await self.check_token_info(request, tenant, payload)
             if not data:
                 raise InvalidAuth(
@@ -195,7 +195,7 @@ class TokenAuth(BaseAuthBackend):
                     payload = jwt.decode(
                         jwt_token, AUTH_TOKEN_SECRET, algorithms=[AUTH_JWT_ALGORITHM], leeway=30
                     )
-                    logging.debug(f"Decoded Token: {payload!s}")
+                    # logging.debug(f"Decoded Token: {payload!s}")
                     result = await self.check_token_info(request, tenant, payload)
                     if not result:
                         if CREDENTIALS_REQUIRED is True:

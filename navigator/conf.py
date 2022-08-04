@@ -208,18 +208,6 @@ ALLOWED_HOSTS = [
     for e in list(config.get("ALLOWED_HOSTS", section="auth", fallback="localhost*").split(","))
 ]
 
-"""
-Session Storage
-"""
-# SESSION_NAME = f"{APP_TITLE}_SESSION"
-#
-# SESSION_PREFIX = f'{CACHE_PREFIX}_session'
-# SESSION_TIMEOUT = config.getint('SESSION_TIMEOUT', fallback=360000)
-# SESSION_KEY = config.get('SESSION_KEY', fallback='id')
-# SESSION_STORAGE = 'NAVIGATOR_SESSION_STORAGE'
-# SESSION_OBJECT = 'NAV_SESSION'
-# SESSION_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{REDIS_SESSION_DB}"
-# SESSION_USER_PROPERTY = config.get('SESSION_USER_PROPERTY', fallback='user')
 
 """
  Memcache

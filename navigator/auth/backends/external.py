@@ -2,12 +2,16 @@
 
 Abstract Model to any Oauth2 or external Auth Support.
 """
-import logging
-from .base import BaseAuthBackend
+import asyncio
 from typing import (
     Dict,
-    Any
+    Any,
+    Tuple,
+    Callable
 )
+import importlib
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 from abc import abstractmethod
 import aiohttp
 from aiohttp import web, hdrs
@@ -16,12 +20,18 @@ from aiohttp.client import (
     ClientSession
 )
 from navigator.auth.identities import AuthUser
+from navigator.exceptions import UserDoesntExists
 from navigator.conf import (
     AUTH_LOGIN_FAILED_URI,
-    AUTH_REDIRECT_URI
+    AUTH_REDIRECT_URI,
+    AUTH_MISSING_ACCOUNT,
+    AUTH_SUCCESSFUL_CALLBACKS
 )
+from navconfig.logging import logging
 from requests.models import PreparedRequest
 from urllib.parse import urlparse, parse_qs
+from .base import BaseAuthBackend
+
 
 class OauthUser(AuthUser):
     token: str
@@ -32,6 +42,7 @@ class OauthUser(AuthUser):
         super(OauthUser, self).__post_init__(data)
         self.first_name = self.given_name
         self.last_name = self.family_name
+
 
 class ExternalAuth(BaseAuthBackend):
     """ExternalAuth.
@@ -70,6 +81,7 @@ class ExternalAuth(BaseAuthBackend):
         self.redirect_uri = "{domain}/auth/{service}/callback/"
         self._issuer: str = None
         self.users_info: str = None
+        self.authority: str = None
 
     def configure(self, app, router, handler):
         # add the callback url
@@ -158,11 +170,22 @@ class ExternalAuth(BaseAuthBackend):
     async def finish_logout(self, request: web.Request):
         """finish_logout, Finish Logout Method."""
 
-    def build_user_info(self, userdata: Dict) -> Dict:
+    def build_user_info(self, userdata: Dict) -> Tuple:
+        """build_user_info.
+            Get user or validate user from model.
+        Args:
+            userdata (Dict): User data gets from Auth Backend.
+
+        Returns:
+            Tuple: user_id and user_data.
+        Raises:
+            UserNotFound: when user doesn't exists on Backend.
+        """
         # User ID:
         userid = userdata[self.userid_attribute]
         userdata['id'] = userid
         userdata[self.session_key_property] = userid
+        userdata['auth_method'] = self._service_name
         for key, val in self._user_mapping.items():
             try:
                 userdata[key] = userdata[val]
@@ -170,16 +193,45 @@ class ExternalAuth(BaseAuthBackend):
                 pass
         return (userdata, userid)
 
-    async def get_user_session(self, request: web.Request, user_id: Any, userdata: Any, token: str):
-        # TODO: only creates after validation:
+    async def validate_user_info(
+            self,
+            request: web.Request,
+            user_id: Any,
+            userdata: Any,
+            token: str
+        ) -> Dict:
         data = None
+        user = None
+        # then, if everything is ok with user data, can we validate from model:
+        try:
+            login = userdata[self.username_attribute]
+        except KeyError:
+            login = userdata[self.user_attribute]
+        try:
+            search = {self.username_attribute: login}
+            user = await self.get_user(**search)
+        except UserDoesntExists as err:
+            if AUTH_MISSING_ACCOUNT == 'ignore':
+                pass
+            elif AUTH_MISSING_ACCOUNT == 'raise':
+                raise UserDoesntExists(
+                    f"User {login} doesn't exists"
+                ) from err
+            elif AUTH_MISSING_ACCOUNT == 'create':
+                # can create an user using userdata:
+                pass
+            else:
+                raise RuntimeError(
+                    f"Oauth2: Invalid config for AUTH_MISSING_ACCOUNT: {AUTH_MISSING_ACCOUNT}"
+                ) from err
+        if user:
+            # construir e invocar callbacks para actualizar data de usuario
+            for fn in AUTH_SUCCESSFUL_CALLBACKS:
+                await self.auth_successful_callback(request, fn, userdata, user)
         try:
             user = await self.create_user(
                 userdata
             )
-            user.id = user_id
-            user.auth_method = self._service_name
-            user.access_token = token
             try:
                 user.username = userdata[self.username_attribute]
             except KeyError:
@@ -217,7 +269,14 @@ class ExternalAuth(BaseAuthBackend):
         """Perform an HTTP POST request."""
         return self.request(url, method=hdrs.METH_POST, **kwargs)
 
-    async def request(self, url: str, method: str ='get', token: str = None, token_type: str = 'Bearer', **kwargs) -> web.Response:
+    async def request(
+            self,
+            url: str,
+            method: str ='get',
+            token: str = None,
+            token_type: str = 'Bearer',
+            **kwargs
+        ) -> web.Response:
         """
         request.
             connect to an http source using aiohttp
@@ -253,3 +312,45 @@ class ExternalAuth(BaseAuthBackend):
                 else:
                     resp = await response.read()
                     raise Exception(f'Error getting Session Information: {resp}')
+
+    async def auth_successful_callback(
+            self,
+            request: web.Request,
+            fn: str,
+            userdata: Dict,
+            user: Callable,
+        ) -> None:
+        loop = asyncio.new_event_loop()
+        try:
+            func = partial(self.call_successful_callbacks, request, fn, user, userdata)
+            with ThreadPoolExecutor(max_workers=10) as executor:
+                loop.run_in_executor(executor, func, loop)
+        except Exception as e:
+            print(e)
+
+    def call_successful_callbacks(
+        self,
+        request: web.Request,
+        fn: str,
+        user: Callable,
+        userdata: Dict,
+        loop: asyncio.AbstractEventLoop
+        ) -> None:
+        # start here:
+        asyncio.set_event_loop(loop)
+        print('Calling the Successful Callback')
+        obj = None
+        try:
+            pkg, module = fn.rsplit('.', 1)
+            mod = importlib.import_module(pkg)
+            obj = getattr(mod, module)
+            try:
+                loop.run_until_complete(
+                    obj(request, user, userdata)
+                )
+            except Exception as e:
+                logging.exception(e, stack_info=False)
+        except ImportError as e:
+            raise RuntimeError(
+                f"Auth Callback: Error importing Function: {fn}, {e!s}"
+            ) from e

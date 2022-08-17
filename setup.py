@@ -65,9 +65,6 @@ setup(
         "Cython==0.29.32",
         "asyncio==3.4.3",
         "uvloop==0.16.0",
-        "asyncdb",
-        "navconfig",
-        "async-notify",
         "navigator-session>=0.0.8",
         "typing-extensions>=4.1.1",
         "aiofile==3.7.4",
@@ -95,7 +92,10 @@ setup(
         "aiohttp-debugtoolbar==0.6.0",
         "jsonpickle==2.2.0",
         'python-slugify==6.1.1',
-        "platformdirs==2.5.1"
+        "platformdirs==2.5.1",
+        "navconfig",
+        "async-notify",
+        "asyncdb"
     ],
     tests_require=[
             'pytest>=5.4.0',

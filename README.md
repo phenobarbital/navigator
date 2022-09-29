@@ -10,8 +10,8 @@ The main goal of Navigator is to provide data sources to Navigator-Next (FrontEn
 ## Dependencies ##
 
  * aiohttp (Asyncio Web Framework and Server)
- * NavConfig
- * AsyncDB
+ * NavConfig (Configuration Management)
+ * AsyncDB (Database connections)
 
 ### Getting Started ###
 
@@ -42,4 +42,4 @@ Please have a look at the Contribution Guide
 
 ### License ###
 
-Navigator is dual-licensed under BSD and Apache 2.0 licenses.
+Navigator is licensed under BSD license.

@@ -5,7 +5,20 @@ See:
 https://github.com/phenobarbital/navigator-api/tree/master
 """
 from os import path
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup, Extension
+from Cython.Build import cythonize
+
+
+COMPILE_ARGS = ["-O2"]
+
+extensions = [
+    Extension(
+        name='navigator.utils.types',
+        sources=['navigator/utils/types.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    )
+]
 
 
 def get_path(filename):
@@ -45,7 +58,9 @@ setup(
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Software Development :: Libraries",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     author=__author__,
     author_email=__author_email__,
@@ -64,39 +79,38 @@ setup(
         "wheel==0.37.1",
         "Cython==0.29.32",
         "asyncio==3.4.3",
-        "uvloop==0.16.0",
-        "navigator-session>=0.0.8",
-        "typing-extensions>=4.1.1",
+        "uvloop==0.17.0",
+        "navconfig",
+        "async-notify",
+        "asyncdb[default]",
+        "navigator-session>=0.1.0",
+        "typing-extensions>=4.3.0",
         "aiofile==3.7.4",
-        "aiofiles==0.8.0",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
-        "aiohttp==3.8.1",
+        "aiohttp==3.8.3",
         "aiohttp-jrpc==0.1.0",
-        "PyJWT==2.4.0",
-        "pycryptodome==3.14.1",
-        "rncryptor==3.3.0",
+        "jinja2==3.1.2",
         "aiohttp-jinja2==1.5",
         "aiohttp-cors==0.7.0",
         "aiohttp-sse==2.1.0",
+        "aiohttp-utils==3.1.1",
         "aiosocks==0.2.6",
         "aiohttp-swagger==1.0.16",
-        "pydantic==1.9.0",
-        "aiohttp-utils==3.1.1",
+        "PyJWT==2.4.0",
+        "pycryptodome==3.15.0",
+        "rncryptor==3.3.0",
         "msal==1.17.0",
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
-        "jsonpickle==2.2.0",
         'python-slugify==6.1.1',
         "platformdirs==2.5.1",
-        "navconfig",
-        "async-notify",
-        "asyncdb"
     ],
+    ext_modules=cythonize(extensions),
     tests_require=[
             'pytest>=5.4.0',
             'coverage',

@@ -11,7 +11,9 @@ __pycache__
 # External Extensions
 extensions/*
 apps/*
-
+docs/
+build/
+dist/
 # Migrations Folder
 migrations/
 migrations/*

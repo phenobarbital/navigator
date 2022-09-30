@@ -12,11 +12,8 @@ from typing import (
 
 # TODO: implementing a bytecode-cache on redis or memcached
 jinja_config = {
-    'autoescape': True,
     'enable_async': False,
     'extensions': [
-        'jinja2.ext.autoescape',
-        'jinja2.ext.with_',
         'jinja2.ext.i18n'
     ]
 }

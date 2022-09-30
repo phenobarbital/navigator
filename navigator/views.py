@@ -1,34 +1,33 @@
 import asyncio
 import datetime
-import inspect
-import json
-import rapidjson
 import traceback
-from abc import ABC, ABCMeta, abstractmethod, abstractproperty
-from functools import partial
-from typing import Any, Callable, Dict, List, Optional
+from json.decoder import JSONDecodeError
+from typing import Any
+from collections.abc import Callable
 from urllib import parse
-
 import aiohttp_cors
 from aiohttp import web
 from aiohttp.abc import AbstractView
-from aiohttp.web import Response, StreamResponse
+# from aiohttp.web import Response, StreamResponse
 from aiohttp.web_exceptions import (
-    HTTPClientError,
-    HTTPInternalServerError,
+    # HTTPClientError,
+    # HTTPInternalServerError,
     HTTPMethodNotAllowed,
     HTTPNoContent,
     HTTPNotImplemented,
-    HTTPUnauthorized,
+    # HTTPUnauthorized,
 )
 from aiohttp_cors import CorsViewMixin
-from asyncdb.providers.memcache import memcache
-from asyncdb.meta import AsyncORM
+
 from asyncdb.models import Model
-from asyncdb.utils.encoders import BaseEncoder, DefaultEncoder
-from asyncdb.exceptions import *
+from asyncdb.exceptions import (
+    ProviderError,
+    DriverError,
+    NoDataFound
+)
 from navconfig.logging import logging, loglevel
-from navigator.libs import SafeDict
+from navigator.utils.functions import SafeDict
+from navigator.libs.json import JSONContent
 
 
 class BaseHandler(CorsViewMixin):
@@ -51,6 +50,7 @@ class BaseHandler(CorsViewMixin):
         CorsViewMixin.__init__(self)
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
+        self._json: Callable = JSONContent()
         self.logger = logging.getLogger('navigator')
         self.logger.setLevel(loglevel)
         self.post_init(self, *args, **kwargs)
@@ -68,9 +68,11 @@ class BaseHandler(CorsViewMixin):
     def no_content(
         self,
         request: web.Request = None,
-        headers: dict = {},
+        headers: dict = None,
         content_type: str = "application/json",
     ) -> web.Response:
+        if not headers:
+            headers = {}
         if not request:
             request = self.request
         response = HTTPNoContent(content_type=content_type)
@@ -84,14 +86,16 @@ class BaseHandler(CorsViewMixin):
         request: web.Request = None,
         response: str = "",
         state: int = 200,
-        headers: dict = {},
+        headers: dict = None,
         **kwargs,
     ) -> web.Response:
+        if not headers: # TODO: set to default headers.
+            headers = {}
         if not request:
             request = self.request
         args = {"status": state, "content_type": "application/json", **kwargs}
         if isinstance(response, dict):
-            args["text"] = json.dumps(response, cls=DefaultEncoder)
+            args["text"] = self._json.dumps(response)
         else:
             args["body"] = response
         obj = web.Response(**args)
@@ -99,17 +103,11 @@ class BaseHandler(CorsViewMixin):
             obj.headers[header] = value
         return obj
 
-    def json_response(self, response={}, headers={}, state=200, cls=None):
-        if cls is not None:
-            if inspect.isclass(cls):
-                # its a class-based Encoder
-                jsonfn = partial(json.dumps, cls=cls)
-            else:
-                # its a function
-                jsonfn = partial(rapidjson.dumps, default=cls)
-        else:
-            jsonfn = partial(json.dumps, cls=BaseEncoder)
-        obj = web.json_response(response, status=state, dumps=jsonfn)
+    def json_response(self, response: dict = None, headers: dict = None, state: int = 200, cls: Callable = None):
+        if not headers: # TODO: set to default headers.
+            headers = {}
+        jsonfn = self._json.dumps
+        obj = web.json_response(response, status=state, headers=headers, dumps=jsonfn)
         for header, value in headers.items():
             obj.headers[header] = value
         return obj
@@ -118,12 +116,14 @@ class BaseHandler(CorsViewMixin):
         self,
         request: web.Request = None,
         exception: Exception = None,
-        traceback=None,
+        traceback: str = None,
         state: int = 500,
-        headers: dict = {},
+        headers: dict = None,
         **kwargs,
     ) -> web.Response:
         # TODO: process the exception object
+        if not headers: # TODO: set to default headers.
+            headers = {}
         if not request:
             request = self.request
         response_obj = {
@@ -132,7 +132,7 @@ class BaseHandler(CorsViewMixin):
             "stacktrace": traceback,
         }
         args = {
-            "text": json.dumps(response_obj),
+            "text": self._json.dumps(response_obj),
             "reason": "Server Error",
             "content_type": "application/json",
             **kwargs,
@@ -148,12 +148,14 @@ class BaseHandler(CorsViewMixin):
     def error(
         self,
         request: web.Request = None,
-        response: dict = {},
+        response: dict = None,
         exception: Exception = None,
         state: int = 400,
-        headers: dict = {},
+        headers: dict = None,
         **kwargs,
     ) -> web.Response:
+        if not headers: # TODO: set to default headers.
+            headers = {}
         # TODO: process the exception object
         response_obj = {"status": "Failed"}
         if not request:
@@ -164,7 +166,7 @@ class BaseHandler(CorsViewMixin):
         if isinstance(response, dict):
             response_obj = {**response_obj, **response}
             args["content_type"] = "application/json"
-            args["text"] = json.dumps(response_obj)
+            args["text"] = self._json.dumps(response_obj)
         else:
             args["body"] = response
         # defining the error
@@ -189,10 +191,10 @@ class BaseHandler(CorsViewMixin):
         return obj
 
     def not_implemented(
-        self, request: web.Request, response: dict = {}, headers: dict = {}, **kwargs
+        self, request: web.Request, response: dict = None, headers: dict = None, **kwargs
     ) -> web.Response:
         args = {
-            "text": json.dumps(response),
+            "text": self._json.dumps(response),
             "reason": "Method not Implemented",
             "content_type": "application/json",
             **kwargs,
@@ -205,9 +207,9 @@ class BaseHandler(CorsViewMixin):
     def not_allowed(
         self,
         request: web.Request = None,
-        response: dict = {},
-        headers: dict = {},
-        allowed: dict = {},
+        response: dict = None,
+        headers: dict = None,
+        allowed: dict = None,
         **kwargs,
     ) -> web.Response:
         if not request:
@@ -218,7 +220,7 @@ class BaseHandler(CorsViewMixin):
             allow = allowed
         args = {
             "method": request.method,
-            "text": json.dumps(response, cls=BaseEncoder),
+            "text": self._json.dumps(response),
             "reason": "Method not Allowed",
             "content_type": "application/json",
             "allowed_methods": allow,
@@ -242,10 +244,10 @@ class BaseHandler(CorsViewMixin):
             if request.body_exists:
                 body = await request.read()
                 body = body.decode("ascii")
-        except Exception as e:
+        except Exception: # pylint: disable=W0703
             pass
         finally:
-            return body
+            return body # pylint: disable=W0150
 
     async def json_data(self, request: web.Request = None):
         if not request:
@@ -283,7 +285,6 @@ class BaseHandler(CorsViewMixin):
             qry = {key: val for (key, val) in rq.rel_url.query.items()}
         except Exception as err:
             print(err)
-            pass
         params = {**params, **qry}
         return params
 
@@ -296,7 +297,7 @@ class BaseHandler(CorsViewMixin):
             request = self.request
         try:
             params = await request.json()
-        except json.decoder.JSONDecodeError as err:
+        except JSONDecodeError as err:
             logging.debug(f"Invalid POST DATA: {err!s}")
         # if any, mix with match_info data:
         for arg in request.match_info:
@@ -327,39 +328,32 @@ class BaseView(web.View, BaseHandler, AbstractView):
         CorsViewMixin.__init__(self)
         self._request = request
 
-    # def post_init(self, *args, **kwargs):
-    #     mem_params = {"host": MEMCACHE_HOST, "port": MEMCACHE_PORT}
-    #     self._mcache = memcache(params=mem_params)
-
     async def connection(self):
         return self._connection
 
     async def connect(self, request):
-        # await self._mcache.connection()
         self._connection = await request.app["database"].acquire()
         try:
             self._redis = request.app["redis"]
+        except (ProviderError, DriverError) as ex:
+            raise RuntimeError(
+                f'Error connecting to Database: {ex}'
+            ) from ex
         except Exception as err:
-            self.logger.debug(err)
+            self.logger.exception(err, stack_info=True)
 
     async def close(self):
-        # if self._mcache and self._mcache.is_connected():
-        #     await self._mcache.close()
-        #     self._mcache = None
         if self._connection:
             await self._connection.close()
             self._connection = None
-
-    # async def json_data(self):
-    #     return await self.request.json()
 
     async def post_data(self) -> dict:
         params = {}
         if self.request.headers.get("Content-Type") == "application/json":
             try:
                 return await self.request.json()
-            except json.decoder.JSONDecodeError as err:
-                logging.exception('Empty POST Data')
+            except JSONDecodeError as ex:
+                logging.exception(f'Empty POST Data, {ex}')
                 return None
         try:
             params = await self.request.post()
@@ -381,15 +375,20 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
 class DataView(BaseView):
     async def asyncdb(self, request):
-        db = None
         try:
             pool = request.app["database"]
             if pool.is_connected():
-                conn = await pool.acquire()
-                db = AsyncORM(db=conn, loop=self._loop)
+                db = await pool.acquire()
+                # TODO: return new build (ex-ORM)
                 return db
-        finally:
-            return db
+        except (ProviderError, DriverError) as ex:
+            raise Exception(
+                f"Error connecting to DB: {ex}"
+            ) from ex
+        except Exception as err:
+            raise Exception(
+                f"Error connecting to DB: {err}"
+            ) from err
 
     async def query(self, sql):
         result = None
@@ -417,9 +416,15 @@ class DataView(BaseView):
                 if error:
                     result = None
                     self._lasterr = error
+            except NoDataFound:
+                raise
+            except (ProviderError, DriverError) as ex:
+                self._lasterr = ex
             except Exception as err:
                 self._lasterr = err
-                # raise Exception(err)
+                raise Exception(
+                    f"Error connecting to DB: {err}"
+                ) from err
             finally:
                 return result
 
@@ -431,17 +436,20 @@ class DataView(BaseView):
                 result, error = await self._connection.execute(sql)
                 if error:
                     result = None
-                    self._lasterr = err
+                    self._lasterr = error
+            except NoDataFound:
+                self._lasterr = None
+            except (ProviderError, DriverError) as ex:
+                self._lasterr = ex
             except Exception as err:
-                print(err)
                 self._lasterr = err
+                raise Exception(
+                    f"Error connecting to DB: {err}"
+                ) from err
             finally:
                 return result
 
-    """
-    Meta-Operations
-    """
-
+### Meta-Operations
     def table(self, table):
         try:
             return self._query_raw.format_map(SafeDict(table=table))
@@ -458,11 +466,6 @@ class DataView(BaseView):
         elif type(fields) == list:
             _sql = sentence.format_map(SafeDict(fields=",".join(fields)))
         return _sql
-
-    """
-    where
-      add WHERE conditions to SQL
-    """
 
     def where(self, sentence, where):
         sql = ""
@@ -546,15 +549,18 @@ class DataView(BaseView):
         return self
 
 
-async def load_models(app: str, model, tablelist: list = []):
+async def load_models(app: str, model, tablelist: list):
     async with await app["database"].acquire() as conn:
         name = app["name"]
-        for table in tablelist:
-            try:
-                query = await Model.makeModel(name=table, schema=name, db=conn)
-                model[table] = query
-            except Exception as err:
-                logging.error(f"Error loading Model {table}: {err!s}")
+        if isinstance(tablelist, list):
+            for table in tablelist:
+                try:
+                    query = await Model.makeModel(name=table, schema=name, db=conn)
+                    model[table] = query
+                except Exception as err:
+                    logging.error(
+                        f"Error loading Model {table}: {err!s}"
+                    )
 
 
 class ModelView(BaseView):
@@ -571,9 +577,15 @@ class ModelView(BaseView):
         required: true
         description: DB Model using asyncdb Model.
     """
-
-    model: Model = None
-    models: list = []
+    def __init__(self, request, *args, **kwargs):
+        self.model: Model = None
+        self.models: dict = {}
+        super(ModelView, self).__init__(request, *args, **kwargs)
+        # getting model associated
+        try:
+            self.model = self.get_schema()
+        except NoDataFound as err:
+            raise Exception(err) from err
 
     def get_schema(self):
         if self.model:
@@ -592,16 +604,8 @@ class ModelView(BaseView):
             except KeyError as err:
                 # Model doesn't exists
                 raise NoDataFound(
-                    f"Model {table} Doesnt Exists"
+                    f"Model {table} Doesn't Exists"
                 ) from err
-
-    def __init__(self, *args, **kwargs):
-        super(ModelView, self).__init__(*args, **kwargs)
-        # getting model associated
-        try:
-            self.model = self.get_schema()
-        except NoDataFound as err:
-            raise Exception(err) from err
 
     async def get_data(self, params, args):
         try:
@@ -627,7 +631,7 @@ class ModelView(BaseView):
         if not response:
             return self.no_content(headers=headers)
         # return data only
-        return self.json_response(response, cls=BaseEncoder, headers=headers)
+        return self.json_response(response, headers=headers)
 
     def get_args(self, request: web.Request = None) -> dict:
         params = {}
@@ -682,7 +686,7 @@ class ModelView(BaseView):
             summary: return the metadata from table or, if we got post
             realizes a partially atomic updated of the query.
         """
-        args, params = await self.get_parameters()
+        args, _ = await self.get_parameters()
         # try to got post data
         post = await self.json_data()
         if post:
@@ -702,13 +706,13 @@ class ModelView(BaseView):
                 # getting metadata of Model
                 qry = self.model(**args)
                 data = {}
-                for name, field in qry.columns().items():
+                for _, field in qry.columns().items():
                     key = field.name
-                    type = field.db_type()
+                    _type = field.db_type()
                     default = None
                     if field.default is not None:
                         default = f"{field.default!r}"
-                    data[key] = {"type": type, "default": default}
+                    data[key] = {"type": _type, "default": default}
                 return self.model_response(data)
             except Exception as err:
                 return self.critical(request=self.request, exception=err, traceback="")
@@ -718,7 +722,7 @@ class ModelView(BaseView):
         post.
             summary: update (or create) a row in table
         """
-        args, params = await self.get_parameters()
+        args, _ = await self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(
@@ -727,7 +731,7 @@ class ModelView(BaseView):
                 state=406,
             )
         # updating several at the same time:
-        if type(post) == list:
+        if isinstance(post, list):
             # mass-update using arguments:
             try:
                 result = self.model.update(args, **post)
@@ -796,7 +800,7 @@ class ModelView(BaseView):
             msg = {"result": result}
             headers = {
                 "X-STATUS": "OK",
-                "X-MESSAGE": f"Table row was deleted",
+                "X-MESSAGE": f"Table row was deleted: {self.model!r}",
                 "X-TABLE": self.Meta.tablename,
             }
             return self.model_response(msg, headers=headers)
@@ -816,7 +820,7 @@ class ModelView(BaseView):
         put.
            summary: insert a row in table
         """
-        args, params = await self.get_parameters()
+        _, params = await self.get_parameters()
         post = await self.json_data()
         if not post:
             return self.error(

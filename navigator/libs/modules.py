@@ -10,11 +10,11 @@ class AbstractHandler(object):
     def __init__(self):
         self._template = dedent(self._template)
 
-    async def index(self, request):
+    async def index(self, request: web.Request):
         response = web.Response(body="")
         return response
 
-    def html_response(text: str):
+    def html_response(self, text: str):
         return web.Response(text=text, content_type="text/html")
 
     @abstractmethod

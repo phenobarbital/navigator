@@ -1,44 +1,15 @@
 #!/usr/bin/env python
 import asyncio
-import json
-from functools import wraps
 from pathlib import Path
 import logging
 import aiohttp
-from aiohttp import WSCloseCode, WSMsgType, web, web_urldispatcher
-from aiohttp.http_exceptions import HttpBadRequest
-from aiohttp.web import Request, Response
-from aiohttp.web_exceptions import HTTPMethodNotAllowed
-from aiohttp_swagger import *
+from aiohttp import WSMsgType, web # , web_urldispatcher
 from navigator_session import get_session
 from navigator.conf import BASE_DIR
+from navigator.libs.json import json_encoder
 
 
-class Router(web.UrlDispatcher):
-    async def resolve(self, request):
-        res = await super().resolve(request)
-        if isinstance(res, web_urldispatcher.MatchInfoError):
-            if res.http_exception.status == 404:
-                url = str(request.rel_url)
-                if '/authorize' in url:
-                    authorization = {
-                        "status": "Tenant Authorized",
-                        "program": 'Navigator'
-                    }
-                    return web_urldispatcher.MatchInfoError(
-                        web.HTTPAccepted(
-                            reason=authorization,
-                            content_type='application/json'
-                        )
-                    )
-                else:
-                    return web_urldispatcher.MatchInfoError(
-                        web.HTTPNotFound()
-                    )
-        return res
-
-
-async def channel_handler(request):
+async def channel_handler(request: web.Request):
     channel = request.match_info.get("channel", "navigator")
     logging.debug(f"Websocket connection starting for channel {channel}")
     ws = web.WebSocketResponse()
@@ -80,12 +51,12 @@ class WebSocket(web.View):
     async def get(self):
         # user need a channel:
         channel = self.request.match_info.get("channel", "navigator")
-        print("Websocket connection starting")
+        print(f"Websocket connection starting to {channel!s}")
         ws = web.WebSocketResponse()
         await ws.prepare(self.request)
 
         for _ws in self.request.app["sockets"]:
-            _ws.send_str(f'Someone Joined.')
+            _ws.send_str('Someone Joined.')
 
         self.request.app["sockets"].append(ws)
         session = await get_session(self.request)
@@ -108,12 +79,12 @@ class WebSocket(web.View):
         self.request.app["sockets"].remove(ws)
         session['socket'] = None
         for _ws in self.request.app["sockets"]:
-            _ws.send_str(f'Someone Disconnected.')
+            _ws.send_str('Someone Disconnected.')
         print("Websocket connection closed")
         return ws
 
 
-async def ping(request):
+async def ping(request: web.Request):
     """
     ---
     summary: This end-point allow to test that service is up.
@@ -127,10 +98,10 @@ async def ping(request):
         "405":
             description: invalid HTTP Method
     """
-    return web.Response(text="pong")
+    return web.Response(text="PONG")
 
 
-async def home(request):
+async def home(request: web.Request):
     """
     ---
     summary: This end-point is the default "home" for all newly projects
@@ -151,10 +122,10 @@ async def home(request):
         if not file_path.exists():
             return web.HTTPNotFound()
         return web.FileResponse(file_path)
-    except Exception as e:
+    except Exception as e: # pylint: disable=W0703
         response_obj = {"status": "failed", "reason": str(e)}
         return web.Response(
-            text=json.dumps(response_obj),
+            text=json_encoder(response_obj),
             status=500,
             content_type="application/json"
         )

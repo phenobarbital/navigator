@@ -1,5 +1,5 @@
 """Connection Manager for Navigator."""
-
+import asyncio
 import logging
 from multiprocessing.connection import wait
 from aiohttp import web
@@ -7,10 +7,10 @@ from asyncdb import AsyncPool, AsyncDB
 from typing import (
     Dict,
     List,
-    Callable,
-    Optional,
-    Iterable
+    Optional
 )
+from collections.abc import Iterable, Callable
+
 try:
     from settings.settings import TIMEZONE
 except ImportError:
@@ -33,6 +33,7 @@ class AbstractConnection(object):
         init: Callable = None,
         startup: Callable = None,
         shutdown: Callable = None,
+        loop: asyncio.AbstractEventLoop = None,
         **kwargs
     ):
         self.driver = driver
@@ -44,9 +45,9 @@ class AbstractConnection(object):
             self._shutdown = shutdown
 
         if self.pool_based:
-            self.conn = AsyncPool(self.driver, dsn=dsn, timeout=self.timeout, **kwargs)
+            self.conn = AsyncPool(self.driver, dsn=dsn, loop=loop, timeout=self.timeout, **kwargs)
         else:
-            self.conn = AsyncDB(self.driver, dsn=dsn, timeout=self.timeout, **kwargs)
+            self.conn = AsyncDB(self.driver, dsn=dsn, loop=loop, timeout=self.timeout, **kwargs)
         if self._init:
             self.conn.setup_func = self._init
 
@@ -63,11 +64,11 @@ class AbstractConnection(object):
         app.on_cleanup.append(
             self.cleanup
         )
-        
+
 
     def is_connected(self):
         return bool(self.conn.is_connected())
-    
+
     async def cleanup(self, app: web.Application):
         pass
 
@@ -87,8 +88,8 @@ class AbstractConnection(object):
             await self.conn.close()
         finally:
             logging.debug("Exiting ...")
-        
-        
+
+
 class PostgresPool(AbstractConnection):
     driver: str = "pg"
     pool_based: bool = True
@@ -101,6 +102,7 @@ class PostgresPool(AbstractConnection):
         init: Callable = None,
         startup: Callable = None,
         shutdown: Callable = None,
+        loop: asyncio.AbstractEventLoop = None,
         **kwargs
     ):
         kwargs = {
@@ -115,7 +117,16 @@ class PostgresPool(AbstractConnection):
                 "effective_cache_size": "2147483647"
             },
         }
-        super(PostgresPool, self).__init__(self.driver, dsn, name, init, startup, shutdown, **kwargs)
+        super(PostgresPool, self).__init__(
+            driver=self.driver,
+            dsn=dsn,
+            name=name,
+            init=init,
+            startup=startup,
+            shutdown=shutdown,
+            loop=loop,
+            **kwargs
+        )
 
     async def shutdown(self, app: web.Application):
         if self._shutdown:
@@ -143,7 +154,7 @@ class RedisPool(AbstractConnection):
         super(RedisPool, self).__init__(
             self.driver, dsn, name, init, startup, shutdown, **kwargs
         )
-        
+
     async def shutdown(self, app: web.Application):
         pass
 

@@ -1,20 +1,17 @@
 #!/usr/bin/env python3
+import sys
 import ssl
 import signal
 import asyncio
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
-    Dict,
     Any,
-    Callable
 )
+from collections.abc import Callable
 from aiohttp import web
 import sockjs
 import aiohttp_cors
-import uvloop
-from aiohttp_swagger import setup_swagger
-# make asyncio use the event loop provided by uvloop
 from navconfig.logging import logging
 from navigator.conf import (
     DEBUG,
@@ -22,57 +19,41 @@ from navigator.conf import (
     APP_HOST,
     APP_PORT,
     EMAIL_CONTACT,
-    INSTALLED_APPS,
-    LOCAL_DEVELOPMENT,
     Context,
     USE_SSL,
     SSL_CERT,
     SSL_KEY,
     CA_FILE,
-    TEMPLATE_DIR,
-    CACHE_URL,
-    default_dsn
+    TEMPLATE_DIR
 )
-from navigator.connections import PostgresPool, RedisPool
-from navigator.applications import AppBase, AppHandler, app_startup
+from navigator.functions import cPrint
+from navigator.applications import (
+    AppBase,
+    AppHandler,
+    app_startup
+)
+from navigator.exceptions import (
+    NavException,
+    ConfigError,
+    InvalidArgument
+)
 # Exception Handlers
-from navigator.handlers import (
+from navigator.exceptions.handlers import (
     nav_exception_handler,
     shutdown
 )
 from navigator.templating import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
+from navigator.utils.functions import get_logger
+from .apps import ApplicationInstaller
 
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-
-
-def Response(
-    content: Any = None,
-    text: str = "",
-    body: Any = None,
-    status: int = 200,
-    headers: dict = None,
-    content_type: str = "text/plain",
-    charset: str = "utf-8",
-) -> web.Response:
-    """
-    Response.
-    Web Response Definition for Navigator
-    """
-    response = {
-        "content_type": content_type,
-        "charset": charset,
-        "status": status
-    }
-    if headers:
-        response["headers"] = headers
-    if isinstance(content, str) or text is not None:
-        response["text"] = content if content else text
-    else:
-        response["body"] = content if content else body
-    return web.Response(**response)
+if sys.version_info < (3, 10):
+    from typing_extensions import ParamSpec
+else:
+    from typing import ParamSpec
+P = ParamSpec("P")
 
 
 class Application(object):
@@ -84,16 +65,14 @@ class Application(object):
     """
     def __init__(
         self,
-        *args,
+        *args: P.args,
         app: AppHandler = None,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
         enable_jinja_parser: bool = True,
-        enable_swagger: bool = False,
-        swagger_options: Dict = None,
-        **kwargs
+        **kwargs: P.kwargs
     ) -> None:
         self.version = version
         self.use_ssl = USE_SSL
@@ -106,14 +85,21 @@ class Application(object):
         self.host = APP_HOST
         self.port = APP_PORT
         self.debug = DEBUG
-        # swagger:
-        self.enable_swagger = enable_swagger
-        self.swagger_options = swagger_options
+        # getting the application Logger
+        self._logger = get_logger(self.title)
+        if self.debug is False:
+            # also, disable logging for 'aiohttp.access'
+            aio = logging.getLogger('aiohttp.access')
+            aio.setLevel(logging.CRITICAL)
         # template parser
         self.enable_jinja_parser = enable_jinja_parser
         # configuring asyncio loop
-        self._loop = asyncio.get_event_loop()
+        try:
+            self._loop = asyncio.new_event_loop()
+        except RuntimeError:
+            self._loop = asyncio.get_event_loop()
         self._loop.set_exception_handler(nav_exception_handler)
+        asyncio.set_event_loop(self._loop)
         # May want to catch other signals too
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
@@ -124,11 +110,12 @@ class Application(object):
             )
         if not app:
             # create an instance of AppHandler
-            self.app = AppBase(Context)
+            self.app = AppBase(Context, evt=self._loop, **kwargs)
         else:
-            self.app = app(Context)
-        # getting the application Logger
-        self._logger = self.get_logger(self.app.Name)
+            self.app = app(Context, evt=self._loop, **kwargs)
+        # Sub-Application Startup:
+
+
 
     def get_app(self) -> web.Application:
         return self.app.App
@@ -138,9 +125,6 @@ class Application(object):
 
     def __getitem__(self, k):
         return self.app.App[k]
-
-    def get_logger(self, name:str = APP_NAME):
-        return logging.getLogger(name)
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
@@ -152,25 +136,13 @@ class Application(object):
                 app['template'] = parser
             except Exception as e:
                 logging.exception(e)
-                raise Exception from e
-        # create the pool-based connections (shared):
-        name = app["name"]
-        redis = RedisPool(
-            dsn=CACHE_URL,
-            name=f"NAV-{name!s}",
-            loop=self._loop
-        )
-        redis.configure(app)
-        app['redis'] = redis.connection()
-        # Database Pool:
-        db = PostgresPool(
-            dsn=default_dsn,
-            name=f"NAV-{name!s}",
-            loop=self._loop
-        )
-        db.configure(app)
-        app['database'] = db.connection()
+                raise ConfigError(
+                    f"Error on Template configuration, {e}"
+                ) from e
         # setup The Application and Sub-Applications Startup
+        installer = ApplicationInstaller()
+        INSTALLED_APPS: list = installer.installed_apps()
+        Context["INSTALLED_APPS"] = INSTALLED_APPS
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes
         self.app.configure()
@@ -209,8 +181,12 @@ class Application(object):
         description: append a list of routes to routes dict
         """
         # TODO: avoid to add same route different times
-        # self._routes.append(route)
-        self.get_app().add_routes(routes)
+        try:
+            self.get_app().add_routes(routes)
+        except Exception as ex:
+            raise NavException(
+                f"Error adding routes: {ex}"
+            ) from ex
 
     def add_route(self, method: str = 'GET', route: str = None, fn: Callable = None) -> None:
         """add_route.
@@ -250,8 +226,11 @@ class Application(object):
                 else:
                     result = await func(request)
                 return result
-            except Exception as err:
+            except (ValueError, RuntimeError) as err:
                 self._logger.exception(err)
+                raise InvalidArgument(
+                    f"Error running Threaded Function: {err}"
+                ) from err
         return _wrap
 
     def route(self, route: str, method: str = "GET", threaded: bool = False):
@@ -290,7 +269,9 @@ class Application(object):
                     return f"{func(request, args, **kwargs)}"
                 except Exception as err:
                     self._logger.exception(err)
-
+                    raise ConfigError(
+                        f"Error configuring GET Route {route}: {err}"
+                    ) from err
             return _wrap
 
         return _decorator
@@ -309,6 +290,9 @@ class Application(object):
                     return f"{func(request, args, **kwargs)}"
                 except Exception as err:
                     self._logger.exception(err)
+                    raise ConfigError(
+                        f"Error configuring POST Route {route}: {err}"
+                    ) from err
 
             return _wrap
 
@@ -321,6 +305,9 @@ class Application(object):
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
     def setup(self):
+        """setup.
+        Get NAV application, used by Gunicorn.
+        """
         # getting the resource App
         app = self.setup_app()
         return app
@@ -332,20 +319,8 @@ class Application(object):
         # getting the resource App
         app = self.setup_app()
         if self.debug:
+            cPrint(' :: Running in DEBUG mode :: ', level='DEBUG')
             logging.debug(' :: Running in DEBUG mode :: ')
-        if self.enable_swagger is True:
-            # previous to run, setup swagger:
-            # auto-configure swagger
-            setup_swagger(
-                app,
-                api_base_url="/",
-                title=self.title,
-                api_version=self.version,
-                description=self.description,
-                swagger_url="/api/v1/doc",
-                ui_version=3,
-                **self.swagger_options
-            )
         if self.use_ssl:
             if CA_FILE:
                 ssl_context = ssl.create_default_context(
@@ -362,6 +337,6 @@ class Application(object):
                 logging.exception(err, stack_info=True)
                 raise
         elif self.path:
-            web.run_app(app, path=self.path)
+            web.run_app(app, path=self.path, loop=self._loop)
         else:
-            web.run_app(app, host=self.host, port=self.port)
+            web.run_app(app, host=self.host, port=self.port, loop=self._loop)

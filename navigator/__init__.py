@@ -8,23 +8,27 @@ Run:
 
         $ python run.py
 
-Section breaks are created by resuming unindented text. Section breaks
-are also implicitly created anytime a new section starts.
+    Can also be launched using Gunicorn:
 
-Attributes:
-    * WIP
+        $ gunicorn nav:navigator -c gunicorn_config.py
 
 TODO:
     * Work with asgi loaders
     * You have to also use ``sphinx.ext.todo`` extension
 
 .. More information in:
-https://github.com/phenobarbital/navigator-api
+https://github.com/phenobarbital/navigator
 
 """
-from .navigator import Application, Response
+import asyncio
+import uvloop
+from .navigator import Application
+from .responses import Response
 from .version import (
     __title__, __description__, __version__, __author__
 )
 
-__all__ = ("Application", "Response", )
+asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+uvloop.install()
+
+# __all__ = ("Application", "Response", )

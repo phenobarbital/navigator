@@ -28,8 +28,6 @@ from navigator.exceptions import (
 from .routes import Router
 
 
-
-
 #######################
 ##
 ## APPS CONFIGURATION
@@ -96,7 +94,7 @@ class AppHandler(ABC):
         if evt:
             self._loop = evt
         else:
-            self._loop = asyncio.new_event_loop()
+            self._loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self._loop)
         self.app = self.CreateApp()
         # config
@@ -332,6 +330,8 @@ class AppConfig(AppHandler):
                 "{}.{}".format("apps.{}".format(self._name), "urls"), package="apps" # pylint: disable=C0209
             )
             routes = getattr(cls, "urls")
+        except ModuleNotFoundError:
+            return False
         except ImportError as err:
             self.logger.exception(err, stack_info=True)
             return False

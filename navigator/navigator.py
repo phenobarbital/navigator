@@ -95,9 +95,9 @@ class Application(object):
         self.enable_jinja_parser = enable_jinja_parser
         # configuring asyncio loop
         try:
-            self._loop = asyncio.new_event_loop()
-        except RuntimeError:
             self._loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self._loop = asyncio.new_event_loop()
         self._loop.set_exception_handler(nav_exception_handler)
         asyncio.set_event_loop(self._loop)
         # May want to catch other signals too

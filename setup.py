@@ -2,7 +2,7 @@
 """Navigator
     Web Framework based on aiohttp, with batteries included.
 See:
-https://github.com/phenobarbital/navigator-api/tree/master
+https://github.com/phenobarbital/navigator/tree/master
 """
 from os import path
 from setuptools import find_packages, setup, Extension
@@ -15,6 +15,30 @@ extensions = [
     Extension(
         name='navigator.utils.types',
         sources=['navigator/utils/types.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.utils.functions',
+        sources=['navigator/utils/functions.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.libs.json',
+        sources=['navigator/libs/json.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c++"
+    ),
+    Extension(
+        name='navigator.exceptions.exceptions',
+        sources=['navigator/exceptions/exceptions.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.types',
+        sources=['navigator/types.pyx'],
         extra_compile_args=COMPILE_ARGS,
         language="c"
     )
@@ -43,8 +67,8 @@ with open(get_path('navigator/version.py'), encoding='utf-8') as meta:
 setup(
     name=__title__,
     version=__version__,
-    python_requires=">=3.9.0",
-    url="https://github.com/phenobarbital/navigator-api",
+    python_requires=">=3.8.0",
+    url="https://github.com/phenobarbital/navigator",
     description=__description__,
     platforms=['POSIX'],
     long_description=readme(),
@@ -67,7 +91,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', )),
     include_package_data=True,
     license=__license__,
-    license_files = 'LICENSE',
+    license_files = 'LICENSE-BSD',
     setup_requires=[
         "wheel==0.37.1",
         "Cython==0.29.32",
@@ -97,8 +121,8 @@ setup(
         "aiohttp-cors==0.7.0",
         "aiohttp-sse==2.1.0",
         "aiohttp-utils==3.1.1",
+        "httptools==0.5.0",
         "aiosocks==0.2.6",
-        "aiohttp-swagger==1.0.16",
         "PyJWT==2.4.0",
         "pycryptodome==3.15.0",
         "rncryptor==3.3.0",
@@ -119,7 +143,7 @@ setup(
             'pytest-assume'
     ],
     project_urls={
-        'Source': 'https://github.com/phenobarbital/navigator-api',
+        'Source': 'https://github.com/phenobarbital/navigator',
         'Funding': 'https://paypal.me/phenobarbital',
         'Say Thanks!': 'https://saythanks.io/to/phenobarbital',
     },

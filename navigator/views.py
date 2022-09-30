@@ -1,24 +1,20 @@
 import asyncio
 import datetime
 import traceback
-from json.decoder import JSONDecodeError
 from typing import Any
 from collections.abc import Callable
 from urllib import parse
+from orjson import JSONDecodeError
 import aiohttp_cors
 from aiohttp import web
 from aiohttp.abc import AbstractView
-# from aiohttp.web import Response, StreamResponse
 from aiohttp.web_exceptions import (
-    # HTTPClientError,
-    # HTTPInternalServerError,
     HTTPMethodNotAllowed,
     HTTPNoContent,
-    HTTPNotImplemented,
-    # HTTPUnauthorized,
+    HTTPNotImplemented
 )
 from aiohttp_cors import CorsViewMixin
-
+from asyncdb import AsyncDB
 from asyncdb.models import Model
 from asyncdb.exceptions import (
     ProviderError,
@@ -26,9 +22,17 @@ from asyncdb.exceptions import (
     NoDataFound
 )
 from navconfig.logging import logging, loglevel
-from navigator.utils.functions import SafeDict
-from navigator.libs.json import JSONContent
+from navigator.exceptions import (
+    NavException,
+    InvalidArgument
+)
+from navigator.libs.json import JSONContent, json_encoder, json_decoder
+from navigator.responses import JSONResponse
+from navigator.conf import default_dsn
 
+
+DEFAULT_JSON_ENCODER = json_encoder
+DEFAULT_JSON_DECODER = json_decoder
 
 class BaseHandler(CorsViewMixin):
     _config = None
@@ -37,7 +41,7 @@ class BaseHandler(CorsViewMixin):
     _loop = None
     logger: logging.Logger
     _lasterr = None
-    _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -79,7 +83,7 @@ class BaseHandler(CorsViewMixin):
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
             response.headers[header] = value
-        return response
+        raise response
 
     def response(
         self,
@@ -87,36 +91,44 @@ class BaseHandler(CorsViewMixin):
         response: str = "",
         state: int = 200,
         headers: dict = None,
+        content_type: str = "application/json",
         **kwargs,
     ) -> web.Response:
         if not headers: # TODO: set to default headers.
             headers = {}
         if not request:
             request = self.request
-        args = {"status": state, "content_type": "application/json", **kwargs}
+        args = {"status": state, "content_type": content_type, "headers": headers, **kwargs}
         if isinstance(response, dict):
             args["text"] = self._json.dumps(response)
         else:
             args["body"] = response
-        obj = web.Response(**args)
-        for header, value in headers.items():
-            obj.headers[header] = value
-        return obj
+        return web.Response(**args)
 
-    def json_response(self, response: dict = None, headers: dict = None, state: int = 200, cls: Callable = None):
+    def json_response(
+            self, response: dict = None,
+            reason: str = None,
+            headers: dict = None,
+            state: int = 200,
+            cls: Callable = None
+        ):
+        """json_response.
+
+        Return a JSON-based Web Response.
+        """
+        if cls:
+            logging.warning(
+                "Passing *cls* attribute is deprecated for json_response."
+            )
         if not headers: # TODO: set to default headers.
             headers = {}
-        jsonfn = self._json.dumps
-        obj = web.json_response(response, status=state, headers=headers, dumps=jsonfn)
-        for header, value in headers.items():
-            obj.headers[header] = value
-        return obj
+        return JSONResponse(response, status=state, headers=headers, reason=reason)
 
     def critical(
         self,
         request: web.Request = None,
         exception: Exception = None,
-        traceback: str = None,
+        stacktrace: str = None,
         state: int = 500,
         headers: dict = None,
         **kwargs,
@@ -129,7 +141,7 @@ class BaseHandler(CorsViewMixin):
         response_obj = {
             "status": "Failed",
             "reason": str(exception),
-            "stacktrace": traceback,
+            "stacktrace": stacktrace,
         }
         args = {
             "text": self._json.dumps(response_obj),
@@ -143,7 +155,7 @@ class BaseHandler(CorsViewMixin):
             obj = web.HTTPServerError(**args)
         for header, value in headers.items():
             obj.headers[header] = value
-        return obj
+        raise obj
 
     def error(
         self,
@@ -178,7 +190,7 @@ class BaseHandler(CorsViewMixin):
             obj = web.HTTPForbidden(**args)
         elif state == 404:  # not found
             obj = web.HTTPNotFound(**args)
-        elif state == 406:
+        elif state == 406: # Not acceptable
             obj = web.HTTPNotAcceptable(**args)
         elif state == 412:
             obj = web.HTTPPreconditionFailed(**args)
@@ -188,10 +200,10 @@ class BaseHandler(CorsViewMixin):
             obj = web.HTTPBadRequest(**args)
         for header, value in headers.items():
             obj.headers[header] = value
-        return obj
+        raise obj
 
     def not_implemented(
-        self, request: web.Request, response: dict = None, headers: dict = None, **kwargs
+        self, request: web.Request, response: dict = None, headers: dict = None, **kwargs # pylint: disable=W0613
     ) -> web.Response:
         args = {
             "text": self._json.dumps(response),
@@ -202,7 +214,7 @@ class BaseHandler(CorsViewMixin):
         response = HTTPNotImplemented(**args)
         for header, value in headers.items():
             response.headers[header] = value
-        return response
+        raise response
 
     def not_allowed(
         self,
@@ -233,10 +245,15 @@ class BaseHandler(CorsViewMixin):
         obj = HTTPMethodNotAllowed(**args)
         for header, value in headers.items():
             obj.headers[header] = value
-        return obj
+        raise obj
 
     def query_parameters(self, request: web.Request) -> dict:
         return {key: val for (key, val) in request.query.items()}
+
+    async def get_json(self, request: web.Request = None) -> Any:
+        if not request:
+            request = self.request
+        return await request.json(loads=DEFAULT_JSON_DECODER)
 
     async def body(self, request: web.Request) -> str:
         body = None
@@ -252,7 +269,7 @@ class BaseHandler(CorsViewMixin):
     async def json_data(self, request: web.Request = None):
         if not request:
             request = self.request
-        return await request.json()
+        return await self.get_json(request)
 
     def match_parameters(self, request: web.Request = None) -> dict:
         params = {}
@@ -283,7 +300,7 @@ class BaseHandler(CorsViewMixin):
         qry = {}
         try:
             qry = {key: val for (key, val) in rq.rel_url.query.items()}
-        except Exception as err:
+        except (AttributeError, TypeError, ValueError) as err:
             print(err)
         params = {**params, **qry}
         return params
@@ -296,7 +313,7 @@ class BaseHandler(CorsViewMixin):
         if not request:
             request = self.request
         try:
-            params = await request.json()
+            params = await self.get_json(request)
         except JSONDecodeError as err:
             logging.debug(f"Invalid POST DATA: {err!s}")
         # if any, mix with match_info data:
@@ -311,9 +328,6 @@ class BaseHandler(CorsViewMixin):
 
 
 class BaseView(web.View, BaseHandler, AbstractView):
-    # _mcache: Any = None
-    _connection: Any = None
-    _redis: Any = None
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -325,22 +339,28 @@ class BaseView(web.View, BaseHandler, AbstractView):
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
-        CorsViewMixin.__init__(self)
+        # CorsViewMixin.__init__(self)
         self._request = request
+        self._connection: Callable = None
 
-    async def connection(self):
+    async def get_connection(self):
         return self._connection
 
     async def connect(self, request):
-        self._connection = await request.app["database"].acquire()
         try:
-            self._redis = request.app["redis"]
-        except (ProviderError, DriverError) as ex:
-            raise RuntimeError(
-                f'Error connecting to Database: {ex}'
-            ) from ex
+            self._connection = await request.app["database"].acquire()
+        except KeyError as e:
+            raise InvalidArgument(
+                "Cannot Access a DB connection in *database* App key. \
+                Hint: enable a database connection on App using *enable_pgpool* attribute."
+            ) from e
         except Exception as err:
             self.logger.exception(err, stack_info=True)
+            raise NavException(
+                f"Unable to access to Database: {err}"
+            ) from err
+
+    connection = connect
 
     async def close(self):
         if self._connection:
@@ -351,9 +371,9 @@ class BaseView(web.View, BaseHandler, AbstractView):
         params = {}
         if self.request.headers.get("Content-Type") == "application/json":
             try:
-                return await self.request.json()
+                return await self.get_json(self.request)
             except JSONDecodeError as ex:
-                logging.exception(f'Empty POST Data, {ex}')
+                logging.exception(f'Empty or Wrong POST Data, {ex}')
                 return None
         try:
             params = await self.request.post()
@@ -370,17 +390,29 @@ class BaseView(web.View, BaseHandler, AbstractView):
                         except (KeyError, ValueError):
                             pass
         finally:
-            return params
+            return params # pylint: disable=W0150
 
 
 class DataView(BaseView):
-    async def asyncdb(self, request):
+    async def asyncdb(self, driver: str = 'pg', params: dict = None):
         try:
-            pool = request.app["database"]
-            if pool.is_connected():
-                db = await pool.acquire()
-                # TODO: return new build (ex-ORM)
-                return db
+            conn = None
+            try:
+                db = self.request.app["database"]
+                conn = await db.acquire()
+            except KeyError:
+                if params:
+                    args = {
+                        "params": params
+                    }
+                else:
+                    args = {
+                        "dsn": default_dsn
+                    }
+                # getting database connection directly:
+                db = AsyncDB(driver, **args)
+                conn = await db.connection()
+            return conn
         except (ProviderError, DriverError) as ex:
             raise Exception(
                 f"Error connecting to DB: {ex}"
@@ -400,12 +432,12 @@ class DataView(BaseView):
                     print(error)
                     result = None
                     self._lasterr = error
-            except Exception as err:
+            except (ProviderError, DriverError) as err:
                 print(err)
                 result = None
                 self._lasterr = err
             finally:
-                return result
+                return result # pylint: disable=W0150
 
     async def queryrow(self, sql):
         result = None
@@ -426,7 +458,7 @@ class DataView(BaseView):
                     f"Error connecting to DB: {err}"
                 ) from err
             finally:
-                return result
+                return result # pylint: disable=W0150
 
     async def execute(self, sql):
         result = None
@@ -447,106 +479,7 @@ class DataView(BaseView):
                     f"Error connecting to DB: {err}"
                 ) from err
             finally:
-                return result
-
-### Meta-Operations
-    def table(self, table):
-        try:
-            return self._query_raw.format_map(SafeDict(table=table))
-        except Exception as e:
-            print(e)
-            return False
-
-    def fields(self, sentence, fields=None):
-        _sql = False
-        if not fields:
-            _sql = sentence.format_map(SafeDict(fields="*"))
-        elif type(fields) == str:
-            _sql = sentence.format_map(SafeDict(fields=fields))
-        elif type(fields) == list:
-            _sql = sentence.format_map(SafeDict(fields=",".join(fields)))
-        return _sql
-
-    def where(self, sentence, where):
-        sql = ""
-        if sentence:
-            where_string = ""
-            if not where:
-                sql = sentence.format_map(SafeDict(where_cond=""))
-            elif type(where) == dict:
-                where_cond = []
-                for key, value in where.items():
-                    # print("KEY {}, VAL: {}".format(key, value))
-                    if type(value) == str or type(value) == int:
-                        if value == "null" or value == "NULL":
-                            where_string.append("%s IS NULL" % (key))
-                        elif value == "!null" or value == "!NULL":
-                            where_string.append("%s IS NOT NULL" % (key))
-                        elif key.endswith("!"):
-                            where_cond.append("%s != %s" % (key[:-1], value))
-                        else:
-                            if (
-                                type(value) == str
-                                and value.startswith("'")
-                                and value.endswith("'")
-                            ):
-                                where_cond.append("%s = %s" % (key, "{}".format(value)))
-                            elif type(value) == int:
-                                where_cond.append("%s = %s" % (key, "{}".format(value)))
-                            else:
-                                where_cond.append(
-                                    "%s = %s" % (key, "'{}'".format(value))
-                                )
-                    elif type(value) == bool:
-                        val = str(value)
-                        where_cond.append("%s = %s" % (key, val))
-                    else:
-                        val = ",".join(map(str, value))
-                        if type(val) == str and "'" not in val:
-                            where_cond.append("%s IN (%s)" % (key, "'{}'".format(val)))
-                        else:
-                            where_cond.append("%s IN (%s)" % (key, val))
-                # if 'WHERE ' in sentence:
-                #    where_string = ' AND %s' % (' AND '.join(where_cond))
-                # else:
-                where_string = " WHERE %s" % (" AND ".join(where_cond))
-                # print("WHERE cond is %s" % where_string)
-                sql = sentence.format_map(SafeDict(where_cond=where_string))
-            elif type(where) == str:
-                where_string = where
-                if not where.startswith("WHERE"):
-                    where_string = " WHERE %s" % where
-                sql = sentence.format_map(SafeDict(where_cond=where_string))
-            else:
-                sql = sentence.format_map(SafeDict(where_cond=""))
-            del where
-            del where_string
-            return sql
-        else:
-            return False
-
-    def limit(self, sentence, limit=1):
-        """
-        LIMIT
-          add limiting to SQL
-        """
-        if sentence:
-            return "{q} LIMIT {limit}".format(q=sentence, limit=limit)
-        return self
-
-    def orderby(self, sentence, ordering=[]):
-        """
-        LIMIT
-          add limiting to SQL
-        """
-        if sentence:
-            if type(ordering) == str:
-                return "{q} ORDER BY {ordering}".format(q=sentence, ordering=ordering)
-            elif type(ordering) == list:
-                return "{q} ORDER BY {ordering}".format(
-                    q=sentence, ordering=", ".join(ordering)
-                )
-        return self
+                return result # pylint: disable=W0150
 
 
 async def load_models(app: str, model, tablelist: list):
@@ -558,7 +491,7 @@ async def load_models(app: str, model, tablelist: list):
                 try:
                     query = await Model.makeModel(name=table, schema=name, db=conn)
                     model[table] = query
-                except Exception as err:
+                except Exception as err:  # pylint: disable=W0703
                     logging.error(
                         f"Error loading Model {table}: {err!s}"
                     )
@@ -597,7 +530,7 @@ class ModelView(BaseView):
             # using importlib (from apps.{program}.models import Model)
             try:
                 table = self.Meta.tablename
-            except Exception as err:
+            except Exception as err: # pylint: disable=W0703
                 print(err)
                 table = type(self).__name__
                 self.Meta.tablename = table
@@ -625,10 +558,14 @@ class ModelView(BaseView):
                 return [row.dict() for row in query]
             else:
                 raise NoDataFound
-        except Exception:
-            raise
+        except NoDataFound:
+            return None
+        except Exception as err:
+            raise NavException(
+                f"Error getting data from Model: {err}"
+            ) from err
 
-    def model_response(self, response, headers: dict = {}):
+    def model_response(self, response, headers: dict = None):
         # TODO: check if response is empty
         if not response:
             return self.no_content(headers=headers)
@@ -660,7 +597,9 @@ class ModelView(BaseView):
                 db = await self.request.app["database"].acquire()
                 self.model.Meta.connection = db
         except Exception as err:
-            raise Exception(err)
+            raise NavException(
+                f"Error getting Parameters: {err}"
+            ) from err
         args = self.get_args()
         params = self.query_parameters(self.request)
         return [args, params]
@@ -678,9 +617,8 @@ class ModelView(BaseView):
                 "X-MESSAGE": f"Data on {self.Meta.tablename} not Found",
             }
             return self.no_content(headers=headers)
-        except Exception as err:
-            print("ERROR ", err)
-            return self.critical(request=self.request, exception=err, traceback="")
+        except (ProviderError, DriverError) as err:
+            return self.critical(request=self.request, exception=err, stacktrace="")
 
     async def patch(self):
         """
@@ -716,8 +654,9 @@ class ModelView(BaseView):
                         default = f"{field.default!r}"
                     data[key] = {"type": _type, "default": default}
                 return self.model_response(data)
-            except Exception as err:
-                return self.critical(request=self.request, exception=err, traceback="")
+            except Exception as err: # pylint: disable=W0703
+                stack = traceback.format_exc()
+                return self.critical(request=self.request, exception=err, stacktrace=stack)
 
     async def post(self):
         """
@@ -739,10 +678,10 @@ class ModelView(BaseView):
                 result = self.model.update(args, **post)
                 data = [row.dict() for row in result]
                 return self.model_response(data)
-            except Exception as err:
+            except Exception as err: # pylint: disable=W0703
                 trace = traceback.format_exc()
                 return self.critical(
-                    request=self.request, exception=err, traceback=trace
+                    request=self.request, exception=err, stacktrace=trace
                 )
         if len(args) > 0:
             parameters = {**args, **post}
@@ -755,7 +694,7 @@ class ModelView(BaseView):
                     query = await self.model.get(**parameters)
                     data = query.dict()
                     return self.model_response(data)
-            except Exception as err:
+            except Exception as err: # pylint: disable=W0703
                 print(err)
                 return self.error(
                     request=self.request, response=f"Error Saving Data {err!s}"
@@ -773,10 +712,10 @@ class ModelView(BaseView):
                     request=self.request,
                     response=f"Invalid data for Schema {self.Meta.tablename}",
                 )
-        except Exception as err:
+        except Exception as err: # pylint: disable=W0703
             print(err)
             trace = traceback.format_exc()
-            return self.critical(request=self.request, exception=err, traceback=trace)
+            return self.critical(request=self.request, exception=err, stacktrace=trace)
 
     async def delete(self):
         """ "
@@ -791,7 +730,7 @@ class ModelView(BaseView):
                 result = await self.model.remove(args)
             elif len(params) > 0:
                 result = await self.model.remove(params)
-        except Exception as err:
+        except Exception as err: # pylint: disable=W0703
             return self.error(
                 request=self.request,
                 response="Error Deleting Object",
@@ -844,8 +783,12 @@ class ModelView(BaseView):
                     request=self.request,
                     response=f"Invalid data for Schema {self.Meta.tablename}",
                 )
-        except Exception as err:
-            return self.critical(request=self.request, exception=err, traceback="")
+        except (ProviderError, DriverError) as err:
+            stack = traceback.format_exc()
+            return self.critical(request=self.request, exception=err, stacktrace=stack)
+        except Exception as err: # pylint: disable=W0703
+            stack = traceback.format_exc()
+            return self.critical(request=self.request, exception=err, stacktrace=stack, state=501)
 
     class Meta:
         tablename: str = ""

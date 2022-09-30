@@ -98,7 +98,7 @@ class AppHandler(ABC):
         if evt:
             self._loop = evt
         else:
-            self._loop = asyncio.get_event_loop()
+            self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self.app = self.CreateApp()
         # config

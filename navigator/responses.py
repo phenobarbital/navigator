@@ -8,6 +8,11 @@ from typing import (
     Optional
 )
 from aiohttp import web
+from aiohttp.web_exceptions import (
+    HTTPMethodNotAllowed,
+    HTTPNoContent,
+    HTTPNotImplemented
+)
 from aiohttp_sse import sse_response, EventSourceResponse
 from navigator.libs.json import json_encoder
 
@@ -40,6 +45,17 @@ def Response(
     else:
         response["body"] = content if content else body
     return web.Response(**response)
+
+
+def NoContent(headers: dict = None, content_type: str = "application/json") -> web.Response:
+    response = {
+        "content_type": content_type,
+    }
+    if headers:
+        response["headers"] = headers
+    response = HTTPNoContent(content_type=content_type)
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 def HTMLResponse(

@@ -1,16 +1,12 @@
-from pathlib import Path
-from io import BytesIO
-from jinja2 import (
-    Environment,
-    FileSystemLoader,
-    ModuleLoader
-)
 from typing import (
-    Dict,
     Optional
 )
+from pathlib import Path
+from jinja2 import (
+    Environment,
+    FileSystemLoader
+)
 
-# TODO: implementing a bytecode-cache on redis or memcached
 jinja_config = {
     'enable_async': False,
     'extensions': [
@@ -34,7 +30,7 @@ class TemplateParser(object):
         self.path = directory.resolve()
         if not self.path.exists():
             raise RuntimeError(
-                f'NAVIGATOR: template directory {self.path} does not exist'
+                f'NAV: template directory {self.path} does not exists'
             )
         if 'config' in kwargs:
             self.config = {**jinja_config, **kwargs['config']}
@@ -58,7 +54,7 @@ class TemplateParser(object):
         except Exception as err:
             raise RuntimeError(
                 f'NAV: Error loading Template Environment: {err}'
-            )
+            ) from err
 
     def get_template(self, filename: str):
         """
@@ -74,16 +70,17 @@ class TemplateParser(object):
         """
         return self.env
 
-    def render(self, filename: str, params: Optional[Dict] = {}) -> str:
+    def render(self, filename: str, params: Optional[dict] = None) -> str:
         result = None
+        if not params:
+            params = {}
         try:
             self.template = self.env.get_template(
                 str(filename)
             )
             result = self.template.render(**params)
+            return result
         except Exception as err:
             raise RuntimeError(
-                f'NAV: Error rendering template: {filename}, error: {err}'
-            )
-        finally:
-            return result
+                f'NAV: Error rendering: {filename}, error: {err}'
+            ) from err

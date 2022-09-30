@@ -8,13 +8,16 @@ from collections.abc import Callable
 import aiohttp_cors
 from aiohttp import web, web_response
 from aiohttp.abc import AbstractView
+from asyncdb.exceptions import ProviderError, DriverError
 from navconfig.logging import logging
 from navigator.conf import (
     APP_NAME,
     APP_DIR,
     DEBUG,
-    STATIC_DIR
+    STATIC_DIR,
+    default_dsn
 )
+from navigator.connections import PostgresPool
 from navigator.templating import TemplateParser
 # make a home and a ping class
 from navigator.resources import ping
@@ -73,6 +76,7 @@ class AppHandler(ABC):
     enable_auth: bool = True
     enable_db: bool = True
     staticdir: str = None
+    enable_pgpool: bool = False
 
     def __init__(
         self,
@@ -106,6 +110,19 @@ class AppHandler(ABC):
         self.app.on_shutdown.append(self.on_shutdown)
         self.app.on_response_prepare.append(self.on_prepare)
         self.app.cleanup_ctx.append(self.background_tasks)
+        if self.enable_pgpool is True:
+            try:
+            # enable a pool-based database connection:
+                pool = PostgresPool(
+                    dsn=default_dsn,
+                    name='Program',
+                    startup=self.app_startup
+                )
+                pool.configure(self.app, 'database')
+            except (ProviderError, DriverError) as ex:
+                raise web.HTTPServerError(
+                    reason=f"Error creating Database connection: {ex}"
+                )
 
     def get_event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop
@@ -272,6 +289,11 @@ class AppHandler(ABC):
         """
         on_shutdown.
         description: Signal for customize the response when server is shutting down
+        """
+
+    async def app_startup(self, app: web.Application, connection: Callable):
+        """app_startup
+        description: Signal for making initialization after on_startup.
         """
 
 

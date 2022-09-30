@@ -550,7 +550,8 @@ class DataView(BaseView):
 
 
 async def load_models(app: str, model, tablelist: list):
-    async with await app["database"].acquire() as conn:
+    pool = app["database"]
+    async with await pool.acquire() as conn:
         name = app["name"]
         if isinstance(tablelist, list):
             for table in tablelist:
@@ -561,6 +562,7 @@ async def load_models(app: str, model, tablelist: list):
                     logging.error(
                         f"Error loading Model {table}: {err!s}"
                     )
+            return model
 
 
 class ModelView(BaseView):

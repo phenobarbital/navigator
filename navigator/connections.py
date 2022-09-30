@@ -48,7 +48,7 @@ class ConnectionHandler:
     def connection(self):
         return self.conn
 
-    def configure(self, app: WebApp, register: str = 'database') -> None:
+    def configure(self, app: WebApp, register: str) -> None:
         """configure.
         Configure Connection Handler to connect on App initialization.
         """
@@ -94,7 +94,7 @@ class ConnectionHandler:
             app[self._register] = self.conn
             # any callable will be launch on connection startup.
             if callable(self._startup_):
-                await self._startup_(self.conn, app)
+                await self._startup_(app, self.conn)
 
         except (ProviderError, DriverError) as ex:
             raise RuntimeError(
@@ -104,7 +104,7 @@ class ConnectionHandler:
     async def shutdown(self, app: WebApp) -> None:
         logging.debug(f'Closing DB connection on App: {app!r}')
         if callable(self._shutdown_):
-            await self._shutdown_(self.conn, app)
+            await self._shutdown_(app, self.conn)
         logging.debug(" === Closing all connections === ")
         try:
             await self.conn.close()
@@ -153,7 +153,7 @@ class PostgresPool(ConnectionHandler):
 
     async def shutdown(self, app: WebApp):
         if callable(self._shutdown_):
-            await self._shutdown_(self.conn, app)
+            await self._shutdown_(app, self.conn)
         logging.debug(" === Closing all connections === ")
         try:
             await self.conn.wait_close(gracefully=True, timeout=2)
@@ -189,7 +189,7 @@ class RedisPool(ConnectionHandler):
 
     async def cleanup(self, app: WebApp):
         if callable(self._shutdown_):
-            await self._shutdown_(self.conn, app)
+            await self._shutdown_(app, self.conn)
         logging.debug(" === Closing REDIS === ")
         try:
             await self.conn.close()

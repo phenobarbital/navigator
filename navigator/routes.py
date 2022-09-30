@@ -8,7 +8,6 @@ from navigator.types import (
     HTTPMethod,
     HTTPLocation,
     HTTPRequest,
-    HTTPResponse,
     HTTPHandler
 )
 
@@ -19,11 +18,10 @@ from navigator.types import (
 ##
 #######################
 class path(object):
-    """
-    path.
+    """path.
     description: django-like URL router configuration
     """
-    def __init__(self, method: HTTPMethod, url: HTTPLocation, handler: HTTPHandler, name: str = ""):
+    def __init__(self, method: HTTPMethod, url: HTTPLocation, handler: HTTPHandler, name: str = "") -> None:
         self.method = method
         self.url = url
         self.handler = handler
@@ -31,7 +29,7 @@ class path(object):
 
 
 class Router(web.UrlDispatcher):
-    """
+    """Router.
     Matching resolution of Routes.
     """
     async def resolve(self, request: HTTPRequest) -> AbstractMatchInfo:

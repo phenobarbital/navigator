@@ -42,6 +42,10 @@ class BasicAuth(BaseAuthBackend):
     pwd_atrribute: str = "password"
     _ident: AuthUser = BasicUser
 
+    def configure(self, app, router, handler):
+        """Base configuration for Auth Backends, need to be extended
+        to create Session Object."""
+
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
         try:

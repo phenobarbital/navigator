@@ -51,6 +51,10 @@ class TrocToken(BaseAuthBackend):
         # forcing to use Email as Username Attribute
         self.username_attribute = "email"
 
+    def configure(self, app, router, handler):
+        """Base configuration for Auth Backends, need to be extended
+        to create Session Object."""
+
     async def validate_user(self, login: str = None):
         # get the user based on Model
         search = {self.username_attribute: login}

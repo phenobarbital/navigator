@@ -58,6 +58,7 @@ class BaseExtension(ABC):
         self.app = app # register the app into the Extension
         # and register the extension into the app
         app[self.name] = self
+        app.extensions[self.name] = self
         logging.debug(f':::: Extension {self.__name__} Loaded ::::')
 
         # add a middleware to the app

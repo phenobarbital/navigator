@@ -136,6 +136,7 @@ class AppHandler(ABC):
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app["name"] = self._name
+        app.extensions = {} # empty directory of extensions
         # # Setup Authentication:
         # if self.enable_auth is True and ENABLE_AUTH is True:
         #     self._auth = AuthHandler(

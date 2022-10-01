@@ -130,6 +130,9 @@ class Application(object):
     def __getitem__(self, k):
         return self.app.App[k]
 
+    def active_extensions(self) -> list:
+        return self.app.App.extensions.keys()
+
     def setup_app(self) -> web.Application:
         app = self.get_app()
         if self.enable_jinja2 is True:

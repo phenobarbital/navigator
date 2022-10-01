@@ -42,7 +42,7 @@ from navigator.exceptions.handlers import (
     nav_exception_handler,
     shutdown
 )
-# Template Plugin.
+# Template Extension.
 from navigator.template import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
@@ -134,6 +134,7 @@ class Application(object):
         app = self.get_app()
         if self.enable_jinja2 is True:
             try:
+                # TODO: passing more parameters via configuration.
                 parser = TemplateParser(
                     template_dir=self.template_dirs
                 )

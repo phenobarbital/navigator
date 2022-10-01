@@ -1,4 +1,4 @@
-"""Template System.
+"""Template System Extension.
 Jinja2 Template Engine adapted for Navigator.
 """
 from typing import (
@@ -15,8 +15,8 @@ from jinja2 import (
     TemplateNotFound
 )
 from aiohttp import web
+from navigator.extensions import BaseExtension
 from navigator.types import WebApp
-from navigator.utils.functions import get_logger
 from navigator.conf import (
     TEMPLATE_DEBUG,
     TEMPLATE_DIR
@@ -34,7 +34,7 @@ jinja_config = {
     ]
 }
 
-class TemplateParser:
+class TemplateParser(BaseExtension):
     name: str = 'template'
     app: WebApp = None
     directory: List[Path] = []
@@ -46,10 +46,12 @@ class TemplateParser:
             app_name: str = None,
             **kwargs
         ) -> None:
+        super(TemplateParser, self).__init__(
+            app_name=app_name,
+            **kwargs
+        )
         self.env: Optional[Environment] = None
         self.filters = filters
-        if app_name:
-            self.name = app_name
         if 'config' in kwargs:
             self.config = {**jinja_config, **kwargs['config']}
         else:
@@ -88,6 +90,8 @@ class TemplateParser:
         """setup.
         Configure Jinja2 Template Parser for Application.
         """
+        ## calling parent Setup:
+        super(TemplateParser, self).setup(app)
         # create loader:
         self.loader = FileSystemLoader(
             searchpath=self.directory
@@ -109,10 +113,6 @@ class TemplateParser:
             raise RuntimeError(
                 f'NAV: Error loading Template Environment: {err}'
             ) from err
-        # register template object to App.
-        app[self.name] = self
-        logger = get_logger(__name__)
-        logger.debug(':::: Jinja2 Template Parser Loaded ::::')
 
 
     def get_template(self, filename: str):

@@ -10,6 +10,7 @@ from typing import (
 )
 from collections.abc import Callable
 from aiohttp import web
+from aiohttp.abc import AbstractView
 import sockjs
 import aiohttp_cors
 from navconfig.logging import logging
@@ -23,8 +24,7 @@ from navigator.conf import (
     USE_SSL,
     SSL_CERT,
     SSL_KEY,
-    CA_FILE,
-    TEMPLATE_DIR
+    CA_FILE
 )
 from navigator.functions import cPrint
 from navigator.applications import (
@@ -42,10 +42,12 @@ from navigator.exceptions.handlers import (
     nav_exception_handler,
     shutdown
 )
-from navigator.templating import TemplateParser
+# Template Plugin.
+from navigator.template import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 from navigator.utils.functions import get_logger
+from navigator.libs.json import json_encoder
 from .apps import ApplicationInstaller
 
 
@@ -64,14 +66,15 @@ class Application(object):
         object (_type_): _description_
     """
     def __init__(
-        self,
+        self, # pylint: disable=W0613
         *args: P.args,
         app: AppHandler = None,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
-        enable_jinja_parser: bool = True,
+        enable_jinja2: bool = True,
+        template_dirs: list = None,
         **kwargs: P.kwargs
     ) -> None:
         self.version = version
@@ -92,10 +95,11 @@ class Application(object):
             aio = logging.getLogger('aiohttp.access')
             aio.setLevel(logging.CRITICAL)
         # template parser
-        self.enable_jinja_parser = enable_jinja_parser
+        self.enable_jinja2 = enable_jinja2
+        self.template_dirs = template_dirs
         # configuring asyncio loop
         try:
-            self._loop = asyncio.get_event_loop()
+            self._loop = asyncio.new_event_loop()
         except RuntimeError:
             self._loop = asyncio.new_event_loop()
         self._loop.set_exception_handler(nav_exception_handler)
@@ -128,12 +132,12 @@ class Application(object):
 
     def setup_app(self) -> web.Application:
         app = self.get_app()
-        if self.enable_jinja_parser is True:
+        if self.enable_jinja2 is True:
             try:
                 parser = TemplateParser(
-                    directory=TEMPLATE_DIR
+                    template_dir=self.template_dirs
                 )
-                app['template'] = parser
+                parser.setup(app)
             except Exception as e:
                 logging.exception(e)
                 raise ConfigError(
@@ -295,8 +299,67 @@ class Application(object):
                     ) from err
 
             return _wrap
-
         return _decorator
+
+    def template(
+            self,
+            template: str,
+            content_type: str = 'text/html',
+            encoding: str = "utf-8",
+            status: int = 200,
+            **kwargs
+        ) -> web.Response:
+        """template.
+
+        Return View using the Jinja2 Template System.
+        """
+        def _template(func):
+            @wraps(func)
+            async def _wrap(*args: Any) -> web.StreamResponse:
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    coro = asyncio.coroutine(func)
+                ## getting data:
+                try:
+                    context = await coro(*args)
+                except Exception as err:
+                    raise web.HTTPInternalServerError(
+                        reason=f'Error Calling Template Function {func!r}: {err}'
+                    ) from err
+                if isinstance(context, web.StreamResponse):
+                    ## decorator in bad position, returning context
+                    return context
+
+                # Supports class based views see web.View
+                if isinstance(args[0], AbstractView):
+                    request = args[0].request
+                else:
+                    request = args[-1]
+                try:
+                    tmpl = request.app['template'] # template system
+                except KeyError as e:
+                    raise ConfigError(
+                        "NAV Template Parser need to be enabled to work with templates."
+                    ) from e
+                if kwargs:
+                    context = {**context, **kwargs}
+                result = await tmpl.render(template, params=context)
+                args = {
+                    "content_type": content_type,
+                    "status": status,
+                    "body": result
+                }
+                if content_type == 'application/json':
+                    args["dumps"] = json_encoder
+                    return web.json_response(**args)
+                else:
+                    args["charset"] = encoding
+                    return web.Response(**args)
+
+            return _wrap
+        return _template
+
 
     def add_sock_endpoint(
         self, handler: Callable, name: str, route: str = "/sockjs/"

@@ -30,6 +30,7 @@ APP_URL = config.get('APP_URL', fallback=f"http://localhost:{APP_PORT}")
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 TEMPLATE_DIR = BASE_DIR.joinpath("templates")
+TEMPLATE_DEBUG = config.getboolean('TEMPLATE_DEBUG', fallback=False)
 SERVICES_DIR = BASE_DIR.joinpath("services")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")

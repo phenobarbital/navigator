@@ -18,7 +18,6 @@ from navigator.conf import (
     default_dsn
 )
 from navigator.connections import PostgresPool
-from navigator.templating import TemplateParser
 # make a home and a ping class
 from navigator.resources import ping
 from navigator.functions import cPrint
@@ -82,8 +81,7 @@ class AppHandler(ABC):
         self,
         context: dict,
         app_name: str = None,
-        evt: asyncio.AbstractEventLoop = None,
-        **kwargs
+        evt: asyncio.AbstractEventLoop = None
     ) -> None:
         # App Name
         if not app_name:
@@ -118,7 +116,7 @@ class AppHandler(ABC):
                     name='Program',
                     startup=self.app_startup
                 )
-                pool.configure(self.app, 'database')
+                pool.configure(self.app, register='database') # pylint: disable=E1123
             except (ProviderError, DriverError) as ex:
                 raise web.HTTPServerError(
                     reason=f"Error creating Database connection: {ex}"
@@ -250,7 +248,7 @@ class AppHandler(ABC):
             except (TypeError, ValueError):
                 pass
 
-    async def background_tasks(self, app: web.Application):
+    async def background_tasks(self, app: web.Application): # pylint: disable=W0613
         """backgroud_tasks.
 
         perform asynchronous operations just after application start-up.
@@ -323,19 +321,19 @@ class AppConfig(AppHandler):
         self._listener: Callable = None
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
-        # configure templating:
-        # TODO: Using the Template Handler exactly like others.
-        if self.template:
-            try:
-                template_dir = self.path.resolve().joinpath(self.template)
-                if template_dir.exists():
-                    self.app['template'] = TemplateParser(
-                        directory=template_dir
-                    )
-            except (OSError, TypeError, ValueError) as err:
-                logging.warning(
-                    f'Error Loading Template Parser for App {self._name}: {err}'
-                )
+        # # configure templating:
+        # # TODO: Using the Template Handler exactly like others.
+        # if self.template:
+        #     try:
+        #         template_dir = self.path.resolve().joinpath(self.template)
+        #         if template_dir.exists():
+        #             self.app['template'] = TemplateParser(
+        #                 directory=template_dir
+        #             )
+        #     except (OSError, TypeError, ValueError) as err:
+        #         logging.warning(
+        #             f'Error Loading Template Parser for App {self._name}: {err}'
+        #         )
         # set the setup_routes
         self.setup_routes()
         # authorization

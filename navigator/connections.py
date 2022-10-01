@@ -48,7 +48,7 @@ class ConnectionHandler:
     def connection(self):
         return self.conn
 
-    def configure(self, app: WebApp, register: str) -> None:
+    def configure(self, app: WebApp, register: str = 'database') -> None:
         """configure.
         Configure Connection Handler to connect on App initialization.
         """

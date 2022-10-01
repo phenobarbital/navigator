@@ -3,27 +3,21 @@
 Navigator Authentication using API Token
 description: Single API Token Authentication
 """
-import base64
-import rapidjson
 import logging
-import asyncio
+from typing import List
 import jwt
-import uuid
-from aiohttp import web, hdrs
-from asyncdb import AsyncPool
-from .base import BaseAuthBackend
-from navigator.exceptions import NavException, UserDoesntExists, InvalidAuth
-from datetime import datetime, timedelta
+from aiohttp import web
+from navigator_session import get_session
+from navigator.exceptions import NavException, InvalidAuth
 from navigator.conf import (
     CREDENTIALS_REQUIRED,
     AUTH_JWT_ALGORITHM,
     AUTH_TOKEN_ISSUER,
     AUTH_TOKEN_SECRET
 )
-from navigator_session import get_session
 # Authenticated Entity
 from navigator.auth.identities import AuthUser, Program
-from typing import List
+from .base import BaseAuthBackend
 
 class TokenUser(AuthUser):
     tenant: str
@@ -151,7 +145,7 @@ class TokenAuth(BaseAuthBackend):
             partner = payload["partner"]
         except KeyError as err:
             return False
-        sql = f"""
+        sql = """
         SELECT name, partner, grants, programs FROM troc.api_keys
         WHERE name=$1 AND partner=$2
         AND enabled = TRUE AND revoked = FALSE AND $3= ANY(programs)

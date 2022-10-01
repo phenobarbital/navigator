@@ -5,15 +5,17 @@ description: read the Django session from Redis Backend
 and decrypt, after that, a session will be created.
 """
 import base64
-import rapidjson
 import logging
-import aioredis
 from typing import Callable
+import aioredis
+import orjson
 from aiohttp import web
-from .base import BaseAuthBackend
+from navigator_session import (
+    AUTH_SESSION_OBJECT
+)
 from navigator.exceptions import (
     NavException,
-    UserDoesntExists,
+    UserNotFound,
     InvalidAuth
 )
 from navigator.conf import (
@@ -23,9 +25,7 @@ from navigator.conf import (
 )
 # User Identity
 from navigator.auth.identities import AuthUser, Column
-from navigator_session import (
-    AUTH_SESSION_OBJECT
-)
+from .base import BaseAuthBackend
 class DjangoUser(AuthUser):
     """DjangoUser.
 
@@ -113,7 +113,7 @@ class DjangoAuth(BaseAuthBackend):
                 raise Exception('Django Auth: non-existing Session')
             data = base64.b64decode(result)
             session_data = data.decode("utf-8").split(":", 1)
-            user = rapidjson.loads(session_data[1])
+            user = orjson.loads(session_data[1])
             try:
                 if not 'user_id' in user:
                     user['user_id'] = user[self._user_id_key]
@@ -140,8 +140,8 @@ class DjangoAuth(BaseAuthBackend):
         try:
             user = await self.get_user(**search)
             return user
-        except UserDoesntExists as err:
-            raise UserDoesntExists(
+        except UserNotFound as err:
+            raise UserNotFound(
                 f"User {login} doesn\'t exists"
             ) from err
         except Exception as e:
@@ -187,8 +187,8 @@ class DjangoAuth(BaseAuthBackend):
                 user = await self.validate_user(
                     login=username
                 )
-            except UserDoesntExists as err:
-                raise UserDoesntExists(err) from err
+            except UserNotFound as err:
+                raise UserNotFound(err) from err
             except Exception as err:
                 raise NavException(err, state=500) from err
             try:

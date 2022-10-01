@@ -20,7 +20,7 @@ from aiohttp.client import (
     ClientSession
 )
 from navigator.auth.identities import AuthUser
-from navigator.exceptions import UserDoesntExists
+from navigator.exceptions import UserNotFound
 from navigator.conf import (
     AUTH_LOGIN_FAILED_URI,
     AUTH_REDIRECT_URI,
@@ -210,11 +210,11 @@ class ExternalAuth(BaseAuthBackend):
         try:
             search = {self.username_attribute: login}
             user = await self.get_user(**search)
-        except UserDoesntExists as err:
+        except UserNotFound as err:
             if AUTH_MISSING_ACCOUNT == 'ignore':
                 pass
             elif AUTH_MISSING_ACCOUNT == 'raise':
-                raise UserDoesntExists(
+                raise UserNotFound(
                     f"User {login} doesn't exists"
                 ) from err
             elif AUTH_MISSING_ACCOUNT == 'create':
@@ -320,7 +320,7 @@ class ExternalAuth(BaseAuthBackend):
             userdata: Dict,
             user: Callable,
         ) -> None:
-        loop = asyncio.new_event_loop()
+        loop = asyncio.get_event_loop()
         try:
             func = partial(self.call_successful_callbacks, request, fn, user, userdata)
             with ThreadPoolExecutor(max_workers=10) as executor:

@@ -4,11 +4,12 @@ Troc Authentication using RNC algorithm.
 """
 import logging
 from aiohttp import web
-import rapidjson
+import orjson
+from navigator_session import AUTH_SESSION_OBJECT
 from navigator.libs.cypher import Cipher
 from navigator.exceptions import (
     NavException,
-    UserDoesntExists,
+    UserNotFound,
     InvalidAuth
 )
 from navigator.conf import (
@@ -17,7 +18,7 @@ from navigator.conf import (
 )
 from .base import BaseAuthBackend
 from .basic import BasicUser
-from navigator_session import AUTH_SESSION_OBJECT
+
 
 # TODO: add expiration logic when read the token
 CIPHER = Cipher(PARTNER_KEY, type=CYPHER_TYPE)
@@ -56,8 +57,8 @@ class TrocToken(BaseAuthBackend):
         try:
             user = await self.get_user(**search)
             return user
-        except UserDoesntExists as err:
-            raise UserDoesntExists(
+        except UserNotFound as err:
+            raise UserNotFound(
                 f"User {login} doesn't exists"
             ) from err
         except Exception as err:
@@ -108,7 +109,7 @@ class TrocToken(BaseAuthBackend):
             # getting user information
             # TODO: making the validation of token and expiration
             try:
-                data = rapidjson.loads(CIPHER.decode(passphrase=token))
+                data = orjson.loads(CIPHER.decode(passphrase=token))
                 logging.debug(
                     f'TrocToken: Decoded User data: {data!r}'
                 )
@@ -125,8 +126,8 @@ class TrocToken(BaseAuthBackend):
                 ) from err
             try:
                 user = await self.validate_user(login=username)
-            except UserDoesntExists as err:
-                raise UserDoesntExists(err) from err
+            except UserNotFound as err:
+                raise UserNotFound(err) from err
             except Exception as err:
                 raise NavException(err, state=500) from err
             try:

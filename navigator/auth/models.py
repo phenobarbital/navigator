@@ -3,17 +3,8 @@ Model System for Navigator Auth.
 
 Model for User, Group and Roles for Navigator Auth.
 """
-from asyncdb.models import Model, Column, Field
-from typing import (
-    Optional,
-    List,
-    Dict,
-    Union,
-    Tuple,
-    Any,
-    Callable
-)
 from datetime import datetime
+from asyncdb.models import Model, Column
 from navigator.conf import default_dsn, USERS_TABLE
 
 
@@ -64,4 +55,3 @@ class User(Model):
 #         strict = True
 #         frozen = False
 #         connection = None
-

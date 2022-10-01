@@ -15,6 +15,7 @@ from navigator.conf import (
     APP_DIR,
     DEBUG,
     STATIC_DIR,
+    ENABLE_AUTH,
     default_dsn
 )
 from navigator.connections import PostgresPool
@@ -23,6 +24,8 @@ from navigator.resources import ping
 from navigator.functions import cPrint
 from navigator.utils.functions import get_logger
 from navigator.responses import JSONResponse
+## Auth Extension
+from navigator.auth import AuthHandler
 from navigator.exceptions import (
     ConfigError
 )
@@ -72,7 +75,7 @@ class AppHandler(ABC):
     _middleware: list = []
     enable_static: bool = True
     auto_doc: bool = False
-    enable_auth: bool = True
+    enable_auth: bool = False
     enable_db: bool = True
     staticdir: str = None
     enable_pgpool: bool = False
@@ -137,17 +140,14 @@ class AppHandler(ABC):
         app.router.add_route("GET", "/ping", ping, name="ping")
         app["name"] = self._name
         app.extensions = {} # empty directory of extensions
-        # # Setup Authentication:
-        # if self.enable_auth is True and ENABLE_AUTH is True:
-        #     self._auth = AuthHandler(
-        #         session_timeout=SESSION_TIMEOUT
-        #     )
-        #     # configuring authentication endpoints
-        #     self._auth.configure(
-        #         app=app,
-        #         handler=self
-        #     )
-        #     app["auth"] = self._auth
+        # Setup Authentication (if enabled):
+        if self.enable_auth is True and ENABLE_AUTH is True:
+            self._auth = AuthHandler()
+            # configuring authentication endpoints
+            self._auth.setup(
+                app=app,
+                handler=self
+            )
         # add the other middlewares:
         try:
             for middleware in self._middleware:

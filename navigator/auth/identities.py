@@ -1,17 +1,16 @@
-from slugify import slugify
-from asyncdb.models import Model, Column, Field
-from dataclasses import dataclass, InitVar
 from typing import (
     Any,
     List,
-    Optional,
-    Dict
+    Optional
 )
+from dataclasses import InitVar
+from slugify import slugify
+from datamodel import BaseModel, Column
 
 
-class Group(Model):
+class Group(BaseModel):
     """Group.
-    
+
     Association (group) were users belongs to.
     """
     group: str = Column(required=True)
@@ -19,17 +18,16 @@ class Group(Model):
     class Meta:
         strict = True
         frozen = False
-        connection = None
 
 # create a Guest Group.
 Guest = Group(group = 'guest')
 
 
-class Organization(Model):
+class Organization(BaseModel):
     org_id: str
     organization: str
     slug: str
-    
+
     def __post_init__(self) -> None:
         super(Organization, self).__post_init__()
         if not self.slug:
@@ -38,13 +36,12 @@ class Organization(Model):
     class Meta:
         strict = True
         frozen = False
-        connection = None
 
-class Program(Model):
+class Program(BaseModel):
     program_id: int
     program_name: str
     program_slug: str
-    
+
     def __post_init__(self) -> None:
         super(Program, self).__post_init__()
         if not self.program_slug:
@@ -53,33 +50,25 @@ class Program(Model):
     class Meta:
         strict = True
         frozen = False
-        connection = None
 
-class Identity(Model):
+
+class Identity(BaseModel):
     """Identity.
-    
+
     Describe an Authenticated Entity on Navigator.
     """
     id: Any = Column(required=True)
     auth_method: str = None
     access_token: Optional[str] = None
     enabled: bool = Column(required=True, default=True)
-    data: InitVar[Dict] = Column(required=False, default_factory=dict)
+    data: InitVar = Column(required=False, default_factory=dict)
     is_authenticated: bool = Column(equired=False, default=False)
-    userdata: Dict  = Column(required=False, default_factory={})
+    userdata: dict  = Column(required=False, default_factory={})
 
-    def __post_init__(self, data):
+    def __post_init__(self, data): # pylint: disable=W0221
         self.userdata = data
         for key, value in data.items():
             self.create_field(key, value)
-            
-    def create_field(self, name: str, value: Any) -> None:
-        # create a new Field on Model (when strict is False).            
-        f = Field(required=False, default=value)
-        f.name = name
-        f.type = type(value)
-        self.__columns__[name] = f
-        setattr(self, name, value)
 
     def set(self, name: str, value: Any) -> None:
         # alias for "create_field"
@@ -88,7 +77,6 @@ class Identity(Model):
     class Meta:
         strict = False
         frozen = False
-        connection = None
 
 
 class AuthUser(Identity):
@@ -104,7 +92,7 @@ class AuthUser(Identity):
     groups: List[Group] = Column(required=False, default_factory=list)
     organizations: List[Organization] = Column(required=False, default_factory=list)
     superuser: bool = Column(required=True, default=False)
-    
+
     def __post_init__(self, data) -> None:
         super(AuthUser, self).__post_init__(data)
         if self.groups is not None:
@@ -116,11 +104,8 @@ class AuthUser(Identity):
             self.groups = []
         self.organizations = []
 
-    """
-    User Methods.
-    """
+    ### User Methods.
     def add_group(self, group: Group):
         if isinstance(group, str):
             group = Group(group=group)
         self.groups.append(group)
-

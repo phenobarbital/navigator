@@ -1,45 +1,37 @@
 import logging
-import jwt
 import asyncio
-from typing import (
-    List,
-    Dict,
-    Callable
-)
+from collections.abc import Callable
 from abc import ABC, abstractmethod
-from aiohttp import web, hdrs
 from datetime import datetime, timedelta
-from asyncdb.models import Model
-from cryptography import fernet
 from functools import partial, wraps
 from concurrent.futures import ThreadPoolExecutor
 import base64
-from navigator.conf import (
-    AUTH_USER_MODEL,
-    AUTH_GROUP_MODEL,
-    AUTH_USERNAME_ATTRIBUTE,
-    AUTH_JWT_ALGORITHM,
-    USER_MAPPING,
-    CREDENTIALS_REQUIRED,
-    SECRET_KEY
-)
-from navigator.exceptions import (
-    NavException,
-    UserDoesntExists,
-    InvalidAuth,
-    FailedAuth,
-    AuthExpired
-)
+import jwt
+from cryptography import fernet
+from aiohttp import web, hdrs
 from aiohttp.web_urldispatcher import SystemRoute
+from asyncdb.models import Model
 from navigator_session import (
-    get_session,
     new_session,
     AUTH_SESSION_OBJECT,
     SESSION_TIMEOUT,
     SESSION_KEY,
     SESSION_USER_PROPERTY
 )
-
+from navigator.exceptions import (
+    NavException,
+    UserNotFound,
+    InvalidAuth,
+    FailedAuth,
+    AuthExpired
+)
+from navigator.conf import (
+    AUTH_USERNAME_ATTRIBUTE,
+    AUTH_JWT_ALGORITHM,
+    USER_MAPPING,
+    CREDENTIALS_REQUIRED,
+    SECRET_KEY
+)
 # Authenticated Identity
 from navigator.auth.identities import Identity
 
@@ -96,7 +88,7 @@ class BaseAuthBackend(ABC):
         except KeyError:
             pass
         # configuration Authorization Backends:
-        self._authz_backends: List = authorization_backends
+        self._authz_backends: list = authorization_backends
         # user and group models
         # getting User and Group Models
         self.user_model: Model = kwargs["user_model"]
@@ -122,12 +114,12 @@ class BaseAuthBackend(ABC):
             user = await self.user_model.get(**search)
         except Exception as e:
             logging.error(f"Error getting User {search!s}")
-            raise UserDoesntExists(
+            raise UserNotFound(
                 f"Error getting User {search!s}: {e!s}"
             ) from e
         # if not exists, return error of missing
         if not user:
-            raise UserDoesntExists(
+            raise UserNotFound(
                 f"User {search!s} doesn't exists"
             )
         return user
@@ -153,16 +145,16 @@ class BaseAuthBackend(ABC):
             }
         return userdata
 
+    @abstractmethod
     def configure(self, app, router, handler):
         """Base configuration for Auth Backends, need to be extended
         to create Session Object."""
-        pass
 
     async def remember(
             self,
             request: web.Request,
             identity: str,
-            userdata: Dict,
+            userdata: dict,
             user: Identity
         ):
         """
@@ -238,13 +230,13 @@ class BaseAuthBackend(ABC):
     def decode_token(self, request, issuer: str = None):
         jwt_token = None
         tenant = None
-        id = None
+        _id = None
         payload = None
         if not issuer:
             issuer = "urn:Navigator"
         if "Authorization" in request.headers:
             try:
-                scheme, id = (
+                scheme, _id = (
                     request.headers.get(hdrs.AUTHORIZATION).strip().split(" ", 1)
                 )
             except ValueError as e:
@@ -258,10 +250,10 @@ class BaseAuthBackend(ABC):
                     state=400
                 )
             try:
-                tenant, jwt_token = id.split(":")
+                tenant, jwt_token = _id.split(":")
             except Exception:
                 # normal Token:
-                jwt_token = id
+                jwt_token = _id
             # logging.debug(f'Session Token: {jwt_token}')
             try:
                 payload = jwt.decode(
@@ -301,13 +293,15 @@ class BaseAuthBackend(ABC):
     async def check_credentials(self, request):
         """ Authenticate against user credentials (token, user/password)."""
 
-    def threaded_function(self, func: Callable, loop: asyncio.AbstractEventLoop = None, threaded: bool = True):
+    def threaded_function(self, func: Callable, evt: asyncio.AbstractEventLoop = None, threaded: bool = True):
         """Wraps a Function into an Executor Thread."""
         @wraps(func)
         async def _wrap(*args, loop: asyncio.AbstractEventLoop = None, **kwargs):
             result = None
-            if loop is None:
-                loop = asyncio.new_event_loop()
+            if evt is None:
+                loop = asyncio.get_event_loop()
+            else:
+                loop = evt
             try:
                 if threaded:
                     fn = partial(func, *args, **kwargs)

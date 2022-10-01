@@ -40,7 +40,7 @@ extensions = [
         name='navigator.types',
         sources=['navigator/types.pyx'],
         extra_compile_args=COMPILE_ARGS,
-        language="c"
+        language="c++"
     )
 ]
 

@@ -4,6 +4,7 @@
 See:
 https://github.com/phenobarbital/navigator/tree/master
 """
+import ast
 from os import path
 from setuptools import find_packages, setup, Extension
 from Cython.Build import cythonize
@@ -61,8 +62,33 @@ def readme():
     with open(get_path('README.md'), encoding='utf-8') as file:
         return file.read()
 
-with open(get_path('navigator/version.py'), encoding='utf-8') as meta:
-    exec(meta.read())
+version = get_path('navigator/version.py')
+with open(version, 'r', encoding='utf-8') as meta:
+    # exec(meta.read())
+    t = compile(meta.read(), version, 'exec', ast.PyCF_ONLY_AST)
+    for node in (n for n in t.body if isinstance(n, ast.Assign)):
+        if len(node.targets) == 1:
+            name = node.targets[0]
+            if isinstance(name, ast.Name) and \
+                    name.id in (
+                            '__version__',
+                            '__title__',
+                            '__description__',
+                            '__author__',
+                            '__license__', '__author_email__'):
+                        v = node.value
+                        if name.id == '__version__':
+                            __version__ = v.s
+                        if name.id == '__title__':
+                            __title__ = v.s
+                        if name.id == '__description__':
+                            __description__ = v.s
+                        if name.id == '__license__':
+                            __license__ = v.s
+                        if name.id == '__author__':
+                            __author__ = v.s
+                        if name.id == '__author_email__':
+                            __author_email__ = v.s
 
 setup(
     name=__title__,

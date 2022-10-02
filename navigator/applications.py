@@ -55,9 +55,10 @@ def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: d
                 app.add_subapp(f"/{name}/", sub_app)
             # TODO: build automatic documentation
             try:
-                sub_app['template'] = app["template"]
-                if 'database' in app:
-                    sub_app['database'] = app['database']
+                for name, ext in app.extensions.items():
+                    if name not in ('database', 'redis', 'memcache'): # can't share asyncio-based connections
+                        sub_app[name] = ext
+                        sub_app.extensions[name] = ext
             except (KeyError, AttributeError) as err:
                 logging.warning(err)
         except ImportError as err:

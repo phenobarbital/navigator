@@ -13,7 +13,6 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 import sockjs
 import aiohttp_cors
-from navigator.types import BaseApplication
 from navconfig.logging import logging
 from navigator.conf import (
     DEBUG,
@@ -27,6 +26,7 @@ from navigator.conf import (
     SSL_KEY,
     CA_FILE
 )
+from navigator.types import BaseApplication
 from navigator.functions import cPrint
 from navigator.applications import (
     AppBase,
@@ -139,7 +139,7 @@ class Application(BaseApplication):
         # setup The Application and Sub-Applications Startup
         installer = ApplicationInstaller()
         INSTALLED_APPS: list = installer.installed_apps()
-        Context["INSTALLED_APPS"] = INSTALLED_APPS
+        # Context["INSTALLED_APPS"] = INSTALLED_APPS
         app_startup(INSTALLED_APPS, app, Context)
         # Configure Routes
         self.app.configure()

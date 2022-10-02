@@ -70,6 +70,13 @@ class ConnectionHandler:
         pass
 
     async def startup(self, app: WebApp) -> None:
+        if 'database' in app:
+            # there is already a connection enabled to this Class:
+            logging.debug(f'There is already a connection enabled on {app!r}')
+            # any callable will be launch on connection startup.
+            if callable(self._startup_):
+                await self._startup_(app, self.conn)
+            return
         logging.debug(f'Starting DB {self.driver} connection on App: {app!r}')
         try:
             if self.pool_based:
@@ -95,7 +102,6 @@ class ConnectionHandler:
             # any callable will be launch on connection startup.
             if callable(self._startup_):
                 await self._startup_(app, self.conn)
-
         except (ProviderError, DriverError) as ex:
             raise RuntimeError(
                 f"Error creating DB {self.driver}: {ex}"
@@ -156,7 +162,8 @@ class PostgresPool(ConnectionHandler):
             await self._shutdown_(app, self.conn)
         logging.debug(" === Closing all connections === ")
         try:
-            await self.conn.wait_close(gracefully=True, timeout=2)
+            if self.conn:
+                await self.conn.wait_close(gracefully=True, timeout=2)
         finally:
             logging.debug("Exiting ...")
 

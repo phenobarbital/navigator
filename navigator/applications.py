@@ -40,23 +40,34 @@ from .routes import Router
 #######################
 def app_startup(app_list: list, app: web.Application, context: dict, **kwargs: dict):
     """ Initialize all Apps in the existing Installation."""
-    for app_name in app_list:
+    for apps in app_list:
         obj = None
+        app_name, app_class = apps # splitting the tuple
         try:
+            instance_app = None
             name = app_name.split(".")[1]
-            app_class = importlib.import_module(app_name, package="apps")
-            obj = getattr(app_class, name)
-            instance = obj(context, **kwargs)
-            domain = getattr(instance, "domain", None)
-            sub_app = instance.App
+            if app_class is not None:
+                obj = getattr(app_class, name)
+                instance_app = obj(context=context, app_name=name, **kwargs)
+                domain = getattr(instance_app, "domain", None)
+            else:
+                ## TODO: making a default App configurable.
+                instance_app = BaseApp(context=context, app_name=name, **kwargs)
+                instance_app.__class__.__name__ = name
+                domain = None
+            sub_app = instance_app.App
             if domain:
                 app.add_domain(domain, sub_app)
+                # TODO: adding as sub-app as well
             else:
                 app.add_subapp(f"/{name}/", sub_app)
             # TODO: build automatic documentation
             try:
+                # can I add Main to subApp?
+                sub_app['Main'] = app
                 for name, ext in app.extensions.items():
-                    if name not in ('database', 'redis', 'memcache'): # can't share asyncio-based connections
+                    if name not in ('database', 'redis', 'memcache'):
+                        # can't share asyncio-based connections prior inicialization
                         sub_app[name] = ext
                         sub_app.extensions[name] = ext
             except (KeyError, AttributeError) as err:
@@ -324,19 +335,6 @@ class AppConfig(AppHandler):
         self._listener: Callable = None
         super(AppConfig, self).__init__(*args, **kwargs)
         self.path = APP_DIR.joinpath(self._name)
-        # # configure templating:
-        # # TODO: Using the Template Handler exactly like others.
-        # if self.template:
-        #     try:
-        #         template_dir = self.path.resolve().joinpath(self.template)
-        #         if template_dir.exists():
-        #             self.app['template'] = TemplateParser(
-        #                 directory=template_dir
-        #             )
-        #     except (OSError, TypeError, ValueError) as err:
-        #         logging.warning(
-        #             f'Error Loading Template Parser for App {self._name}: {err}'
-        #         )
         # set the setup_routes
         self.setup_routes()
         # authorization
@@ -456,3 +454,23 @@ class AppConfig(AppHandler):
             "program": program
         }
         return JSONResponse(authorization, status=200)
+
+    async def on_startup(self, app: web.Application):
+        """
+        on_startup.
+        description: Signal for customize the response when server is started
+        """
+        await super(AppConfig, self).on_startup(app)
+        if self.enable_pgpool is True:
+            db = app['Main']['database']
+            app['database'] = db
+
+class BaseApp(AppConfig):
+    """BaseApp.
+
+    This App making responses by default when app doesn't exists but is added to installed (fallback App.)
+    """
+    __version__ = '0.0.1'
+    _name: str = None
+    app_description = """NAVIGATOR"""
+    enable_pgpool: bool = True

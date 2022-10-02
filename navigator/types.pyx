@@ -138,6 +138,9 @@ class BaseApplication:
     def __getitem__(self, k):
         return self.app.App[k]
 
+    def __repr__(self):
+        return f'<App: {self._name}>'
+
     def setup(self):
         """setup.
         Get NAV application, used by Gunicorn.

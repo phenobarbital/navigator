@@ -10,6 +10,13 @@ from types import ModuleType
 from navconfig import (
     BASE_DIR
 )
+try:
+    from navconfig.conf import (
+        APPLICATIONS
+    )
+except ImportError:
+    APPLICATIONS = []
+
 from navigator.utils.types import Singleton
 # APP DIR
 APP_DIR = BASE_DIR.joinpath("apps")
@@ -37,15 +44,19 @@ class ApplicationInstaller(metaclass=Singleton):
                 if item.is_dir():
                     name = item.name
                     if not name in self._apps_installed:
-                        # TODO: avoid load apps.dataintegration
                         app_name = f"apps.{item.name}"
-                        # path = APP_DIR.joinpath(name)
-                        # url_file = path.joinpath("urls.py")
                         try:
                             i = importlib.import_module(app_name, package="apps")
                             if isinstance(i, ModuleType):
                                 # is a Navigator Program
-                                self._apps_installed += (app_name,)
+                                self._apps_installed.append((app_name, i))
                         except ImportError as err:
+                            # HERE, there is no module
                             print("ERROR: ", err)
                             continue
+        for name in APPLICATIONS:
+            ## Fallback Application (avoid calling too much app initialization)
+            app_name = f"apps.{name}"
+            if not name in self._apps_installed:
+                # virtual app, fallback app:
+                self._apps_installed.append((app_name, None))

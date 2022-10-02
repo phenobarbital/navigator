@@ -8,7 +8,7 @@ from abc import ABC
 from navconfig import config
 from navconfig.logging import logging
 from navigator.exceptions import NavException, ConfigError
-from navigator.types import WebApp
+from navigator.types import WebApp, BaseApplication
 
 if sys.version_info < (3, 10):
     from typing_extensions import ParamSpec
@@ -35,6 +35,12 @@ class BaseExtension(ABC):
     # Signal for any shutdown process (will registered into App).
     on_shutdown: Optional[Callable] = None
 
+    # Signal for any cleanup process (will registered into App).
+    on_cleanup: Optional[Callable] = None
+
+    # a ctx context:
+    on_context: Optional[Callable] = None
+
     # adding custom middlewares to app (if needed)
     middleware: Optional[Callable] = None
 
@@ -55,16 +61,27 @@ class BaseExtension(ABC):
 
 
     def setup(self, app: WebApp) -> WebApp:
-        self.app = app # register the app into the Extension
-        # and register the extension into the app
-        app[self.name] = self
-        app.extensions[self.name] = self
+        if isinstance(app, BaseApplication): # migrate to BaseApplication (on types)
+            self.app = app.get_app()
+        elif isinstance(app, WebApp):
+            self.app = app # register the app into the Extension
+        else:
+            raise TypeError(
+                f"Invalid type for Application Setup: {app}:{type(app)}"
+            )
+        # register the extension into the app
+        self.app[self.name] = self
+        try:
+            self.app.extensions[self.name] = self
+        except AttributeError:
+            self.app.extensions = {}
+            self.app.extensions[self.name] = self
         logging.debug(f':::: Extension {self.__name__} Loaded ::::')
 
         # add a middleware to the app
         if callable(self.middleware):
             try:
-                mdl = app.middlewares
+                mdl = self.app.middlewares
                  # add the middleware
                 mdl.append(self.middleware)
             except Exception as err:
@@ -78,12 +95,21 @@ class BaseExtension(ABC):
         # adding signals for startup and shutdown:
         # startup operations over extension backend
         if callable(self.on_startup):
-            app.on_startup.append(
+            self.app.on_startup.append(
                 self.on_startup
             )
         # cleanup operations over extension backend
         if callable(self.on_shutdown):
-            app.on_cleanup.append(
+            self.app.on_shutdown.append(
+                self.on_shutdown
+            )
+        # cleanup operations over extension backend
+        if callable(self.on_cleanup):
+            self.app.on_cleanup.append(
                 self.on_cleanup
             )
-        return app
+        if callable(self.on_context):
+            self.app.cleanup_ctx.append(
+                self.on_context
+            )
+        return self.app

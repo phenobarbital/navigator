@@ -130,7 +130,7 @@ class AppHandler(ABC):
 
     def CreateApp(self) -> web.Application:
         if DEBUG:
-            cPrint(f"SETUP APPLICATION: {self._name!s}", level="SUCCESS")
+            cPrint(f"SETUP APPLICATION: {self._name!s}")
         self.cors = None
         app = web.Application(
             logger=self.logger,
@@ -139,7 +139,8 @@ class AppHandler(ABC):
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app["name"] = self._name
-        app.extensions = {} # empty directory of extensions
+        if 'extensions' not in app:
+            app.extensions = {} # empty directory of extensions
         # Setup Authentication (if enabled):
         if self.enable_auth is True and ENABLE_AUTH is True:
             self._auth = AuthHandler()

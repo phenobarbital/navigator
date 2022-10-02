@@ -13,6 +13,7 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 import sockjs
 import aiohttp_cors
+from navigator.types import BaseApplication
 from navconfig.logging import logging
 from navigator.conf import (
     DEBUG,
@@ -58,7 +59,7 @@ else:
 P = ParamSpec("P")
 
 
-class Application(object):
+class Application(BaseApplication):
     """Application.
 
         Main class for Navigator Application.
@@ -117,18 +118,6 @@ class Application(object):
             self.app = AppBase(Context, evt=self._loop, **kwargs)
         else:
             self.app = app(Context, evt=self._loop, **kwargs)
-        # Sub-Application Startup:
-
-
-
-    def get_app(self) -> web.Application:
-        return self.app.App
-
-    def __setitem__(self, k, v):
-        self.app.App[k] = v
-
-    def __getitem__(self, k):
-        return self.app.App[k]
 
     def active_extensions(self) -> list:
         return self.app.App.extensions.keys()
@@ -364,20 +353,11 @@ class Application(object):
             return _wrap
         return _template
 
-
     def add_sock_endpoint(
         self, handler: Callable, name: str, route: str = "/sockjs/"
     ) -> None:
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
-
-    def setup(self):
-        """setup.
-        Get NAV application, used by Gunicorn.
-        """
-        # getting the resource App
-        app = self.setup_app()
-        return app
 
     def run(self):
         """run.

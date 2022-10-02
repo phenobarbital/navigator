@@ -2,7 +2,6 @@
 # Copyright (C) 2018-present Jesus Lara
 #
 from libcpp cimport bool
-
 from typing import Tuple, Callable, Awaitable
 from urllib.parse import urlparse, parse_qs, ParseResult
 from aiohttp import web
@@ -123,3 +122,26 @@ cdef class URL:
             return self.value == url.value
         else:
             return str(url) == url.value
+
+
+class BaseApplication:
+
+    def get_app(self) -> web.Application:
+        return self.app.App
+
+    def setup_app(self) -> WebApp:
+        pass
+
+    def __setitem__(self, k, v):
+        self.app.App[k] = v
+
+    def __getitem__(self, k):
+        return self.app.App[k]
+
+    def setup(self):
+        """setup.
+        Get NAV application, used by Gunicorn.
+        """
+        # getting the resource App
+        app = self.setup_app()
+        return app

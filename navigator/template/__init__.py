@@ -35,6 +35,24 @@ jinja_config = {
 }
 
 class TemplateParser(BaseExtension):
+    """TemplateParser.
+
+    Description: NAV extension for adding Jinja2 capabitilies to NAV.
+
+    Args:
+        app_name (str): Name of the current Extension, will use it to save it into aiohttp Application.
+        template_dir (str | list): list of folders where templates lives in.
+        filters (Optional[list of callables]): Optional list of any callables will be registered as Jinja2 Filters.
+
+    Raises:
+        TypeError: Wrong arguments passed to Template.
+        RuntimeError: Some exception raised.
+        web.HTTPNotFound: When template doesn't exists.
+        web.HTTPBadRequest: When Template cannot be parsed.
+
+    Returns:
+        TemplateParser: Jinja2 template parser.
+    """
     name: str = 'template'
     app: WebApp = None
     directory: List[Path] = []

@@ -1,11 +1,10 @@
 import asyncio
 import datetime
 import traceback
-from typing import Any
+from typing import Any, Optional
 from collections.abc import Callable
 from urllib import parse
-from orjson import JSONDecodeError
-import aiohttp_cors
+from dataclasses import dataclass
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import (
@@ -13,7 +12,10 @@ from aiohttp.web_exceptions import (
     HTTPNoContent,
     HTTPNotImplemented
 )
+from orjson import JSONDecodeError
+import aiohttp_cors
 from aiohttp_cors import CorsViewMixin
+from datamodel.exceptions import ValidationError
 from asyncdb import AsyncDB
 from asyncdb.models import Model
 from asyncdb.exceptions import (
@@ -325,6 +327,106 @@ class BaseHandler(CorsViewMixin):
             except AttributeError:
                 pass
         return params
+
+    async def validate_handler(self, model: dataclass, request: web.Request = None, strict: bool = True) -> Optional[dict]:
+        """validate_handler.
+
+        Description: Using a dataclass (or Model) to validate data entered into System.
+
+        Args:
+            model (dataclass): Model to be used for validation.
+            request (web.Request, optional): Request Handler. Defaults to None.
+            strict (bool): if True, Function returns Exceptions on failure, else, None.
+
+        Raises:
+            web.HTTPNotAcceptable: Invalid Input.
+            web.BadRequest: Model raises a ValidationError.
+            web.HTTPNotFound: data is empty or not found.
+
+        Returns:
+            Optional[dict]: Data filtered and validated if True.
+        """
+        data = None
+        if not request:
+            request = self.request
+        # check if data comes from POST or GET:
+        if request.method in ('POST', 'PUT', 'PATCH'):
+            # getting data from POST
+            data = await request.json(loads=DEFAULT_JSON_DECODER)
+        elif request.method == 'GET':
+            data = {key: val for (key, val) in request.query.items()}
+        else:
+            return HTTPNotImplemented(
+                reason=f"{request.method} Method not Implemented for Data Validation.",
+                content_type="application/json"
+            )
+        if data is None:
+            return web.HTTPNotFound(
+                reason="There is no content for validation.",
+                content_type="application/json"
+            )
+        # making the validation of data:
+        headers = {
+            'X-MODEL': f"{model!s}"
+        }
+        args = {
+            "content_type": "application/json"
+        }
+        if isinstance(data, dict):
+            validated = None
+            exp = None
+            try:
+                validated = model(**data)
+                print('VAL ', validated)
+            except ValidationError as ex:
+                if isinstance(ex.payload, dict):
+                    errors = {}
+                    for field, error in ex.payload.items():
+                        errors[field] = []
+                        for er in error:
+                            e = {
+                                "value": str(er['value']),
+                                "error": er['error']
+                            }
+                            errors[field].append(e)
+                else:
+                    errors = 'Missing Data.'
+                args = {
+                    "errors": errors,
+                    "error": f"Validation Error on model {model!s}",
+                    "exception": f"{ex}"
+                }
+                exp = web.HTTPBadRequest(
+                    reason=json_encoder(args),
+                    content_type="application/json"
+                )
+            except TypeError as ex:
+                print('TYPE ', ex)
+                data = {
+                    "error": f"Invalid type for {model!s}: {ex}",
+                    "exception": f"{ex}"
+                }
+                exp = web.HTTPNotAcceptable(
+                    reason=json_encoder(data),
+                    headers=headers,
+                    **args
+                )
+            except (ValueError, AttributeError) as ex:
+                data = {
+                    "error": f"Invalid Value for {model!s}: {ex}",
+                    "exception": f"{ex}"
+                }
+                exp = web.HTTPNotAcceptable(
+                    reason=json_encoder(data),
+                    content_type="application/json"
+                )
+            if exp is not None:
+                if strict is True:
+                    return exp # exception
+                else:
+                    return validated
+            else:
+                return validated
 
 
 class BaseView(web.View, BaseHandler, AbstractView):

@@ -211,7 +211,7 @@ try:
 except ImportError:
     try:
         from settings.settings import * # pylint: disable=W0401,W0614
-    except ModuleNotFoundError:
+    except (ImportError):
         logging.warning('Missing *Settings* Module, Settings is required for configuration.')
 
 

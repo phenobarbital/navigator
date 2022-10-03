@@ -377,7 +377,6 @@ class BaseHandler(CorsViewMixin):
             exp = None
             try:
                 validated = model(**data)
-                print('VAL ', validated)
             except ValidationError as ex:
                 if isinstance(ex.payload, dict):
                     errors = {}
@@ -401,7 +400,7 @@ class BaseHandler(CorsViewMixin):
                     content_type="application/json"
                 )
             except TypeError as ex:
-                print('TYPE ', ex)
+                # print('TYPE ', ex)
                 data = {
                     "error": f"Invalid type for {model!s}: {ex}",
                     "exception": f"{ex}"

@@ -3,17 +3,23 @@ import sys
 import ssl
 import signal
 import asyncio
+import inspect
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
     Any,
+    Union
 )
 from collections.abc import Callable
+from dataclasses import dataclass
+from datamodel.exceptions import ValidationError
 from aiohttp import web
 from aiohttp.abc import AbstractView
+from aiohttp.web_exceptions import HTTPError
 import sockjs
 import aiohttp_cors
 from navconfig.logging import logging
+from datamodel import BaseModel
 from navigator.conf import (
     DEBUG,
     APP_NAME,
@@ -352,6 +358,100 @@ class Application(BaseApplication):
 
             return _wrap
         return _template
+
+    def validate(self, model: Union[dataclass,BaseModel], **kwargs) -> web.Response:
+        """validate.
+        Description: Validate Request input using a Datamodel
+        Args:
+            model (Union[dataclass,BaseModel]): Model can be a dataclass or BaseModel.
+
+        Returns:
+            web.Response: add to Handler a variable with data validated.
+        """
+        def _validation(func, **kwargs):
+            print(func, **kwargs)
+            @wraps(func)
+            async def _wrap(*args: Any) -> web.StreamResponse:
+                ## building arguments:
+                # Supports class based views see web.View
+                if isinstance(args[0], AbstractView):
+                    request = args[0].request
+                else:
+                    request = args[-1]
+                sig = inspect.signature(func)
+                new_args = {}
+                for a, val in sig.parameters.items():
+                    if isinstance(val, web.Request):
+                        new_args[a] = val
+                    else:
+                        _t = sig.parameters[a].annotation
+                        if _t == model:
+                            # working on build data validation
+                            data, errors = await self._validate_model(request, model)
+                            new_args[a] = data
+                            new_args['errors'] = errors
+                        else:
+                            new_args[a] = val
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    coro = asyncio.coroutine(func)
+                try:
+                    context = await coro(**new_args)
+                    return context
+                except HTTPError as ex:
+                    return ex
+                except Exception as err:
+                    raise web.HTTPInternalServerError(
+                        reason=f'Error Calling Validate Function {func!r}: {err}'
+                    ) from err
+            return _wrap
+        return _validation
+
+    async def _validate_model(self, request: web.Request, model: Union[dataclass, BaseModel]) -> dict:
+        if request.method in ('POST', 'PUT', 'PATCH'):
+            # getting data from POST
+            data = await request.json()
+        elif request.method == 'GET':
+            data = {key: val for (key, val) in request.query.items()}
+        else:
+            raise web.HTTPNotImplemented(
+                reason=f"{request.method} Method not Implemented for Data Validation.",
+                content_type="application/json"
+            )
+        if data is None:
+            raise web.HTTPNotFound(
+                reason="There is no content for validation.",
+                content_type="application/json"
+            )
+        validated = None
+        errors = None
+        if isinstance(data, dict):
+            try:
+                validated = model(**data)
+            except ValidationError as ex:
+                errors = ex.payload
+            except (TypeError, ValueError, AttributeError) as ex:
+                errors = ex
+            return validated, errors
+        elif isinstance(data, list):
+            validated = []
+            errors = []
+            for el in data:
+                try:
+                    valid = model(**el)
+                    validated.append(valid)
+                except ValidationError as ex:
+                    errors.append(ex.payload)
+                except (TypeError, ValueError, AttributeError) as ex:
+                    errors.append(ex)
+            return validated, errors
+        else:
+            raise web.HTTPBadRequest(
+                reason="Invalid type for Data Input, expecting a Dict or List.",
+                content_type="application/json"
+            )
+
 
     def add_sock_endpoint(
         self, handler: Callable, name: str, route: str = "/sockjs/"

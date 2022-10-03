@@ -7,49 +7,56 @@ an Application is a subApp created inside of "apps" folder.
 """
 import importlib
 from types import ModuleType
-from navigator.types import Singleton
-from navigator.exceptions import NavException
 from navconfig import (
     BASE_DIR
 )
-from typing import List
+try:
+    from navconfig.conf import (
+        APPLICATIONS
+    )
+except ImportError:
+    APPLICATIONS = []
 
+from navigator.utils.types import Singleton
+# APP DIR
 APP_DIR = BASE_DIR.joinpath("apps")
 
-if not APP_DIR.is_dir():
-    raise NavException(
-        'Navigator: *apps* Folder is missing.'
-    )
 
 class ApplicationInstaller(metaclass=Singleton):
     """
     ApplicationInstaller.
         Class for getting Installed Apps in Navigator.
     """
-    __initialized = False
-    _apps_installed: List = []
+    __initialized__ = False
+    _apps_installed: list = []
 
     def installed_apps(self):
         return self._apps_installed
 
-    def __init__(self, *args, **kwargs):
-        if self.__initialized is True:
+    def __init__(self):
+        if self.__initialized__ is True:
             return
-        self.__initialized = True
+        self.__initialized__ = True
+        if not APP_DIR.exists():
+            return
         for item in APP_DIR.iterdir():
             if item.name != "__pycache__":
                 if item.is_dir():
                     name = item.name
                     if not name in self._apps_installed:
-                        # TODO: avoid load apps.dataintegration
                         app_name = f"apps.{item.name}"
-                        # path = APP_DIR.joinpath(name)
-                        # url_file = path.joinpath("urls.py")
                         try:
                             i = importlib.import_module(app_name, package="apps")
                             if isinstance(i, ModuleType):
                                 # is a Navigator Program
-                                self._apps_installed += (app_name,)
+                                self._apps_installed.append((app_name, i))
                         except ImportError as err:
+                            # HERE, there is no module
                             print("ERROR: ", err)
                             continue
+        for name in APPLICATIONS:
+            ## Fallback Application (avoid calling too much app initialization)
+            app_name = f"apps.{name}"
+            if not name in self._apps_installed:
+                # virtual app, fallback app:
+                self._apps_installed.append((app_name, None))

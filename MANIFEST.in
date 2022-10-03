@@ -1,5 +1,6 @@
 include LICENSE
 include LICENSE-APACHE
 include README.md
+global-include *.typed
 recursive-include navigator/templates *
 recursive-include navigator/static *

@@ -2,10 +2,48 @@
 """Navigator
     Web Framework based on aiohttp, with batteries included.
 See:
-https://github.com/phenobarbital/navigator-api/tree/master
+https://github.com/phenobarbital/navigator/tree/master
 """
+import ast
 from os import path
-from setuptools import find_packages, setup
+from setuptools import find_packages, setup, Extension
+from Cython.Build import cythonize
+
+
+COMPILE_ARGS = ["-O2"]
+
+extensions = [
+    Extension(
+        name='navigator.utils.types',
+        sources=['navigator/utils/types.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.utils.functions',
+        sources=['navigator/utils/functions.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.libs.json',
+        sources=['navigator/libs/json.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c++"
+    ),
+    Extension(
+        name='navigator.exceptions.exceptions',
+        sources=['navigator/exceptions/exceptions.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c"
+    ),
+    Extension(
+        name='navigator.types',
+        sources=['navigator/types.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c++"
+    )
+]
 
 
 def get_path(filename):
@@ -24,14 +62,39 @@ def readme():
     with open(get_path('README.md'), encoding='utf-8') as file:
         return file.read()
 
-with open(get_path('navigator/version.py'), encoding='utf-8') as meta:
-    exec(meta.read())
+version = get_path('navigator/version.py')
+with open(version, 'r', encoding='utf-8') as meta:
+    # exec(meta.read())
+    t = compile(meta.read(), version, 'exec', ast.PyCF_ONLY_AST)
+    for node in (n for n in t.body if isinstance(n, ast.Assign)):
+        if len(node.targets) == 1:
+            name = node.targets[0]
+            if isinstance(name, ast.Name) and \
+                    name.id in (
+                            '__version__',
+                            '__title__',
+                            '__description__',
+                            '__author__',
+                            '__license__', '__author_email__'):
+                        v = node.value
+                        if name.id == '__version__':
+                            __version__ = v.s
+                        if name.id == '__title__':
+                            __title__ = v.s
+                        if name.id == '__description__':
+                            __description__ = v.s
+                        if name.id == '__license__':
+                            __license__ = v.s
+                        if name.id == '__author__':
+                            __author__ = v.s
+                        if name.id == '__author_email__':
+                            __author_email__ = v.s
 
 setup(
     name=__title__,
     version=__version__,
-    python_requires=">=3.9.0",
-    url="https://github.com/phenobarbital/navigator-api",
+    python_requires=">=3.8.0",
+    url="https://github.com/phenobarbital/navigator",
     description=__description__,
     platforms=['POSIX'],
     long_description=readme(),
@@ -45,14 +108,16 @@ setup(
         "Topic :: Software Development :: Libraries :: Application Frameworks",
         "Topic :: Software Development :: Libraries :: Python Modules",
         "Topic :: Software Development :: Libraries",
+        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.10",
     ],
     author=__author__,
     author_email=__author_email__,
     packages=find_packages(exclude=('tests', 'docs', )),
     include_package_data=True,
     license=__license__,
-    license_files = 'LICENSE',
+    license_files = 'LICENSE-BSD',
     setup_requires=[
         "wheel==0.37.1",
         "Cython==0.29.32",
@@ -64,39 +129,38 @@ setup(
         "wheel==0.37.1",
         "Cython==0.29.32",
         "asyncio==3.4.3",
-        "uvloop==0.16.0",
-        "navigator-session>=0.0.8",
-        "typing-extensions>=4.1.1",
+        "uvloop==0.17.0",
+        "navconfig",
+        "async-notify",
+        "asyncdb[default]",
+        "navigator-session>=0.1.0",
+        "typing-extensions>=4.3.0",
         "aiofile==3.7.4",
-        "aiofiles==0.8.0",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
-        "aiohttp==3.8.1",
+        "aiohttp==3.8.3",
         "aiohttp-jrpc==0.1.0",
-        "PyJWT==2.4.0",
-        "pycryptodome==3.14.1",
-        "rncryptor==3.3.0",
+        "jinja2==3.1.2",
         "aiohttp-jinja2==1.5",
         "aiohttp-cors==0.7.0",
         "aiohttp-sse==2.1.0",
-        "aiosocks==0.2.6",
-        "aiohttp-swagger==1.0.16",
-        "pydantic==1.9.0",
         "aiohttp-utils==3.1.1",
+        "httptools==0.5.0",
+        "aiosocks==0.2.6",
+        "PyJWT==2.4.0",
+        "pycryptodome==3.15.0",
+        "rncryptor==3.3.0",
         "msal==1.17.0",
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
-        "jsonpickle==2.2.0",
         'python-slugify==6.1.1',
         "platformdirs==2.5.1",
-        "navconfig",
-        "async-notify",
-        "asyncdb"
     ],
+    ext_modules=cythonize(extensions),
     tests_require=[
             'pytest>=5.4.0',
             'coverage',
@@ -105,7 +169,7 @@ setup(
             'pytest-assume'
     ],
     project_urls={
-        'Source': 'https://github.com/phenobarbital/navigator-api',
+        'Source': 'https://github.com/phenobarbital/navigator',
         'Funding': 'https://paypal.me/phenobarbital',
         'Say Thanks!': 'https://saythanks.io/to/phenobarbital',
     },

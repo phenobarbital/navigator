@@ -10,7 +10,7 @@ from .base import BaseAuthBackend
 from navigator.exceptions import (
     NavException,
     FailedAuth,
-    UserDoesntExists,
+    UserNotFound,
     InvalidAuth,
     ValidationError,
 )
@@ -42,13 +42,17 @@ class BasicAuth(BaseAuthBackend):
     pwd_atrribute: str = "password"
     _ident: AuthUser = BasicUser
 
+    def configure(self, app, router, handler):
+        """Base configuration for Auth Backends, need to be extended
+        to create Session Object."""
+
     async def validate_user(self, login: str = None, password: str = None):
         # get the user based on Model
         try:
             search = {self.username_attribute: login}
             user = await self.get_user(**search)
-        except UserDoesntExists as err:
-            raise UserDoesntExists(
+        except UserNotFound as err:
+            raise UserNotFound(
                 f"User {login} doesn't exists"
             ) from err
         except Exception as err:
@@ -151,8 +155,8 @@ class BasicAuth(BaseAuthBackend):
                 user = await self.validate_user(login=user, password=pwd)
             except FailedAuth as err:
                 raise FailedAuth(err) from err
-            except UserDoesntExists as err:
-                raise UserDoesntExists(err) from err
+            except UserNotFound as err:
+                raise UserNotFound(err) from err
             except (ValidationError, InvalidAuth) as err:
                 raise InvalidAuth(err, state=401) from err
             except Exception as err:

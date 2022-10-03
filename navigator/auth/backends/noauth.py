@@ -3,29 +3,23 @@
 Navigator Authentication using Anonymous Backend
 """
 import logging
-import asyncio
-from aiohttp import web, hdrs
-from platformdirs import user_cache_dir
-from .base import BaseAuthBackend
 import uuid
-from navigator.conf import (
-    CREDENTIALS_REQUIRED,
-    SECRET_KEY
-)
+from aiohttp import web
 from navigator_session import (
     get_session,
-    new_session,
     AUTH_SESSION_OBJECT
+)
+from navigator.conf import (
+    CREDENTIALS_REQUIRED
 )
 from navigator.exceptions import (
     NavException,
     FailedAuth,
-    InvalidAuth,
     AuthExpired
 )
-
 # Authenticated Entity
 from navigator.auth.identities import AuthUser, Guest
+from .base import BaseAuthBackend
 
 class AnonymousUser(AuthUser):
     first_name: str = 'Anonymous'
@@ -37,6 +31,10 @@ class NoAuth(BaseAuthBackend):
     userid_attribute: str = "userid"
     user_attribute: str = "userid"
     _ident: AuthUser = AnonymousUser
+
+    def configure(self, app, router, handler):
+        """Base configuration for Auth Backends, need to be extended
+        to create Session Object."""
 
     async def check_credentials(self, request):
         """ Authentication and create a session."""

@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
 import sys
 import base64
-import json
-import importlib
-from typing import (
-    List
-)
+import orjson
 from cryptography import fernet
 # Import Config Class
 from navconfig import (
@@ -16,13 +12,14 @@ from navconfig import (
 from navconfig.logging import (
     logging
 )
-from .apps import APP_DIR, ApplicationInstaller
 
-"""
-Routes
-"""
+#### BASIC Configuration
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
+APP_DIR = BASE_DIR.joinpath("apps")
+
+if not APP_DIR.is_dir():
+    logging.warning("NAV: App Folder (apps/) is missing, you can't use subApp functionality.")
 
 logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
 
@@ -33,6 +30,7 @@ APP_URL = config.get('APP_URL', fallback=f"http://localhost:{APP_PORT}")
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 TEMPLATE_DIR = BASE_DIR.joinpath("templates")
+TEMPLATE_DEBUG = config.getboolean('TEMPLATE_DEBUG', fallback=False)
 SERVICES_DIR = BASE_DIR.joinpath("services")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
@@ -88,9 +86,7 @@ else:
     CA_FILE = None
     PREFERRED_URL_SCHEME = "http"
 
-"""
-Environment.
-"""
+#### Environment.
 if DEBUG and LOCAL_DEVELOPMENT:
     ENV = "dev"
 else:
@@ -101,9 +97,7 @@ else:
     else:
         ENV = "production"
 
-"""
-Basic Information.
-"""
+### Basic Information.
 EMAIL_CONTACT = config.get("EMAIL_CONTACT", section="info", fallback="foo@example.com")
 API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
 
@@ -112,9 +106,7 @@ API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
 ## APPS CONFIGURATION
 ##
 #######################
-"""
-Main Database
-"""
+#### Main Database
 PG_USER = config.get("DBUSER")
 PG_HOST = config.get("DBHOST", fallback="localhost")
 PG_PWD = config.get("DBPWD")
@@ -128,9 +120,7 @@ default_dsn = asyncpg_url
 Auth and Cache
 """
 
-"""
-REDIS SESSIONS
-"""
+#### REDIS SESSIONS
 CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
 CACHE_PORT = config.get("CACHEPORT", fallback=6379)
 CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}"
@@ -194,14 +184,14 @@ USER_MAPPING = DEFAULT_MAPPING
 mapping = config.get('AUTH_USER_MAPPING')
 if mapping is not None:
     try:
-        USER_MAPPING = json.loads(mapping)
-    except Exception:
+        USER_MAPPING = orjson.loads(mapping)
+    except orjson.JSONDecodeError:
         logging.exception(
             'NAV: Invalid User Mapping on *AUTH_USER_MAPPING*'
         )
 
 
-USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
+USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="users")
 
 ALLOWED_HOSTS = [
     e.strip()
@@ -217,13 +207,12 @@ MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 
 # get configuration settings (user can override settings).
 try:
-    from navconfig.conf import *
+    from navconfig.conf import * # pylint: disable=W0401,W0614
 except ImportError:
-    from settings.settings import *
+    from settings.settings import * # pylint: disable=W0401,W0614
 
-"""
-Final: Config dict for aiohttp
-"""
+
+#### Final: Config dict for AIOHTTP
 Context = {
     "DEBUG": DEBUG,
     "DEVELOPMENT": (not PRODUCTION),
@@ -235,22 +224,3 @@ Context = {
     "asyncpg_url": asyncpg_url,
     "default_dsn": default_dsn,
 }
-
-"""
-Applications
-"""
-installer = ApplicationInstaller()
-INSTALLED_APPS: List = installer.installed_apps()
-Context["INSTALLED_APPS"] = INSTALLED_APPS
-
-"""
-Per-Program Settings
-"""
-# program: str
-for program in INSTALLED_APPS:
-    settings = f"apps.{program}.settings"
-    try:
-        i = importlib.import_module(settings)
-        globals()[program] = i
-    except ImportError as err:
-        pass

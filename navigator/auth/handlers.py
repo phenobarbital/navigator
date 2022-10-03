@@ -1,19 +1,12 @@
 # -*- coding: utf-8 -*-
 #!/usr/bin/env python3
-import json
 from aiohttp import web
+from navigator_session import get_session
+from navigator.views import BaseView, BaseHandler
+from navigator.auth.models import User
 from navigator.conf import (
     SESSION_KEY
 )
-from navigator.exceptions import (
-    NavException,
-    UserDoesntExists,
-    InvalidAuth
-)
-from navigator_session import get_session
-from navigator.views import BaseView, BaseHandler
-from asyncdb.utils.encoders import DefaultEncoder
-from navigator.auth.models import User
 
 class UserHandler(BaseView):
 
@@ -141,7 +134,7 @@ class UserInfo(BaseHandler):
             args = {
                 "status": 501,
                 "content_type": "application/json",
-                "text": json.dumps(response, cls=DefaultEncoder)
+                "text": self._json.dumps(response)
             }
             return web.Response(**args)
         # return a redirect to LOGIN

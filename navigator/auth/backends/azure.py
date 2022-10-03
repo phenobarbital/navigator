@@ -6,7 +6,7 @@ import base64
 from aiohttp import web
 from navigator.exceptions import (
     NavException,
-    UserDoesntExists,
+    UserNotFound,
     InvalidAuth
 )
 from navigator.conf import (

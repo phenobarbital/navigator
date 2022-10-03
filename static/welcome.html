@@ -1,0 +1,49 @@
+<!doctype html>
+    <html lang="en">
+    <head>
+      <meta charset="utf-8">
+      <title>Navigator API</title>
+      <meta name="description" content="Navigator API">
+      <meta name="author" content="Navigator API">
+      <link rel="stylesheet" href="static/css/styles.css?v=1.0">
+      <script type="text/javascript" src="static/js/scripts.js"></script>
+  </head>
+  <body>
+      <h1>Welcome to Navigator!</h1>
+      <p>Hi! <b id="diplay_name"></b>, Welcome to Navigator.
+        <p>Your Email is: <div id="email"></div></p>
+      </p>
+      <script>
+        const params = new Proxy(new URLSearchParams(window.location.search), {
+            get: (searchParams, prop) => searchParams.get(prop),
+        });
+        let token = params.token; // "jwt token"
+        let type = params.type; // Auth type: Bearer
+        if(window.fetch)
+           fetch('https://nav-api.dev.local:5000/api/v1/user/session', {
+               method:'GET',
+               mode: 'cors',
+               cache: 'no-cache',
+               credentials: 'same-origin',
+               headers: {
+                'Content-Type': 'application/json',
+                'Authorization': type + ' ' + token
+               }
+            }).then(function(response) {
+                if(response.ok) {
+                    data = response.json()
+                    console.log(data)
+                }
+                return data
+           })
+           .then(function(data) {
+            const name = document.getElementById('diplay_name');
+            name.innerHTML = data['username'];
+            const email = document.getElementById('email');
+            email.innerHTML = data['email'];
+           });
+        else
+          document.write("This does not work in your browser - no support for fetch API");
+       </script>
+  </body>
+</html>

@@ -1,18 +1,36 @@
-from collections.abc import MutableMapping
-from typing import Any, Union, List, Dict, Tuple, Iterator, Iterable
+import sys
+from collections.abc import MutableMapping, Iterator, Iterable
+from typing import Any, Optional, Union
 
-class ClassDict(MutableMapping):
-    def __init__(self, data: Union[Tuple, Dict] = (), default: Any = None):
+if sys.version_info < (3, 10):
+    from typing_extensions import ParamSpec
+else:
+    from typing import ParamSpec
+P = ParamSpec("P")
+
+class ClassDict(dict, MutableMapping):
+    """ClassDict.
+
+    Mapping that works like both a simple Dictionary or a Mutable Object.
+    """
+    def __init__(self, *args: P.args, data: Optional[Union[tuple, dict]] = None, default: Any = None, **kwargs: P.kwargs):
         self._columns: list = []
         self.mapping = {}
         self.default = default
-        self.update(data)
-        self._columns = list(self.mapping.keys())
+        self.mapping.update(*args, **kwargs)
+        self.update(data, **kwargs)
         print(self.mapping, self._columns)
 
-    def update(self, items: Iterable):
-        for key, value in items.items():
-            self.mapping[key] = value
+    def update(self, items: Optional[Iterable] = None, **kwargs): # pylint: disable=W0221
+        if isinstance(items, dict):
+            for key, value in items.items():
+                # self.mapping[key] = value
+                self.mapping[key] = value
+        else:
+            for k,v in kwargs.items():
+                # self.mapping[k] = v
+                self.mapping[k] = v
+        self._columns = list(self.mapping.keys())
 
     def __missing__(self, key):
         return self.default
@@ -20,8 +38,7 @@ class ClassDict(MutableMapping):
     def items(self) -> zip:  # type: ignore
         return zip(self._columns, self.mapping)
 
-    @property
-    def keys(self) -> List:
+    def keys(self) -> list:
         return self._columns
 
     def set(self, key, value) -> None:
@@ -29,9 +46,7 @@ class ClassDict(MutableMapping):
         if not key in self._columns:
             self._columns.append(key)
 
-    """
-     Section: Simple magic methods
-    """
+    ### Section: Simple magic methods
     def __len__(self) -> int:
         return len(self.mapping)
 
@@ -69,14 +84,14 @@ class ClassDict(MutableMapping):
         """
         try:
             return self.__getitem__(attr)
-        except KeyError:
+        except KeyError as ex:
             raise KeyError(
                 f"User Error: invalid field name {attr} on {self.mapping!r}"
-            )
-        except TypeError:
+            ) from ex
+        except TypeError as ex:
             raise TypeError(
                 f"User Error: invalid attribute value on {self.mapping!r} for {attr}"
-            )
+            ) from ex
 
     def __iter__(self) -> Iterator:
         for value in self.mapping:

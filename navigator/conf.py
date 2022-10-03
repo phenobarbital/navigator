@@ -209,7 +209,10 @@ MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 try:
     from navconfig.conf import * # pylint: disable=W0401,W0614
 except ImportError:
-    from settings.settings import * # pylint: disable=W0401,W0614
+    try:
+        from settings.settings import * # pylint: disable=W0401,W0614
+    except ModuleNotFoundError:
+        logging.warning('Missing *Settings* Module, Settings is required for configuration.')
 
 
 #### Final: Config dict for AIOHTTP

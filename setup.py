@@ -160,6 +160,14 @@ setup(
         'python-slugify==6.1.1',
         "platformdirs==2.5.1",
     ],
+    extras_require = {
+        "locale": [
+            "Babel==2.9.1",
+        ],
+        "memcache": [
+            "aiomcache==0.7.0",
+        ],
+    },
     ext_modules=cythonize(extensions),
     tests_require=[
             'pytest>=5.4.0',

@@ -84,10 +84,10 @@ class AppHandler(ABC):
     can register Callbacks, Signals, Route Initialization, etc
     """
     _middleware: list = []
-    enable_static: bool = True
     auto_doc: bool = False
     enable_auth: bool = False
-    enable_db: bool = True
+    enable_db: bool = False
+    enable_static: bool = False
     staticdir: str = None
     enable_pgpool: bool = False
 

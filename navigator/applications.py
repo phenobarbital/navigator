@@ -15,7 +15,6 @@ from navigator.conf import (
     APP_DIR,
     DEBUG,
     STATIC_DIR,
-    ENABLE_AUTH,
     default_dsn
 )
 from navigator.connections import PostgresPool
@@ -154,7 +153,7 @@ class AppHandler(ABC):
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
         # Setup Authentication (if enabled):
-        if self.enable_auth is True and ENABLE_AUTH is True:
+        if self.enable_auth is True:
             self._auth = AuthHandler()
             # configuring authentication endpoints
             self._auth.setup(

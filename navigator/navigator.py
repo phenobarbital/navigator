@@ -80,7 +80,7 @@ class Application(BaseApplication):
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         version: str = "0.0.1",
-        enable_jinja2: bool = True,
+        enable_jinja2: bool = False,
         template_dirs: list = None,
         **kwargs: P.kwargs
     ) -> None:

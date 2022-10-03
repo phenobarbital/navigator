@@ -32,4 +32,3 @@ jobs:
         TWINE_PASSWORD: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
       run: |
         twine upload dist/*-manylinux*.whl
-        twine upload dist/*.gz

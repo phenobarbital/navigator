@@ -18,6 +18,7 @@ from navigator.conf import (
     default_dsn
 )
 from navigator.connections import PostgresPool
+from navigator.middlewares.error import error_middleware
 # make a home and a ping class
 from navigator.resources import ping
 from navigator.functions import cPrint
@@ -166,6 +167,8 @@ class AppHandler(ABC):
                 app.middlewares.append(middleware)
         except (ValueError, TypeError):
             pass
+        # add the error middleware at end:
+        app.middlewares.append(error_middleware)
         # CORS
         self.cors = aiohttp_cors.setup(
             app,

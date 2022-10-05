@@ -1,39 +1,25 @@
 """
 Abstract Class for Navigator Authorization Middlewares.
 """
-
-"""
-Simply Token Authorization with Callback Support.
-"""
-import fnmatch
-import asyncio
+from typing import (
+    Optional
+)
+from collections.abc import Callable, Awaitable
 from abc import ABC, abstractmethod
+import fnmatch
 from aiohttp import web, hdrs
 from aiohttp.web_urldispatcher import SystemRoute
-from functools import partial
-from typing import (
-    List,
-    Dict,
-    Callable,
-    Tuple,
-    Optional,
-    Coroutine,
-    Any,
-    Awaitable
-)
-from navigator.conf import (
-    config,
-    CREDENTIALS_REQUIRED,
+from navigator_session import (
     SESSION_USER_PROPERTY
 )
 
 
 class base_middleware(ABC):
 
-    anonymous_routes: List = ["/login", "logout", "/static/", "/signin", "/signout", "/_debugtoolbar/"]
+    anonymous_routes: list = ["/login", "logout", "/static/", "/signin", "/signout", "/_debugtoolbar/"]
     check_static: bool = True
-    exclude_routes: Tuple = tuple()
-    protected_routes: Tuple = tuple() # list of paths to be protected by middleware
+    exclude_routes: tuple = tuple()
+    protected_routes: tuple = tuple() # list of paths to be protected by middleware
     user_property: str = SESSION_USER_PROPERTY
 
     def __call__(
@@ -96,14 +82,14 @@ class base_middleware(ABC):
         if 'Authorization' in request.headers:
             try:
                 _scheme, token = request.headers['Authorization'].strip().split(' ')
-            except KeyError:
+            except KeyError as ex:
                 raise web.HTTPUnauthorized(
                     reason='Token Auth: Missing authorization header',
-                )
-            except ValueError:
+                ) from ex
+            except ValueError as ex:
                 raise web.HTTPForbidden(
                     reason='Token Auth: Invalid authorization header',
-            )
+            ) from ex
             if scheme is not None and scheme != _scheme:
                 raise web.HTTPUnauthorized(
                     reason="Invalid Authorization Scheme"
@@ -111,7 +97,7 @@ class base_middleware(ABC):
         else:
             try:
                 token = request.query.get("auth", request.headers.get("X-Token", None))
-            except KeyError as err:
+            except KeyError:
                 token = None
         return [token, _scheme]
 
@@ -124,4 +110,3 @@ class base_middleware(ABC):
         """
         Abstract Method for declaring Middleware Function.
         """
-        pass

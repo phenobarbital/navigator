@@ -1,18 +1,17 @@
-import jwt
-from aiohttp import web
 from typing import (
     Optional,
-    Coroutine,
     Tuple
 )
+from collections.abc import Coroutine
+import jwt
+from aiohttp import web
 from navconfig import config
+from navigator_session import (
+    SESSION_USER_PROPERTY
+)
 from navigator.conf import (
-    SESSION_TIMEOUT,
     SECRET_KEY,
-    CREDENTIALS_REQUIRED,
-    SESSION_USER_PROPERTY,
-    SECRET_KEY,
-    JWT_ALGORITHM
+    CREDENTIALS_REQUIRED
 )
 from .abstract import base_middleware
 
@@ -38,6 +37,8 @@ class jwt_middleware(base_middleware):
         Returns:
             handler if User exists, HTTP Forbidden if callback returns false.
             HTTP Unauthorized if Token is missing (only if credential required is TRUE)
+        Raises:
+            RuntimeError: if middleware fails.
         """
         if not callable(user_fn):
             raise RuntimeError(
@@ -60,8 +61,8 @@ class jwt_middleware(base_middleware):
             if await self.valid_routes(request):
                 return await handler(request)
             try:
-                token, scheme = self.get_authorization_header(request, scheme = 'Bearer')
-            except KeyError as err:
+                token, _ = self.get_authorization_header(request, scheme = 'Bearer')
+            except KeyError:
                 token = None
             if CREDENTIALS_REQUIRED is True:
                 if not token:

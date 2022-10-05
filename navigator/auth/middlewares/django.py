@@ -1,22 +1,14 @@
 import base64
-import rapidjson
-import logging
-import time
-from aiohttp import web
 from typing import (
-    Optional,
-    Coroutine,
-    Tuple
+    Optional
 )
+from collections.abc import Coroutine
+import json
+from aiohttp import web
 from navigator.conf import (
-    SESSION_TIMEOUT,
-    SESSION_KEY,
-    SECRET_KEY,
-    SESSION_PREFIX,
-    CREDENTIALS_REQUIRED,
-    SESSION_STORAGE,
-    SESSION_USER_PROPERTY
+    SESSION_PREFIX
 )
+
 from .abstract import base_middleware
 
 
@@ -24,7 +16,7 @@ class django_middleware(base_middleware):
     def __init__(
         self,
         user_fn: Optional[Coroutine] = None,
-        protected_routes: Optional[Tuple] = tuple()
+        protected_routes: Optional[tuple] = tuple()
     ):
         """
         Extract an user Session from Django using a Middleware.
@@ -44,7 +36,7 @@ class django_middleware(base_middleware):
         sessionid = request.headers.get("x-sessionid", None)
         if not sessionid:
             raise web.HTTPBadRequest(
-                reason=f'Django Middleware: use Header different from X-Sessionid is not available'
+                reason='Django Middleware: use Header different from X-Sessionid is not available'
             )
         return sessionid
 
@@ -55,7 +47,7 @@ class django_middleware(base_middleware):
                 return await handler(request)
             try:
                 sessionid = self.get_authorization_header(request)
-            except Exception as err:
+            except Exception:
                 sessionid = None
             if self.path_protected(request): # is a protected site.
                 if not sessionid:
@@ -71,7 +63,7 @@ class django_middleware(base_middleware):
                         )
                     data = base64.b64decode(payload)
                     session_data = data.decode("utf-8").split(":", 1)
-                    user = rapidjson.loads(session_data[1])
+                    user = json.loads(session_data[1])
                     data = {
                         "key": sessionid,
                         "session_id": session_data[0],

@@ -1,29 +1,26 @@
 """
 Simply Token Authorization with Callback Support.
 """
-from aiohttp import web
 from typing import (
-    Dict,
-    Callable,
-    Tuple,
-    Optional,
-    Coroutine,
-    Any
+    Optional
 )
-from .abstract import base_middleware
-from navigator.conf import (
-    config,
-    CREDENTIALS_REQUIRED,
+from collections.abc import Coroutine
+from aiohttp import web
+from navigator_session import (
     SESSION_USER_PROPERTY
 )
-
+from navigator.conf import (
+    config,
+    CREDENTIALS_REQUIRED
+)
+from .abstract import base_middleware
 
 class token_middleware(base_middleware):
     def __init__(
         self,
         user_fn: Coroutine,
         user_property: str = SESSION_USER_PROPERTY,
-        exclude_routes: Optional[Tuple] = tuple()
+        exclude_routes: Optional[tuple] = tuple()
     ):
         """
         Check if an Auth Token was provided and returns based on
@@ -38,6 +35,8 @@ class token_middleware(base_middleware):
         Returns:
             handler if User exists, HTTP Forbidden if callback returns false.
             HTTP Unauthorized if Token is missing (only if credential required is TRUE)
+        Raises:
+            RuntimeError: when callable is not a Coroutine.
         """
         if not callable(user_fn):
             raise RuntimeError(
@@ -60,7 +59,7 @@ class token_middleware(base_middleware):
                 return await handler(request)
             try:
                 token, scheme = self.get_authorization_header(request)
-            except KeyError as err:
+            except KeyError:
                 token = None
             if CREDENTIALS_REQUIRED is True:
                 if not token:

@@ -9,9 +9,7 @@ from typing import (
 )
 from aiohttp import web
 from aiohttp.web_exceptions import (
-    HTTPMethodNotAllowed,
     HTTPNoContent,
-    HTTPNotImplemented
 )
 from aiohttp_sse import sse_response, EventSourceResponse
 from navigator.libs.json import json_encoder

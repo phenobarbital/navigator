@@ -5,6 +5,7 @@ from libcpp cimport bool
 from typing import Tuple, Callable, Awaitable
 from urllib.parse import urlparse, parse_qs, ParseResult
 from aiohttp import web
+from navconfig import config, DEBUG
 from navigator.exceptions.exceptions import ValidationError
 
 # Useful types:
@@ -125,6 +126,25 @@ cdef class URL:
 
 
 class BaseApplication:
+
+    def __init__(
+        self,
+        *args,
+        title: str = '',
+        contact: str = '',
+        description: str = 'NAVIGATOR APP',
+        **kwargs,
+    ) -> None:
+        self.description: str = description
+        self.host = config.get('APP_HOST', fallback='0.0.0.0')
+        self.port = config.get('APP_PORT', fallback=5000)
+        self.path = None
+        self.title = title if title else config.get('APP_NAME', fallback='NAVIGATOR')
+        self.contact = contact
+        if not contact:
+            self.contact = config.get('EMAIL_CONTACT')
+        self.use_ssl = config.getboolean('USE_SSL', fallback=False)
+        self.debug = DEBUG
 
     def get_app(self) -> web.Application:
         return self.app.App

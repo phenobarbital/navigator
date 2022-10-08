@@ -4,11 +4,13 @@ import asyncio
 import traceback
 from collections.abc import Awaitable, Callable
 from aiohttp import web
+from navconfig.conf import DEBUG
 from navconfig.logging import logging
 from navigator.responses import HTMLResponse, JSONResponse
-from navigator.conf import DEBUG
+
 
 error_codes = (400, 404, 500, 501, 502, 503)
+
 
 error_page = """
 <h1>{name}</h1>

@@ -10,6 +10,9 @@ from asyncdb.exceptions import ProviderError, DriverError
 from navigator.types import (
     WebApp
 )
+from navigator.conf import (
+    default_dsn
+)
 
 class ConnectionHandler:
     pool_based: bool = True
@@ -126,7 +129,6 @@ class PostgresPool(ConnectionHandler):
 
     def __init__(
         self,
-        dsn: str,
         name: str = "",
         init: Optional[Callable] = None,
         startup: Optional[Callable] = None,
@@ -148,7 +150,6 @@ class PostgresPool(ConnectionHandler):
         }
         super(PostgresPool, self).__init__(
             driver=self.driver,
-            dsn=dsn,
             name=name,
             init=init,
             startup=startup,
@@ -156,6 +157,7 @@ class PostgresPool(ConnectionHandler):
             evt=evt,
             **kwargs
         )
+        self._dsn = default_dsn
 
     async def shutdown(self, app: WebApp):
         if callable(self._shutdown_):

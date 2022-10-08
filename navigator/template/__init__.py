@@ -15,12 +15,9 @@ from jinja2 import (
     TemplateNotFound
 )
 from aiohttp import web
+from navconfig import config, BASE_DIR
 from navigator.extensions import BaseExtension
 from navigator.types import WebApp
-from navigator.conf import (
-    TEMPLATE_DEBUG,
-    TEMPLATE_DIR
-)
 
 __version__ = '0.0.1'
 __author__ = "Jesus Lara <jesuslarag@gmail.com>"
@@ -74,11 +71,15 @@ class TemplateParser(BaseExtension):
             self.config = {**jinja_config, **kwargs['config']}
         else:
             self.config = jinja_config
-        if TEMPLATE_DEBUG is True:
+
+        template_debug = config.getboolean('TEMPLATE_DEBUG', fallback=False)
+        if template_debug is True:
             self.config['extensions'].append(
                 'jinja2.ext.debug'
             )
-        self.directory = [TEMPLATE_DIR]
+        self.tmpl_dir = BASE_DIR.joinpath("templates")
+        if self.tmpl_dir.exists():
+            self.directory = [self.tmpl_dir]
         if isinstance(template_dir, list):
             # iterate over:
             for d in template_dir:
@@ -120,7 +121,7 @@ class TemplateParser(BaseExtension):
                 loader=self.loader,
                 **self.config
             )
-            compiled_path = str(TEMPLATE_DIR.joinpath('.compiled'))
+            compiled_path = str(self.tmpl_dir.joinpath('.compiled'))
             self.env.compile_templates(
                 target=compiled_path, zip='deflated'
             )

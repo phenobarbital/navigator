@@ -4,8 +4,8 @@ from pathlib import Path
 import logging
 import aiohttp
 from aiohttp import WSMsgType, web # , web_urldispatcher
+from navconfig import BASE_DIR
 from navigator_session import get_session
-from navigator.conf import BASE_DIR
 from navigator.libs.json import json_encoder
 
 

@@ -16,25 +16,14 @@ from navconfig.logging import (
 #### BASIC Configuration
 APP_NAME = config.get('APP_NAME', fallback='Navigator')
 APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
-APP_DIR = BASE_DIR.joinpath("apps")
-
-if not APP_DIR.is_dir():
-    logging.warning("NAV: App Folder (apps/) is missing, you can't use subApp functionality.")
-
-logging.debug(f'::: STARTING APP: {APP_NAME} in path: {APP_DIR} ::: ')
-
-APP_HOST = config.get('APP_HOST', fallback='0.0.0.0')
-APP_PORT = config.get('APP_PORT', fallback=5000)
-APP_URL = config.get('APP_URL', fallback=f"http://localhost:{APP_PORT}")
+logging.debug(f'::: STARTING APP: {APP_NAME} ::: ')
 
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
-TEMPLATE_DIR = BASE_DIR.joinpath("templates")
-TEMPLATE_DEBUG = config.getboolean('TEMPLATE_DEBUG', fallback=False)
 SERVICES_DIR = BASE_DIR.joinpath("services")
 HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
-STATIC_DIR = config.get('STATIC_DIR', fallback='static/')
+
 # Temp File Path
 files_path = BASE_DIR.joinpath("temp")
 
@@ -71,12 +60,11 @@ SSL Support.
 """
 USE_SSL = config.getboolean("SSL", section="ssl", fallback=False)
 print('USE SSL:: ', USE_SSL)
-
 if USE_SSL is True:
     SSL_CERT = config.get("CERT", section="ssl", fallback=None)
     SSL_KEY = config.get("KEY", section="ssl", fallback=None)
     CA_FILE = config.get('ROOT_CA', section="ssl", fallback=None)
-    PREFERRED_URL_SCHEME = config.get("PREFERRED_URL_SCHEME", section="ssl", fallback='http')
+    PREFERRED_URL_SCHEME = config.get("PREFERRED_URL_SCHEME", section="ssl", fallback='https')
     if SSL_KEY is None:
         PREFERRED_URL_SCHEME = "http"
 else:
@@ -164,8 +152,8 @@ AUTH_USER_MODEL = config.get(
 AUTH_GROUP_MODEL = config.get(
     "AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group"
 )
-AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
-AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', section="auth", fallback=APP_URL)
+AUTH_REDIRECT_URI = config.get('AUTH_REDIRECT_URI', section="auth")
+AUTH_LOGIN_FAILED_URI = config.get('AUTH_REDIRECT_URI', section="auth")
 
 DEFAULT_MAPPING = {
     "user_id": "user_id",
@@ -212,7 +200,9 @@ except ImportError:
     try:
         from settings.settings import * # pylint: disable=W0401,W0614
     except (ImportError):
-        logging.warning('Missing *Settings* Module, Settings is required for configuration.')
+        logging.warning(
+            'Missing *Settings* Module, Settings is required for fine-tune configuration.'
+        )
 
 
 #### Final: Config dict for AIOHTTP

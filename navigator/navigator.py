@@ -10,35 +10,21 @@ from typing import (
     Any,
     Union
 )
+from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
+from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
 import aiohttp_cors
+from navconfig import config
 from navconfig.logging import logging
-from datamodel import BaseModel
-from navigator.conf import (
-    DEBUG,
-    APP_NAME,
-    APP_HOST,
-    APP_PORT,
-    EMAIL_CONTACT,
-    Context,
-    USE_SSL,
-    SSL_CERT,
-    SSL_KEY,
-    CA_FILE
-)
+from navigator.applications import BaseHandler
 from navigator.types import BaseApplication
 from navigator.functions import cPrint
-from navigator.applications import (
-    AppBase,
-    AppHandler,
-    app_startup
-)
 from navigator.exceptions import (
     NavException,
     ConfigError,
@@ -75,26 +61,23 @@ class Application(BaseApplication):
     def __init__(
         self, # pylint: disable=W0613
         *args: P.args,
-        app: AppHandler = None,
+        app: BaseHandler = None,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
-        version: str = "0.0.1",
         enable_jinja2: bool = False,
         template_dirs: list = None,
         **kwargs: P.kwargs
     ) -> None:
-        self.version = version
-        self.use_ssl = USE_SSL
-        self.description = description
-        self.contact = contact
-        if not contact:
-            self.contact = EMAIL_CONTACT
-        self.title = title if title else APP_NAME
-        self.path = None
-        self.host = APP_HOST
-        self.port = APP_PORT
-        self.debug = DEBUG
+        super(
+            Application, self
+        ).__init__(
+            *args,
+            title=title,
+            contact=contact,
+            description=description,
+            **kwargs
+        )
         # getting the application Logger
         self._logger = get_logger(self.title)
         if self.debug is False:
@@ -119,9 +102,19 @@ class Application(BaseApplication):
                     shutdown(self._loop, s)
                 )
             )
+        from navigator.conf import Context # pylint: disable=C0415
+        # here:
         if not app:
-            # create an instance of AppHandler
-            self.app = AppBase(Context, evt=self._loop, **kwargs)
+            default_app = config.get('default_app', fallback='AppHandler')
+            try:
+                cls = import_module('navigator.applications.types', package=default_app)
+                app_obj = getattr(cls, default_app)
+                # create an instance of AppHandler
+                self.app = app_obj(Context, evt=self._loop, **kwargs)
+            except ImportError as ex:
+                raise NavException(
+                    f"Cannot Import default App class {default_app}: {ex}"
+                ) from ex
         else:
             self.app = app(Context, evt=self._loop, **kwargs)
 
@@ -145,8 +138,18 @@ class Application(BaseApplication):
         # setup The Application and Sub-Applications Startup
         installer = ApplicationInstaller()
         INSTALLED_APPS: list = installer.installed_apps()
-        # Context["INSTALLED_APPS"] = INSTALLED_APPS
-        app_startup(INSTALLED_APPS, app, Context)
+        # load dynamically the app Startup:
+        try:
+            app_init = config.get('APP_STARTUP', fallback='navigator.applications.startup')
+            cls = import_module(
+                app_init, package='app_startup'
+            )
+            app_startup = getattr(cls, 'app_startup')
+            app_startup(INSTALLED_APPS, app, context=app['config'])
+        except ImportError as ex:
+            raise NavException(
+                f"Exception: Can't load Application Startup: {app_init}"
+            ) from ex
         # Configure Routes
         self.app.configure()
         cors = aiohttp_cors.setup(
@@ -364,6 +367,7 @@ class Application(BaseApplication):
         Description: Validate Request input using a Datamodel
         Args:
             model (Union[dataclass,BaseModel]): Model can be a dataclass or BaseModel.
+            kwargs: Any other data passed as arguments to function.
 
         Returns:
             web.Response: add to Handler a variable with data validated.
@@ -463,19 +467,25 @@ class Application(BaseApplication):
         """run.
         Starting App.
         """
+        ### getting configuration (on runtime)
+        from navigator import conf # pylint: disable=C0415
         # getting the resource App
         app = self.setup_app()
         if self.debug:
             cPrint(' :: Running in DEBUG mode :: ', level='DEBUG')
             logging.debug(' :: Running in DEBUG mode :: ')
         if self.use_ssl:
-            if CA_FILE:
+            ca_file = conf.CA_FILE
+            if ca_file:
                 ssl_context = ssl.create_default_context(
-                    ssl.Purpose.SERVER_AUTH, cafile=CA_FILE
+                    ssl.Purpose.SERVER_AUTH, cafile=ca_file
                 )
             else:
                 ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-            ssl_context.load_cert_chain(SSL_CERT, SSL_KEY)
+            ### getting Certificates:
+            ssl_cert = conf.SSL_CERT
+            ssl_key = conf.SSL_KEY
+            ssl_context.load_cert_chain(ssl_cert, ssl_key)
             try:
                 web.run_app(
                     app, host=self.host, port=self.port, ssl_context=ssl_context

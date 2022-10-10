@@ -316,4 +316,4 @@ class BaseApp(AppConfig):
     __version__ = '0.0.1'
     _name: str = None
     app_description = """NAVIGATOR"""
-    enable_pgpool: bool = True
+    enable_pgpool: bool = False

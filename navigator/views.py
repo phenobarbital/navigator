@@ -30,7 +30,6 @@ from navigator.exceptions import (
 )
 from navigator.libs.json import JSONContent, json_encoder, json_decoder
 from navigator.responses import JSONResponse
-from navigator.conf import default_dsn
 
 
 DEFAULT_JSON_ENCODER = json_encoder
@@ -495,7 +494,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
 
 
 class DataView(BaseView):
-    async def asyncdb(self, driver: str = 'pg', params: dict = None):
+    async def asyncdb(self, driver: str = 'pg', dsn: str = None, params: dict = None):
         try:
             conn = None
             try:
@@ -508,7 +507,7 @@ class DataView(BaseView):
                     }
                 else:
                     args = {
-                        "dsn": default_dsn
+                        "dsn": dsn
                     }
                 # getting database connection directly:
                 db = AsyncDB(driver, **args)

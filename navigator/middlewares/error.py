@@ -34,8 +34,11 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
         use_template = True
     name = app['name']
     if response:
+        if isinstance(response, Exception):
+            message = response.reason
+        else:
+            message = response.message
         status = response.status
-        message = response.message
         ct = response.content_type
     else:
         message = None
@@ -92,7 +95,7 @@ async def error_middleware(
         except Exception as ex:
             logging.warning(f'Request {request} has failed with exception: {ex!r}')
             if DEBUG is True:
-                    return manage_exception(app, status=ex.status, ex=ex)
+                    return manage_exception(app, status=ex, ex=ex)
             else:
                 raise
         return await handler(request)

@@ -10,6 +10,7 @@ __pycache__
 *.pyc
 # External Extensions
 extensions/*
+services/*
 apps/*
 docs/
 build/

@@ -150,7 +150,7 @@ async def error_middleware(
         except Exception as ex: # pylint: disable=W0703
             logging.warning(f'Request {request} has failed with exception: {ex!r}')
             if DEBUG is True:
-                    return manage_exception(app, status=ex, ex=ex)
+                    return manage_exception(app, status=500, ex=ex)
             else:
                 raise
         return await handler(request)

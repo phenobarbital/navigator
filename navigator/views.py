@@ -151,6 +151,11 @@ class BaseHandler(CorsViewMixin):
             **kwargs,
         }
         if state == 500:  # bad request
+            args = {
+                "text": self._json.dumps(response_obj),
+                "reason": "Server Error",
+                "content_type": "application/json"
+            }
             obj = web.HTTPInternalServerError(**args)
         else:
             obj = web.HTTPServerError(**args)

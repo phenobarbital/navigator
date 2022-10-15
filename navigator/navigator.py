@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-import sys
 import ssl
-import signal
 import asyncio
 import inspect
 from functools import wraps
@@ -22,33 +20,21 @@ import sockjs
 import aiohttp_cors
 from navconfig import config
 from navconfig.logging import logging
-from navigator.applications import BaseHandler
-from navigator.types import BaseApplication
+from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
 from navigator.exceptions import (
     NavException,
     ConfigError,
     InvalidArgument
 )
-# Exception Handlers
-from navigator.exceptions.handlers import (
-    nav_exception_handler,
-    shutdown
-)
 # Template Extension.
 from navigator.template import TemplateParser
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
-from navigator.utils.functions import get_logger
 from navigator.libs.json import json_encoder
-from .apps import ApplicationInstaller
-
-
-if sys.version_info < (3, 10):
-    from typing_extensions import ParamSpec
-else:
-    from typing import ParamSpec
-P = ParamSpec("P")
+from navigator.types import WebApp
+from .applications.base import BaseApplication
+from .applications.startup import ApplicationInstaller
 
 
 class Application(BaseApplication):
@@ -56,73 +42,48 @@ class Application(BaseApplication):
 
         Main class for Navigator Application.
     Args:
-        object (_type_): _description_
+        Handler (BaseHandler): Main (principal) Application to be wrapped by Navigator.
     """
     def __init__(
         self, # pylint: disable=W0613
-        *args: P.args,
-        app: BaseHandler = None,
+        handler: BaseHandler = None,
         title: str = '',
         description: str = 'NAVIGATOR APP',
         contact: str = '',
         enable_jinja2: bool = False,
         template_dirs: list = None,
-        **kwargs: P.kwargs
+        **kwargs
     ) -> None:
         super(
             Application, self
         ).__init__(
-            *args,
+            handler=handler,
             title=title,
             contact=contact,
             description=description,
             **kwargs
         )
-        # getting the application Logger
-        self._logger = get_logger(self.title)
-        if self.debug is False:
-            # also, disable logging for 'aiohttp.access'
-            aio = logging.getLogger('aiohttp.access')
-            aio.setLevel(logging.CRITICAL)
-        # template parser
         self.enable_jinja2 = enable_jinja2
         self.template_dirs = template_dirs
-        # configuring asyncio loop
-        try:
-            self._loop = asyncio.new_event_loop()
-        except RuntimeError:
-            self._loop = asyncio.new_event_loop()
-        self._loop.set_exception_handler(nav_exception_handler)
-        asyncio.set_event_loop(self._loop)
-        # May want to catch other signals too
-        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
-        for s in signals:
-            self._loop.add_signal_handler(
-                s, lambda s=s: asyncio.create_task(
-                    shutdown(self._loop, s)
-                )
-            )
         from navigator.conf import Context # pylint: disable=C0415
         # here:
-        if not app:
-            default_app = config.get('default_app', fallback='AppHandler')
+        if not handler:
+            default_handler = config.get('default_handler', fallback='AppHandler')
             try:
-                cls = import_module('navigator.applications.types', package=default_app)
-                app_obj = getattr(cls, default_app)
+                cls = import_module('navigator.handlers.types', package=default_handler)
+                app_obj = getattr(cls, default_handler)
                 # create an instance of AppHandler
-                self.app = app_obj(Context, evt=self._loop, **kwargs)
+                print('K ', kwargs)
+                self.handler = app_obj(Context, evt=self._loop, **kwargs)
             except ImportError as ex:
                 raise NavException(
-                    f"Cannot Import default App class {default_app}: {ex}"
+                    f"Cannot Import default App Handler {default_handler}: {ex}"
                 ) from ex
         else:
-            self.app = app(Context, evt=self._loop, **kwargs)
+            self.handler = handler(Context, evt=self._loop, **kwargs)
 
-    def active_extensions(self) -> list:
-        return self.app.App.extensions.keys()
-
-    def setup_app(self) -> web.Application:
-        app = self.get_app()
+    def setup_app(self) -> WebApp:
+        app = self.handler.app
         if self.enable_jinja2 is True:
             try:
                 # TODO: passing more parameters via configuration.
@@ -150,8 +111,8 @@ class Application(BaseApplication):
             raise NavException(
                 f"Exception: Can't load Application Startup: {app_init}"
             ) from ex
-        # Configure Routes
-        self.app.configure()
+        # Configure Routes and other things:
+        self.handler.configure()
         cors = aiohttp_cors.setup(
             app,
             defaults={
@@ -164,8 +125,9 @@ class Application(BaseApplication):
                 )
             },
         )
-        self.app.setup_cors(cors)
-        self.app.setup_docs()
+        self.handler.setup_cors(cors)
+        self.handler.setup_docs()
+        ## Return aiohttp Application.
         return app
 
     def add_websockets(self) -> None:
@@ -188,7 +150,7 @@ class Application(BaseApplication):
         """
         # TODO: avoid to add same route different times
         try:
-            self.get_app().add_routes(routes)
+            self.handler.add_routes(routes)
         except Exception as ex:
             raise NavException(
                 f"Error adding routes: {ex}"
@@ -246,7 +208,7 @@ class Application(BaseApplication):
         """
 
         def _decorator(func):
-            self.app.App.router.add_route(
+            self.get_app().router.add_route(
                 method, route, self.threaded_func(func, threaded)
             )
             return func
@@ -255,7 +217,7 @@ class Application(BaseApplication):
 
     def add_get(self, route: str, threaded: bool = False) -> Callable:
         def _decorator(func):
-            self.app.App.router.add_get(
+            self.get_app().router.add_get(
                 route, self.threaded_func(func, threaded), allow_head=False
             )
             return func
@@ -267,7 +229,7 @@ class Application(BaseApplication):
 
     def get(self, route: str):
         def _decorator(func):
-            self.app.App.router.add_get(route, func)
+            self.get_app().router.add_get(route, func)
 
             @wraps(func)
             async def _wrap(request, *args, **kwargs):
@@ -284,11 +246,11 @@ class Application(BaseApplication):
 
     @property
     def router(self):
-        return self.app.App.router
+        return self.get_app().router
 
     def post(self, route: str):
         def _decorator(func):
-            self.app.App.router.add_post(route, func)
+            self.get_app().router.add_post(route, func)
 
             @wraps(func)
             async def _wrap(request, *args, **kwargs):

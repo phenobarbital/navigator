@@ -164,38 +164,3 @@ async def error_middleware(
         # return await handler(request)
         return response
     return middleware_error
-
-# async def error_middleware(
-#     app: web.Application,
-#     handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
-# ) -> web.StreamResponse:
-#     @web.middleware
-#     async def middleware_error(request: web.Request):
-#         try:
-#             response = await handler(request)
-#             if response.status in error_codes:
-#                 if DEBUG is True:
-#                     return manage_exception(app, response=response)
-#                 else:
-#                     return response
-#         except web.HTTPException as ex:
-#             if ex.status == 404:
-#                 if DEBUG is True:
-#                     return manage_notfound(app, request=request, status=ex.status, ex=ex)
-#             elif ex.status in error_codes:
-#                 if DEBUG is True:
-#                     return manage_exception(app, status=ex.status, ex=ex)
-#                 else:
-#                     raise
-#             else:
-#                 raise
-#         except asyncio.CancelledError:
-#             pass
-#         except Exception as ex: # pylint: disable=W0703
-#             logging.warning(f'Request {request} has failed with exception: {ex!r}')
-#             if DEBUG is True:
-#                     return manage_exception(app, status=500, ex=ex)
-#             else:
-#                 raise
-#         return await handler(request)
-#     return middleware_error

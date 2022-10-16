@@ -61,6 +61,8 @@ class AppHandler(BaseHandler):
 
     def CreateApp(self) -> web.Application:
         app = super(AppHandler, self).CreateApp()
+        # add the error middleware at the beginning:
+        app.middlewares.append(error_middleware)
         # Setup Authentication (if enabled):
         if self.enable_auth is True:
             self._auth = AuthHandler()
@@ -75,8 +77,6 @@ class AppHandler(BaseHandler):
                 app.middlewares.append(middleware)
         except (ValueError, TypeError):
             pass
-        # add the error middleware at end:
-        # app.middlewares.append(error_middleware)
         return app
 
     def setup_docs(self) -> None:

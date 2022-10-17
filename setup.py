@@ -164,7 +164,7 @@ setup(
         "PyJWT==2.4.0",
         "pycryptodome==3.15.0",
         "rncryptor==3.3.0",
-        "msal==1.17.0",
+        "msal==1.20.0",
         "aiogoogle==3.1.2",
         "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",

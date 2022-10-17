@@ -2,14 +2,9 @@
 # Copyright (C) 2018-present Jesus Lara
 #
 import asyncio
-import signal
 from typing import Optional
 from navconfig import config, DEBUG
 from navconfig.logging import logging, loglevel
-from navigator.exceptions.handlers import (
-    nav_exception_handler,
-    shutdown
-)
 from navigator.types import WebApp
 from navigator.conf import Context # pylint: disable=C0415
 from navigator.handlers.base cimport BaseHandler
@@ -23,6 +18,7 @@ cdef class BaseApplication:
         title: str = '',
         contact: str = '',
         description: str = 'NAVIGATOR APP',
+        evt: asyncio.AbstractEventLoop = None,
         **kwargs,
     ) -> None:
         ### Application handler:
@@ -43,21 +39,8 @@ cdef class BaseApplication:
             # also, disable logging for 'aiohttp.access'
             aio = logging.getLogger('aiohttp.access')
             aio.setLevel(logging.CRITICAL)
-        # configuring asyncio loop
-        try:
-            self._loop = asyncio.new_event_loop()
-        except RuntimeError:
-            self._loop = asyncio.new_event_loop()
-        self._loop.set_exception_handler(nav_exception_handler)
-        asyncio.set_event_loop(self._loop)
-        # May want to catch other signals too
-        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
-        for s in signals:
-            self._loop.add_signal_handler(
-                s, lambda s=s: asyncio.create_task(
-                    shutdown(self._loop, s)
-                )
-            )
+        ### asyncio loop
+        self._loop = evt
 
     def get_app(self) -> WebApp:
         return self.handler.app

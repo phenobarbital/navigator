@@ -48,7 +48,7 @@ cdef class BaseHandler:
         if evt:
             self._loop = evt
         else:
-            self._loop = asyncio.new_event_loop()
+            self._loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self._loop)
         ### create the App inside Application Wrapper.
         self.app = self.CreateApp()
@@ -68,8 +68,7 @@ cdef class BaseHandler:
         self.cors = None
         app = web.Application(
             logger=self.logger,
-            client_max_size=(1024 * 1024) * 1024,
-            loop=self._loop
+            client_max_size=(1024 * 1024) * 1024
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app["name"] = self._name

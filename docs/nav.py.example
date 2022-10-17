@@ -1,4 +1,4 @@
-### called: gunicorn nav:navigator -c gunicorn_config.py
+### Call with: gunicorn nav:navigator -c gunicorn_config.py
 import asyncio
 import uvloop
 from app import Main
@@ -8,7 +8,7 @@ async def navigator():
     asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
     uvloop.install()
     # define new Application
-    app = Application(app=Main)
+    app = Application(Main)
     # Enable WebSockets Support
     app.add_websockets()
     # returns App.

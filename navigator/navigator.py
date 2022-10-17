@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import ssl
 import asyncio
+import signal
 import inspect
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
@@ -20,6 +21,10 @@ import sockjs
 import aiohttp_cors
 from navconfig import config
 from navconfig.logging import logging
+from navigator.exceptions.handlers import (
+    nav_exception_handler,
+    shutdown
+)
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
 from navigator.exceptions import (
@@ -66,6 +71,21 @@ class Application(BaseApplication):
         self.enable_jinja2 = enable_jinja2
         self.template_dirs = template_dirs
         from navigator.conf import Context # pylint: disable=C0415
+        # configuring asyncio loop
+        try:
+            self._loop = asyncio.get_event_loop()
+        except RuntimeError:
+            self._loop = asyncio.new_event_loop()
+        self._loop.set_exception_handler(nav_exception_handler)
+        asyncio.set_event_loop(self._loop)
+        # May want to catch other signals too
+        signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
+        for s in signals:
+            self._loop.add_signal_handler(
+                s, lambda s=s: asyncio.create_task(
+                    shutdown(self._loop, s)
+                )
+            )
         # here:
         if not handler:
             default_handler = config.get('default_handler', fallback='AppHandler')

@@ -7,7 +7,7 @@ from collections.abc import Callable
 from aiohttp import web, web_response
 from aiohttp.abc import AbstractView
 from asyncdb.exceptions import ProviderError, DriverError
-from navigator.applications.base import BaseHandler
+from navconfig import BASE_DIR
 from navigator.connections import PostgresPool
 from navigator.middlewares.error import error_middleware
 from navigator.responses import JSONResponse
@@ -17,9 +17,6 @@ from navigator.exceptions import (
     ConfigError
 )
 from .base import BaseHandler
-from .conf import (
-    APP_DIR
-)
 
 
 class AppHandler(BaseHandler):
@@ -30,7 +27,6 @@ class AppHandler(BaseHandler):
     can register Callbacks, Signals, Route Initialization, etc
     """
     _middleware: list = []
-    auto_doc: bool = False
     enable_auth: bool = False
     enable_db: bool = False
     enable_static: bool = False
@@ -65,6 +61,8 @@ class AppHandler(BaseHandler):
 
     def CreateApp(self) -> web.Application:
         app = super(AppHandler, self).CreateApp()
+        # add the error middleware at the beginning:
+        app.middlewares.append(error_middleware)
         # Setup Authentication (if enabled):
         if self.enable_auth is True:
             self._auth = AuthHandler()
@@ -79,25 +77,7 @@ class AppHandler(BaseHandler):
                 app.middlewares.append(middleware)
         except (ValueError, TypeError):
             pass
-        # add the error middleware at end:
-        app.middlewares.append(error_middleware)
         return app
-
-    def configure(self) -> None:
-        """
-        configure.
-            making configuration of routes
-        """
-        if self.enable_static is True:
-            # adding static directory.
-            self.app.router.add_static(
-                "/static/",
-                path=self.staticdir,
-                name='static',
-                append_version=True,
-                show_index=True,
-                follow_symlinks=True
-            )
 
     def setup_docs(self) -> None:
         """
@@ -105,55 +85,42 @@ class AppHandler(BaseHandler):
         description: define CORS configuration
         """
         # Configure CORS, swagger and documentation from all routes.
-        if self.auto_doc is True:
-            for route in list(self.app.router.routes()):
-                fn = route.handler
-                signature = inspect.signature(fn)
-                doc = fn.__doc__
-                if doc is None and "OPTIONS" not in route.method:
-                    # TODO: making more efficiently
-                    fnName = fn.__name__
-                    if fnName in ["_handle", "channel_handler", "WebSocket"]:
-                        continue
-                    if signature.return_annotation:
-                        response = str(signature.return_annotation)
-                    else:
-                        response = web_response.Response
-                    doc = """
-                    summary: {fnName}
-                    description: Auto-Doc for Function {fnName}
-                    tags:
-                    - Utilities
-                    produces:
-                    - application/json
-                    responses:
-                        "200":
-                            description: Successful operation
-                            content:
-                                {response}
-                        "404":
-                            description: Not found
-                        "405":
-                            description: invalid HTTP Method
-                    """.format(
-                        fnName=fnName, response=response
-                    )
-                    try:
-                        fn.__doc__ = doc
-                    except (AttributeError, ValueError):
-                        pass
-
-    def setup_cors(self, cors):
         for route in list(self.app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    cors.add(route, webview=True)
+            fn = route.handler
+            signature = inspect.signature(fn)
+            doc = fn.__doc__
+            if doc is None and "OPTIONS" not in route.method:
+                # TODO: making more efficiently
+                fnName = fn.__name__
+                if fnName in ["_handle", "channel_handler", "WebSocket"]:
+                    continue
+                if signature.return_annotation:
+                    response = str(signature.return_annotation)
                 else:
-                    cors.add(route)
-            except (TypeError, ValueError):
-                pass
+                    response = web_response.Response
+                doc = """
+                summary: {fnName}
+                description: Auto-Doc for Function {fnName}
+                tags:
+                - Utilities
+                produces:
+                - application/json
+                responses:
+                    "200":
+                        description: Successful operation
+                        content:
+                            {response}
+                    "404":
+                        description: Not found
+                    "405":
+                        description: invalid HTTP Method
+                """.format(
+                    fnName=fnName, response=response
+                )
+                try:
+                    fn.__doc__ = doc
+                except (AttributeError, ValueError):
+                    pass
 
 
 class AppConfig(AppHandler):
@@ -177,7 +144,9 @@ class AppConfig(AppHandler):
         self._name = type(self).__name__
         self._listener: Callable = None
         super(AppConfig, self).__init__(*args, **kwargs)
-        self.path = APP_DIR.joinpath(self._name)
+        if self.path is not None:
+            path = BASE_DIR.joinpath('apps')
+            self.path = path.joinpath(self._name)
         # set the setup_routes
         self.setup_routes()
         # authorization
@@ -307,13 +276,3 @@ class AppConfig(AppHandler):
         if self.enable_pgpool is True:
             db = app['Main']['database']
             app['database'] = db
-
-class BaseApp(AppConfig):
-    """BaseApp.
-
-    This App making responses by default when app doesn't exists but is added to installed (fallback App.)
-    """
-    __version__ = '0.0.1'
-    _name: str = None
-    app_description = """NAVIGATOR"""
-    enable_pgpool: bool = False

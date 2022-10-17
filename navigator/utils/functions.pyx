@@ -1,3 +1,6 @@
+# cython: language_level=3, embedsignature=True, boundscheck=False, wraparound=True, initializedcheck=False
+# Copyright (C) 2018-present Jesus Lara
+#
 from navconfig.logging import logging, loglevel
 
 
@@ -11,7 +14,7 @@ def get_logger(str logger_name):
     return logger
 
 
-class SafeDict(dict):
+cdef class SafeDict(dict):
     """
     SafeDict.
 

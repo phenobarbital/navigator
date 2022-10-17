@@ -1,29 +1,28 @@
+# cython: language_level=3, embedsignature=True, boundscheck=False, wraparound=True, initializedcheck=False
+# Copyright (C) 2018-present Jesus Lara
+#
 import asyncio
+import inspect
 from collections.abc import Callable
-from abc import ABC
 from aiohttp import web
+from aiohttp.abc import AbstractView
 import aiohttp_cors
-from navconfig import DEBUG
+from pathlib import Path
+from navconfig import config, DEBUG, BASE_DIR
 from navigator.functions import cPrint
 from navigator.types import WebApp
 from navigator.utils.functions import get_logger
 # make a home and a ping class
 from navigator.resources import ping
-# get the default Router system.
-from navigator.routes import Router
-from .conf import (
-    STATIC_DIR
-)
+from navigator.exceptions import NavException
 
 
-class BaseHandler(ABC):
-    """
-    BaseHandler.
+cdef class BaseHandler:
+    """BaseHandler.
 
-    Abstract class for all Application constructors.
+    Base for all application handlers, is an Abstract class for all Application constructors.
     """
     _middleware: list = []
-    auto_doc: bool = False
     enable_static: bool = False
     staticdir: str = None
 
@@ -33,6 +32,7 @@ class BaseHandler(ABC):
         app_name: str = None,
         evt: asyncio.AbstractEventLoop = None
     ) -> None:
+
         # App:
         self.app: WebApp = None
         # App Name
@@ -41,15 +41,16 @@ class BaseHandler(ABC):
         else:
             self._name = app_name
         self.debug = DEBUG
-        if not self.staticdir:
-            self.staticdir = STATIC_DIR
         self.logger = get_logger(self._name)
+        if self.staticdir is None:
+            self.staticdir = config.get('STATIC_DIR', fallback='static/')
         # configuring asyncio loop
         if evt:
             self._loop = evt
         else:
-            self._loop = asyncio.new_event_loop()
+            self._loop = asyncio.get_event_loop()
         asyncio.set_event_loop(self._loop)
+        ### create the App inside Application Wrapper.
         self.app = self.CreateApp()
         # config
         self.app["config"] = context
@@ -61,26 +62,13 @@ class BaseHandler(ABC):
         self.app.on_response_prepare.append(self.on_prepare)
         self.app.cleanup_ctx.append(self.background_tasks)
 
-
-    def get_event_loop(self) -> asyncio.AbstractEventLoop:
-        return self._loop
-
-    @property
-    def App(self) -> WebApp:
-        return self.app
-
-    @property
-    def Name(self) -> str:
-        return self._name
-
     def CreateApp(self) -> WebApp:
         if self.debug:
             cPrint(f"SETUP APPLICATION: {self._name!s}")
         self.cors = None
         app = web.Application(
             logger=self.logger,
-            client_max_size=(1024 * 1024) * 1024,
-            router=Router()
+            client_max_size=(1024 * 1024) * 1024
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
         app["name"] = self._name
@@ -100,6 +88,58 @@ class BaseHandler(ABC):
             },
         )
         return app
+
+    def configure(self) -> None:
+        """
+        configure.
+            making configuration of routes and extensions.
+        """
+        if self.enable_static is True:
+            # adding static directory.
+            self.app.router.add_static(
+                "/static/",
+                path=self.staticdir,
+                name='static',
+                append_version=True,
+                show_index=True,
+                follow_symlinks=True
+            )
+
+    def setup_cors(self, cors):
+        for route in list(self.app.router.routes()):
+            try:
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    cors.add(route, webview=True)
+                else:
+                    cors.add(route)
+            except (TypeError, ValueError):
+                pass
+
+    def add_routes(self, routes: list) -> None:
+        """
+        add_routes
+        description: append a list of routes to routes dict
+        """
+        # TODO: avoid to add same route different times
+        try:
+            self.app.add_routes(routes)
+        except Exception as ex:
+            raise NavException(
+                f"Error adding routes: {ex}"
+            ) from ex
+
+    def event_loop(self) -> asyncio.AbstractEventLoop:
+        return self._loop
+
+    @property
+    def App(self) -> WebApp:
+        return self.app
+
+    @property
+    def Name(self) -> str:
+        return self._name
 
 
     async def background_tasks(self, app: WebApp): # pylint: disable=W0613
@@ -142,6 +182,7 @@ class BaseHandler(ABC):
         on_shutdown.
         description: Signal for customize the response when server is shutting down
         """
+
 
     async def app_startup(self, app: WebApp, connection: Callable):
         """app_startup

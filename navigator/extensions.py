@@ -8,7 +8,8 @@ from abc import ABC
 from navconfig import config
 from navconfig.logging import logging
 from navigator.exceptions import NavException, ConfigError
-from navigator.types import WebApp, BaseApplication
+from navigator.types import WebApp
+from .applications.base import BaseApplication
 
 if sys.version_info < (3, 10):
     from typing_extensions import ParamSpec

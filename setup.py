@@ -42,6 +42,18 @@ extensions = [
         sources=['navigator/types.pyx'],
         extra_compile_args=COMPILE_ARGS,
         language="c++"
+    ),
+    Extension(
+        name='navigator.applications.base',
+        sources=['navigator/applications/base.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c++"
+    ),
+    Extension(
+        name='navigator.handlers.base',
+        sources=['navigator/handlers/base.pyx'],
+        extra_compile_args=COMPILE_ARGS,
+        language="c++"
     )
 ]
 

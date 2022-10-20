@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import ssl
 import asyncio
 import signal
@@ -38,6 +37,8 @@ from navigator.template import TemplateParser
 from navigator.resources import WebSocket, channel_handler
 from navigator.libs.json import json_encoder
 from navigator.types import WebApp
+
+
 from .applications.base import BaseApplication
 from .applications.startup import ApplicationInstaller
 

@@ -73,14 +73,14 @@ class ConnectionHandler:
         pass
 
     async def startup(self, app: WebApp) -> None:
-        if 'database' in app:
+        if 'database' in app or self._register in app:
             # there is already a connection enabled to this Class:
             logging.debug(f'There is already a connection enabled on {app!r}')
             # any callable will be launch on connection startup.
             if callable(self._startup_):
                 await self._startup_(app, self.conn)
             return
-        logging.debug(f'Starting DB {self.driver} connection on App: {app!r}')
+        logging.debug(f'Starting DB {self.driver} connection on App: {self.name}')
         try:
             if self.pool_based:
                 self.conn = AsyncPool(

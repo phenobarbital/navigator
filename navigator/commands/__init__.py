@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 import importlib
-import os
 import sys
 import traceback
 from argparse import SUPPRESS, ArgumentParser, HelpFormatter
 from inspect import signature
 from io import TextIOBase
-from typing import Any, Callable, Dict, List
+from typing import Any, Dict, List
+from collections.abc import Callable
 
-from navigator import get_version
+from navigator.version import __version__
 from navigator.conf import INSTALLED_APPS
 from navigator.functions import cPrint
 
@@ -18,27 +18,20 @@ class CommandError(Exception):
     Exception Base Class for raise problems in the execution of a Command
     """
 
-    pass
-
 
 class CommandNotFound(Exception):
     """
     Exception Base Class for raise problems in the execution of a Command
     """
 
-    pass
-
 
 class BaseCommand(object):
-    parser: Callable
-    args: List = []
-    action: str = ""
     help: str = "Base Help Command"
     epilog: str = ""
 
     def __init__(self, args):
-        self.args = args
-        self.parser = ArgumentParser(
+        self.args: list = args
+        self.parser: Callable = ArgumentParser(
             description=self.help,
             epilog=self.epilog if self.epilog else self.help,
             add_help=False,
@@ -58,7 +51,7 @@ class BaseCommand(object):
             help="Return the Traceback on CommandError",
         )
         # get action:
-        self.action = self.args.pop(0)
+        self.action: str = self.args.pop(0)
         self.parse_arguments(self.parser)
 
     def write(self, message, level="INFO"):
@@ -70,29 +63,25 @@ class BaseCommand(object):
         parse_arguments.
             allow for subclassed comands to add custom arguments
         """
-        pass
 
     def get_version(self):
         """
         get_version
             Return the current Navigator Version
         """
-        return "Navigator: v.{}".format(get_version())
+        return f"Navigator: v.{__version__}"
 
     def handle(self, **kwargs):
         output: str = ""
         try:
-
             # calling the internal function:
             if not hasattr(self, self.action):
                 self.write(
-                    "Error: Method **{}** not found on {}".format(
-                        self.action, str(self)
-                    ),
+                    f"Error: Method **{self.action}** not found on {str(self)}",
                     level="ERROR",
                 )
                 raise CommandNotFound(
-                    "Method {} from {} not Found".format(self, self.action)
+                    f"Method {self.action} from {self!s} not Found"
                 )
             fn = getattr(self, self.action)
             # adding an epilog using the docstring
@@ -100,7 +89,10 @@ class BaseCommand(object):
             # parsing current arguments
             options = self.parser.parse_args(self.args)
             if options.debug:
-                self.write("Executing : {} Command.".format(self.action), level="DEBUG")
+                self.write(
+                    f"Executing : {self.action} Command.",
+                    level="DEBUG"
+                )
             sig = signature(fn)
             try:
                 if len(sig.parameters) > 0:
@@ -112,15 +104,17 @@ class BaseCommand(object):
                 if options.traceback:
                     print(traceback.format_exc())
                 raise CommandError(
-                    "Error Calling Method: {}, error: {}".format(self.action, err)
-                )
+                    f"Error Calling Method: {self.action}, error: {err}"
+                ) from err
         except Exception as err:
             if options.traceback:
                 print(traceback.format_exc())
-            raise CommandError("Error Parsing arguments: {}".format(err))
+            raise CommandError(
+                f"Error Parsing arguments: {err}"
+            ) from err
         finally:
             self.write(output, level="INFO")
-            return output
+            return output # pylint: disable=W0150
 
 
 def get_command(command: str = "troc", clsname: str = "", pathname: str = "navigator"):

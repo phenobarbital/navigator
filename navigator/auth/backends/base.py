@@ -32,6 +32,7 @@ from navigator.conf import (
     CREDENTIALS_REQUIRED,
     SECRET_KEY
 )
+from navigator.functions import cPrint
 # Authenticated Identity
 from navigator.auth.identities import Identity
 
@@ -71,6 +72,7 @@ class BaseAuthBackend(ABC):
     ):
         self._service = self.__class__.__name__
         self._session = None
+        self._app: web.Application = None # reference for Application
         # force using of credentials
         self.credentials_required = credentials_required
         self._credentials = None
@@ -103,7 +105,8 @@ class BaseAuthBackend(ABC):
         self.executor = ThreadPoolExecutor(max_workers=1)
 
     async def on_startup(self, app: web.Application):
-        pass
+        cPrint(f'Assign App to {app}')
+        self._app = app
 
     async def on_cleanup(self, app: web.Application):
         pass
@@ -111,7 +114,11 @@ class BaseAuthBackend(ABC):
     async def get_user(self, **search):
         """Getting User Object."""
         try:
-            user = await self.user_model.get(**search)
+            db = self._app['authdb']
+            async with await db.acquire() as conn:
+                self.user_model.Meta.connection = conn
+                print('SEARCH ', search)
+                user = await self.user_model.get(**search)
         except Exception as e:
             logging.error(f"Error getting User {search!s}")
             raise UserNotFound(
@@ -175,7 +182,7 @@ class BaseAuthBackend(ABC):
                     reason=f"Error Creating User Session: {err!s}"
                 )
             # to allowing request.user.is_authenticated
-        except Exception as err:
+        except Exception as err: # pylint: disable=W0703
             logging.exception(err)
 
     async def authorization_backends(self, app, handler, request):

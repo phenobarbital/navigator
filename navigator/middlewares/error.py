@@ -10,7 +10,7 @@ from navconfig.logging import logging
 from navigator.responses import HTMLResponse, JSONResponse
 
 
-error_codes = (400, 500, 501, 502, 503)
+error_codes = (400, 500, 501, 502, 503, -1)
 
 not_found = """
 <h1>{name}</h1>
@@ -87,6 +87,9 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
     else:
         use_template = False
     name = app['name']
+    if status == -1:
+        ct = 'text/html'
+        status = 500
     if response:
         if isinstance(response, Exception):
             message = response.reason
@@ -116,7 +119,8 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
         return JSONResponse(payload, status=status)
     else:
         if use_template is True:
-            pass
+            data = error_page.format(**payload)
+            return HTMLResponse(content=data, status=status)
         else:
             data = error_page.format(**payload)
             return HTMLResponse(content=data, status=status)
@@ -146,16 +150,17 @@ async def error_middleware(
             if ex.status == 404:
                 if DEBUG is True:
                     return manage_notfound(app, request=request, status=ex.status, ex=ex)
-                elif ex.status in error_codes:
-                    if DEBUG is True:
-                        return manage_exception(app, status=ex.status, ex=ex)
-                    else:
-                        raise
+            elif ex.status in error_codes:
+                if DEBUG is True:
+                    return manage_exception(app, status=ex.status, ex=ex)
                 else:
                     raise
+            else:
+                raise
         except asyncio.CancelledError:
             pass
         except Exception as ex: # pylint: disable=W0703
+            print('AQUI')
             logging.warning(f'Request {request} has failed with exception: {ex!r}')
             if DEBUG is True:
                 return manage_exception(app, status=500, ex=ex)

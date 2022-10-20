@@ -179,7 +179,7 @@ if mapping is not None:
         )
 
 
-USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="users")
+USERS_TABLE = config.get("AUTH_USERS_TABLE", fallback="vw_users")
 
 ALLOWED_HOSTS = [
     e.strip()

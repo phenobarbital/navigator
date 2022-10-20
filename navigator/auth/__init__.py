@@ -11,11 +11,9 @@ Supporting:
 from textwrap import dedent
 import importlib
 import logging
-from typing import (
-    Optional
-)
 from collections.abc import Iterable
 from aiohttp import web
+from asyncdb.exceptions import ProviderError, DriverError
 from navigator_session import (
     RedisStorage, SESSION_KEY
 )
@@ -33,6 +31,7 @@ from navigator.conf import (
     AUTHORIZATION_MIDDLEWARES,
     AUTH_USER_MODEL
 )
+from navigator.connections import PostgresPool
 from navigator.extensions import BaseExtension
 from navigator.responses import JSONResponse
 from .authorizations import *
@@ -322,6 +321,17 @@ class AuthHandler(BaseExtension):
         ) -> web.Application:
         ## calling parent Setup:
         super(AuthHandler, self).setup(app)
+        ## getting a database connection:
+        try:
+            # enable a pool-based database connection:
+            pool = PostgresPool(
+                name='NAV-AUTH'
+            )
+            pool.configure(app, register='authdb') # pylint: disable=E1123
+        except (ProviderError, DriverError) as ex:
+            raise web.HTTPServerError(
+                reason=f"Error creating Database connection: {ex}"
+            )
         # cleanup operations over authentication backends
         app.on_cleanup.append(
             self.on_cleanup

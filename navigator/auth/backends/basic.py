@@ -161,7 +161,7 @@ class BasicAuth(BaseAuthBackend):
                 raise InvalidAuth(err, state=401) from err
             except Exception as err:
                 raise NavException(
-                    err, state=500
+                    str(err), state=500
                 ) from err
             try:
                 userdata = self.get_userdata(user)

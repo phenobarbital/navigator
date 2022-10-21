@@ -4,8 +4,7 @@ import asyncio
 import traceback
 from collections.abc import Awaitable, Callable
 from aiohttp import web, hdrs
-from aiohttp.web_urldispatcher import SystemRoute
-from navconfig.conf import DEBUG
+from navconfig import DEBUG
 from navconfig.logging import logging
 from navigator.responses import HTMLResponse, JSONResponse
 

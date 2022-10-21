@@ -11,8 +11,6 @@ from navconfig import BASE_DIR
 from navigator.connections import PostgresPool
 from navigator.middlewares.error import error_middleware
 from navigator.responses import JSONResponse
-## Auth Extension
-from navigator.auth import AuthHandler
 from navigator.exceptions import (
     ConfigError
 )
@@ -27,8 +25,6 @@ class AppHandler(BaseHandler):
     can register Callbacks, Signals, Route Initialization, etc
     """
     _middleware: list = []
-    enable_auth: bool = False
-    enable_db: bool = False
     enable_static: bool = False
     staticdir: str = None
     enable_pgpool: bool = False
@@ -63,14 +59,6 @@ class AppHandler(BaseHandler):
         app = super(AppHandler, self).CreateApp()
         # add the error middleware at the beginning:
         app.middlewares.append(error_middleware)
-        # Setup Authentication (if enabled):
-        if self.enable_auth is True:
-            self._auth = AuthHandler()
-            # configuring authentication endpoints
-            self._auth.setup(
-                app=app,
-                handler=self
-            )
         # add the other middlewares:
         try:
             for middleware in self._middleware:

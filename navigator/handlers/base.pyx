@@ -114,7 +114,8 @@ cdef class BaseHandler:
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, RuntimeError):
+                # Already set-up CORS directions.
                 pass
 
     def add_routes(self, routes: list) -> None:

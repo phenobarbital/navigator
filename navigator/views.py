@@ -617,8 +617,11 @@ class ModelView(BaseView):
         required: true
         description: DB Model using asyncdb Model.
     """
+
+    model: Model = None
+
     def __init__(self, request, *args, **kwargs):
-        self.model: Model = None
+        # self.model: Model = None
         self.models: dict = {}
         super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated

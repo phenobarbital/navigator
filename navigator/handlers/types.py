@@ -67,6 +67,19 @@ class AppHandler(BaseHandler):
             pass
         return app
 
+    def setup_cors(self):
+        for route in list(self.app.router.routes()):
+            try:
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    self.cors.add(route, webview=True)
+                else:
+                    self.cors.add(route)
+            except (TypeError, ValueError, RuntimeError):
+                # Already set-up CORS directions.
+                pass
+
     def setup_docs(self) -> None:
         """
         setup_docs.

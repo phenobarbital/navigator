@@ -102,6 +102,19 @@ class Application(BaseApplication):
                 ) from ex
         else:
             self.handler = handler(Context, evt=self._loop, **kwargs)
+        # setup cors object:
+        self.cors = aiohttp_cors.setup(
+            self.get_app(),
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=3600,
+                )
+            },
+        )
 
     def setup_app(self) -> WebApp:
         app = self.handler.app
@@ -134,19 +147,7 @@ class Application(BaseApplication):
             ) from ex
         # Configure Routes and other things:
         self.handler.configure()
-        cors = aiohttp_cors.setup(
-            app,
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=3600,
-                )
-            },
-        )
-        self.handler.setup_cors(cors)
+        self.handler.setup_cors()
         self.handler.setup_docs()
         ## Return aiohttp Application.
         return app
@@ -249,9 +250,13 @@ class Application(BaseApplication):
         return web.Response(text=content)
 
     def get(self, route: str):
+        app = self.get_app()
         def _decorator(func):
-            self.get_app().router.add_get(route, func)
-
+            r = app.router.add_get(route, func)
+            try:
+                self.cors.add(r)
+            except RuntimeError:
+                pass # already added
             @wraps(func)
             async def _wrap(request, *args, **kwargs):
                 try:

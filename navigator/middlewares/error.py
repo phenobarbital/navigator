@@ -136,7 +136,7 @@ async def error_middleware(
     @web.middleware
     async def middleware_error(request: web.Request) -> web.StreamResponse:
         if request.method == hdrs.METH_OPTIONS:
-            return True
+            return await handler(request)
         ### checking for Errors:
         try:
             response = await handler(request)

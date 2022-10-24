@@ -105,19 +105,6 @@ cdef class BaseHandler:
                 follow_symlinks=True
             )
 
-    def setup_cors(self, cors):
-        for route in list(self.app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    cors.add(route, webview=True)
-                else:
-                    cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                # Already set-up CORS directions.
-                pass
-
     def add_routes(self, routes: list) -> None:
         """
         add_routes

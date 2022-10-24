@@ -653,8 +653,8 @@ class ModelView(BaseView):
     async def get_connection(self, driver: str = 'database'):
         try:
             if not self.model.Meta.connection:
-                db = await self.request.app[driver].acquire()
-                self.model.Meta.connection = db
+                self._connection = await self.request.app[driver].acquire()
+                self.model.Meta.connection = self._connection
         except Exception as err:
             raise Exception(
                 f"ModelView Error: Cannot get Connection: {err}"

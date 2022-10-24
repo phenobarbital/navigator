@@ -650,6 +650,16 @@ class ModelView(BaseView):
                     f"Model {table} Doesn't Exists"
                 ) from err
 
+    async def get_connection(self, driver: str = 'database'):
+        try:
+            if not self.model.Meta.connection:
+                db = await self.request.app[driver].acquire()
+                self.model.Meta.connection = db
+        except Exception as err:
+            raise Exception(
+                f"ModelView Error: Cannot get Connection: {err}"
+            ) from err
+
     async def get_data(self, params, args):
         try:
             if len(params) > 0:

@@ -28,41 +28,41 @@ cdef class NavException(Exception):
 cdef class InvalidArgument(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(406, message or f"Invalid Argument: {self.args!s}")
+        super().__init__(message or f"Invalid Argument: {self.args!s}", 406)
 
 cdef class ConfigError(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(500, message or f"Configuration Error.")
+        super().__init__(message or f"Configuration Error.", 500)
 
 ### Errors:
 cdef class ValidationError(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(410, message or "Bad Request: Validation Error")
+        super().__init__(message or "Bad Request: Validation Error", 410)
 
 #### Authentication / Authorization
 cdef class UserNotFound(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(404, message or "User doesn't exists.")
+        super().__init__(message or "User doesn't exists.", 404)
 
 cdef class Unauthorized(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(401, message or "Unauthorized")
+        super().__init__(message or "Unauthorized", 401)
 
 cdef class InvalidAuth(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(401, message or "Invalid Authentication")
+        super().__init__(message or "Invalid Authentication", 401)
 
 cdef class FailedAuth(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(403, message or "Failed Authorization")
+        super().__init__(message or "Failed Authorization", 403)
 
 cdef class AuthExpired(NavException):
 
     def __init__(self, str message = None):
-        super().__init__(410, message or "Gone: Authentication Expired.")
+        super().__init__(message or "Gone: Authentication Expired.", 410)

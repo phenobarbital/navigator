@@ -88,19 +88,19 @@ with open(version, 'r', encoding='utf-8') as meta:
                             '__description__',
                             '__author__',
                             '__license__', '__author_email__'):
-                        v = node.value
-                        if name.id == '__version__':
-                            __version__ = v.s
-                        if name.id == '__title__':
-                            __title__ = v.s
-                        if name.id == '__description__':
-                            __description__ = v.s
-                        if name.id == '__license__':
-                            __license__ = v.s
-                        if name.id == '__author__':
-                            __author__ = v.s
-                        if name.id == '__author_email__':
-                            __author_email__ = v.s
+                v = node.value
+                if name.id == '__version__':
+                    __version__ = v.s
+                if name.id == '__title__':
+                    __title__ = v.s
+                if name.id == '__description__':
+                    __description__ = v.s
+                if name.id == '__license__':
+                    __license__ = v.s
+                if name.id == '__author__':
+                    __author__ = v.s
+                if name.id == '__author_email__':
+                    __author_email__ = v.s
 
 setup(
     name=__title__,
@@ -143,11 +143,9 @@ setup(
         "asyncio==3.4.3",
         "uvloop==0.17.0",
         "navconfig",
-        "async-notify",
         "asyncdb[default]",
-        "navigator-session>=0.1.0",
         "typing-extensions>=4.3.0",
-        "aiofile==3.7.4",
+        "aiofile==3.8.1",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
@@ -161,12 +159,6 @@ setup(
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
-        "PyJWT==2.4.0",
-        "pycryptodome==3.15.0",
-        "rncryptor==3.3.0",
-        "msal==1.20.0",
-        "aiogoogle==3.1.2",
-        "okta-jwt-verifier==0.2.3",
         "aiologstash==2.0.0",
         "aiohttp-debugtoolbar==0.6.0",
         'python-slugify==6.1.1',

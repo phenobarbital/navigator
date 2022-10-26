@@ -1,6 +1,7 @@
 """
 JSON Encoder, Decoder.
 """
+from asyncpg.pgproto import pgproto
 from dataclasses import _MISSING_TYPE, MISSING
 from typing import Any, Union
 from decimal import Decimal
@@ -23,8 +24,17 @@ cdef class JSONContent:
             return float(obj)
         elif hasattr(obj, "isoformat"):
             return obj.isoformat()
+        elif isinstance(obj, pgproto.UUID):
+            return str(obj)
         elif hasattr(obj, "hex"):
             return obj.hex
+        elif hasattr(obj, 'lower'): # asyncPg Range:
+            up = obj.upper
+            if isinstance(up, int):
+                up = up - 1  # discrete representation
+            return [obj.lower, up]
+        elif hasattr(obj, 'tolist'): # numpy array
+            return obj.tolist()
         elif isinstance(obj, _MISSING_TYPE):
             return None
         elif obj == MISSING:

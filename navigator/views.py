@@ -12,6 +12,7 @@ from aiohttp.web_exceptions import (
     HTTPNoContent,
     HTTPNotImplemented
 )
+import orjson
 from orjson import JSONDecodeError
 import aiohttp_cors
 from aiohttp_cors import CorsViewMixin
@@ -259,7 +260,10 @@ class BaseHandler(CorsViewMixin):
     async def get_json(self, request: web.Request = None) -> Any:
         if not request:
             request = self.request
-        return await request.json(loads=DEFAULT_JSON_DECODER)
+        try:
+            return await request.json(loads=orjson.loads)
+        except ValidationError:
+            return None
 
     async def body(self, request: web.Request) -> str:
         body = None

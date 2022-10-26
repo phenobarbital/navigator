@@ -1,7 +1,6 @@
 """
 JSON Encoder, Decoder.
 """
-import uuid
 from asyncpg.pgproto import pgproto
 from dataclasses import _MISSING_TYPE, MISSING
 from typing import Any, Union
@@ -27,8 +26,6 @@ cdef class JSONContent:
             return obj.isoformat()
         elif isinstance(obj, pgproto.UUID):
             return str(obj)
-        elif isinstance(obj, uuid.UUID):
-            return obj
         elif hasattr(obj, "hex"):
             return obj.hex
         elif hasattr(obj, 'lower'): # asyncPg Range:
@@ -48,7 +45,7 @@ cdef class JSONContent:
         # decode back to str, as orjson returns bytes
         options = {
             "default": self.default,
-            "option": orjson.OPT_NAIVE_UTC | orjson.OPT_SERIALIZE_NUMPY| orjson.OPT_UTC_Z | orjson.OPT_NON_STR_KEYS
+            "option": orjson.OPT_NAIVE_UTC | orjson.OPT_SERIALIZE_NUMPY| orjson.OPT_UTC_Z
         }
         if kwargs:
             options = {**options, **kwargs}

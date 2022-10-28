@@ -57,6 +57,8 @@ def manage_notfound(app: web.Application, request: web.Request, response: web.Re
     else:
         message = None
         ct = 'text/html'
+    if status is None:
+        status = 404
     if ex is not None:
         error = ex.__class__.__name__
         detail = str(ex)
@@ -88,6 +90,8 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
     name = app['name']
     if status == -1:
         ct = 'text/html'
+        status = 500
+    elif status is None:
         status = 500
     if response:
         if isinstance(response, Exception):

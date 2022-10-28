@@ -274,6 +274,3 @@ class AppConfig(AppHandler):
         description: Signal for customize the response when server is started
         """
         await super(AppConfig, self).on_startup(app)
-        if self.enable_pgpool is True:
-            db = app['Main']['database']
-            app['database'] = db

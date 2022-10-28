@@ -85,6 +85,7 @@ def manage_notfound(app: web.Application, request: web.Request, response: web.Re
 def manage_exception(app: web.Application, response: web.Response = None, ex: BaseException = None, status: int = None) -> web.Response:
     message = None
     stacktrace = None
+    error = 'HTTP Error'
     ct = 'text/html'
     if 'template' in app:
         use_template = True
@@ -98,15 +99,26 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
         status = 500
     if response is not None:
         if isinstance(response, web.HTTPException):
+            error = response.__class__.__name__
             status = response.status
             ct = response.content_type
             message = str(response)
         elif isinstance(response, Exception):
+            error = response.__class__.__name__
             message = str(response)
             status = 500
+        elif isinstance(response, web.StreamResponse):
+            error = response.__class__.__name__
+            message = response.text
+            status = response.status
         else:
-            message = response.message
-            status = response.code
+            try:
+                error = response.__class__.__name__
+                message = response.message
+                status = response.code
+            except AttributeError:
+                status = 500
+                message = str(response)
     elif ex is not None:
         error = ex.__class__.__name__
         if isinstance(ex, web.HTTPException):

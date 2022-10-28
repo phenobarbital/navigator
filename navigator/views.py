@@ -1,7 +1,7 @@
 import asyncio
 import datetime
 import traceback
-from typing import Any, Optional
+from typing import Any, Optional, Union
 from collections.abc import Callable
 from urllib import parse
 from dataclasses import dataclass
@@ -73,14 +73,11 @@ class BaseHandler(CorsViewMixin):
     # function returns
     def no_content(
         self,
-        request: web.Request = None,
         headers: dict = None,
         content_type: str = "application/json",
     ) -> web.Response:
         if not headers:
             headers = {}
-        if not request:
-            request = self.request
         response = HTTPNoContent(content_type=content_type)
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
@@ -89,18 +86,18 @@ class BaseHandler(CorsViewMixin):
 
     def response(
         self,
-        request: web.Request = None,
-        response: str = "",
-        state: int = 200,
+        response: Union[str, dict] = "",
+        status: int = 200,
+        state: int = None,
         headers: dict = None,
         content_type: str = "application/json",
         **kwargs,
     ) -> web.Response:
         if not headers: # TODO: set to default headers.
             headers = {}
-        if not request:
-            request = self.request
-        args = {"status": state, "content_type": content_type, "headers": headers, **kwargs}
+        if state is not None: # backward compatibility
+            status = state
+        args = {"status": status, "content_type": content_type, "headers": headers}
         if isinstance(response, dict):
             args["text"] = self._json.dumps(response)
         else:
@@ -108,55 +105,55 @@ class BaseHandler(CorsViewMixin):
         return web.Response(**args)
 
     def json_response(
-            self, response: dict = None,
+            self,
+            response: dict = None,
             reason: str = None,
             headers: dict = None,
-            state: int = 200,
+            status: int = 200,
+            state: int = None,
             cls: Callable = None
         ):
         """json_response.
 
         Return a JSON-based Web Response.
         """
+        if state is not None: # backward compatibility
+            status = state
         if cls:
             logging.warning(
                 "Passing *cls* attribute is deprecated for json_response."
             )
         if not headers: # TODO: set to default headers.
             headers = {}
-        return JSONResponse(response, status=state, headers=headers, reason=reason)
+        return JSONResponse(response, status=status, headers=headers, reason=reason)
 
     def critical(
         self,
-        request: web.Request = None,
+        reason: str = None,
         exception: Exception = None,
         stacktrace: str = None,
-        state: int = 500,
+        status: int = 500,
+        state: int = None,
         headers: dict = None,
+        content_type: str = "application/json",
         **kwargs,
     ) -> web.Response:
         # TODO: process the exception object
         if not headers: # TODO: set to default headers.
             headers = {}
-        if not request:
-            request = self.request
+        if state is not None: # backward compatibility
+            status = state
         response_obj = {
-            "status": "Failed",
-            "reason": str(exception),
+            "message": reason if reason else "Failed",
+            "error": str(exception),
             "stacktrace": stacktrace,
         }
         args = {
             "text": self._json.dumps(response_obj),
             "reason": "Server Error",
-            "content_type": "application/json",
-            **kwargs,
+            "content_type": content_type
         }
-        if state == 500:  # bad request
-            args = {
-                "text": self._json.dumps(response_obj),
-                "reason": "Server Error",
-                "content_type": "application/json"
-            }
+        if status == 500:  # bad request
             obj = web.HTTPInternalServerError(**args)
         else:
             obj = web.HTTPServerError(**args)
@@ -166,42 +163,46 @@ class BaseHandler(CorsViewMixin):
 
     def error(
         self,
-        request: web.Request = None,
         response: dict = None,
         exception: Exception = None,
-        state: int = 400,
+        status: int = 400,
+        state: int = None,
         headers: dict = None,
+        content_type: str = 'application/json',
         **kwargs,
     ) -> web.Response:
         if not headers: # TODO: set to default headers.
             headers = {}
         # TODO: process the exception object
-        response_obj = {"status": "Failed"}
-        if not request:
-            request = self.request
+        response_obj = {}
+        if state is not None: # backward compatibility
+            status = state
         if exception:
             response_obj["reason"] = str(exception)
-        args = {**kwargs}
+        args = {
+            "content_type": content_type,
+            **kwargs
+        }
         if isinstance(response, dict):
             response_obj = {**response_obj, **response}
-            args["content_type"] = "application/json"
+            # args["content_type"] = "application/json"
             args["text"] = self._json.dumps(response_obj)
         else:
             args["body"] = response
         # defining the error
-        if state == 400:  # bad request
+        if status == 400:  # bad request
             obj = web.HTTPBadRequest(**args)
-        elif state == 401:  # unauthorized
+        elif status == 401:  # unauthorized
             obj = web.HTTPUnauthorized(**args)
-        elif state == 403:  # forbidden
+        elif status == 403:  # forbidden
             obj = web.HTTPForbidden(**args)
-        elif state == 404:  # not found
+        elif status == 404:  # not found
             obj = web.HTTPNotFound(**args)
-        elif state == 406: # Not acceptable
+        elif status == 406: # Not acceptable
             obj = web.HTTPNotAcceptable(**args)
-        elif state == 412:
+        elif status == 412:
             obj = web.HTTPPreconditionFailed(**args)
-        elif state == 428:
+        elif status == 428:
             obj = web.HTTPPreconditionRequired(**args)
         else:
             obj = web.HTTPBadRequest(**args)
@@ -210,12 +211,18 @@ class BaseHandler(CorsViewMixin):
         raise obj
 
     def not_implemented(
-        self, request: web.Request, response: dict = None, headers: dict = None, **kwargs # pylint: disable=W0613
+        self,
+        response: dict = None,
+        headers: dict = None,
+        content_type: str = 'application/json',
+        **kwargs # pylint: disable=W0613
     ) -> web.Response:
+        if not headers: # TODO: set to default headers.
+            headers = {}
         args = {
             "text": self._json.dumps(response),
             "reason": "Method not Implemented",
-            "content_type": "application/json",
+            "content_type": content_type,
             **kwargs,
         }
         response = HTTPNotImplemented(**args)
@@ -229,22 +236,35 @@ class BaseHandler(CorsViewMixin):
         response: dict = None,
         headers: dict = None,
         allowed: dict = None,
+        content_type: str = 'application/json',
         **kwargs,
     ) -> web.Response:
+        if not headers: # TODO: set to default headers.
+            headers = {}
         if not request:
             request = self.request
         if not allowed:
             allow = self._allowed
         else:
             allow = allowed
+        if response is None:
+            response = {
+                "message": f"Method {request.method} not Allowed.",
+                "allowed": allow
+            }
+            response = self._json.dumps(response)
+        elif isinstance(response, dict):
+            print('POR QUE ', response)
+            response = self._json.dumps(response)
         args = {
             "method": request.method,
-            "text": self._json.dumps(response),
+            "text": response,
             "reason": "Method not Allowed",
-            "content_type": "application/json",
+            "content_type": content_type,
             "allowed_methods": allow,
             **kwargs,
         }
+        print('ARGS ', args)
         if allowed:
             headers["Allow"] = ",".join(allow)
         else:

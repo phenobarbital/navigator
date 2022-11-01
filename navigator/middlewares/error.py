@@ -9,7 +9,7 @@ from navconfig.logging import logging
 from navigator.responses import HTMLResponse, JSONResponse
 
 
-error_codes = (400, 404, 500, 501, 502, 503, 0, -1)
+error_codes = (404, 500, 501, 502, 503, 0, -1)
 
 not_found = """
 <h1>{name}</h1>

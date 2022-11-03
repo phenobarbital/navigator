@@ -4,6 +4,7 @@ import asyncio
 import traceback
 from collections.abc import Awaitable, Callable
 from aiohttp import web, hdrs
+from aiohttp.web_urldispatcher import SystemRoute
 from navconfig import DEBUG
 from navconfig.logging import logging
 from navigator.responses import HTMLResponse, JSONResponse
@@ -164,6 +165,9 @@ async def error_middleware(
     """
     @web.middleware
     async def middleware_error(request: web.Request) -> web.StreamResponse:
+        if isinstance(request.match_info.route, SystemRoute):  # eg. 404
+            return await handler(request)
+
         if request.method == hdrs.METH_OPTIONS:
             return await handler(request)
         ### checking for Errors:

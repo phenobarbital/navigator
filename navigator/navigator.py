@@ -133,7 +133,7 @@ class Application(BaseApplication):
             ) from ex
         # Configure Routes and other things:
         self.handler.configure()
-        self.handler.setup_cors()
+        # self.handler.setup_cors()
         self.handler.setup_docs()
         ## Return aiohttp Application.
         return app

@@ -147,10 +147,24 @@ class Application(BaseApplication):
             ) from ex
         # Configure Routes and other things:
         self.handler.configure()
-        self.handler.setup_cors()
+        self.setup_cors()
         self.handler.setup_docs()
         ## Return aiohttp Application.
         return app
+
+    def setup_cors(self):
+        app = self.get_app()
+        for route in list(app.router.routes()):
+            try:
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    self.cors.add(route, webview=True)
+                else:
+                    self.cors.add(route)
+            except (TypeError, ValueError, RuntimeError):
+                # Already set-up CORS directions.
+                pass
 
     def add_websockets(self) -> None:
         """

@@ -67,19 +67,6 @@ class AppHandler(BaseHandler):
             pass
         return app
 
-    def setup_cors(self):
-        for route in list(self.app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    self.cors.add(route, webview=True)
-                else:
-                    self.cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                # Already set-up CORS directions.
-                pass
-
     def setup_docs(self) -> None:
         """
         setup_docs.
@@ -190,7 +177,7 @@ class AppConfig(AppHandler):
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
-                            route.url, route.handler, name=route.name
+                            route.url, route.handler, name=route.name, allow_head=True
                         )
                     elif route.method == "post":
                         r = self.app.router.add_post(
@@ -224,7 +211,7 @@ class AppConfig(AppHandler):
                 else:
                     if route.method == "get":
                         r = self.app.router.add_get(
-                            route.url, route.handler, name=route.name, allow_head=False
+                            route.url, route.handler, name=route.name, allow_head=True
                         )
                     elif route.method == "post":
                         r = self.app.router.add_post(

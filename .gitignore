@@ -8,6 +8,8 @@ __pycache__
 # C extensions
 *.so
 *.pyc
+*.c
+*.cpp
 # External Extensions
 extensions/*
 services/*
@@ -15,6 +17,8 @@ apps/*
 docs/
 build/
 dist/
+templates/
+settings/
 # External Applications
 apps/
 # Migrations Folder
@@ -70,7 +74,7 @@ coverage.xml
 # Translations
 *.mo
 *.pot
-
+*.po
 # Django stuff:
 *.log
 local_settings.py

@@ -133,7 +133,6 @@ class Application(BaseApplication):
             ) from ex
         # Configure Routes and other things:
         self.handler.configure()
-        # self.handler.setup_cors()
         self.handler.setup_docs()
         ## Return aiohttp Application.
         return app
@@ -426,12 +425,25 @@ class Application(BaseApplication):
                 content_type="application/json"
             )
 
-
     def add_sock_endpoint(
         self, handler: Callable, name: str, route: str = "/sockjs/"
     ) -> None:
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
+
+    def setup_cors(self, app: web.Application):
+        # CORS:
+        for route in list(app.router.routes()):
+            try:
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    self.cors.add(route, webview=True)
+                else:
+                    self.cors.add(route)
+            except (TypeError, ValueError, RuntimeError):
+                # Already set-up CORS directions.
+                pass
 
     def run(self):
         """run.
@@ -441,8 +453,12 @@ class Application(BaseApplication):
         from navigator import conf # pylint: disable=C0415
         # getting the resource App
         app = self.setup_app()
+        ## and Setup Cors:
+        # self.setup_cors(app)
         if self.debug:
-            cPrint(' :: Running in DEBUG mode :: ', level='DEBUG')
+            cPrint(
+                ' :: Running in DEBUG mode :: ', level='DEBUG'
+            )
             logging.debug(' :: Running in DEBUG mode :: ')
         if self.use_ssl:
             ca_file = conf.CA_FILE
@@ -458,12 +474,12 @@ class Application(BaseApplication):
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             try:
                 web.run_app(
-                    app, host=self.host, port=self.port, ssl_context=ssl_context
+                    app, host=self.host, port=self.port, ssl_context=ssl_context, handle_signals=True
                 )
             except Exception as err:
                 logging.exception(err, stack_info=True)
                 raise
         elif self.path:
-            web.run_app(app, path=self.path, loop=self._loop)
+            web.run_app(app, path=self.path, loop=self._loop, handle_signals=True)
         else:
-            web.run_app(app, host=self.host, port=self.port, loop=self._loop)
+            web.run_app(app, host=self.host, port=self.port, loop=self._loop, handle_signals=True)

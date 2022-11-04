@@ -94,7 +94,6 @@ class Application(BaseApplication):
                 cls = import_module('navigator.handlers.types', package=default_handler)
                 app_obj = getattr(cls, default_handler)
                 # create an instance of AppHandler
-                print('K ', kwargs)
                 self.handler = app_obj(Context, evt=self._loop, **kwargs)
             except ImportError as ex:
                 raise NavException(
@@ -102,19 +101,6 @@ class Application(BaseApplication):
                 ) from ex
         else:
             self.handler = handler(Context, evt=self._loop, **kwargs)
-        # setup cors object:
-        self.cors = aiohttp_cors.setup(
-            self.get_app(),
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=3600,
-                )
-            },
-        )
 
     def setup_app(self) -> WebApp:
         app = self.handler.app
@@ -147,24 +133,10 @@ class Application(BaseApplication):
             ) from ex
         # Configure Routes and other things:
         self.handler.configure()
-        self.setup_cors()
+        self.handler.setup_cors()
         self.handler.setup_docs()
         ## Return aiohttp Application.
         return app
-
-    def setup_cors(self):
-        app = self.get_app()
-        for route in list(app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    self.cors.add(route, webview=True)
-                else:
-                    self.cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                # Already set-up CORS directions.
-                pass
 
     def add_websockets(self) -> None:
         """
@@ -267,10 +239,6 @@ class Application(BaseApplication):
         app = self.get_app()
         def _decorator(func):
             r = app.router.add_get(route, func)
-            try:
-                self.cors.add(r)
-            except RuntimeError:
-                pass # already added
             @wraps(func)
             async def _wrap(request, *args, **kwargs):
                 try:

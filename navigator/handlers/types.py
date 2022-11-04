@@ -28,6 +28,7 @@ class AppHandler(BaseHandler):
     enable_static: bool = False
     staticdir: str = None
     enable_pgpool: bool = False
+    enable_error_middleware: bool = False
 
     def __init__(
         self,
@@ -58,7 +59,8 @@ class AppHandler(BaseHandler):
     def CreateApp(self) -> web.Application:
         app = super(AppHandler, self).CreateApp()
         # add the error middleware at the beginning:
-        app.middlewares.append(error_middleware)
+        if self.enable_error_middleware is True:
+            app.middlewares.append(error_middleware)
         # add the other middlewares:
         try:
             for middleware in self._middleware:

@@ -155,3 +155,4 @@ target/
 # other files
 resources/*
 settings/__init__.py
+navigator/applications/base.cpp

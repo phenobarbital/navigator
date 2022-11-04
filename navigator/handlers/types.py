@@ -72,7 +72,7 @@ class AppHandler(BaseHandler):
     def setup_docs(self) -> None:
         """
         setup_docs.
-        description: define CORS configuration
+        description: define DOC configuration
         """
         # Configure CORS, swagger and documentation from all routes.
         for route in list(self.app.router.routes()):
@@ -167,7 +167,7 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
-                    self.cors.add(r, webview=True)
+                    # self.cors.add(r, webview=True)
                 elif not route.method:
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
@@ -201,10 +201,10 @@ class AppConfig(AppHandler):
                         raise Exception(
                             f"Unsupported Method for Route {route.method}, program: {self._name}"
                         )
-                    self.cors.add(r, webview=True)
+                    # self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
-                self.cors.add(r, webview=True)
+                # self.cors.add(r, webview=True)
             else:
                 if not route.method:
                     r = self.app.router.add_route(
@@ -235,7 +235,7 @@ class AppConfig(AppHandler):
                         raise ConfigError(
                             f"Unsupported Method for Route {route.method}, program: {self._name}"
                         )
-                    self.cors.add(r)
+                    # self.cors.add(r)
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.

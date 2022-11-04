@@ -65,7 +65,6 @@ cdef class BaseHandler:
     def CreateApp(self) -> WebApp:
         if self.debug:
             cPrint(f"SETUP APPLICATION: {self._name!s}")
-        self.cors = None
         app = web.Application(
             logger=self.logger,
             client_max_size=(1024 * 1024) * 1024
@@ -88,20 +87,6 @@ cdef class BaseHandler:
             },
         )
         return app
-
-    def setup_cors(self):
-        app = self.app
-        for route in list(app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    self.cors.add(route, webview=True)
-                else:
-                    self.cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                # Already set-up CORS directions.
-                pass
 
     def configure(self) -> None:
         """
@@ -131,6 +116,9 @@ cdef class BaseHandler:
             raise NavException(
                 f"Error adding routes: {ex}"
             ) from ex
+
+    def add_view(self, route: str, view: Callable) -> None:
+        self.app.router.add_view(route, view)
 
     def event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop

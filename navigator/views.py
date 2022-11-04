@@ -51,7 +51,10 @@ class BaseHandler(CorsViewMixin):
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
             allow_credentials=True,
+            expose_headers="*",
+            allow_methods="*",
             allow_headers="*",
+            max_age=3600,
         )
     }
 
@@ -85,7 +88,7 @@ class BaseHandler(CorsViewMixin):
         response.headers["Pragma"] = "no-cache"
         for header, value in headers.items():
             response.headers[header] = value
-        raise response
+        return response
 
     def response(
         self,
@@ -463,13 +466,6 @@ class BaseHandler(CorsViewMixin):
 
 
 class BaseView(web.View, BaseHandler, AbstractView):
-
-    cors_config = {
-        "*": aiohttp_cors.ResourceOptions(
-            allow_credentials=True,
-            allow_headers="*",
-        )
-    }
 
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)

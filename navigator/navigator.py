@@ -17,7 +17,6 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
-import aiohttp_cors
 from navconfig import config
 from navconfig.logging import logging
 from navigator.exceptions.handlers import (

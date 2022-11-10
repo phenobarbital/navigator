@@ -35,10 +35,6 @@ fernet_key = fernet.Fernet.generate_key()
 new_secret = base64.urlsafe_b64decode(fernet_key)
 SECRET_KEY = config.get("SECRET_KEY", fallback=new_secret)
 
-# used by tokenauth with RNC.
-PARTNER_KEY = config.get("PARTNER_KEY")
-CYPHER_TYPE = config.get("CYPHER_TYPE", fallback="RNC")
-
 """
 Development
 """

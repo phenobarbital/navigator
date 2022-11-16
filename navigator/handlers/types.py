@@ -47,7 +47,7 @@ class AppHandler(BaseHandler):
             try:
             # enable a pool-based database connection:
                 pool = PostgresPool(
-                    name='Program',
+                    name='Navigator',
                     startup=self.app_startup
                 )
                 pool.configure(self.app, register='database') # pylint: disable=E1123

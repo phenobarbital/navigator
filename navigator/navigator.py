@@ -17,7 +17,6 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
-import aiohttp_cors
 from navconfig import config
 from navconfig.logging import logging
 from navigator.exceptions.handlers import (
@@ -26,6 +25,7 @@ from navigator.exceptions.handlers import (
 )
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
+from navigator.connections import PostgresPool
 from navigator.exceptions import (
     NavException,
     ConfigError,

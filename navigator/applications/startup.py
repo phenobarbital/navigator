@@ -32,9 +32,13 @@ class ApplicationInstaller(metaclass=Singleton):
     """
     __initialized__ = False
     _apps_installed: list = []
+    _apps_names: list[str] = []
 
     def installed_apps(self):
         return self._apps_installed
+
+    def app_list(self) -> list:
+        return self._apps_names
 
     def __init__(self):
         if self.__initialized__ is True:
@@ -53,6 +57,7 @@ class ApplicationInstaller(metaclass=Singleton):
                             if isinstance(i, ModuleType):
                                 # is a Navigator Program
                                 self._apps_installed.append((app_name, i))
+                                self._apps_names.append(app_name)
                         except ImportError as err:
                             # HERE, there is no module
                             print("ERROR: ", err)
@@ -63,6 +68,7 @@ class ApplicationInstaller(metaclass=Singleton):
             if not name in self._apps_installed:
                 # virtual app, fallback app:
                 self._apps_installed.append((app_name, None))
+                self._apps_names.append(app_name)
 
 
 #######################
@@ -98,10 +104,8 @@ def app_startup(app_list: list, app: WebApp, context: dict = None, **kwargs):
                 # can I add Main to subApp?
                 sub_app['Main'] = app
                 for name, ext in app.extensions.items():
-                    if name not in ('database', 'redis', 'memcache'):
-                        # can't share asyncio-based connections prior inicialization
-                        sub_app[name] = ext
-                        sub_app.extensions[name] = ext
+                    sub_app[name] = ext
+                    sub_app.extensions[name] = ext
             except (KeyError, AttributeError) as err:
                 logging.warning(err)
         except ImportError as err:

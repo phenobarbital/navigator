@@ -998,7 +998,7 @@ class ModelHandler(BaseView):
         except (TypeError, ValueError, NavException):
             data = None
         ## validate directly with model:
-        db = self.request.app['authdb']
+        db = self.request.app['database']
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
@@ -1084,7 +1084,7 @@ class ModelHandler(BaseView):
         ## validate directly with model:
         try:
             resultset = self.model(**data) # pylint: disable=E1102
-            db = self.request.app['authdb']
+            db = self.request.app['database']
             async with await db.acquire() as conn:
                 resultset.Meta.connection = conn
                 result = await resultset.insert()
@@ -1138,7 +1138,7 @@ class ModelHandler(BaseView):
             objid = data[self.pk]
         except (TypeError, KeyError):
             objid = params['id']
-        db = self.request.app['authdb']
+        db = self.request.app['database']
         if objid:
             ## getting client
             async with await db.acquire() as conn:
@@ -1197,7 +1197,7 @@ class ModelHandler(BaseView):
             objid = data[self.pk]
         except (TypeError, KeyError):
             objid = params['id']
-        db = self.request.app['authdb']
+        db = self.request.app['database']
         if objid:
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
@@ -1277,7 +1277,7 @@ class ModelHandler(BaseView):
             objid = data[self.pk]
         except (TypeError, KeyError):
             objid = params['id']
-        db = self.request.app['authdb']
+        db = self.request.app['database']
         if objid:
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn

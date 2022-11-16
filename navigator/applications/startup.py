@@ -104,10 +104,8 @@ def app_startup(app_list: list, app: WebApp, context: dict = None, **kwargs):
                 # can I add Main to subApp?
                 sub_app['Main'] = app
                 for name, ext in app.extensions.items():
-                    if name not in ('database', 'redis', 'memcache'):
-                        # can't share asyncio-based connections prior inicialization
-                        sub_app[name] = ext
-                        sub_app.extensions[name] = ext
+                    sub_app[name] = ext
+                    sub_app.extensions[name] = ext
             except (KeyError, AttributeError) as err:
                 logging.warning(err)
         except ImportError as err:

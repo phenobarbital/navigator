@@ -73,6 +73,18 @@ class ConnectionHandler:
         pass
 
     async def startup(self, app: WebApp) -> None:
+        try:
+            main_app = app['Main']
+            db = main_app[self._register]
+            logging.debug(f'There is already a connection enabled on {app!r}')
+            self.conn = db
+            app[self._register] = self.conn
+            # any callable will be launch on connection startup.
+            if callable(self._startup_):
+                await self._startup_(app, self.conn)
+            return
+        except (TypeError, KeyError):
+            pass
         if 'database' in app or self._register in app:
             # there is already a connection enabled to this Class:
             logging.debug(f'There is already a connection enabled on {app!r}')
@@ -137,7 +149,7 @@ class PostgresPool(ConnectionHandler):
         **kwargs
     ):
         kwargs = {
-            "min_size": 5,
+            "min_size": 2,
             "server_settings": {
                 "application_name": name,
                 "client_min_messages": "notice",

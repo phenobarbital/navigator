@@ -25,6 +25,7 @@ from navigator.exceptions.handlers import (
 )
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
+from navigator.connections import PostgresPool
 from navigator.exceptions import (
     NavException,
     ConfigError,

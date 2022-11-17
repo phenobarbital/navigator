@@ -137,7 +137,8 @@ class ConnectionHandler:
 class PostgresPool(ConnectionHandler):
     driver: str = "pg"
     pool_based: bool = True
-    timeout: int = 3600
+    timeout: int = 60
+    statement_timeout: int = 3600
 
     def __init__(
         self,
@@ -148,6 +149,8 @@ class PostgresPool(ConnectionHandler):
         evt: asyncio.AbstractEventLoop = None,
         **kwargs
     ):
+        if 'statement_timeout' in kwargs:
+            self.statement_timeout = kwargs['statement_timeout']
         kwargs = {
             "min_size": 2,
             "server_settings": {
@@ -155,7 +158,7 @@ class PostgresPool(ConnectionHandler):
                 "client_min_messages": "notice",
                 "max_parallel_workers": "48",
                 "jit": "off",
-                "statement_timeout": "36000",
+                "statement_timeout": f"{self.statement_timeout}",
                 "idle_in_transaction_session_timeout": '5min',
                 "effective_cache_size": "2147483647"
             },

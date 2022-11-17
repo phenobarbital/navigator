@@ -11,7 +11,9 @@ from navigator.types import (
     WebApp
 )
 from navigator.conf import (
-    default_dsn
+    default_dsn,
+    DB_TIMEOUT,
+    DB_STATEMENT_TIMEOUT
 )
 
 class ConnectionHandler:
@@ -46,6 +48,10 @@ class ConnectionHandler:
         if self._init_:
             self.conn.setup_func = self._init_
         # Empty Connection:
+        if 'timeout' in kwargs:
+            self.timeout = kwargs['timeout']
+        else:
+            self.timeout = DB_TIMEOUT
         self.conn: Callable = None
 
     def connection(self):
@@ -151,6 +157,8 @@ class PostgresPool(ConnectionHandler):
     ):
         if 'statement_timeout' in kwargs:
             self.statement_timeout = kwargs['statement_timeout']
+        else:
+            self.statement_timeout = DB_STATEMENT_TIMEOUT
         kwargs = {
             "min_size": 2,
             "server_settings": {

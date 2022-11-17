@@ -100,6 +100,9 @@ PG_PORT = config.get("DBPORT", fallback=5432)
 asyncpg_url = f"postgres://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
 default_dsn = asyncpg_url
 
+DB_TIMEOUT = config.get("DB_TIMEOUT", fallback=60)
+DB_STATEMENT_TIMEOUT = config.get("DB_STATEMENT_TIMEOUT", fallback=360)
+
 """
 Auth and Cache
 """

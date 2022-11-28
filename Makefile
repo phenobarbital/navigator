@@ -3,12 +3,12 @@ venv:
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
 install:
-	pip install wheel==0.37.1
+	pip install wheel==0.38.4
 	pip install -e .
 	echo 'start Navigator'
 
 develop:
-	pip install wheel==0.37.1
+	pip install wheel==0.38.4
 	pip install -e .
 	python -m pip install -Ur requirements/requirements-dev.txt
 	echo 'start develop Navigator'

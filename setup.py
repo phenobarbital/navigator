@@ -131,20 +131,17 @@ setup(
     license=__license__,
     license_files = 'LICENSE',
     setup_requires=[
-        "wheel==0.37.1",
+        "wheel==0.38.4",
         "Cython==0.29.32",
         "asyncio==3.4.3",
         "cchardet==2.1.7",
         "cpython==0.0.6"
     ],
     install_requires=[
-        "wheel==0.37.1",
         "Cython==0.29.32",
         "asyncio==3.4.3",
         "uvloop==0.17.0",
-        "navconfig",
-        "asyncdb[default]",
-        "typing-extensions>=4.3.0",
+        "typing-extensions>=4.4.0",
         "aiofile==3.8.1",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
@@ -154,15 +151,14 @@ setup(
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.2",
         "aiohttp-jinja2==1.5",
-        "aiohttp-cors==0.7.0",
         "aiohttp-sse==2.1.0",
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
-        "aiologstash==2.0.0",
-        "aiohttp-debugtoolbar==0.6.0",
         'python-slugify==6.1.1',
         "platformdirs==2.5.1",
+        "asyncdb[default]>=2.1.30",
+        "navconfig>=1.0.6"
     ],
     extras_require = {
         "locale": [

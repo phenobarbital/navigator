@@ -129,7 +129,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', )),
     include_package_data=True,
     license=__license__,
-    license_files = 'LICENSE-BSD',
+    license_files = 'LICENSE',
     setup_requires=[
         "wheel==0.37.1",
         "Cython==0.29.32",
@@ -180,6 +180,11 @@ setup(
             'pytest-xdist',
             'pytest-assume'
     ],
+    entry_points={
+        'console_scripts': [
+            'nav = navigator.commands:main',
+        ]
+    },
     project_urls={
         'Source': 'https://github.com/phenobarbital/navigator',
         'Funding': 'https://paypal.me/phenobarbital',

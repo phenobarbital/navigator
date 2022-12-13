@@ -141,8 +141,8 @@ setup(
         "Cython==0.29.32",
         "asyncio==3.4.3",
         "uvloop==0.17.0",
-        "typing-extensions>=4.4.0",
-        "aiofile==3.8.1",
+        "asyncdb[default]>=2.1.30",
+        "navconfig[default]>=1.0.8"
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
@@ -157,8 +157,6 @@ setup(
         "aiosocks==0.2.6",
         'python-slugify==7.0.0',
         "platformdirs==2.5.1",
-        "asyncdb[default]>=2.1.30",
-        "navconfig[default]>=1.0.7"
     ],
     extras_require = {
         "locale": [

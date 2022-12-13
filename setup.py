@@ -155,10 +155,10 @@ setup(
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
-        'python-slugify==6.1.1',
+        'python-slugify==7.0.0',
         "platformdirs==2.5.1",
         "asyncdb[default]>=2.1.30",
-        "navconfig>=1.0.6"
+        "navconfig[default]>=1.0.7"
     ],
     extras_require = {
         "locale": [

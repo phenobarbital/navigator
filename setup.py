@@ -142,7 +142,7 @@ setup(
         "asyncio==3.4.3",
         "uvloop==0.17.0",
         "asyncdb[default]>=2.1.30",
-        "navconfig[default]>=1.0.8"
+        "navconfig[default]>=1.0.8",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",

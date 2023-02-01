@@ -5,6 +5,7 @@ from asyncpg.pgproto import pgproto
 from dataclasses import _MISSING_TYPE, MISSING
 from typing import Any, Union
 from decimal import Decimal
+from pathlib import PurePath, PosixPath, Path
 from navigator.exceptions.exceptions cimport ValidationError
 import orjson
 
@@ -25,6 +26,8 @@ cdef class JSONContent:
         elif hasattr(obj, "isoformat"):
             return obj.isoformat()
         elif isinstance(obj, pgproto.UUID):
+            return str(obj)
+        elif isinstance(obj, (PosixPath, PurePath, Path)):
             return str(obj)
         elif hasattr(obj, "hex"):
             return obj.hex

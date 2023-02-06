@@ -44,7 +44,7 @@ class BaseHandler(CorsViewMixin):
     _mem = None
     _now = None
     _loop = None
-    logger: logging.Logger
+    _logger_name: str = 'navigator'
     _lasterr = None
     _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
@@ -63,12 +63,12 @@ class BaseHandler(CorsViewMixin):
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
         self._json: Callable = JSONContent()
-        self.logger = logging.getLogger('navigator')
-        self.logger.setLevel(loglevel)
+        self.logger: logging.Logger = None
         self.post_init(self, *args, **kwargs)
 
     def post_init(self, *args, **kwargs):
-        pass
+        self.logger = logging.getLogger(self._logger_name)
+        self.logger.setLevel(loglevel)
 
     def now(self):
         return self._now

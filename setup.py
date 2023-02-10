@@ -154,7 +154,6 @@ setup(
         "httptools==0.5.0",
         "aiosocks==0.2.6",
         'python-slugify==7.0.0',
-        "platformdirs==2.5.1",
         "asyncdb[default]>=2.1.38",
         "navconfig[default]>=1.0.15",
     ],

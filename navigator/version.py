@@ -3,7 +3,7 @@
 __title__ = 'navigator-api'
 __description__ = ('Navigator Web Framework based on aiohttp, '
                    'with batteries included.')
-__version__ = '2.4.5'
+__version__ = '2.4.6'
 __author__ = 'Jesus Lara'
 __author_email__ = 'jesuslarag@gmail.com'
 __license__ = 'BSD'

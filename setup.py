@@ -141,8 +141,6 @@ setup(
         "Cython==0.29.32",
         "asyncio==3.4.3",
         "uvloop==0.17.0",
-        "asyncdb[default]>=2.1.30",
-        "navconfig[default]>=1.0.8",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
@@ -157,13 +155,15 @@ setup(
         "aiosocks==0.2.6",
         'python-slugify==7.0.0',
         "platformdirs==2.5.1",
+        "asyncdb[default]>=2.1.38",
+        "navconfig[default]>=1.0.15",
     ],
     extras_require = {
         "locale": [
             "Babel==2.9.1",
         ],
         "memcache": [
-            "aiomcache==0.7.0",
+            "aiomcache==0.8.0",
         ],
     },
     ext_modules=cythonize(extensions),

@@ -25,7 +25,6 @@ from navigator.exceptions.handlers import (
 )
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
-from navigator.connections import PostgresPool
 from navigator.exceptions import (
     NavException,
     ConfigError,
@@ -42,6 +41,11 @@ from navigator.types import WebApp
 from .applications.base import BaseApplication
 from .applications.startup import ApplicationInstaller
 
+
+FORCED_CIPHERS = (
+    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
+    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES'
+)
 
 class Application(BaseApplication):
     """Application.
@@ -461,17 +465,22 @@ class Application(BaseApplication):
             )
             logging.debug(' :: Running in DEBUG mode :: ')
         if self.use_ssl:
+            logging.debug(' :: Running in SSL mode :: ')
             ca_file = conf.CA_FILE
             if ca_file:
                 ssl_context = ssl.create_default_context(
-                    ssl.Purpose.SERVER_AUTH, cafile=ca_file
+                    ssl.Purpose.CLIENT_AUTH, cafile=ca_file
                 )
             else:
-                ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
+                ssl_context = ssl.create_default_context(
+                    ssl.Purpose.CLIENT_AUTH
+                )
             ### getting Certificates:
             ssl_cert = conf.SSL_CERT
             ssl_key = conf.SSL_KEY
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
+            ssl_context.set_ciphers(FORCED_CIPHERS)
             try:
                 web.run_app(
                     app, host=self.host, port=self.port, ssl_context=ssl_context, handle_signals=True
@@ -483,3 +492,9 @@ class Application(BaseApplication):
             web.run_app(app, path=self.path, loop=self._loop, handle_signals=True)
         else:
             web.run_app(app, host=self.host, port=self.port, loop=self._loop, handle_signals=True)
+
+async def app_runner(app: web.Application, host: str, port: int, ssl_context: ssl.SSLContext):
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
+    await site.start()

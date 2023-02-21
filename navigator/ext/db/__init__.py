@@ -87,7 +87,6 @@ class DBConnection(BaseExtension):
     async def on_cleanup(self, app: WebApp):
         try:
             await self.conn.close()
-            app[self.name] = None
         except ProviderError as err:
             raise NavException(
                 f"Error on Closing Connection {self.name}: {err!s}"

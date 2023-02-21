@@ -80,7 +80,6 @@ class Memcache(BaseExtension):
             raise NavException(
                 f"Unable to close Memcache connection: {err}"
             ) from err
-        del app[self.name]
 
     def get_connection(self):
         return self.conn

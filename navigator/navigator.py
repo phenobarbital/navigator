@@ -439,12 +439,7 @@ class Application(BaseApplication):
         # CORS:
         for route in list(app.router.routes()):
             try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    self.cors.add(route, webview=True)
-                else:
-                    self.cors.add(route)
+                self.cors.add(route)
             except (TypeError, ValueError, RuntimeError):
                 # Already set-up CORS directions.
                 pass

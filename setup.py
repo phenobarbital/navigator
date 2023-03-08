@@ -128,6 +128,7 @@ setup(
     author=__author__,
     author_email=__author_email__,
     packages=find_packages(exclude=('tests', 'docs', )),
+    package_data={"navigator": ["py.typed"]},
     include_package_data=True,
     license=__license__,
     license_files = 'LICENSE',

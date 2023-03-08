@@ -8,13 +8,10 @@ an Application is a subApp created inside of "apps" folder.
 import importlib
 from types import ModuleType
 from navconfig.logging import logging
-from navconfig import (
-    BASE_DIR
-)
+from navconfig import BASE_DIR
+
 try:
-    from navconfig.conf import (
-        APPLICATIONS
-    )
+    from navconfig.conf import APPLICATIONS
 except ImportError:
     APPLICATIONS = []
 from navigator.types import WebApp
@@ -30,6 +27,7 @@ class ApplicationInstaller(metaclass=Singleton):
     ApplicationInstaller.
         Class for getting Installed Apps in Navigator.
     """
+
     __initialized__ = False
     _apps_installed: list = []
     _apps_names: list[str] = []
@@ -77,10 +75,10 @@ class ApplicationInstaller(metaclass=Singleton):
 ##
 #######################
 def app_startup(app_list: list, app: WebApp, context: dict = None, **kwargs):
-    """ Initialize all Apps in the existing Installation."""
+    """Initialize all Apps in the existing Installation."""
     for apps in app_list:
         obj = None
-        app_name, app_class = apps # splitting the tuple
+        app_name, app_class = apps  # splitting the tuple
         try:
             instance_app = None
             name = app_name.split(".")[1]
@@ -102,7 +100,7 @@ def app_startup(app_list: list, app: WebApp, context: dict = None, **kwargs):
             # TODO: build automatic documentation
             try:
                 # can I add Main to subApp?
-                sub_app['Main'] = app
+                sub_app["Main"] = app
                 for name, ext in app.extensions.items():
                     sub_app[name] = ext
                     sub_app.extensions[name] = ext

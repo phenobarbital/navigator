@@ -2,11 +2,7 @@
 
 Define Path Router configuration.
 """
-from navigator.types import (
-    HTTPMethod,
-    HTTPLocation,
-    HTTPHandler
-)
+from navigator.types import HTTPMethod, HTTPLocation, HTTPHandler
 
 
 #######################
@@ -18,7 +14,14 @@ class path(object):
     """path.
     description: django-like URL router configuration
     """
-    def __init__(self, method: HTTPMethod, url: HTTPLocation, handler: HTTPHandler, name: str = "") -> None:
+
+    def __init__(
+        self,
+        method: HTTPMethod,
+        url: HTTPLocation,
+        handler: HTTPHandler,
+        name: str = "",
+    ) -> None:
         self.method = method
         self.url = url
         self.handler = handler

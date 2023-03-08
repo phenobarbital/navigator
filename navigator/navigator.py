@@ -4,10 +4,7 @@ import signal
 import inspect
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
-from typing import (
-    Any,
-    Union
-)
+from typing import Any, Union
 from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -19,19 +16,14 @@ from aiohttp.web_exceptions import HTTPError
 import sockjs
 from navconfig import config
 from navconfig.logging import logging
-from navigator.exceptions.handlers import (
-    nav_exception_handler,
-    shutdown
-)
+from navigator.exceptions.handlers import nav_exception_handler, shutdown
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint
-from navigator.exceptions import (
-    NavException,
-    ConfigError,
-    InvalidArgument
-)
+from navigator.exceptions import NavException, ConfigError, InvalidArgument
+
 # Template Extension.
 from navigator.template import TemplateParser
+
 # websocket resources
 from navigator.resources import WebSocket, channel_handler
 from navigator.libs.json import json_encoder
@@ -43,9 +35,10 @@ from .applications.startup import ApplicationInstaller
 
 
 FORCED_CIPHERS = (
-    'ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:'
-    'DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES'
+    "ECDH+AESGCM:DH+AESGCM:ECDH+AES256:DH+AES256:ECDH+AES128:DH+AES:ECDH+HIGH:"
+    "DH+HIGH:ECDH+3DES:DH+3DES:RSA+AESGCM:RSA+AES:RSA+HIGH:RSA+3DES"
 )
+
 
 class Application(BaseApplication):
     """Application.
@@ -54,28 +47,28 @@ class Application(BaseApplication):
     Args:
         Handler (BaseHandler): Main (principal) Application to be wrapped by Navigator.
     """
+
     def __init__(
-        self, # pylint: disable=W0613
+        self,  # pylint: disable=W0613
         handler: BaseHandler = None,
-        title: str = '',
-        description: str = 'NAVIGATOR APP',
-        contact: str = '',
+        title: str = "",
+        description: str = "NAVIGATOR APP",
+        contact: str = "",
         enable_jinja2: bool = False,
         template_dirs: list = None,
-        **kwargs
+        **kwargs,
     ) -> None:
-        super(
-            Application, self
-        ).__init__(
+        super(Application, self).__init__(
             handler=handler,
             title=title,
             contact=contact,
             description=description,
-            **kwargs
+            **kwargs,
         )
         self.enable_jinja2 = enable_jinja2
         self.template_dirs = template_dirs
-        from navigator.conf import Context # pylint: disable=C0415
+        from navigator.conf import Context  # pylint: disable=C0415
+
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -87,15 +80,13 @@ class Application(BaseApplication):
         signals = (signal.SIGHUP, signal.SIGTERM, signal.SIGINT)
         for s in signals:
             self._loop.add_signal_handler(
-                s, lambda s=s: asyncio.create_task(
-                    shutdown(self._loop, s)
-                )
+                s, lambda s=s: asyncio.create_task(shutdown(self._loop, s))
             )
         # here:
         if not handler:
-            default_handler = config.get('default_handler', fallback='AppHandler')
+            default_handler = config.get("default_handler", fallback="AppHandler")
             try:
-                cls = import_module('navigator.handlers.types', package=default_handler)
+                cls = import_module("navigator.handlers.types", package=default_handler)
                 app_obj = getattr(cls, default_handler)
                 # create an instance of AppHandler
                 self.handler = app_obj(Context, evt=self._loop, **kwargs)
@@ -111,26 +102,22 @@ class Application(BaseApplication):
         if self.enable_jinja2 is True:
             try:
                 # TODO: passing more parameters via configuration.
-                parser = TemplateParser(
-                    template_dir=self.template_dirs
-                )
+                parser = TemplateParser(template_dir=self.template_dirs)
                 parser.setup(app)
             except Exception as e:
                 logging.exception(e)
-                raise ConfigError(
-                    f"Error on Template configuration, {e}"
-                ) from e
+                raise ConfigError(f"Error on Template configuration, {e}") from e
         # setup The Application and Sub-Applications Startup
         installer = ApplicationInstaller()
         INSTALLED_APPS: list = installer.installed_apps()
         # load dynamically the app Startup:
         try:
-            app_init = config.get('APP_STARTUP', fallback='navigator.applications.startup')
-            cls = import_module(
-                app_init, package='app_startup'
+            app_init = config.get(
+                "APP_STARTUP", fallback="navigator.applications.startup"
             )
-            app_startup = getattr(cls, 'app_startup')
-            app_startup(INSTALLED_APPS, app, context=app['config'])
+            cls = import_module(app_init, package="app_startup")
+            app_startup = getattr(cls, "app_startup")
+            app_startup(INSTALLED_APPS, app, context=app["config"])
         except ImportError as ex:
             raise NavException(
                 f"Exception: Can't load Application Startup: {app_init}"
@@ -163,11 +150,11 @@ class Application(BaseApplication):
         try:
             self.handler.add_routes(routes)
         except Exception as ex:
-            raise NavException(
-                f"Error adding routes: {ex}"
-            ) from ex
+            raise NavException(f"Error adding routes: {ex}") from ex
 
-    def add_route(self, method: str = 'GET', route: str = None, fn: Callable = None) -> None:
+    def add_route(
+        self, method: str = "GET", route: str = None, fn: Callable = None
+    ) -> None:
         """add_route.
 
         Args:
@@ -210,6 +197,7 @@ class Application(BaseApplication):
                 raise InvalidArgument(
                     f"Error running Threaded Function: {err}"
                 ) from err
+
         return _wrap
 
     def route(self, route: str, method: str = "GET", threaded: bool = False):
@@ -240,8 +228,10 @@ class Application(BaseApplication):
 
     def get(self, route: str):
         app = self.get_app()
+
         def _decorator(func):
             r = app.router.add_get(route, func)
+
             @wraps(func)
             async def _wrap(request, *args, **kwargs):
                 try:
@@ -251,6 +241,7 @@ class Application(BaseApplication):
                     raise ConfigError(
                         f"Error configuring GET Route {route}: {err}"
                     ) from err
+
             return _wrap
 
         return _decorator
@@ -274,20 +265,22 @@ class Application(BaseApplication):
                     ) from err
 
             return _wrap
+
         return _decorator
 
     def template(
-            self,
-            template: str,
-            content_type: str = 'text/html',
-            encoding: str = "utf-8",
-            status: int = 200,
-            **kwargs
-        ) -> web.Response:
+        self,
+        template: str,
+        content_type: str = "text/html",
+        encoding: str = "utf-8",
+        status: int = 200,
+        **kwargs,
+    ) -> web.Response:
         """template.
 
         Return View using the Jinja2 Template System.
         """
+
         def _template(func):
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
@@ -300,7 +293,7 @@ class Application(BaseApplication):
                     context = await coro(*args)
                 except Exception as err:
                     raise web.HTTPInternalServerError(
-                        reason=f'Error Calling Template Function {func!r}: {err}'
+                        reason=f"Error Calling Template Function {func!r}: {err}"
                     ) from err
                 if isinstance(context, web.StreamResponse):
                     ## decorator in bad position, returning context
@@ -312,7 +305,7 @@ class Application(BaseApplication):
                 else:
                     request = args[-1]
                 try:
-                    tmpl = request.app['template'] # template system
+                    tmpl = request.app["template"]  # template system
                 except KeyError as e:
                     raise ConfigError(
                         "NAV Template Parser need to be enabled to work with templates."
@@ -320,12 +313,8 @@ class Application(BaseApplication):
                 if kwargs:
                     context = {**context, **kwargs}
                 result = await tmpl.render(template, params=context)
-                args = {
-                    "content_type": content_type,
-                    "status": status,
-                    "body": result
-                }
-                if content_type == 'application/json':
+                args = {"content_type": content_type, "status": status, "body": result}
+                if content_type == "application/json":
                     args["dumps"] = json_encoder
                     return web.json_response(**args)
                 else:
@@ -333,9 +322,10 @@ class Application(BaseApplication):
                     return web.Response(**args)
 
             return _wrap
+
         return _template
 
-    def validate(self, model: Union[dataclass,BaseModel], **kwargs) -> web.Response:
+    def validate(self, model: Union[dataclass, BaseModel], **kwargs) -> web.Response:
         """validate.
         Description: Validate Request input using a Datamodel
         Args:
@@ -345,8 +335,10 @@ class Application(BaseApplication):
         Returns:
             web.Response: add to Handler a variable with data validated.
         """
+
         def _validation(func, **kwargs):
             print(func, **kwargs)
+
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
                 ## building arguments:
@@ -366,7 +358,7 @@ class Application(BaseApplication):
                             # working on build data validation
                             data, errors = await self._validate_model(request, model)
                             new_args[a] = data
-                            new_args['errors'] = errors
+                            new_args["errors"] = errors
                         else:
                             new_args[a] = val
                 if asyncio.iscoroutinefunction(func):
@@ -380,26 +372,30 @@ class Application(BaseApplication):
                     return ex
                 except Exception as err:
                     raise web.HTTPInternalServerError(
-                        reason=f'Error Calling Validate Function {func!r}: {err}'
+                        reason=f"Error Calling Validate Function {func!r}: {err}"
                     ) from err
+
             return _wrap
+
         return _validation
 
-    async def _validate_model(self, request: web.Request, model: Union[dataclass, BaseModel]) -> dict:
-        if request.method in ('POST', 'PUT', 'PATCH'):
+    async def _validate_model(
+        self, request: web.Request, model: Union[dataclass, BaseModel]
+    ) -> dict:
+        if request.method in ("POST", "PUT", "PATCH"):
             # getting data from POST
             data = await request.json()
-        elif request.method == 'GET':
+        elif request.method == "GET":
             data = {key: val for (key, val) in request.query.items()}
         else:
             raise web.HTTPNotImplemented(
                 reason=f"{request.method} Method not Implemented for Data Validation.",
-                content_type="application/json"
+                content_type="application/json",
             )
         if data is None:
             raise web.HTTPNotFound(
                 reason="There is no content for validation.",
-                content_type="application/json"
+                content_type="application/json",
             )
         validated = None
         errors = None
@@ -426,7 +422,7 @@ class Application(BaseApplication):
         else:
             raise web.HTTPBadRequest(
                 reason="Invalid type for Data Input, expecting a Dict or List.",
-                content_type="application/json"
+                content_type="application/json",
             )
 
     def add_sock_endpoint(
@@ -449,18 +445,17 @@ class Application(BaseApplication):
         Starting App.
         """
         ### getting configuration (on runtime)
-        from navigator import conf # pylint: disable=C0415
+        from navigator import conf  # pylint: disable=C0415
+
         # getting the resource App
         app = self.setup_app()
         ## and Setup Cors:
         # self.setup_cors(app)
         if self.debug:
-            cPrint(
-                ' :: Running in DEBUG mode :: ', level='DEBUG'
-            )
-            logging.debug(' :: Running in DEBUG mode :: ')
+            cPrint(" :: Running in DEBUG mode :: ", level="DEBUG")
+            logging.debug(" :: Running in DEBUG mode :: ")
         if self.use_ssl:
-            logging.debug(' :: Running in SSL mode :: ')
+            logging.debug(" :: Running in SSL mode :: ")
             ca_file = conf.CA_FILE
             if ca_file:
                 ssl_context = ssl.create_default_context(
@@ -468,9 +463,7 @@ class Application(BaseApplication):
                 )
             else:
                 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
-                ssl_context = ssl.create_default_context(
-                    ssl.Purpose.CLIENT_AUTH
-                )
+                ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
             ### getting Certificates:
             ssl_cert = conf.SSL_CERT
             ssl_key = conf.SSL_KEY
@@ -478,7 +471,11 @@ class Application(BaseApplication):
             ssl_context.set_ciphers(FORCED_CIPHERS)
             try:
                 web.run_app(
-                    app, host=self.host, port=self.port, ssl_context=ssl_context, handle_signals=True
+                    app,
+                    host=self.host,
+                    port=self.port,
+                    ssl_context=ssl_context,
+                    handle_signals=True,
                 )
             except Exception as err:
                 logging.exception(err, stack_info=True)
@@ -486,9 +483,18 @@ class Application(BaseApplication):
         elif self.path:
             web.run_app(app, path=self.path, loop=self._loop, handle_signals=True)
         else:
-            web.run_app(app, host=self.host, port=self.port, loop=self._loop, handle_signals=True)
+            web.run_app(
+                app,
+                host=self.host,
+                port=self.port,
+                loop=self._loop,
+                handle_signals=True,
+            )
 
-async def app_runner(app: web.Application, host: str, port: int, ssl_context: ssl.SSLContext):
+
+async def app_runner(
+    app: web.Application, host: str, port: int, ssl_context: ssl.SSLContext
+):
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)

@@ -1,12 +1,22 @@
-[project]
-name = "navigator-api"
-authors = [
-    {name = "Jesus Lara G.", email = "jesuslarag@gmail.com"},
+[build-system]
+requires = [
+    'setuptools==67.5.1',
+    'wheel == 0.38.4',
+    'Cython==0.29.33',
+    'toml >= 0.10.2',
+    'asyncio==3.4.3',
+    'flit'
 ]
-readme = "README.md"
-requires-python = ">=3.8.0"
-license = {file = "LICENSE"}
-keywords = ["framework", "asyncio", "uvloop", "aiohttp", "navigator"]
+build-backend = "setuptools.build_meta"
+
+[tool.flit.metadata]
+module = "navigator"
+author = "Jesus Lara G."
+home-page = "https://github.com/phenobarbital/navigator"
+requires-python = ">=3.9.16"
+description-file = "README.md"
+license = "LICENSE"
+keywords = "framework, asyncio, uvloop, aiohttp, navigator"
 classifiers=[
   "Development Status :: 4 - Beta",
   "Environment :: Web Environment",
@@ -26,27 +36,7 @@ classifiers=[
   "Topic :: Internet :: WWW/HTTP",
   "License :: OSI Approved :: BSD License",
 ]
-dynamic = ['version']
 
-[build-system]
-requires = [
-    'setuptools >= 47',
-    'wheel == 0.38.4',
-    'Cython==0.29.32',
-    'toml >= 0.10.2',
-    'asyncio==3.4.3',
-    'flit'
-]
-
-build-backend = "setuptools.build_meta"
-
-[tool.flit.metadata]
-module = "navigator"
-author = "Jesus Lara Gimenez"
-author-email = "jesuslarag@gmail.com"
-home-page = "https://github.com/phenobarbital/navigator"
-description-file = "README.md"
-requires-python = ">=3.8.0"
 
 [tool.pytest.ini_options]
 addopts = [

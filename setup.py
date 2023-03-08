@@ -105,7 +105,7 @@ with open(version, 'r', encoding='utf-8') as meta:
 setup(
     name=__title__,
     version=__version__,
-    python_requires=">=3.8.0",
+    python_requires=">=3.9.16",
     url="https://github.com/phenobarbital/navigator",
     description=__description__,
     platforms=['POSIX'],
@@ -123,6 +123,7 @@ setup(
         "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
+        "Programming Language :: Python :: 3.11",
     ],
     author=__author__,
     author_email=__author_email__,
@@ -132,20 +133,19 @@ setup(
     license_files = 'LICENSE',
     setup_requires=[
         "wheel==0.38.4",
-        "Cython==0.29.32",
+        "Cython==0.29.33",
         "asyncio==3.4.3",
-        "cchardet==2.1.7",
         "cpython==0.0.6"
     ],
     install_requires=[
-        "Cython==0.29.32",
+        "Cython==0.29.33",
         "asyncio==3.4.3",
         "uvloop==0.17.0",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
-        "aiohttp==3.8.3",
+        "aiohttp==3.8.4",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.2",
         "aiohttp-jinja2==1.5",
@@ -153,16 +153,17 @@ setup(
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
-        'python-slugify==7.0.0',
-        "asyncdb[default]>=2.1.38",
-        "navconfig[default]>=1.0.15",
+        'python-slugify==8.0.1',
+        "asyncdb[default]>=2.2.0",
+        "navconfig[default]>=1.1.0",
+        "aiohttp-cors"
     ],
     extras_require = {
         "locale": [
             "Babel==2.9.1",
         ],
         "memcache": [
-            "aiomcache==0.8.0",
+            "aiomcache==0.8.1",
         ],
     },
     ext_modules=cythonize(extensions),

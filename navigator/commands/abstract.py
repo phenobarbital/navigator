@@ -18,9 +18,10 @@ class BaseCommand(ABC):
 
     Abstract Command for NAV cli-based commands.
     """
+
     help: str = "Base Help Command"
     epilog: str = ""
-    _version: str = '0.1'
+    _version: str = "0.1"
 
     def __init__(self, args):
         self.args: list = args
@@ -53,7 +54,7 @@ class BaseCommand(ABC):
         if message:
             cPrint(message, level=level)
 
-    def add_argument(self, name: str, dtype = str, **kwargs):
+    def add_argument(self, name: str, dtype=str, **kwargs):
         self.parser.add_argument(name, type=dtype, **kwargs)
 
     @abstractmethod
@@ -84,19 +85,14 @@ class BaseCommand(ABC):
                     f"Error: Method **{self.action}** not found on {str(self)}",
                     level="ERROR",
                 )
-                raise CommandNotFound(
-                    f"Method {self.action} from {self!s} not Found"
-                )
+                raise CommandNotFound(f"Method {self.action} from {self!s} not Found")
             fn = getattr(self, self.action)
             # adding an epilog using the docstring
             self.parser.epilog = str(fn.__doc__)
             # parsing current arguments
             options, unknown = self.parser.parse_known_args(self.args)
             if options.debug:
-                self.write(
-                    f"Executing : {self.action} Command.",
-                    level="DEBUG"
-                )
+                self.write(f"Executing : {self.action} Command.", level="DEBUG")
             sig = signature(fn)
             try:
                 if len(sig.parameters) > 0:
@@ -113,18 +109,17 @@ class BaseCommand(ABC):
         except Exception as err:
             if options.traceback:
                 print(traceback.format_exc())
-            raise CommandError(
-                f"Error Parsing arguments: {err}"
-            ) from err
+            raise CommandError(f"Error Parsing arguments: {err}") from err
         finally:
             self.write(output, level="INFO")
-            return output # pylint: disable=W0150
+            return output  # pylint: disable=W0150
+
 
 def get_command(command: str, clsname: str, pathname: str = None):
     try:
         if pathname:
             classpath = f"{pathname}.commands.{command}"
-            pkg = 'commands'
+            pkg = "commands"
         else:
             classpath = f"commands.{command}"
             pkg = command
@@ -136,6 +131,7 @@ def get_command(command: str, clsname: str, pathname: str = None):
         raise CommandNotFound(
             f"Command {clsname} was not found on {pathname}: {ex}"
         ) from ex
+
 
 def run_command(project_path: PurePath, **kwargs):
     """
@@ -151,7 +147,7 @@ def run_command(project_path: PurePath, **kwargs):
         command = args.pop(0)
         installer = ApplicationInstaller()
         installed_apps: list = installer.app_list()
-        cmd_folder = project_path.joinpath('commands', f'{command}.py')
+        cmd_folder = project_path.joinpath("commands", f"{command}.py")
         if command is not None:
             # if command is a program, the behavior is different:
             program = f"apps.{command}"
@@ -170,13 +166,11 @@ def run_command(project_path: PurePath, **kwargs):
                         f"Command {clsCommand} for program {program} was not found o program doesn't exists"
                     ) from ex
             elif cmd_folder.exists():
-                sys.path.append(str(project_path.joinpath('commands')))
+                sys.path.append(str(project_path.joinpath("commands")))
                 # exists folder and file, maybe command exists?
                 clsCommand = f"{command.capitalize()}Command"
                 try:
-                    cls = get_command(
-                        command=command, clsname=clsCommand, pathname=""
-                    )
+                    cls = get_command(command=command, clsname=clsCommand, pathname="")
                 except CommandNotFound as ex:
                     raise CommandNotFound(
                         f"Command {clsCommand} was not found o program doesn't exists: {ex}"
@@ -204,10 +198,6 @@ def run_command(project_path: PurePath, **kwargs):
                 cmd.handle(**kwargs)
             except Exception as err:
                 logging.error(err)
-                raise CommandError(
-                    f"Command Error: {err}"
-                ) from err
+                raise CommandError(f"Command Error: {err}") from err
         else:
-            raise CommandNotFound(
-                "Missing Command on call."
-            )
+            raise CommandNotFound("Missing Command on call.")

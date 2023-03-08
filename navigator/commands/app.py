@@ -13,7 +13,7 @@ from aiofile import AIOFile
 from . import BaseCommand, CommandError
 
 
-logger = logging.getLogger('navigator')
+logger = logging.getLogger("navigator")
 loop = asyncio.get_event_loop()
 
 
@@ -90,7 +90,7 @@ class AppCommand(BaseCommand):
         # apps, etc, env, services, settings, static/images/js/css, templates
         self.write("* First Step: Creating Directory structure")
         create_dir(path, "apps", touch_init=True)
-        app_path = path.joinpath('apps')
+        app_path = path.joinpath("apps")
 
         try:
             program = options.program
@@ -115,7 +115,6 @@ class AppCommand(BaseCommand):
         if options.file_ini:
             # create an empty ini file:
             save_file(path, f"{program}.ini")
-
 
         # saving urls and views files:
         save_file(program_path, "urls.py", urls)

@@ -8,12 +8,20 @@ else:
     from typing import ParamSpec
 P = ParamSpec("P")
 
+
 class ClassDict(dict, MutableMapping):
     """ClassDict.
 
     Mapping that works like both a simple Dictionary or a Mutable Object.
     """
-    def __init__(self, *args: P.args, data: Optional[Union[tuple, dict]] = None, default: Any = None, **kwargs: P.kwargs):
+
+    def __init__(
+        self,
+        *args: P.args,
+        data: Optional[Union[tuple, dict]] = None,
+        default: Any = None,
+        **kwargs: P.kwargs,
+    ):
         self._columns: list = []
         self.mapping = {}
         self.default = default
@@ -21,13 +29,15 @@ class ClassDict(dict, MutableMapping):
         self.update(data, **kwargs)
         print(self.mapping, self._columns)
 
-    def update(self, items: Optional[Iterable] = None, **kwargs): # pylint: disable=W0221
+    def update(
+        self, items: Optional[Iterable] = None, **kwargs
+    ):  # pylint: disable=W0221
         if isinstance(items, dict):
             for key, value in items.items():
                 # self.mapping[key] = value
                 self.mapping[key] = value
         else:
-            for k,v in kwargs.items():
+            for k, v in kwargs.items():
                 # self.mapping[k] = v
                 self.mapping[k] = v
         self._columns = list(self.mapping.keys())

@@ -1,8 +1,7 @@
 import base64
 import codecs
 import sys
-from typing import Any, Callable, List, Literal
-
+from typing import Any
 from Crypto import Random
 from Crypto.Cipher import AES
 from rncryptor import DecryptionError, RNCryptor
@@ -10,7 +9,7 @@ from rncryptor import DecryptionError, RNCryptor
 base64encoded = False
 
 
-class Cipher(object):
+class Cipher:
     """Can Encode/Decode a string using AES-256 or RNCryptor."""
 
     key: str = ""
@@ -19,13 +18,13 @@ class Cipher(object):
     BS: int = 16
     cipher: Any = None
 
-    def __init__(self, key: str, type: str = "AES"):
+    def __init__(self, key: str, ctype: str = "AES"):
         self.key = key
-        self.type = type
-        if type == "AES":
+        self.type = ctype
+        if ctype == "AES":
             self.iv = Random.new().read(AES.block_size)
             self.cipher = AES.new(self.key, AES.MODE_CFB, self.iv)
-        elif type == "RNC":
+        elif ctype == "RNC":
             self.cipher = RNCryptor()
         else:
             sys.exit("Not implemented")
@@ -59,8 +58,10 @@ class Cipher(object):
                     return base64.b64decode(msg, validate=True)
                 else:
                     return msg
-            except DecryptionError:
-                raise ValueError("Error decoding message")
+            except DecryptionError as ex:
+                raise ValueError(
+                    f"Error decoding message: {ex}"
+                ) from ex
             except Exception as e:
                 print(e)
                 raise (e)

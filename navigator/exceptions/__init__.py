@@ -11,17 +11,17 @@ from .exceptions import (
     InvalidAuth,
     FailedAuth,
     AuthExpired,
-    ValidationError
+    ValidationError,
 )
 
 __all__ = (
-    'NavException',
-    'InvalidArgument',
-    'ConfigError',
-    'UserNotFound',
-    'Unauthorized',
-    'InvalidAuth',
-    'FailedAuth',
-    'AuthExpired',
-    'ValidationError'
+    "NavException",
+    "InvalidArgument",
+    "ConfigError",
+    "UserNotFound",
+    "Unauthorized",
+    "InvalidAuth",
+    "FailedAuth",
+    "AuthExpired",
+    "ValidationError",
 )

@@ -49,15 +49,21 @@ error_page = """
 """
 
 
-def manage_notfound(app: web.Application, request: web.Request, response: web.Response = None, ex: BaseException = None, status: int = None) -> web.Response:
-    name = app['name']
+def manage_notfound(
+    app: web.Application,
+    request: web.Request,
+    response: web.Response = None,
+    ex: BaseException = None,
+    status: int = None,
+) -> web.Response:
+    name = app["name"]
     if response:
         message = response.reason
         status = response.status
         ct = response.content_type
     else:
         message = None
-        ct = 'text/html'
+        ct = "text/html"
     if status is None:
         status = 404
     if ex is not None:
@@ -74,27 +80,32 @@ def manage_notfound(app: web.Application, request: web.Request, response: web.Re
         "url": request.rel_url,
         "error": error,
         "message": detail,
-        "stacktrace": stacktrace
+        "stacktrace": stacktrace,
     }
-    if ct == 'application/json':
+    if ct == "application/json":
         return JSONResponse(payload, status=status)
     else:
         data = not_found.format(**payload)
         return HTMLResponse(content=data, status=status)
 
 
-def manage_exception(app: web.Application, response: web.Response = None, ex: BaseException = None, status: int = None) -> web.Response:
+def manage_exception(
+    app: web.Application,
+    response: web.Response = None,
+    ex: BaseException = None,
+    status: int = None,
+) -> web.Response:
     message = None
     stacktrace = None
-    error = 'HTTP Error'
-    ct = 'text/html'
-    if 'template' in app:
+    error = "HTTP Error"
+    ct = "text/html"
+    if "template" in app:
         use_template = True
     else:
         use_template = False
-    name = app['name']
+    name = app["name"]
     if status == -1:
-        ct = 'text/html'
+        ct = "text/html"
         status = 500
     elif status is None:
         status = 500
@@ -129,14 +140,14 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
         stacktrace = traceback.format_exc(limit=20, chain=False)
     else:
         message = None
-        ct = 'text/html'
-    if ct == 'application/json':
+        ct = "text/html"
+    if ct == "application/json":
         payload = {
             "name": name,
             "status": status,
             "error": error,
             "message": message,
-            "traceback": str(stacktrace)
+            "traceback": str(stacktrace),
         }
         return JSONResponse(payload, status=status)
     else:
@@ -145,7 +156,7 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
             "status": status,
             "error": error,
             "message": message,
-            "stacktrace": stacktrace
+            "stacktrace": stacktrace,
         }
         if use_template is True:
             data = error_page.format(**payload)
@@ -157,12 +168,13 @@ def manage_exception(app: web.Application, response: web.Response = None, ex: Ba
 
 async def error_middleware(
     app: web.Application,
-    handler: Callable[[web.Request], Awaitable[web.StreamResponse]]
+    handler: Callable[[web.Request], Awaitable[web.StreamResponse]],
 ) -> web.StreamResponse:
     """
-        Error Middleware.
-        Description: Managing Errors on DEBUG Mode.
+    Error Middleware.
+    Description: Managing Errors on DEBUG Mode.
     """
+
     @web.middleware
     async def middleware_error(request: web.Request) -> web.StreamResponse:
         if isinstance(request.match_info.route, SystemRoute):  # eg. 404
@@ -185,7 +197,9 @@ async def error_middleware(
         except web.HTTPException as ex:
             if ex.status == 404:
                 if DEBUG is True:
-                    return manage_notfound(app, request=request, status=ex.status, ex=ex)
+                    return manage_notfound(
+                        app, request=request, status=ex.status, ex=ex
+                    )
             elif ex.status in error_codes:
                 if DEBUG is True:
                     return manage_exception(app, response=None, ex=ex, status=ex.status)
@@ -195,11 +209,12 @@ async def error_middleware(
                 raise
         except asyncio.CancelledError:
             pass
-        except Exception as ex: # pylint: disable=W0703
-            logging.warning(f'Request {request} has failed with exception: {ex!r}')
+        except Exception as ex:  # pylint: disable=W0703
+            logging.warning(f"Request {request} has failed with exception: {ex!r}")
             if DEBUG is True:
                 return manage_exception(app, status=500, ex=ex)
             else:
                 raise
         return response
+
     return middleware_error

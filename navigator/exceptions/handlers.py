@@ -3,15 +3,14 @@ from typing import Any
 from collections.abc import Generator
 import logging
 from contextlib import suppress
+
 ### TODO: review exception handlers for asyncio
 
 
 async def shutdown(loop: asyncio.AbstractEventLoop, signal: Any = None):
     """Cleanup tasks tied to the service's shutdown."""
     if signal:
-        logging.info(
-            f"Received exit signal {signal.name}..."
-        )
+        logging.info(f"Received exit signal {signal.name}...")
     else:
         logging.warning("Shutting NOT via signal")
     logging.info("Closing all connections")
@@ -23,18 +22,14 @@ async def shutdown(loop: asyncio.AbstractEventLoop, signal: Any = None):
         ]
         if len(tasks) > 0:
             status = [task.cancel() for task in tasks]
-            logging.warning(
-                f"Cancelling {len(tasks)} outstanding tasks: {status}"
-            )
+            logging.warning(f"Cancelling {len(tasks)} outstanding tasks: {status}")
             await asyncio.gather(*tasks, return_exceptions=True)
-        logging.warning('Asyncio Shutdown: Done graceful shutdown of subtasks')
+        logging.warning("Asyncio Shutdown: Done graceful shutdown of subtasks")
     except asyncio.exceptions.CancelledError:
         pass
     except Exception as e:
         logging.exception(e, stack_info=True)
-        raise Exception(
-            f"Asyncio Shutdown Error: {e}"
-        ) from e
+        raise Exception(f"Asyncio Shutdown Error: {e}") from e
     finally:
         with suppress(asyncio.exceptions.CancelledError):
             loop.stop()
@@ -50,9 +45,7 @@ def nav_exception_handler(loop: asyncio.AbstractEventLoop, context: Generator):
             msg = context.get("exception", context["message"])
             logging.error(f"Caught Exception: {msg}")
         except (TypeError, AttributeError, IndexError):
-            logging.error(
-                f"Caught Exception: {exception!s}, Context: {context!s}"
-            )
+            logging.error(f"Caught Exception: {exception!s}, Context: {context!s}")
         # Canceling pending tasks and stopping the loop
         try:
             loop.run_until_complete(shutdown(loop))

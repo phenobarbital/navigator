@@ -10,6 +10,7 @@ from navigator.extensions import BaseExtension
 from navigator.exceptions import NavException, ConfigError
 from navigator.conf import CACHE_URL
 
+
 class DBConnection(BaseExtension):
     """DBConnection.
 
@@ -27,39 +28,31 @@ class DBConnection(BaseExtension):
     Returns:
         DBConnection: a DB connection will be added to Web Application.
     """
-    name: str = 'asyncdb'
+
+    name: str = "asyncdb"
     app: WebApp = None
-    driver: str = 'pg'
+    driver: str = "pg"
     timeout: int = 10
 
     def __init__(
-            self,
-            app_name: str = None,
-            driver: str = 'pg',
-            dsn: str = None,
-            **kwargs
-        ) -> None:
+        self, app_name: str = None, driver: str = "pg", dsn: str = None, **kwargs
+    ) -> None:
         self.driver = driver
         try:
-            self.timeout = kwargs['timeout']
-            del kwargs['timeout']
+            self.timeout = kwargs["timeout"]
+            del kwargs["timeout"]
         except KeyError:
             pass
         try:
-            self.params = kwargs['params']
-            del kwargs['params']
+            self.params = kwargs["params"]
+            del kwargs["params"]
         except KeyError:
             self.params = {}
-        super(DBConnection, self).__init__(
-            app_name=app_name,
-            **kwargs
-        )
+        super(DBConnection, self).__init__(app_name=app_name, **kwargs)
         self.conn: Callable = None
         self._dsn: str = dsn
         if not self._dsn and not self.params:
-            raise ConfigError(
-                "DB: No DSN or Parameters for DB connection."
-            )
+            raise ConfigError("DB: No DSN or Parameters for DB connection.")
 
     async def on_startup(self, app: WebApp):
         """
@@ -71,15 +64,13 @@ class DBConnection(BaseExtension):
                 dsn=self._dsn,
                 params=self.params,
                 timeout=self.timeout,
-                **self._kwargs
+                **self._kwargs,
             )
             await self.conn.connection()
             ### register redis into app:
             app[self.name] = self.conn
         except (ProviderError, DriverError) as err:
-            logging.exception(
-                f"Error on Startup {self.name} Backend: {err!s}"
-            )
+            logging.exception(f"Error on Startup {self.name} Backend: {err!s}")
             raise NavException(
                 f"Error on Startup {self.name} Backend: {err!s}"
             ) from err

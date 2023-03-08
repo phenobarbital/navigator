@@ -24,11 +24,12 @@ import asyncio
 import uvloop
 from .navigator import Application
 from .responses import Response
-from .version import (
-    __title__, __description__, __version__, __author__
-)
+from .version import __title__, __description__, __version__, __author__
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
 uvloop.install()
 
-__all__ = ("Application", "Response", )
+__all__ = (
+    "Application",
+    "Response",
+)

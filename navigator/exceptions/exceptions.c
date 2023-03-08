@@ -2402,7 +2402,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_12NavException_8_
  * cdef class InvalidArgument(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(406, message or f"Invalid Argument: {self.args!s}")
+ *         super().__init__(message or f"Invalid Argument: {self.args!s}", 406)
  * 
  */
 
@@ -2488,7 +2488,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument___ini
   /* "navigator/exceptions/exceptions.pyx":31
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(406, message or f"Invalid Argument: {self.args!s}")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or f"Invalid Argument: {self.args!s}", 406)             # <<<<<<<<<<<<<<
  * 
  * cdef class ConfigError(NavException):
  */
@@ -2539,7 +2539,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument___ini
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_406, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_406};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -2548,7 +2548,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument___ini
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_406, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_406};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_7, 2+__pyx_t_7); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -2561,11 +2561,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument___ini
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_6, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_6, 0+__pyx_t_7, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_406);
     __Pyx_GIVEREF(__pyx_int_406);
-    PyTuple_SET_ITEM(__pyx_t_6, 0+__pyx_t_7, __pyx_int_406);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_6, 1+__pyx_t_7, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_6, 1+__pyx_t_7, __pyx_int_406);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_6, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 31, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -2578,7 +2578,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument___ini
  * cdef class InvalidArgument(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(406, message or f"Invalid Argument: {self.args!s}")
+ *         super().__init__(message or f"Invalid Argument: {self.args!s}", 406)
  * 
  */
 
@@ -2891,7 +2891,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_15InvalidArgument
  * cdef class ConfigError(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(500, message or f"Configuration Error.")
+ *         super().__init__(message or f"Configuration Error.", 500)
  * 
  */
 
@@ -2977,7 +2977,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError___init__(
   /* "navigator/exceptions/exceptions.pyx":36
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(500, message or f"Configuration Error.")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or f"Configuration Error.", 500)             # <<<<<<<<<<<<<<
  * 
  * ### Errors:
  */
@@ -3019,7 +3019,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError___init__(
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_500, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_500};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -3028,7 +3028,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError___init__(
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_500, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_500};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -3041,11 +3041,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError___init__(
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_500);
     __Pyx_GIVEREF(__pyx_int_500);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_500);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_500);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 36, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -3058,7 +3058,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError___init__(
  * cdef class ConfigError(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(500, message or f"Configuration Error.")
+ *         super().__init__(message or f"Configuration Error.", 500)
  * 
  */
 
@@ -3371,7 +3371,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_11ConfigError_4__
  * cdef class ValidationError(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(410, message or "Bad Request: Validation Error")
+ *         super().__init__(message or "Bad Request: Validation Error", 410)
  * 
  */
 
@@ -3457,7 +3457,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError___ini
   /* "navigator/exceptions/exceptions.pyx":42
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(410, message or "Bad Request: Validation Error")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "Bad Request: Validation Error", 410)             # <<<<<<<<<<<<<<
  * 
  * #### Authentication / Authorization
  */
@@ -3499,7 +3499,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError___ini
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_410, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_410};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -3508,7 +3508,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError___ini
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_410, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_410};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -3521,11 +3521,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError___ini
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_410);
     __Pyx_GIVEREF(__pyx_int_410);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_410);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_410);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 42, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -3538,7 +3538,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError___ini
  * cdef class ValidationError(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(410, message or "Bad Request: Validation Error")
+ *         super().__init__(message or "Bad Request: Validation Error", 410)
  * 
  */
 
@@ -3851,7 +3851,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_15ValidationError
  * cdef class UserNotFound(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(404, message or "User doesn't exists.")
+ *         super().__init__(message or "User doesn't exists.", 404)
  * 
  */
 
@@ -3937,7 +3937,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound___init__
   /* "navigator/exceptions/exceptions.pyx":48
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(404, message or "User doesn't exists.")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "User doesn't exists.", 404)             # <<<<<<<<<<<<<<
  * 
  * cdef class Unauthorized(NavException):
  */
@@ -3979,7 +3979,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound___init__
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_404, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_404};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -3988,7 +3988,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound___init__
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_404, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_404};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -4001,11 +4001,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound___init__
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_404);
     __Pyx_GIVEREF(__pyx_int_404);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_404);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_404);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 48, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -4018,7 +4018,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound___init__
  * cdef class UserNotFound(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(404, message or "User doesn't exists.")
+ *         super().__init__(message or "User doesn't exists.", 404)
  * 
  */
 
@@ -4331,7 +4331,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_12UserNotFound_4_
  * cdef class Unauthorized(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(401, message or "Unauthorized")
+ *         super().__init__(message or "Unauthorized", 401)
  * 
  */
 
@@ -4417,7 +4417,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized___init__
   /* "navigator/exceptions/exceptions.pyx":53
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(401, message or "Unauthorized")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "Unauthorized", 401)             # <<<<<<<<<<<<<<
  * 
  * cdef class InvalidAuth(NavException):
  */
@@ -4459,7 +4459,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized___init__
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_401, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_401};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -4468,7 +4468,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized___init__
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_401, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_401};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -4481,11 +4481,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized___init__
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_401);
     __Pyx_GIVEREF(__pyx_int_401);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_401);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_401);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 53, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -4498,7 +4498,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized___init__
  * cdef class Unauthorized(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(401, message or "Unauthorized")
+ *         super().__init__(message or "Unauthorized", 401)
  * 
  */
 
@@ -4811,7 +4811,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_12Unauthorized_4_
  * cdef class InvalidAuth(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(401, message or "Invalid Authentication")
+ *         super().__init__(message or "Invalid Authentication", 401)
  * 
  */
 
@@ -4897,7 +4897,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth___init__(
   /* "navigator/exceptions/exceptions.pyx":58
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(401, message or "Invalid Authentication")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "Invalid Authentication", 401)             # <<<<<<<<<<<<<<
  * 
  * cdef class FailedAuth(NavException):
  */
@@ -4939,7 +4939,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth___init__(
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_401, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_401};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -4948,7 +4948,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth___init__(
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_401, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_401};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -4961,11 +4961,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth___init__(
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_401);
     __Pyx_GIVEREF(__pyx_int_401);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_401);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_401);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 58, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -4978,7 +4978,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth___init__(
  * cdef class InvalidAuth(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(401, message or "Invalid Authentication")
+ *         super().__init__(message or "Invalid Authentication", 401)
  * 
  */
 
@@ -5291,7 +5291,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_11InvalidAuth_4__
  * cdef class FailedAuth(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(403, message or "Failed Authorization")
+ *         super().__init__(message or "Failed Authorization", 403)
  * 
  */
 
@@ -5377,7 +5377,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth___init__(s
   /* "navigator/exceptions/exceptions.pyx":63
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(403, message or "Failed Authorization")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "Failed Authorization", 403)             # <<<<<<<<<<<<<<
  * 
  * cdef class AuthExpired(NavException):
  */
@@ -5419,7 +5419,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth___init__(s
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_403, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_403};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -5428,7 +5428,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth___init__(s
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_403, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_403};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -5441,11 +5441,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth___init__(s
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_403);
     __Pyx_GIVEREF(__pyx_int_403);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_403);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_403);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 63, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -5458,7 +5458,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth___init__(s
  * cdef class FailedAuth(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(403, message or "Failed Authorization")
+ *         super().__init__(message or "Failed Authorization", 403)
  * 
  */
 
@@ -5771,7 +5771,7 @@ static PyObject *__pyx_pf_9navigator_10exceptions_10exceptions_10FailedAuth_4__s
  * cdef class AuthExpired(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(410, message or "Gone: Authentication Expired.")
+ *         super().__init__(message or "Gone: Authentication Expired.", 410)
  */
 
 /* Python wrapper */
@@ -5856,7 +5856,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11AuthExpired___init__(
   /* "navigator/exceptions/exceptions.pyx":68
  * 
  *     def __init__(self, str message = None):
- *         super().__init__(410, message or "Gone: Authentication Expired.")             # <<<<<<<<<<<<<<
+ *         super().__init__(message or "Gone: Authentication Expired.", 410)             # <<<<<<<<<<<<<<
  */
   __pyx_t_2 = PyTuple_New(2); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 68, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_2);
@@ -5896,7 +5896,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11AuthExpired___init__(
   }
   #if CYTHON_FAST_PYCALL
   if (PyFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_410, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_410};
     __pyx_t_1 = __Pyx_PyFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -5905,7 +5905,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11AuthExpired___init__(
   #endif
   #if CYTHON_FAST_PYCCALL
   if (__Pyx_PyFastCFunction_Check(__pyx_t_2)) {
-    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_int_410, __pyx_t_3};
+    PyObject *__pyx_temp[3] = {__pyx_t_5, __pyx_t_3, __pyx_int_410};
     __pyx_t_1 = __Pyx_PyCFunction_FastCall(__pyx_t_2, __pyx_temp+1-__pyx_t_6, 2+__pyx_t_6); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_GOTREF(__pyx_t_1);
@@ -5918,11 +5918,11 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11AuthExpired___init__(
     if (__pyx_t_5) {
       __Pyx_GIVEREF(__pyx_t_5); PyTuple_SET_ITEM(__pyx_t_7, 0, __pyx_t_5); __pyx_t_5 = NULL;
     }
+    __Pyx_GIVEREF(__pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_t_3);
     __Pyx_INCREF(__pyx_int_410);
     __Pyx_GIVEREF(__pyx_int_410);
-    PyTuple_SET_ITEM(__pyx_t_7, 0+__pyx_t_6, __pyx_int_410);
-    __Pyx_GIVEREF(__pyx_t_3);
-    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_t_3);
+    PyTuple_SET_ITEM(__pyx_t_7, 1+__pyx_t_6, __pyx_int_410);
     __pyx_t_3 = 0;
     __pyx_t_1 = __Pyx_PyObject_Call(__pyx_t_2, __pyx_t_7, NULL); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 68, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
@@ -5935,7 +5935,7 @@ static int __pyx_pf_9navigator_10exceptions_10exceptions_11AuthExpired___init__(
  * cdef class AuthExpired(NavException):
  * 
  *     def __init__(self, str message = None):             # <<<<<<<<<<<<<<
- *         super().__init__(410, message or "Gone: Authentication Expired.")
+ *         super().__init__(message or "Gone: Authentication Expired.", 410)
  */
 
   /* function exit code */

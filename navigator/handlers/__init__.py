@@ -6,4 +6,4 @@ Application Handlers are the wrappers to create an aiohttp Application \
 """
 from .base import BaseHandler
 
-__all__ = ['BaseHandler']
+__all__ = ["BaseHandler"]

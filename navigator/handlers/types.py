@@ -11,9 +11,7 @@ from navconfig import BASE_DIR
 from navigator.connections import PostgresPool
 from navigator.middlewares.error import error_middleware
 from navigator.responses import JSONResponse
-from navigator.exceptions import (
-    ConfigError
-)
+from navigator.exceptions import ConfigError
 from .base import BaseHandler
 
 
@@ -24,6 +22,7 @@ class AppHandler(BaseHandler):
     Main Class for registration principal (Main) aiohttp App.
     can register Callbacks, Signals, Route Initialization, etc
     """
+
     _middleware: list = []
     enable_static: bool = False
     staticdir: str = None
@@ -31,26 +30,14 @@ class AppHandler(BaseHandler):
     enable_error_middleware: bool = False
 
     def __init__(
-        self,
-        context: dict,
-        app_name: str = None,
-        evt: asyncio.AbstractEventLoop = None
+        self, context: dict, app_name: str = None, evt: asyncio.AbstractEventLoop = None
     ) -> None:
-        super(
-            AppHandler, self
-        ).__init__(
-            context=context,
-            app_name=app_name,
-            evt=evt
-        )
+        super(AppHandler, self).__init__(context=context, app_name=app_name, evt=evt)
         if self.enable_pgpool is True:
             try:
-            # enable a pool-based database connection:
-                pool = PostgresPool(
-                    name='Navigator',
-                    startup=self.app_startup
-                )
-                pool.configure(self.app, register='database') # pylint: disable=E1123
+                # enable a pool-based database connection:
+                pool = PostgresPool(name="Navigator", startup=self.app_startup)
+                pool.configure(self.app, register="database")  # pylint: disable=E1123
             except (ProviderError, DriverError) as ex:
                 raise web.HTTPServerError(
                     reason=f"Error creating Database connection: {ex}"
@@ -119,30 +106,25 @@ class AppConfig(AppHandler):
 
     Class for Configuration of aiohttp SubApps
     """
+
     path: Path = None
     _middleware: list = []
     domain: str = ""
-    version: str = '0.0.1'
-    description: str = ''
+    version: str = "0.0.1"
+    description: str = ""
     template: str = "templates"
 
-    def __init__(
-        self,
-        *args,
-        **kwargs
-    ):
+    def __init__(self, *args, **kwargs):
         self._name = type(self).__name__
         self._listener: Callable = None
         super(AppConfig, self).__init__(*args, **kwargs)
         if self.path is not None:
-            path = BASE_DIR.joinpath('apps')
+            path = BASE_DIR.joinpath("apps")
             self.path = path.joinpath(self._name)
         # set the setup_routes
         self.setup_routes()
         # authorization
-        self.app.router.add_get(
-            '/authorize', self.app_authorization
-        )
+        self.app.router.add_get("/authorize", self.app_authorization)
 
     def setup_routes(self):
         """Setup Routes (URLS) pointing to paths on AppConfig."""
@@ -150,7 +132,8 @@ class AppConfig(AppHandler):
         # TODO: automatic module loader
         try:
             cls = importlib.import_module(
-                "{}.{}".format("apps.{}".format(self._name), "urls"), package="apps" # pylint: disable=C0209
+                "{}.{}".format("apps.{}".format(self._name), "urls"),
+                package="apps",  # pylint: disable=C0209
             )
             routes = getattr(cls, "urls")
         except ModuleNotFoundError:
@@ -159,7 +142,6 @@ class AppConfig(AppHandler):
             self.logger.exception(err, stack_info=True)
             return False
         for route in routes:
-            # print(route, route.method)
             if inspect.isclass(route.handler) and issubclass(
                 route.handler, AbstractView
             ):
@@ -248,13 +230,10 @@ class AppConfig(AppHandler):
             web.Response:
         """
         try:
-            program = request.match_info['program']
+            program = request.match_info["program"]
         except (AttributeError, KeyError):
             program = self.__class__.__name__
-        authorization = {
-            "status": "Tenant Authorized",
-            "program": program
-        }
+        authorization = {"status": "Tenant Authorized", "program": program}
         return JSONResponse(authorization, status=200)
 
     async def on_startup(self, app: web.Application):

@@ -4,13 +4,13 @@ from textwrap import dedent
 from aiohttp import web
 
 
-class AbstractHandler(object):
+class AbstractHandler:
     _template = "<!doctype html><head></head><body></body>"
 
     def __init__(self):
         self._template = dedent(self._template)
 
-    async def index(self, request: web.Request):
+    async def index(self, request: web.Request):  # pylint: disable=W0613
         response = web.Response(body="")
         return response
 

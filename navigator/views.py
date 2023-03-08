@@ -11,7 +11,7 @@ from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import (
     HTTPMethodNotAllowed,
     HTTPNoContent,
-    HTTPNotImplemented
+    HTTPNotImplemented,
 )
 import orjson
 from orjson import JSONDecodeError
@@ -21,17 +21,10 @@ from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from asyncdb import AsyncDB
 from asyncdb.models import Model
-from asyncdb.exceptions import (
-    ProviderError,
-    DriverError,
-    NoDataFound
-)
+from asyncdb.exceptions import ProviderError, DriverError, NoDataFound
 from navconfig.logging import logging, loglevel
 from navigator_session import get_session
-from navigator.exceptions import (
-    NavException,
-    InvalidArgument
-)
+from navigator.exceptions import NavException, InvalidArgument
 from navigator.libs.json import JSONContent, json_encoder, json_decoder
 from navigator.responses import JSONResponse
 
@@ -39,12 +32,13 @@ from navigator.responses import JSONResponse
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
 
+
 class BaseHandler(CorsViewMixin):
     _config = None
     _mem = None
     _now = None
     _loop = None
-    _logger_name: str = 'navigator'
+    _logger_name: str = "navigator"
     _lasterr = None
     _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
@@ -97,11 +91,11 @@ class BaseHandler(CorsViewMixin):
         state: int = None,
         headers: dict = None,
         content_type: str = "application/json",
-        **kwargs, # pylint: disable=W0613
+        **kwargs,  # pylint: disable=W0613
     ) -> web.Response:
-        if not headers: # TODO: set to default headers.
+        if not headers:  # TODO: set to default headers.
             headers = {}
-        if state is not None: # backward compatibility
+        if state is not None:  # backward compatibility
             status = state
         args = {"status": status, "content_type": content_type, "headers": headers}
         if isinstance(response, dict):
@@ -111,25 +105,23 @@ class BaseHandler(CorsViewMixin):
         return web.Response(**args)
 
     def json_response(
-            self,
-            response: dict = None,
-            reason: str = None,
-            headers: dict = None,
-            status: int = 200,
-            state: int = None,
-            cls: Callable = None
-        ):
+        self,
+        response: dict = None,
+        reason: str = None,
+        headers: dict = None,
+        status: int = 200,
+        state: int = None,
+        cls: Callable = None,
+    ):
         """json_response.
 
         Return a JSON-based Web Response.
         """
-        if state is not None: # backward compatibility
+        if state is not None:  # backward compatibility
             status = state
         if cls:
-            logging.warning(
-                "Passing *cls* attribute is deprecated for json_response."
-            )
-        if not headers: # TODO: set to default headers.
+            logging.warning("Passing *cls* attribute is deprecated for json_response.")
+        if not headers:  # TODO: set to default headers.
             headers = {}
         return JSONResponse(response, status=status, headers=headers, reason=reason)
 
@@ -142,12 +134,12 @@ class BaseHandler(CorsViewMixin):
         state: int = None,
         headers: dict = None,
         content_type: str = "application/json",
-        **kwargs, # pylint: disable=W0613
+        **kwargs,  # pylint: disable=W0613
     ) -> web.Response:
         # TODO: process the exception object
-        if not headers: # TODO: set to default headers.
+        if not headers:  # TODO: set to default headers.
             headers = {}
-        if state is not None: # backward compatibility
+        if state is not None:  # backward compatibility
             status = state
         response_obj = {
             "message": reason if reason else "Failed",
@@ -157,7 +149,7 @@ class BaseHandler(CorsViewMixin):
         args = {
             "text": self._json.dumps(response_obj),
             "reason": "Server Error",
-            "content_type": content_type
+            "content_type": content_type,
         }
         if status == 500:  # bad request
             obj = web.HTTPInternalServerError(**args)
@@ -174,21 +166,18 @@ class BaseHandler(CorsViewMixin):
         status: int = 400,
         state: int = None,
         headers: dict = None,
-        content_type: str = 'application/json',
+        content_type: str = "application/json",
         **kwargs,
     ) -> web.Response:
-        if not headers: # TODO: set to default headers.
+        if not headers:  # TODO: set to default headers.
             headers = {}
         # TODO: process the exception object
         response_obj = {}
-        if state is not None: # backward compatibility
+        if state is not None:  # backward compatibility
             status = state
         if exception:
             response_obj["reason"] = str(exception)
-        args = {
-            "content_type": content_type,
-            **kwargs
-        }
+        args = {"content_type": content_type, **kwargs}
         if isinstance(response, dict):
             response_obj = {**response_obj, **response}
             # args["content_type"] = "application/json"
@@ -204,7 +193,7 @@ class BaseHandler(CorsViewMixin):
             obj = web.HTTPForbidden(**args)
         elif status == 404:  # not found
             obj = web.HTTPNotFound(**args)
-        elif status == 406: # Not acceptable
+        elif status == 406:  # Not acceptable
             obj = web.HTTPNotAcceptable(**args)
         elif status == 412:
             obj = web.HTTPPreconditionFailed(**args)
@@ -220,10 +209,10 @@ class BaseHandler(CorsViewMixin):
         self,
         response: dict = None,
         headers: dict = None,
-        content_type: str = 'application/json',
-        **kwargs # pylint: disable=W0613
+        content_type: str = "application/json",
+        **kwargs,  # pylint: disable=W0613
     ) -> web.Response:
-        if not headers: # TODO: set to default headers.
+        if not headers:  # TODO: set to default headers.
             headers = {}
         args = {
             "text": self._json.dumps(response),
@@ -242,10 +231,10 @@ class BaseHandler(CorsViewMixin):
         response: dict = None,
         headers: dict = None,
         allowed: dict = None,
-        content_type: str = 'application/json',
+        content_type: str = "application/json",
         **kwargs,
     ) -> web.Response:
-        if not headers: # TODO: set to default headers.
+        if not headers:  # TODO: set to default headers.
             headers = {}
         if not request:
             request = self.request
@@ -256,11 +245,10 @@ class BaseHandler(CorsViewMixin):
         if response is None:
             response = {
                 "message": f"Method {request.method} not Allowed.",
-                "allowed": allow
+                "allowed": allow,
             }
             response = self._json.dumps(response)
         elif isinstance(response, dict):
-            print('POR QUE ', response)
             response = self._json.dumps(response)
         args = {
             "method": request.method,
@@ -270,7 +258,6 @@ class BaseHandler(CorsViewMixin):
             "allowed_methods": allow,
             **kwargs,
         }
-        print('ARGS ', args)
         if allowed:
             headers["Allow"] = ",".join(allow)
         else:
@@ -290,7 +277,7 @@ class BaseHandler(CorsViewMixin):
             return await request.json(loads=orjson.loads)
         except ValidationError:
             return None
-        except Exception as err: # pylint: disable=W0703
+        except Exception as err:  # pylint: disable=W0703
             logging.warning(err)
             return None
 
@@ -300,10 +287,10 @@ class BaseHandler(CorsViewMixin):
             if request.body_exists:
                 body = await request.read()
                 body = body.decode("ascii")
-        except Exception: # pylint: disable=W0703
+        except Exception:  # pylint: disable=W0703
             pass
         finally:
-            return body # pylint: disable=W0150
+            return body  # pylint: disable=W0150
 
     async def json_data(self, request: web.Request = None):
         if not request:
@@ -365,7 +352,9 @@ class BaseHandler(CorsViewMixin):
                 pass
         return params
 
-    async def validate_handler(self, model: dataclass, request: web.Request = None, strict: bool = True) -> Optional[dict]:
+    async def validate_handler(
+        self, model: dataclass, request: web.Request = None, strict: bool = True
+    ) -> Optional[dict]:
         """validate_handler.
 
         Description: Using a dataclass (or Model) to validate data entered into System.
@@ -387,28 +376,24 @@ class BaseHandler(CorsViewMixin):
         if not request:
             request = self.request
         # check if data comes from POST or GET:
-        if request.method in ('POST', 'PUT', 'PATCH'):
+        if request.method in ("POST", "PUT", "PATCH"):
             # getting data from POST
             data = await request.json(loads=DEFAULT_JSON_DECODER)
-        elif request.method == 'GET':
+        elif request.method == "GET":
             data = {key: val for (key, val) in request.query.items()}
         else:
             return HTTPNotImplemented(
                 reason=f"{request.method} Method not Implemented for Data Validation.",
-                content_type="application/json"
+                content_type="application/json",
             )
         if data is None:
             return web.HTTPNotFound(
                 reason="There is no content for validation.",
-                content_type="application/json"
+                content_type="application/json",
             )
         # making the validation of data:
-        headers = {
-            'X-MODEL': f"{model!s}"
-        }
-        args = {
-            "content_type": "application/json"
-        }
+        headers = {"X-MODEL": f"{model!s}"}
+        args = {"content_type": "application/json"}
         if isinstance(data, dict):
             validated = None
             exp = None
@@ -420,45 +405,38 @@ class BaseHandler(CorsViewMixin):
                     for field, error in ex.payload.items():
                         errors[field] = []
                         for er in error:
-                            e = {
-                                "value": str(er['value']),
-                                "error": er['error']
-                            }
+                            e = {"value": str(er["value"]), "error": er["error"]}
                             errors[field].append(e)
                 else:
-                    errors = 'Missing Data.'
+                    errors = "Missing Data."
                 args = {
                     "errors": errors,
                     "error": f"Validation Error on model {model!s}",
-                    "exception": f"{ex}"
+                    "exception": f"{ex}",
                 }
                 exp = web.HTTPBadRequest(
-                    reason=json_encoder(args),
-                    content_type="application/json"
+                    reason=json_encoder(args), content_type="application/json"
                 )
             except TypeError as ex:
                 # print('TYPE ', ex)
                 data = {
                     "error": f"Invalid type for {model!s}: {ex}",
-                    "exception": f"{ex}"
+                    "exception": f"{ex}",
                 }
                 exp = web.HTTPNotAcceptable(
-                    reason=json_encoder(data),
-                    headers=headers,
-                    **args
+                    reason=json_encoder(data), headers=headers, **args
                 )
             except (ValueError, AttributeError) as ex:
                 data = {
                     "error": f"Invalid Value for {model!s}: {ex}",
-                    "exception": f"{ex}"
+                    "exception": f"{ex}",
                 }
                 exp = web.HTTPNotAcceptable(
-                    reason=json_encoder(data),
-                    content_type="application/json"
+                    reason=json_encoder(data), content_type="application/json"
                 )
             if exp is not None:
                 if strict is True:
-                    return exp # exception
+                    return exp  # exception
                 else:
                     return validated
             else:
@@ -466,7 +444,6 @@ class BaseHandler(CorsViewMixin):
 
 
 class BaseView(web.View, BaseHandler, AbstractView):
-
     def __init__(self, request, *args, **kwargs):
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
@@ -487,9 +464,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
             ) from e
         except Exception as err:
             self.logger.exception(err, stack_info=True)
-            raise NavException(
-                f"Unable to access to Database: {err}"
-            ) from err
+            raise NavException(f"Unable to access to Database: {err}") from err
 
     connection = connect
 
@@ -504,7 +479,7 @@ class BaseView(web.View, BaseHandler, AbstractView):
             try:
                 return await self.get_json(self.request)
             except JSONDecodeError as ex:
-                logging.exception(f'Empty or Wrong POST Data, {ex}')
+                logging.exception(f"Empty or Wrong POST Data, {ex}")
                 return None
         try:
             params = await self.request.post()
@@ -521,11 +496,11 @@ class BaseView(web.View, BaseHandler, AbstractView):
                         except (KeyError, ValueError):
                             pass
         finally:
-            return params # pylint: disable=W0150
+            return params  # pylint: disable=W0150
 
 
 class DataView(BaseView):
-    async def asyncdb(self, driver: str = 'pg', dsn: str = None, params: dict = None):
+    async def asyncdb(self, driver: str = "pg", dsn: str = None, params: dict = None):
         try:
             conn = None
             try:
@@ -533,25 +508,17 @@ class DataView(BaseView):
                 conn = await db.acquire()
             except KeyError:
                 if params:
-                    args = {
-                        "params": params
-                    }
+                    args = {"params": params}
                 else:
-                    args = {
-                        "dsn": dsn
-                    }
+                    args = {"dsn": dsn}
                 # getting database connection directly:
                 db = AsyncDB(driver, **args)
                 conn = await db.connection()
             return conn
         except (ProviderError, DriverError) as ex:
-            raise Exception(
-                f"Error connecting to DB: {ex}"
-            ) from ex
+            raise Exception(f"Error connecting to DB: {ex}") from ex
         except Exception as err:
-            raise Exception(
-                f"Error connecting to DB: {err}"
-            ) from err
+            raise Exception(f"Error connecting to DB: {err}") from err
 
     async def query(self, sql):
         result = None
@@ -568,7 +535,7 @@ class DataView(BaseView):
                 result = None
                 self._lasterr = err
             finally:
-                return result # pylint: disable=W0150
+                return result  # pylint: disable=W0150
 
     async def queryrow(self, sql):
         result = None
@@ -585,11 +552,9 @@ class DataView(BaseView):
                 self._lasterr = ex
             except Exception as err:
                 self._lasterr = err
-                raise Exception(
-                    f"Error connecting to DB: {err}"
-                ) from err
+                raise Exception(f"Error connecting to DB: {err}") from err
             finally:
-                return result # pylint: disable=W0150
+                return result  # pylint: disable=W0150
 
     async def execute(self, sql):
         result = None
@@ -606,11 +571,9 @@ class DataView(BaseView):
                 self._lasterr = ex
             except Exception as err:
                 self._lasterr = err
-                raise Exception(
-                    f"Error connecting to DB: {err}"
-                ) from err
+                raise Exception(f"Error connecting to DB: {err}") from err
             finally:
-                return result # pylint: disable=W0150
+                return result  # pylint: disable=W0150
 
 
 async def load_models(app: str, model, tablelist: list):
@@ -623,9 +586,7 @@ async def load_models(app: str, model, tablelist: list):
                     query = await Model.makeModel(name=table, schema=name, db=conn)
                     model[table] = query
                 except Exception as err:  # pylint: disable=W0703
-                    logging.error(
-                        f"Error loading Model {table}: {err!s}"
-                    )
+                    logging.error(f"Error loading Model {table}: {err!s}")
             return model
 
 
@@ -664,7 +625,7 @@ class ModelView(BaseView):
             # using importlib (from apps.{program}.models import Model)
             try:
                 table = self.Meta.tablename
-            except Exception as err: # pylint: disable=W0703
+            except Exception as err:  # pylint: disable=W0703
                 print(err)
                 table = type(self).__name__
                 self.Meta.tablename = table
@@ -672,19 +633,15 @@ class ModelView(BaseView):
                 return self.models[table]
             except KeyError as err:
                 # Model doesn't exists
-                raise NoDataFound(
-                    f"Model {table} Doesn't Exists"
-                ) from err
+                raise NoDataFound(f"Model {table} Doesn't Exists") from err
 
-    async def get_connection(self, driver: str = 'database'):
+    async def get_connection(self, driver: str = "database"):
         try:
             if not self.model.Meta.connection:
                 self._connection = await self.request.app[driver].acquire()
                 self.model.Meta.connection = self._connection
         except Exception as err:
-            raise Exception(
-                f"ModelView Error: Cannot get Connection: {err}"
-            ) from err
+            raise Exception(f"ModelView Error: Cannot get Connection: {err}") from err
 
     async def get_data(self, params, args):
         try:
@@ -705,9 +662,7 @@ class ModelView(BaseView):
         except NoDataFound:
             return None
         except Exception as err:
-            raise NavException(
-                f"Error getting data from Model: {err}"
-            ) from err
+            raise NavException(f"Error getting data from Model: {err}") from err
 
     def model_response(self, response, headers: dict = None):
         # TODO: check if response is empty
@@ -741,16 +696,13 @@ class ModelView(BaseView):
                 db = await self.request.app["database"].acquire()
                 self.model.Meta.connection = db
         except Exception as err:
-            raise NavException(
-                f"Error getting Parameters: {err}"
-            ) from err
+            raise NavException(f"Error getting Parameters: {err}") from err
         args = self.get_args()
         params = self.query_parameters(self.request)
         return [args, params]
 
     async def get(self):
         args, params = await self.get_parameters()
-        # print(args, params)
         # TODO: check if QueryParameters are in list of columns in Model
         try:
             data = await self.get_data(params, args)
@@ -798,9 +750,11 @@ class ModelView(BaseView):
                         default = f"{field.default!r}"
                     data[key] = {"type": _type, "default": default}
                 return self.model_response(data)
-            except Exception as err: # pylint: disable=W0703
+            except Exception as err:  # pylint: disable=W0703
                 stack = traceback.format_exc()
-                return self.critical(request=self.request, exception=err, stacktrace=stack)
+                return self.critical(
+                    request=self.request, exception=err, stacktrace=stack
+                )
 
     async def post(self):
         """
@@ -822,7 +776,7 @@ class ModelView(BaseView):
                 result = self.model.update(args, **post)
                 data = [row.dict() for row in result]
                 return self.model_response(data)
-            except Exception as err: # pylint: disable=W0703
+            except Exception as err:  # pylint: disable=W0703
                 trace = traceback.format_exc()
                 return self.critical(
                     request=self.request, exception=err, stacktrace=trace
@@ -838,7 +792,7 @@ class ModelView(BaseView):
                     query = await self.model.get(**parameters)
                     data = query.dict()
                     return self.model_response(data)
-            except Exception as err: # pylint: disable=W0703
+            except Exception as err:  # pylint: disable=W0703
                 print(err)
                 return self.error(
                     request=self.request, response=f"Error Saving Data {err!s}"
@@ -856,7 +810,7 @@ class ModelView(BaseView):
                     request=self.request,
                     response=f"Invalid data for Schema {self.Meta.tablename}",
                 )
-        except Exception as err: # pylint: disable=W0703
+        except Exception as err:  # pylint: disable=W0703
             print(err)
             trace = traceback.format_exc()
             return self.critical(request=self.request, exception=err, stacktrace=trace)
@@ -874,7 +828,7 @@ class ModelView(BaseView):
                 result = await self.model.remove(args)
             elif len(params) > 0:
                 result = await self.model.remove(params)
-        except Exception as err: # pylint: disable=W0703
+        except Exception as err:  # pylint: disable=W0703
             return self.error(
                 request=self.request,
                 response="Error Deleting Object",
@@ -930,17 +884,20 @@ class ModelView(BaseView):
         except (ProviderError, DriverError) as err:
             stack = traceback.format_exc()
             return self.critical(request=self.request, exception=err, stacktrace=stack)
-        except Exception as err: # pylint: disable=W0703
+        except Exception as err:  # pylint: disable=W0703
             stack = traceback.format_exc()
-            return self.critical(request=self.request, exception=err, stacktrace=stack, state=501)
+            return self.critical(
+                request=self.request, exception=err, stacktrace=stack, state=501
+            )
 
     class Meta:
         tablename: str = ""
 
+
 class ModelHandler(BaseView):
     model: BaseModel = None
-    name: str = 'Model'
-    pk: str = 'id'
+    name: str = "Model"
+    pk: str = "id"
 
     async def session(self):
         session = None
@@ -948,20 +905,15 @@ class ModelHandler(BaseView):
             session = await get_session(self.request)
         except (ValueError, RuntimeError) as err:
             return self.critical(
-                reason="Error Decoding Session",
-                request=self.request,
-                exception=err
+                reason="Error Decoding Session", request=self.request, exception=err
             )
         return session
 
     async def head(self):
-        """ Getting Client information."""
+        """Getting Client information."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ## calculating resource:
         response = self.model.schema(as_dict=True)
         columns = list(response["properties"].keys())
@@ -970,24 +922,19 @@ class ModelHandler(BaseView):
             "Content-Length": size,
             "X-Columns": f"{columns!r}",
             "X-Model": self.model.__name__,
-            "X-Tablename": self.model.Meta.name
+            "X-Tablename": self.model.Meta.name,
         }
-        return self.no_content(
-            headers=headers
-        )
+        return self.no_content(headers=headers)
 
     async def get(self):
-        """ Getting Client information."""
+        """Getting Client information."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ## getting all clients:
         args = self.match_parameters(self.request)
         try:
-            if args['meta'] == ':meta':
+            if args["meta"] == ":meta":
                 # returning JSON schema of Model:
                 response = self.model.schema(as_dict=True)
                 return self.json_response(response)
@@ -998,13 +945,13 @@ class ModelHandler(BaseView):
         except (TypeError, ValueError, NavException):
             data = None
         ## validate directly with model:
-        db = self.request.app['database']
+        db = self.request.app["database"]
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
             try:
-                objid = args['id']
+                objid = args["id"]
             except KeyError:
                 objid = None
         if objid:
@@ -1012,24 +959,14 @@ class ModelHandler(BaseView):
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
-                error = {
-                    "error": f"{self.name} was not Found"
-                }
+                error = {"error": f"{self.name} was not Found"}
                 try:
-                    args = {
-                        self.pk: objid
-                    }
+                    args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    self.error(
-                        exception=error,
-                        status=403
-                    )
+                    self.error(exception=error, status=403)
                 if not result:
-                    self.error(
-                        exception=error,
-                        status=403
-                    )
+                    self.error(exception=error, status=403)
                 return self.json_response(result)
         else:
             try:
@@ -1042,49 +979,34 @@ class ModelHandler(BaseView):
                     "error": f"Unable to load {self.name} info from Database",
                     "payload": ex.payload,
                 }
-                return self.critical(
-                    reason=error,
-                    statu=501
-                )
+                return self.critical(reason=error, statu=501)
             except TypeError as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
                     "payload": ex,
                 }
-                return self.error(
-                    exception=error,
-                    statu=406
-                )
+                return self.error(exception=error, statu=406)
             except (DriverError, ProviderError, RuntimeError):
                 error = {
                     "error": "Database Error",
                     "payload": ex,
                 }
-                return self.critical(
-                    reason=error,
-                    statu=500
-                )
+                return self.critical(reason=error, statu=500)
 
     async def put(self):
-        """ Creating Client information."""
+        """Creating Client information."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ### get session Data:
         try:
             data = await self.json_data()
         except (TypeError, ValueError, NavException):
-            self.error(
-                reason=f"Invalid {self.name} Data",
-                status=403
-            )
+            self.error(reason=f"Invalid {self.name} Data", status=403)
         ## validate directly with model:
         try:
-            resultset = self.model(**data) # pylint: disable=E1102
-            db = self.request.app['database']
+            resultset = self.model(**data)  # pylint: disable=E1102
+            db = self.request.app["database"]
             async with await db.acquire() as conn:
                 resultset.Meta.connection = conn
                 result = await resultset.insert()
@@ -1094,32 +1016,23 @@ class ModelHandler(BaseView):
                 "error": f"Unable to insert {self.name} info",
                 "payload": ex.payload,
             }
-            return self.error(
-                reason=error,
-                statu=501
-            )
+            return self.error(reason=error, statu=501)
         except (TypeError, AttributeError, ValueError) as ex:
             error = {
                 "error": f"Invalid payload for {self.name}",
                 "payload": ex,
             }
-            return self.error(
-                exception=error,
-                statu=406
-            )
+            return self.error(exception=error, statu=406)
 
     async def patch(self):
-        """ Patch an existing Client or retrieve the column names."""
+        """Patch an existing Client or retrieve the column names."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ### get session Data:
         params = self.match_parameters()
         try:
-            if params['meta'] == ':meta':
+            if params["meta"] == ":meta":
                 ## returning the columns on Model:
                 fields = self.model.__fields__
                 return self.json_response(fields)
@@ -1128,40 +1041,27 @@ class ModelHandler(BaseView):
         try:
             data = await self.json_data()
         except (TypeError, ValueError, NavException):
-            self.error(
-                reason=f"Invalid {self.name} Data",
-                status=403
-            )
+            self.error(reason=f"Invalid {self.name} Data", status=403)
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params['id']
-        db = self.request.app['database']
+            objid = params["id"]
+        db = self.request.app["database"]
         if objid:
             ## getting client
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 try:
-                    args = {
-                        self.pk: objid
-                    }
+                    args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    headers = {
-                        "x-error": f"{self.name} was not Found"
-                    }
-                    self.no_content(
-                        headers=headers
-                    )
+                    headers = {"x-error": f"{self.name} was not Found"}
+                    self.no_content(headers=headers)
                 if not result:
-                    headers = {
-                        "x-error": f"{self.name} was not Found"
-                    }
-                    self.no_content(
-                        headers=headers
-                    )
+                    headers = {"x-error": f"{self.name} was not Found"}
+                    self.no_content(headers=headers)
                 ## saved with new changes:
                 for key, val in data.items():
                     if key in result.get_fields():
@@ -1169,57 +1069,38 @@ class ModelHandler(BaseView):
                 data = await result.update()
                 return self.json_response(data, status=202)
         else:
-            self.error(
-                reason=f"Invalid {self.name} Data",
-                status=403
-            )
+            self.error(reason=f"Invalid {self.name} Data", status=403)
 
     async def post(self):
-        """ Create or Update a Client."""
+        """Create or Update a Client."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ### get session Data:
         params = self.match_parameters()
         try:
             data = await self.json_data()
         except (TypeError, ValueError, NavException):
-            self.error(
-                reason=f"Invalid {self.name} Data",
-                status=403
-            )
+            self.error(reason=f"Invalid {self.name} Data", status=403)
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params['id']
-        db = self.request.app['database']
+            objid = params["id"]
+        db = self.request.app["database"]
         if objid:
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
-                error = {
-                    "error": "Client was not Found"
-                }
+                error = {"error": "Client was not Found"}
                 try:
-                    args = {
-                        self.pk: objid
-                    }
+                    args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    self.error(
-                        exception=error,
-                        status=403
-                    )
+                    self.error(exception=error, status=403)
                 if not result:
-                    self.error(
-                        exception=error,
-                        status=403
-                    )
+                    self.error(exception=error, status=403)
                 ## saved with new changes:
                 for key, val in data.items():
                     if key in result.get_fields():
@@ -1229,73 +1110,53 @@ class ModelHandler(BaseView):
         else:
             # create a new client based on data:
             try:
-                resultset = self.model(**data) # pylint: disable=E1102
+                resultset = self.model(**data)  # pylint: disable=E1102
                 async with await db.acquire() as conn:
                     resultset.Meta.connection = conn
-                    result = await resultset.insert() # TODO: migrate to use save()
+                    result = await resultset.insert()  # TODO: migrate to use save()
                     return self.json_response(result, status=201)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to insert {self.name} info",
                     "payload": ex.payload,
                 }
-                return self.error(
-                    reason=error,
-                    statu=501
-                )
+                return self.error(reason=error, statu=501)
             except (TypeError, AttributeError, ValueError) as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
                     "payload": ex,
                 }
-                return self.error(
-                    exception=error,
-                    statu=406
-                )
+                return self.error(exception=error, statu=406)
 
     async def delete(self):
-        """ Delete a Client."""
+        """Delete a Client."""
         session = await self.session()
         if not session:
-            self.error(
-                reason="Unauthorized",
-                status=403
-            )
+            self.error(reason="Unauthorized", status=403)
         ### get session Data:
         params = self.match_parameters()
         try:
             data = await self.json_data()
         except (TypeError, ValueError):
-            self.error(
-                reason=f"Invalid {self.name} Data",
-                status=403
-            )
-        except Exception: # pylint: disable=W0703
+            self.error(reason=f"Invalid {self.name} Data", status=403)
+        except Exception:  # pylint: disable=W0703
             data = None
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params['id']
-        db = self.request.app['database']
+            objid = params["id"]
+        db = self.request.app["database"]
         if objid:
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
-                args = {
-                    self.pk: objid
-                }
+                args = {self.pk: objid}
                 result = await self.model.get(**args)
                 if not result:
-                    self.error(
-                        reason="Client was Not Found",
-                        status=204
-                    )
+                    self.error(reason="Client was Not Found", status=204)
                 # Delete them this Client
                 data = await result.delete()
                 return self.json_response(data, status=202)
         else:
-            self.error(
-                reason=f"Cannot Delete an Empty {self.name}",
-                status=204
-            )
+            self.error(reason=f"Cannot Delete an Empty {self.name}", status=204)

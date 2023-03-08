@@ -22,23 +22,16 @@ class RedisConnection(DBConnection):
     Returns:
         RedisConnection: a Redis connection will be added to Web Application.
     """
-    name: str = 'redis'
+
+    name: str = "redis"
     app: WebApp = None
-    driver: str = 'redis'
+    driver: str = "redis"
     timeout: int = 10
 
-    def __init__(
-            self,
-            app_name: str = None,
-            dsn: str = None,
-            **kwargs
-        ) -> None:
+    def __init__(self, app_name: str = None, dsn: str = None, **kwargs) -> None:
         self._dsn: str = None
         super(RedisConnection, self).__init__(
-            app_name=app_name,
-            driver='redis',
-            dsn=dsn,
-            **kwargs
+            app_name=app_name, driver="redis", dsn=dsn, **kwargs
         )
         if not self._dsn:
             self._dsn = CACHE_URL

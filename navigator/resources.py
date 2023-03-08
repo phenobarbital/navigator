@@ -3,7 +3,7 @@ import asyncio
 from pathlib import Path
 import logging
 import aiohttp
-from aiohttp import WSMsgType, web # , web_urldispatcher
+from aiohttp import WSMsgType, web  # , web_urldispatcher
 from navconfig import BASE_DIR
 from navigator_session import get_session
 from navigator.libs.json import json_encoder
@@ -26,9 +26,9 @@ async def channel_handler(request: web.Request):
         print(socket)
         logging.debug(f"WS Channel :: {channel} :: connection ready")
     except asyncio.CancelledError:
-        request.app['sockets'].remove(socket)
-        for ws in request.app['sockets']:
-            await ws.send_str('Someone disconnected.')
+        request.app["sockets"].remove(socket)
+        for ws in request.app["sockets"]:
+            await ws.send_str("Someone disconnected.")
     try:
         async for msg in ws:
             print(msg)
@@ -56,12 +56,12 @@ class WebSocket(web.View):
         await ws.prepare(self.request)
 
         for _ws in self.request.app["sockets"]:
-            _ws.send_str('Someone Joined.')
+            _ws.send_str("Someone Joined.")
 
         self.request.app["sockets"].append(ws)
         session = await get_session(self.request)
         if session:
-            session['socket'] = ws
+            session["socket"] = ws
         print("Websocket connection ready")
         async for msg in ws:
             print(msg)
@@ -77,9 +77,9 @@ class WebSocket(web.View):
             else:
                 pass
         self.request.app["sockets"].remove(ws)
-        session['socket'] = None
+        session["socket"] = None
         for _ws in self.request.app["sockets"]:
-            _ws.send_str('Someone Disconnected.')
+            _ws.send_str("Someone Disconnected.")
         print("Websocket connection closed")
         return ws
 
@@ -122,10 +122,8 @@ async def home(request: web.Request):
         if not file_path.exists():
             return web.HTTPNotFound()
         return web.FileResponse(file_path)
-    except Exception as e: # pylint: disable=W0703
+    except Exception as e:  # pylint: disable=W0703
         response_obj = {"status": "failed", "reason": str(e)}
         return web.Response(
-            text=json_encoder(response_obj),
-            status=500,
-            content_type="application/json"
+            text=json_encoder(response_obj), status=500, content_type="application/json"
         )

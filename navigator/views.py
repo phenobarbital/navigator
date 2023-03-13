@@ -615,7 +615,9 @@ class ModelView(BaseView):
         try:
             self.model = self.get_schema()
         except NoDataFound as err:
-            raise Exception(err) from err
+            raise NavException(
+                f"Error on Getting Model {self.model}: {err}"
+            ) from err
 
     def get_schema(self):
         if self.model:
@@ -633,36 +635,50 @@ class ModelView(BaseView):
                 return self.models[table]
             except KeyError as err:
                 # Model doesn't exists
-                raise NoDataFound(f"Model {table} Doesn't Exists") from err
+                raise NoDataFound(
+                    f"Model {table} Doesn't Exists"
+                ) from err
 
     async def get_connection(self, driver: str = "database"):
         try:
             if not self.model.Meta.connection:
-                self._connection = await self.request.app[driver].acquire()
+                self._connection = self.request.app[driver].acquire()
                 self.model.Meta.connection = self._connection
         except Exception as err:
-            raise Exception(f"ModelView Error: Cannot get Connection: {err}") from err
+            raise NavException(
+                f"ModelView Error: Cannot get Connection: {err}"
+            ) from err
 
     async def get_data(self, params, args):
-        try:
-            if len(params) > 0:
-                print("FILTER")
-                query = await self.model.filter(**params)
-            elif len(args) > 0:
-                print("GET")
-                query = await self.model.get(**args)
-                return query.dict()
-            else:
-                print("ALL")
-                query = await self.model.all()
-            if query:
-                return [row.dict() for row in query]
-            else:
-                raise NoDataFound
-        except NoDataFound:
-            return None
-        except Exception as err:
-            raise NavException(f"Error getting data from Model: {err}") from err
+        db = self.request.app["database"]
+        data = None
+        async with await db.acquire() as conn:
+            self.model.Meta.connection = conn
+            try:
+                if len(params) > 0:
+                    print("FILTER")
+                    query = await self.model.filter(**params)
+                elif len(args) > 0:
+                    print("GET")
+                    query = await self.model.get(**args)
+                    return query.dict()
+                else:
+                    print("ALL")
+                    query = await self.model.all()
+                if query:
+                    data = [row.dict() for row in query]
+                else:
+                    raise NoDataFound('No Data was found')
+            except NoDataFound:
+                raise
+            except Exception as err:
+                raise NavException(
+                    f"Error getting data from Model: {err}"
+                ) from err
+        await db.release(conn)
+        return data
+
+
 
     def model_response(self, response, headers: dict = None):
         # TODO: check if response is empty
@@ -691,12 +707,6 @@ class ModelView(BaseView):
 
         Get all parameters from URL or from query string.
         """
-        try:
-            if not self.model.Meta.connection:
-                db = await self.request.app["database"].acquire()
-                self.model.Meta.connection = db
-        except Exception as err:
-            raise NavException(f"Error getting Parameters: {err}") from err
         args = self.get_args()
         params = self.query_parameters(self.request)
         return [args, params]
@@ -726,17 +736,20 @@ class ModelView(BaseView):
         # try to got post data
         post = await self.json_data()
         if post:
-            # trying to update the model
-            update = await self.model.update(args, **post)
-            if update:
-                data = update[0].dict()
-                return self.model_response(data)
-            else:
-                return self.error(
-                    response=f"Resource not found: {post}",
-                    request=self.request,
-                    state=404,
-                )
+            db = self.request.app["database"]
+            async with await db.connection() as conn:
+                self.model.Meta.connection = conn
+                # trying to update the model
+                update = await self.model.update(args, **post)
+                if update:
+                    data = update[0].dict()
+                    return self.model_response(data)
+                else:
+                    return self.error(
+                        response=f"Resource not found: {post}",
+                        request=self.request,
+                        state=404,
+                    )
         else:
             try:
                 # getting metadata of Model
@@ -769,51 +782,58 @@ class ModelView(BaseView):
                 response="Cannot Update row without JSON Data",
                 state=406,
             )
+        db = self.request.app["database"]
         # updating several at the same time:
         if isinstance(post, list):
-            # mass-update using arguments:
-            try:
-                result = self.model.update(args, **post)
-                data = [row.dict() for row in result]
-                return self.model_response(data)
-            except Exception as err:  # pylint: disable=W0703
-                trace = traceback.format_exc()
-                return self.critical(
-                    request=self.request, exception=err, stacktrace=trace
-                )
+            async with await db.connection() as conn:
+                self.model.Meta.connection = conn
+                # mass-update using arguments:
+                try:
+                    result = self.model.update(args, **post)
+                    data = [row.dict() for row in result]
+                    return self.model_response(data)
+                except Exception as err:  # pylint: disable=W0703
+                    trace = traceback.format_exc()
+                    return self.critical(
+                        request=self.request, exception=err, stacktrace=trace
+                    )
         if len(args) > 0:
             parameters = {**args, **post}
-            try:
-                # check if exists first:
-                query = await self.model.get(**args)
-                if not query:
-                    # object doesnt exists, need to be created:
-                    result = await self.model.create([parameters])
-                    query = await self.model.get(**parameters)
-                    data = query.dict()
-                    return self.model_response(data)
-            except Exception as err:  # pylint: disable=W0703
-                print(err)
-                return self.error(
-                    request=self.request, response=f"Error Saving Data {err!s}"
-                )
+            async with await db.connection() as conn:
+                self.model.Meta.connection = conn
+                try:
+                    # check if exists first:
+                    query = await self.model.get(**args)
+                    if not query:
+                        # object doesnt exists, need to be created:
+                        result = await self.model.create([parameters])
+                        query = await self.model.get(**parameters)
+                        data = query.dict()
+                        return self.model_response(data)
+                except Exception as err:  # pylint: disable=W0703
+                    print(err)
+                    return self.error(
+                        response=f"Error Saving Data {err!s}"
+                    )
         # I need to use post data only
         try:
-            qry = self.model(**post)
-            if qry.is_valid():
-                await qry.save()
-                query = await qry.fetch(**args)
-                data = query.dict()
-                return self.model_response(data)
-            else:
-                return self.error(
-                    request=self.request,
-                    response=f"Invalid data for Schema {self.Meta.tablename}",
-                )
+            db = self.request.app["database"]
+            async with await db.connection() as conn:
+                self.model.Meta.connection = conn
+                qry = self.model(**post)
+                if qry.is_valid():
+                    await qry.save()
+                    query = await qry.fetch(**args)
+                    data = query.dict()
+                    return self.model_response(data)
+                else:
+                    return self.error(
+                        response=f"Invalid data for Schema {self.Meta.tablename}",
+                    )
         except Exception as err:  # pylint: disable=W0703
             print(err)
             trace = traceback.format_exc()
-            return self.critical(request=self.request, exception=err, stacktrace=trace)
+            return self.critical(exception=err, stacktrace=trace)
 
     async def delete(self):
         """ "
@@ -821,13 +841,16 @@ class ModelView(BaseView):
            summary: delete a table object
         """
         args, params = await self.get_parameters()
+        db = self.request.app["database"]
         try:
             result = None
-            if len(args) > 0:
-                # need to delete one
-                result = await self.model.remove(args)
-            elif len(params) > 0:
-                result = await self.model.remove(params)
+            async with await db.connection() as conn:
+                self.model.Meta.connection = conn
+                if len(args) > 0:
+                    # need to delete one
+                    result = await self.model.remove(args)
+                elif len(params) > 0:
+                    result = await self.model.remove(params)
         except Exception as err:  # pylint: disable=W0703
             return self.error(
                 request=self.request,
@@ -868,27 +891,29 @@ class ModelView(BaseView):
                 state=406,
             )
         parameters = {**params, **post}
-        try:
-            qry = self.model(**parameters)
-            if qry.is_valid():
-                # TODO: if insert fails in constraint, trigger POST (UPDATE)
-                result = await self.model.create([parameters])
-                if result:
-                    data = [row.dict() for row in result]
-                return self.model_response(data)
-            else:
-                return self.error(
-                    request=self.request,
-                    response=f"Invalid data for Schema {self.Meta.tablename}",
+        db = self.request.app["database"]
+        async with await db.connection() as conn:
+            self.model.Meta.connection = conn
+            try:
+                qry = self.model(**parameters)
+                if qry.is_valid():
+                    # TODO: if insert fails in constraint, trigger POST (UPDATE)
+                    result = await self.model.create([parameters])
+                    if result:
+                        data = [row.dict() for row in result]
+                    return self.model_response(data)
+                else:
+                    return self.error(
+                        response=f"Invalid data for Schema {self.Meta.tablename}",
+                    )
+            except (ProviderError, DriverError) as err:
+                stack = traceback.format_exc()
+                return self.critical(exception=err, stacktrace=stack)
+            except Exception as err:  # pylint: disable=W0703
+                stack = traceback.format_exc()
+                return self.critical(
+                    exception=err, stacktrace=stack, state=501
                 )
-        except (ProviderError, DriverError) as err:
-            stack = traceback.format_exc()
-            return self.critical(request=self.request, exception=err, stacktrace=stack)
-        except Exception as err:  # pylint: disable=W0703
-            stack = traceback.format_exc()
-            return self.critical(
-                request=self.request, exception=err, stacktrace=stack, state=501
-            )
 
     class Meta:
         tablename: str = ""

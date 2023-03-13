@@ -34,7 +34,7 @@ def Response(
     response = {"content_type": content_type, "charset": charset, "status": status}
     if headers:
         response["headers"] = headers
-    if isinstance(content, str) or text is not None:
+    if content and isinstance(content, str) or text is not None:
         response["text"] = content if content else text
     else:
         response["body"] = content if content else body

@@ -153,7 +153,9 @@ class PostgresPool(ConnectionHandler):
                 "jit": "off",
                 "statement_timeout": f"{self.statement_timeout}",
                 "idle_in_transaction_session_timeout": "5min",
+                "idle_session_timeout": "30s",
                 "effective_cache_size": "2147483647",
+                "tcp_keepalives_idle": "1min"
             },
         }
         super(PostgresPool, self).__init__(

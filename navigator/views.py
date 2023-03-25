@@ -1004,19 +1004,19 @@ class ModelHandler(BaseView):
                     "error": f"Unable to load {self.name} info from Database",
                     "payload": ex.payload,
                 }
-                return self.critical(reason=error, statu=501)
+                return self.critical(reason=error, status=501)
             except TypeError as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
                     "payload": ex,
                 }
-                return self.error(exception=error, statu=406)
+                return self.error(exception=error, status=406)
             except (DriverError, ProviderError, RuntimeError):
                 error = {
                     "error": "Database Error",
                     "payload": ex,
                 }
-                return self.critical(reason=error, statu=500)
+                return self.critical(reason=error, status=500)
 
     async def put(self):
         """Creating Client information."""
@@ -1041,13 +1041,13 @@ class ModelHandler(BaseView):
                 "error": f"Unable to insert {self.name} info",
                 "payload": ex.payload,
             }
-            return self.error(reason=error, statu=501)
+            return self.error(reason=error, status=400)
         except (TypeError, AttributeError, ValueError) as ex:
             error = {
                 "error": f"Invalid payload for {self.name}",
                 "payload": ex,
             }
-            return self.error(exception=error, statu=406)
+            return self.error(exception=error, status=406)
 
     async def patch(self):
         """Patch an existing Client or retrieve the column names."""
@@ -1072,7 +1072,10 @@ class ModelHandler(BaseView):
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params["id"]
+            try:
+                objid = params["id"]
+            except (TypeError, KeyError):
+                self.error(reason=f"Invalid {self.name} Data", status=400)
         db = self.request.app["database"]
         if objid:
             ## getting client
@@ -1094,25 +1097,28 @@ class ModelHandler(BaseView):
                 data = await result.update()
                 return self.json_response(data, status=202)
         else:
-            self.error(reason=f"Invalid {self.name} Data", status=403)
+            self.error(reason=f"Invalid {self.name} Data", status=400)
 
     async def post(self):
         """Create or Update a Client."""
         session = await self.session()
         if not session:
-            self.error(reason="Unauthorized", status=403)
+            self.error(reason="Unauthorized", status=400)
         ### get session Data:
         params = self.match_parameters()
         try:
             data = await self.json_data()
         except (TypeError, ValueError, NavException):
-            self.error(reason=f"Invalid {self.name} Data", status=403)
+            self.error(reason=f"Invalid {self.name} Data", status=400)
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params["id"]
+            try:
+                objid = params["id"]
+            except (TypeError, KeyError):
+                self.error(reason=f"Invalid {self.name} Data", status=400)
         db = self.request.app["database"]
         if objid:
             async with await db.acquire() as conn:
@@ -1123,9 +1129,9 @@ class ModelHandler(BaseView):
                     args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    self.error(exception=error, status=403)
+                    self.error(exception=error, status=400)
                 if not result:
-                    self.error(exception=error, status=403)
+                    self.error(exception=error, status=400)
                 ## saved with new changes:
                 for key, val in data.items():
                     if key in result.get_fields():
@@ -1145,13 +1151,13 @@ class ModelHandler(BaseView):
                     "error": f"Unable to insert {self.name} info",
                     "payload": ex.payload,
                 }
-                return self.error(reason=error, statu=501)
+                return self.error(reason=error, status=400)
             except (TypeError, AttributeError, ValueError) as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
                     "payload": ex,
                 }
-                return self.error(exception=error, statu=406)
+                return self.error(exception=error, status=406)
 
     async def delete(self):
         """Delete a Client."""
@@ -1163,14 +1169,17 @@ class ModelHandler(BaseView):
         try:
             data = await self.json_data()
         except (TypeError, ValueError):
-            self.error(reason=f"Invalid {self.name} Data", status=403)
+            self.error(reason=f"Invalid {self.name} Data", status=400)
         except Exception:  # pylint: disable=W0703
             data = None
         ## getting first the id from params or data:
         try:
             objid = data[self.pk]
         except (TypeError, KeyError):
-            objid = params["id"]
+            try:
+                objid = params["id"]
+            except (TypeError, KeyError):
+                self.error(reason=f"Invalid {self.name} Data", status=400)
         db = self.request.app["database"]
         if objid:
             async with await db.acquire() as conn:

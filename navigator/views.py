@@ -21,7 +21,7 @@ from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from asyncdb import AsyncDB
 from asyncdb.models import Model
-from asyncdb.exceptions import ProviderError, DriverError, NoDataFound
+from asyncdb.exceptions import ProviderError, DriverError, NoDataFound, ModelError
 from navconfig.logging import logging, loglevel
 from navigator_session import get_session
 from navigator.exceptions import NavException, InvalidArgument
@@ -934,6 +934,20 @@ class ModelHandler(BaseView):
             )
         return session
 
+    async def get_userid(self, session, idx: str = 'user_id') -> int:
+        if not session:
+            self.error(
+                reason="Unauthorized",
+                status=403
+            )
+        try:
+            if 'session' in session:
+                return session['session'][idx]
+            else:
+                return session[idx]
+        except KeyError:
+            self.error(reason="Unauthorized", status=403)
+
     async def head(self):
         """Getting Client information."""
         session = await self.session()
@@ -965,15 +979,11 @@ class ModelHandler(BaseView):
                 return self.json_response(response)
         except KeyError:
             pass
-        try:
-            data = await self.json_data()
-        except (TypeError, ValueError, NavException):
-            data = None
         ## validate directly with model:
         db = self.request.app["database"]
         ## getting first the id from params or data:
         try:
-            objid = data[self.pk]
+            objid = args[self.pk]
         except (TypeError, KeyError):
             try:
                 objid = args["id"]
@@ -989,28 +999,30 @@ class ModelHandler(BaseView):
                     args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    self.error(exception=error, status=403)
-                if not result:
-                    self.error(exception=error, status=403)
+                    return self.no_content()
                 return self.json_response(result)
         else:
+            data = self.query_parameters(self.request)
             try:
                 async with await db.acquire() as conn:
                     self.model.Meta.connection = conn
-                    result = await self.model.all()
+                    if data:
+                        result = await self.model.filter(**data)
+                    else:
+                        result = await self.model.all()
                     return self.json_response(result)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to load {self.name} info from Database",
                     "payload": ex.payload,
                 }
-                return self.critical(reason=error, status=501)
+                return self.error(reason=error, status=400)
             except TypeError as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
                     "payload": ex,
                 }
-                return self.error(exception=error, status=406)
+                return self.error(response=error, status=406)
             except (DriverError, ProviderError, RuntimeError):
                 error = {
                     "error": "Database Error",
@@ -1043,11 +1055,12 @@ class ModelHandler(BaseView):
             }
             return self.error(reason=error, status=400)
         except (TypeError, AttributeError, ValueError) as ex:
+            print('EX ', ex)
             error = {
                 "error": f"Invalid payload for {self.name}",
                 "payload": ex,
             }
-            return self.error(exception=error, status=406)
+            return self.error(response=error, status=406)
 
     async def patch(self):
         """Patch an existing Client or retrieve the column names."""
@@ -1075,7 +1088,10 @@ class ModelHandler(BaseView):
             try:
                 objid = params["id"]
             except (TypeError, KeyError):
-                self.error(reason=f"Invalid {self.name} Data", status=400)
+                self.error(
+                    reason=f"Invalid {self.name} Data",
+                    status=400
+                )
         db = self.request.app["database"]
         if objid:
             ## getting client
@@ -1124,19 +1140,26 @@ class ModelHandler(BaseView):
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
-                error = {"error": "Client was not Found"}
+                error = {"error": f"{self.name} was not Found"}
                 try:
                     args = {self.pk: objid}
                     result = await self.model.get(**args)
                 except NoDataFound:
-                    self.error(exception=error, status=400)
+                    self.error(response=error, status=400)
                 if not result:
-                    self.error(exception=error, status=400)
+                    self.error(response=error, status=400)
                 ## saved with new changes:
                 for key, val in data.items():
                     if key in result.get_fields():
                         result.set(key, val)
-                data = await result.update()
+                try:
+                    data = await result.update()
+                except ModelError as ex:
+                    error = {
+                        "message": f"Invalid {self.name}",
+                        "error": str(ex),
+                    }
+                    return self.error(response=error, status=406)
                 return self.json_response(data, status=202)
         else:
             # create a new client based on data:
@@ -1149,15 +1172,15 @@ class ModelHandler(BaseView):
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to insert {self.name} info",
-                    "payload": ex.payload,
+                    "payload": str(ex.payload),
                 }
-                return self.error(reason=error, status=400)
+                return self.error(response=error, status=400)
             except (TypeError, AttributeError, ValueError) as ex:
                 error = {
                     "error": f"Invalid payload for {self.name}",
-                    "payload": ex,
+                    "payload": str(ex),
                 }
-                return self.error(exception=error, status=406)
+                return self.error(response=error, status=406)
 
     async def delete(self):
         """Delete a Client."""
@@ -1186,9 +1209,12 @@ class ModelHandler(BaseView):
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
                 args = {self.pk: objid}
-                result = await self.model.get(**args)
+                try:
+                    result = await self.model.get(**args)
+                except NoDataFound:
+                    self.error(reason=f"Missing {self.name} for Deletion", status=404)
                 if not result:
-                    self.error(reason="Client was Not Found", status=204)
+                    self.error(reason=f"{self.name} was Not Found", status=204)
                 # Delete them this Client
                 data = await result.delete()
                 return self.json_response(data, status=202)

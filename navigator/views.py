@@ -976,7 +976,10 @@ class ModelHandler(BaseView):
             if args["meta"] == ":meta":
                 # returning JSON schema of Model:
                 response = self.model.schema(as_dict=True)
-                return self.json_response(response)
+            elif args["meta"] == ':sample':
+                # return a JSON sample of data:
+                response = self.model.sample()
+            return self.json_response(response)
         except KeyError:
             pass
         ## validate directly with model:

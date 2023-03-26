@@ -1052,6 +1052,12 @@ class ModelHandler(BaseView):
                 resultset.Meta.connection = conn
                 result = await resultset.insert()
                 return self.json_response(result, status=201)
+        except ModelError as ex:
+            error = {
+                "message": f"Unable to insert {self.name}",
+                "error": str(ex)
+            }
+            return self.error(reason=error, status=400)
         except ValidationError as ex:
             error = {
                 "error": f"Unable to insert {self.name} info",
@@ -1062,7 +1068,7 @@ class ModelHandler(BaseView):
             print('EX ', ex)
             error = {
                 "error": f"Invalid payload for {self.name}",
-                "payload": ex,
+                "payload": str(ex),
             }
             return self.error(response=error, status=406)
 

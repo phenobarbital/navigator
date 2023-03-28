@@ -1,16 +1,19 @@
+from typing import Union
 import asyncio
 from aiohttp import web
 from asyncdb import AsyncPool
 from asyncdb.models import Model, Column
+from navigator_auth import AuthHandler
 from navigator import Application
 from navigator.responses import HTMLResponse
-from navigator.views import ModelView
+from navigator.views import ModelHandler
 
 class Airport(Model):
-    iata: str = Column(primary_key=True)
+    iata: str = Column(primary_key=True, required=True)
     airport: str
     city: str
     country: str
+    created_by: int
     class Meta:
         name: str = 'airports'
         schema = 'public'
@@ -18,17 +21,24 @@ class Airport(Model):
 
 
 app = Application()
+session = AuthHandler()
+session.setup(app)
 
 @app.get('/hola')
 async def hola(request: web.Request) -> web.Response:
     return HTMLResponse(content="<h1>Hola Mundo</h1>")
 
 
-class AirportHandler(ModelView):
+class AirportHandler(ModelHandler):
     model: Model = Airport
+    pk: Union[str, list] = 'iata'
 
+    async def _get_created_by(self, value, column):
+        return await self.get_userid(session=self._session)
 
-app.router.add_view("/api/v2/airports", AirportHandler)
+## two required handlers for a ModelHandler.
+app.router.add_view(r"/api/v1/airports/{id:.*}", AirportHandler)
+app.router.add_view(r'/api/v1/airports{meta:\:?.*}',AirportHandler)
 
 async def start_example(db):
     """
@@ -44,6 +54,7 @@ async def start_example(db):
          airport character varying(60),
          city character varying(20),
          country character varying(30),
+         created_by integer,
          CONSTRAINT pk_airports_pkey PRIMARY KEY (iata)
         )
         WITH (
@@ -107,5 +118,3 @@ if __name__ == "__main__":
         loop.run_until_complete(
             end_example(pool)
         )
-    finally:
-        loop.close()

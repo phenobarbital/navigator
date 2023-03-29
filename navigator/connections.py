@@ -6,8 +6,13 @@ from collections.abc import Callable
 from asyncdb import AsyncPool, AsyncDB
 from asyncdb.exceptions import ProviderError, DriverError
 from navigator.types import WebApp
-from navigator.conf import default_dsn, DB_TIMEOUT, DB_STATEMENT_TIMEOUT
-
+from navigator.conf import (
+    default_dsn,
+    DB_TIMEOUT,
+    DB_STATEMENT_TIMEOUT,
+    DB_SESSION_TIMEOUT,
+    DB_IDLE_TRANSACTION_TIMEOUT
+)
 
 class ConnectionHandler:
     pool_based: bool = True
@@ -149,13 +154,13 @@ class PostgresPool(ConnectionHandler):
             "server_settings": {
                 "application_name": name,
                 "client_min_messages": "notice",
-                "max_parallel_workers": "48",
+                "max_parallel_workers": "256",
                 "jit": "off",
                 "statement_timeout": f"{self.statement_timeout}",
-                "idle_in_transaction_session_timeout": "5min",
-                "idle_session_timeout": "30s",
+                "idle_in_transaction_session_timeout": DB_IDLE_TRANSACTION_TIMEOUT,
+                "idle_session_timeout": DB_SESSION_TIMEOUT,
                 "effective_cache_size": "2147483647",
-                "tcp_keepalives_idle": "1min"
+                "tcp_keepalives_idle": "30min"
             },
         }
         super(PostgresPool, self).__init__(

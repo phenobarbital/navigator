@@ -11,7 +11,8 @@ from navigator.conf import (
     DB_TIMEOUT,
     DB_STATEMENT_TIMEOUT,
     DB_SESSION_TIMEOUT,
-    DB_IDLE_TRANSACTION_TIMEOUT
+    DB_IDLE_TRANSACTION_TIMEOUT,
+    DB_KEEPALIVE_IDLE
 )
 
 class ConnectionHandler:
@@ -160,7 +161,7 @@ class PostgresPool(ConnectionHandler):
                 "idle_in_transaction_session_timeout": DB_IDLE_TRANSACTION_TIMEOUT,
                 "idle_session_timeout": DB_SESSION_TIMEOUT,
                 "effective_cache_size": "2147483647",
-                "tcp_keepalives_idle": "30min"
+                "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
             },
         }
         super(PostgresPool, self).__init__(

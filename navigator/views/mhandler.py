@@ -63,7 +63,7 @@ class ModelHandler(BaseView):
         }
         return self.no_content(headers=headers)
 
-    async def _post_get(self, result: Any) -> web.Response:
+    async def _post_get(self, result: Any, fields: list[str] = None) -> web.Response:
         """_post_get.
 
         Extensible for post-processing the GET response.
@@ -71,6 +71,20 @@ class ModelHandler(BaseView):
         if not result:
             return self.no_content()
         else:
+            if fields is not None:
+                if isinstance(result, list):
+                    new = []
+                    for r in result:
+                        row = {}
+                        for field in fields:
+                            row[field] = getattr(r, field, None)
+                        new.append(row)
+                    result = new
+                else:
+                    ## filtering result to returning only fields asked:
+                    result = {}
+                    for field in fields:
+                        result[field] = getattr(result, field, None)
             return self.json_response(result)
 
     async def _get_object_by_id(self, idx: Any) -> BaseModel:
@@ -120,9 +134,15 @@ class ModelHandler(BaseView):
                 objid = args["id"]
             except KeyError:
                 objid = None
+        qp = self.query_parameters(request=self.request)
+        try:
+            fields = qp['fields'].split(',')
+            del qp['fields']
+        except KeyError:
+            fields = None
         if objid:
             result = await self._get_object_by_id(objid)
-            return await self._post_get(result)
+            return await self._post_get(result, fields=fields)
         else:
             data = self.query_parameters(self.request)
             try:
@@ -133,7 +153,7 @@ class ModelHandler(BaseView):
                         result = await self.model.filter(**data)
                     else:
                         result = await self.model.all()
-                    return await self._post_get(result)
+                    return await self._post_get(result, fields=fields)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to load {self.name} info from Database",

@@ -99,6 +99,8 @@ default_dsn = asyncpg_url
 
 DB_TIMEOUT = config.get("DB_TIMEOUT", fallback=60)
 DB_STATEMENT_TIMEOUT = config.get("DB_STATEMENT_TIMEOUT", fallback=360)
+DB_SESSION_TIMEOUT = config.get('DB_SESSION_TIMEOUT', fallback="5min")
+DB_IDLE_TRANSACTION_TIMEOUT = config.get('DB_IDLE_TRANSACTION_TIMEOUT', fallback="10min")
 
 """
 Auth and Cache

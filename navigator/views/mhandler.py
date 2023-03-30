@@ -154,6 +154,12 @@ class ModelHandler(BaseView):
                     else:
                         result = await self.model.all()
                     return await self._post_get(result, fields=fields)
+            except ModelError as ex:
+                error = {
+                    "error": f"Missing Info for Model {self.name}",
+                    "payload": str(ex)
+                }
+                return self.error(response=error, status=400)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to load {self.name} info from Database",

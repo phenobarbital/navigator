@@ -154,6 +154,12 @@ class ModelHandler(BaseView):
                     else:
                         result = await self.model.all()
                     return await self._post_get(result, fields=fields)
+            except ModelError as ex:
+                error = {
+                    "error": f"Missing Info for Model {self.name}",
+                    "payload": str(ex)
+                }
+                return self.error(response=error, status=400)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to load {self.name} info from Database",
@@ -317,6 +323,12 @@ class ModelHandler(BaseView):
                 try:
                     args = {self.pk: objid}
                     result = await self.model.get(**args)
+                except ModelError as ex:
+                    error = {
+                        "error": f"Missing Info for Model {self.name}",
+                        "payload": str(ex)
+                    }
+                    return self.error(response=error, status=400)
                 except NoDataFound:
                     self.error(response=error, status=400)
                 if not result:
@@ -342,6 +354,12 @@ class ModelHandler(BaseView):
                     resultset.Meta.connection = conn
                     result = await resultset.insert()  # TODO: migrate to use save()
                     return await self._post_data(data, status=201)
+            except ModelError as ex:
+                error = {
+                    "error": f"Missing Info for Model {self.name}",
+                    "payload": str(ex)
+                }
+                return self.error(response=error, status=400)
             except ValidationError as ex:
                 error = {
                     "error": f"Unable to insert {self.name} info",

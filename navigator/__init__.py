@@ -22,8 +22,11 @@ https://github.com/phenobarbital/navigator
 """
 import asyncio
 import uvloop
-from .navigator import Application
-from .responses import Response
+try:
+    from .navigator import Application
+    from .responses import Response
+except FileExistsError:
+    pass
 from .version import __title__, __description__, __version__, __author__
 
 asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

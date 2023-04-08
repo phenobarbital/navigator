@@ -1,12 +1,12 @@
 import sys
 from abc import ABC, abstractmethod
 from collections.abc import Callable
+import logging
 from pathlib import PurePath
 from inspect import signature
 from argparse import SUPPRESS, ArgumentParser
 from importlib import import_module
 import traceback
-from navconfig.logging import logging
 from navigator.applications.startup import ApplicationInstaller
 from navigator.functions import cPrint
 from navigator.version import __version__
@@ -50,6 +50,9 @@ class BaseCommand(ABC):
         ## making Command configuration
         self.configure()
 
+    def __repr__(self) -> str:
+        return f"<{self.__class__.__name__}>"
+
     def write(self, message, level="INFO"):
         if message:
             cPrint(message, level=level)
@@ -79,6 +82,12 @@ class BaseCommand(ABC):
     def handle(self, **kwargs):
         output: str = ""
         try:
+            if self.action in ('-v', '--version'):
+                cPrint(f"{self}: v.{self._version}")
+                sys.exit(0)
+            elif self.action in ('-h', '--help'):
+                cPrint(f"{self} Usage: {self.help}")
+                sys.exit(0)
             # calling the internal function:
             if not hasattr(self, self.action):
                 self.write(
@@ -145,6 +154,11 @@ def run_command(project_path: PurePath, **kwargs):
         args = sys.argv
         _ = args.pop(0)
         command = args.pop(0)
+        ## if command is --version
+        if command == '--version':
+            # show version and exit:
+            cPrint(f'Navigator {__version__}')
+            sys.exit(0)
         installer = ApplicationInstaller()
         installed_apps: list = installer.app_list()
         cmd_folder = project_path.joinpath("commands", f"{command}.py")

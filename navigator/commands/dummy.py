@@ -2,7 +2,7 @@ from .abstract import BaseCommand
 
 
 class DummyCommand(BaseCommand):
-    help = "Enviroment Commands for Navigator"
+    help = "Testing Dummy Command for Navigator"
     _version: str = "0.2"
 
     def configure(self):

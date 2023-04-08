@@ -4,7 +4,6 @@ Command Infraestructure.
 import os
 import sys
 from navconfig import BASE_DIR
-from navigator.functions import cPrint
 from .abstract import BaseCommand, run_command
 
 __all__ = ("BaseCommand",)

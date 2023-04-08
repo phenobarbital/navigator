@@ -14,8 +14,13 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
-from navconfig import config
-from navconfig.logging import logging
+
+try:
+    from navconfig import config
+    from navconfig.logging import logging
+except FileExistsError:
+    print('Error: Missing ENV directory for Navconfig.')
+
 from navigator.exceptions.handlers import nav_exception_handler, shutdown
 from navigator.handlers import BaseHandler
 from navigator.functions import cPrint

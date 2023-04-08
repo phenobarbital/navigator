@@ -3,5 +3,5 @@
 import os
 import sys
 from pathlib import Path
-import logging
-from navconfig import config, BASE_DIR, DEBUG, LOCAL_DEVELOPMENT
+from navconfig import config, BASE_DIR, DEBUG
+from navconfig.logging import logger

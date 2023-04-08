@@ -1,3 +1,5 @@
+import os
+import json
 import asyncio
 from pathlib import Path
 from navconfig.logging import logging
@@ -48,53 +50,67 @@ def save_file(directory, filename, content):
     return loop.run_until_complete(main(filename, content))
 
 
+def drive_permission(client: str, secret: str, project: str = "navigator") -> str:
+    permission = {
+        "web": {
+            "client_id": f"{client!s}.apps.googleusercontent.com",
+            "project_id": project,
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+            "client_secret": secret,
+            "redirect_uris": ["http://localhost:8090/"],
+            "javascript_origins": ["http://localhost:8090"],
+        }
+    }
+    return json.dumps(permission)
+
+
 class EnvCommand(BaseCommand):
     help = "Creates ENV and etc/navigator.ini files for starting a Project."
-    _version: str = "1.0.0"
 
-    def configure(self):
-        ### we don't need any
-        self.add_argument("--enable_gunicorn", action="store_true")
+    def parse_arguments(self, parser):
+        parser.add_argument("--enable-notify", type=bool)
+        parser.add_argument("--process-services", type=bool)
+        parser.add_argument("--file_env", type=str)
+        parser.add_argument("--client", type=str)
+        parser.add_argument("--secret", type=str)
+        parser.add_argument("--project", type=str)
 
     def create(self, options, **kwargs):
         """
-        Create can used to create a new Environment from scratch
+        Create can used to create a new Enviroment from scratch
         """
         path = Path(kwargs["project_path"]).resolve()
-        env = read_file(path, "env.tpl")
         ini = read_file(path, "ini.tpl")
         settings = read_file(path, "settings.tpl")
         localsettings = read_file(path, "localsettings.tpl")
         run = read_file(path, "run.tpl")
         app = read_file(path, "app.tpl")
-        gunicorn_config = None
-        if options.enable_gunicorn is True:
-            gunicorn_config = read_file(path, "gunicorn_config.tpl")
-            gunicorn = read_file(path, "nav.py.tpl")
 
-        output = "Environment Done."
+        output = "Enviroment Done."
         if options.debug:
-            self.write(":: Creating a New Navigator Environment", level="INFO")
+            self.write(":: Creating a New Navigator Enviroment", level="INFO")
             self.write("= wait a few minutes", level="WARN")
         # apps, etc, env, services, settings, static/images/js/css, templates
         self.write("* First Step: Creating Directory structure")
         create_dir(path, "apps", touch_init=True)
         create_dir(path, "env/testing")
-        ### INI Path
         create_dir(path, "etc")
-        create_dir(path, "log")
+        # create_dir(path, "log")
+        create_dir(path, "services", touch_init=True)
+        create_dir(path, "resources", touch_init=True)
         create_dir(path, "settings", touch_init=True)
         create_dir(path, "static/images")
         create_dir(path, "static/js")
         create_dir(path, "static/css")
         create_dir(path, "templates")
-        self.write("* Second Step: Creation of New .env File")
-        save_file(path, "env/.env", env)
-        ## also, saving an env for "testing" environment
-        save_file(path, "env/testing/.env", env)
+        self.write("* Second Step: Creation of Empty .env File")
+        # save_file(path, "env/.env", env)
+        # save_file(path, "env/testing/.env", env)
         save_file(path, "etc/navigator.ini", ini)
         # TODO: download from Google Drive, if possible
-        self.write("* Third Step: Creation of Empty settings.py File *")
+        self.write("* Third Step: Creation of Empty settings.py File")
         save_file(path, "settings/settings.py", settings)
         save_file(path, "settings/local_settings.py.example", localsettings)
         self.write("* Fourt Step: Creation of a run.py File")
@@ -107,8 +123,34 @@ class EnvCommand(BaseCommand):
         save_file(path, "templates/home.html", home)
         save_file(path, "static/css/styles.css", css)
         save_file(path, "static/js/scripts.js", js)
-        ## enable gunicorn configuration:
-        if gunicorn_config:
-            save_file(path, "gunicorn_config.py", gunicorn_config)
-            save_file(path, "nav.py", gunicorn)
         return output
+
+    def get_env(self, options, **kwargs):
+        """get_env.
+
+        Getting a new environment file from Google Drive.
+        """
+        path = Path(kwargs["project_path"]).resolve()
+        file_env = options.file_env
+        # first: removing existing credentials
+        delete_file(path, "env/credentials.txt")
+        # saving the credentials into a new file
+        save_file(path, "env/file_env", file_env)
+        # preparing the environment:
+        # set SITE_ROOT:
+        os.environ["SITE_ROOT"] = str(path)
+        print("SITE ROOT: ", os.getenv("SITE_ROOT"))
+        # set configuration for navconfig
+        os.environ["NAVCONFIG_ENV"] = "drive"
+        os.environ["NAVCONFIG_DRIVE_CLIENT"] = "env/credentials.txt"
+        os.environ["NAVCONFIG_DRIVE_ID"] = file_env
+        # get the drive permission
+        client = options.client
+        secret = options.secret
+        project = options.project
+        content = drive_permission(client, secret, project)
+        save_file(path, "client_secrets.json", content)
+        from navconfig import config
+
+        config.save_environment("drive")
+        return "Done."

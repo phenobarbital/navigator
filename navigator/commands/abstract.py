@@ -57,8 +57,11 @@ class BaseCommand(ABC):
         if message:
             cPrint(message, level=level)
 
-    def add_argument(self, name: str, dtype=str, **kwargs):
-        self.parser.add_argument(name, type=dtype, **kwargs)
+    def add_argument(self, name: str, dtype=None, **kwargs):
+        if dtype:
+            self.parser.add_argument(name, type=dtype, **kwargs)
+        else:
+            self.parser.add_argument(name, **kwargs)
 
     @abstractmethod
     def configure(self):
@@ -209,6 +212,7 @@ def run_command(project_path: PurePath, **kwargs):
                         ) from ex
             try:
                 cmd = cls(args)
+                kwargs['project_path'] = project_path
                 cmd.handle(**kwargs)
             except Exception as err:
                 logging.error(err)

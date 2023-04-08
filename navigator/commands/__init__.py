@@ -1,8 +1,8 @@
 """
 Command Infraestructure.
 """
-import os
 import sys
+from pathlib import PurePath, Path
 from navconfig import BASE_DIR
 from .abstract import BaseCommand, run_command
 
@@ -11,7 +11,10 @@ __all__ = ("BaseCommand",)
 
 def main():
     PROJECT_ROOT = BASE_DIR
-    sys.path.append(os.path.join(PROJECT_ROOT, "apps"))
+    if isinstance(PROJECT_ROOT, str):
+        PROJECT_ROOT = Path(PROJECT_ROOT).resolve()
+    if isinstance(PROJECT_ROOT, PurePath):
+        sys.path.append(str(PROJECT_ROOT.joinpath('apps')))
     run_command(project_path=PROJECT_ROOT)
 
 

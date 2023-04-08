@@ -2,6 +2,7 @@ import asyncio
 from pathlib import Path
 from navconfig.logging import logging
 from aiofile import AIOFile
+from navigator.functions import cPrint
 from . import BaseCommand
 
 logger = logging.getLogger("navigator.command")
@@ -53,7 +54,7 @@ class EnvCommand(BaseCommand):
 
     def configure(self):
         ### we don't need any
-        self.add_argument("--enable_gunicorn", dtype=bool)
+        self.add_argument("--enable_gunicorn", action="store_true")
 
     def create(self, options, **kwargs):
         """

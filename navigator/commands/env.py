@@ -2,7 +2,6 @@ import asyncio
 from pathlib import Path
 from navconfig.logging import logging
 from aiofile import AIOFile
-from navigator.functions import cPrint
 from . import BaseCommand
 
 logger = logging.getLogger("navigator.command")
@@ -51,6 +50,7 @@ def save_file(directory, filename, content):
 
 class EnvCommand(BaseCommand):
     help = "Creates ENV and etc/navigator.ini files for starting a Project."
+    _version: str = "1.0.0"
 
     def configure(self):
         ### we don't need any

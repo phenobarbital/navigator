@@ -58,7 +58,7 @@ class EnvCommand(BaseCommand):
 
     def create(self, options, **kwargs):
         """
-        Create can used to create a new Enviroment from scratch
+        Create can used to create a new Environment from scratch
         """
         path = Path(kwargs["project_path"]).resolve()
         env = read_file(path, "env.tpl")
@@ -72,9 +72,9 @@ class EnvCommand(BaseCommand):
             gunicorn_config = read_file(path, "gunicorn_config.tpl")
             gunicorn = read_file(path, "nav.py.tpl")
 
-        output = "Enviroment Done."
+        output = "Environment Done."
         if options.debug:
-            self.write(":: Creating a New Navigator Enviroment", level="INFO")
+            self.write(":: Creating a New Navigator Environment", level="INFO")
             self.write("= wait a few minutes", level="WARN")
         # apps, etc, env, services, settings, static/images/js/css, templates
         self.write("* First Step: Creating Directory structure")

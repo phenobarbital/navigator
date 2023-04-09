@@ -3,7 +3,10 @@ Various kinds of Application Responses.
 
 TODO: add FileResponse or JSONResponse or SSEResponse (server-side).
 """
-from typing import Any, Optional
+from typing import Any, Optional, Union
+from pathlib import Path, PurePath
+import io
+import zipfile
 from aiohttp import web
 from aiohttp.web_exceptions import (
     HTTPNoContent,
@@ -96,3 +99,39 @@ def JSONResponse(
         response["headers"] = headers
 
     return web.json_response(content, **response)
+
+
+async def FileResponse(
+    file: Union[list, str, Path],
+    filename: str = 'file.zip',
+    status: int = 200,
+    headers: Optional[dict] = None,
+):
+    if isinstance(file, (str, PurePath)):
+        return web.FileResponse(file, status=status, headers=headers)
+    elif isinstance(file, list):
+        ## iterate over all files, zipped and send the zipped buffer.
+        # Create a buffer to store the ZIP archive
+        zip_buffer = io.BytesIO()
+        # Create a new ZIP archive in the buffer
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_archive:
+            for f in file:
+                if isinstance(f, str):
+                    f = Path(f)
+                # Add files to the ZIP archive
+                zip_archive.write(f, f.name)
+    # Set the buffer's file pointer to the beginning
+    zip_buffer.seek(0)
+# Create an aiohttp.StreamResponse
+    response = web.StreamResponse(
+        status=status,
+        reason='OK',
+        headers={'Content-Disposition': f'attachment; filename="{filename}"'}
+    )
+    response.content_type = 'application/zip'
+    # Write the ZIP buffer to the response
+    await response.write(zip_buffer.read())
+    # Signal that the body has been written
+    await response.write_eof()
+    # Return the response
+    return response

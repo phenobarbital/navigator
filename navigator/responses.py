@@ -103,6 +103,7 @@ def JSONResponse(
 
 async def FileResponse(
     file: Union[list, str, Path],
+    request: web.Request,
     filename: str = 'file.zip',
     status: int = 200,
     headers: Optional[dict] = None,
@@ -129,6 +130,7 @@ async def FileResponse(
         headers={'Content-Disposition': f'attachment; filename="{filename}"'}
     )
     response.content_type = 'application/zip'
+    await response.prepare(request)
     # Write the ZIP buffer to the response
     await response.write(zip_buffer.read())
     # Signal that the body has been written

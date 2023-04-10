@@ -193,9 +193,9 @@ class ModelHandler(BaseView):
                 if hasattr(self, f'_get_{name}'):
                     fn = getattr(self, f'_get_{name}')
                     data[name] = await fn(value=data.get(name, None), column=column, data=data)
-        except (TypeError, ValueError, NavException):
+        except (TypeError, ValueError, NavException) as ex:
             self.error(
-                reason=f"Invalid {self.name} Data", status=400
+                reason=f"Invalid {self.name} Data: {ex}", status=400
             )
         return data
 

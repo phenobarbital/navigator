@@ -192,7 +192,11 @@ class ModelHandler(BaseView):
                 ### then that function is called for getting the field value
                 if hasattr(self, f'_get_{name}'):
                     fn = getattr(self, f'_get_{name}')
-                    data[name] = await fn(value=data.get(name, None), column=column, data=data)
+                    try:
+                        val = data.get(name, None)
+                    except AttributeError:
+                        val = None
+                    data[name] = await fn(value=val, column=column, data=data)
         except (TypeError, ValueError, NavException) as ex:
             self.error(
                 reason=f"Invalid {self.name} Data: {ex}", status=400
@@ -387,7 +391,11 @@ class ModelHandler(BaseView):
                 ### then that function is called for getting the field value
                 if hasattr(self, f'_get_{name}'):
                     fn = getattr(self, f'_get_{name}')
-                    data[name] = await fn(value=data.get(name, None), column=column)
+                    try:
+                        val = data.get(name, None)
+                    except AttributeError:
+                        val = None
+                    data[name] = await fn(value=val, column=column)
         except (TypeError, ValueError, NavException):
             pass
         return data

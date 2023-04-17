@@ -3,16 +3,16 @@ venv:
 	echo 'run `source .venv/bin/activate` to start develop Navigator'
 
 install:
-	pip install wheel==0.38.4
+	pip install wheel==0.40.0
 	pip install -e .
 	echo 'start Navigator'
 
 develop:
-	pip install wheel==0.38.4
+	pip install wheel==0.40.0
 	pip install -e .
 	python -m pip install -Ur requirements/requirements-dev.txt
 	# add other dependencies:
-	pip install navigator-session navigator-auth
+	# pip install navigator-session navigator-auth
 	echo 'start develop Navigator'
 
 setup:

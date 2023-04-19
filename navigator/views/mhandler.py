@@ -96,7 +96,10 @@ class ModelHandler(BaseView):
                 # look for this client, after, save changes
                 try:
                     args = {self.pk: idx}
-                    return await self.model.get(**args)
+                    if isinstance(idx, list):
+                        return await self.model.filter(**args)
+                    else:
+                        return await self.model.get(**args)
                 except NoDataFound:
                     return None
         except Exception as ex:
@@ -128,12 +131,9 @@ class ModelHandler(BaseView):
             pass
         ## getting first the id from params or data:
         try:
-            objid = args[self.pk]
+            objid = self.get_primary(args)
         except (TypeError, KeyError):
-            try:
-                objid = args["id"]
-            except KeyError:
-                objid = None
+            objid = None
         qp = self.query_parameters(request=self.request)
         try:
             fields = qp['fields'].split(',')
@@ -184,24 +184,82 @@ class ModelHandler(BaseView):
 
         Get and pre-processing POST data before use it.
         """
-        data = {}
-        try:
-            data = await self.json_data()
+        async def set_column_value(value):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
                 if hasattr(self, f'_get_{name}'):
                     fn = getattr(self, f'_get_{name}')
                     try:
-                        val = data.get(name, None)
+                        val = value.get(name, None)
                     except AttributeError:
                         val = None
-                    data[name] = await fn(value=val, column=column, data=data)
+                    value[name] = await fn(value=val, column=column, data=value)
+        try:
+            data = await self.json_data()
+            if isinstance(data, list):
+                for element in data:
+                    await set_column_value(element)
+            elif isinstance(data, dict):
+                    await set_column_value(data)
+            else:
+                self.error(
+                    reason=f"Invalid Data Format: {type(data)}", status=400
+                )
         except (TypeError, ValueError, NavException) as ex:
             self.error(
                 reason=f"Invalid {self.name} Data: {ex}", status=400
             )
         return data
+
+    def get_primary(self, data: dict) -> Any:
+        objid = None
+        if isinstance(self.pk, str):
+            if isinstance(data, list):
+                pk = [self.pk]
+                objid = []
+                for entry in data:
+                    new_entry = {field: entry[field] for field in pk}
+                    objid.append(new_entry)
+                return objid
+            else:
+                try:
+                    objid = data[self.pk]
+                except (TypeError, KeyError):
+                    try:
+                        objid = data["id"]
+                    except KeyError:
+                        objid = None
+                ## but if objid has /
+                if '/' in objid:
+                    return objid.split('/')
+                return objid
+        elif isinstance(self.pk, list):
+            if 'id' in data[0]:
+                try:
+                    paramlist = data["id"].split("/")
+                    if len(paramlist) != len(self.pk):
+                        return self.error(
+                            reason=f"Invalid Number of URL elements for PK: {self.pk}, {paramlist!r}",
+                            status=410,
+                        )
+                    args = {}
+                    for key in self.pk:
+                        args[key] = paramlist.pop(0)
+                    return args
+                except KeyError:
+                    pass
+            else:
+                ### extract PK from data:
+                objid = []
+                for entry in data:
+                    new_entry = {field: entry[field] for field in self.pk}
+                    objid.append(new_entry)
+                return objid
+        else:
+            return self.error(
+                reason=f"Invalid PK definition for {self.name}: {self.pk}", status=410
+            )
 
     async def _post_data(self, result, status: int = 200) -> web.Response:
         """_post_data.
@@ -223,6 +281,18 @@ class ModelHandler(BaseView):
         ### get POST Data:
         data = await self._get_data(session=session)
         ## validate directly with model:
+        if isinstance(data, list):
+            db = self.request.app["database"]
+            async with await db.acquire() as conn:
+                self.model.Meta.connection = conn
+                try:
+                    result = await self.model.create(data)
+                    return await self._post_data(result, status=201)
+                except DriverError as ex:
+                    return self.error(
+                        reason=f"Bulk Insert Error: {ex}",
+                        status=410,
+                    )
         try:
             resultset = self.model(**data)  # pylint: disable=E1102
             db = self.request.app["database"]
@@ -271,13 +341,13 @@ class ModelHandler(BaseView):
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
-            objid = data[self.pk]
+            objid = self.get_primary(data)
         except (TypeError, KeyError):
             try:
-                objid = params["id"]
+                objid = self.get_primary(params)
             except (TypeError, KeyError):
                 self.error(
-                    reason=f"Invalid {self.name} Data",
+                    reason=f"Invalid Data Primary Key: {self.name}",
                     status=400
                 )
         db = self.request.app["database"]
@@ -286,20 +356,37 @@ class ModelHandler(BaseView):
             async with await db.acquire() as conn:
                 self.model.Meta.connection = conn
                 try:
-                    args = {self.pk: objid}
-                    result = await self.model.get(**args)
+                    if isinstance(objid, list):
+                        result = []
+                        for entry in data:
+                            if isinstance(self.pk, str):
+                                pk = [self.pk]
+                            else:
+                                pk = self.pk
+                            try:
+                                _filter = {field: entry[field] for field in pk}
+                            except KeyError:
+                                continue
+                            obj = await self.model.get(**_filter)
+                            for key, val in entry.items():
+                                if key in obj.get_fields():
+                                    obj.set(key, val)
+                            result.append(await obj.update())
+                        return await self._patch_data(result, status=202)
+                    else:
+                        args = {self.pk: objid}
+                        result = await self.model.get(**args)
+                        for key, val in data.items():
+                            if key in result.get_fields():
+                                result.set(key, val)
+                        result = await result.update()
+                    return await self._patch_data(result, status=202)
                 except NoDataFound:
                     headers = {"x-error": f"{self.name} was not Found"}
                     self.no_content(headers=headers)
                 if not result:
                     headers = {"x-error": f"{self.name} was not Found"}
                     self.no_content(headers=headers)
-                ## saved with new changes:
-                for key, val in data.items():
-                    if key in result.get_fields():
-                        result.set(key, val)
-                result = await result.update()
-                return await self._patch_data(result, status=202)
         else:
             self.error(reason=f"Invalid {self.name} Data", status=400)
 
@@ -312,44 +399,90 @@ class ModelHandler(BaseView):
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
-            objid = data[self.pk]
+            objid = self.get_primary(data)
         except (TypeError, KeyError):
             try:
-                objid = params["id"]
+                objid = self.get_primary(params)
             except (TypeError, KeyError):
-                self.error(reason=f"Invalid {self.name} Data", status=400)
+                self.error(
+                    reason=f"Invalid Data Primary Key: {self.name}",
+                    status=400
+                )
         db = self.request.app["database"]
         if objid:
-            async with await db.acquire() as conn:
-                self.model.Meta.connection = conn
-                # look for this client, after, save changes
-                error = {"error": f"{self.name} was not Found"}
-                try:
-                    args = {self.pk: objid}
-                    result = await self.model.get(**args)
-                except ModelError as ex:
-                    error = {
-                        "error": f"Missing Info for Model {self.name}",
-                        "payload": str(ex)
-                    }
-                    return self.error(response=error, status=400)
-                except NoDataFound:
-                    self.error(response=error, status=400)
-                if not result:
-                    self.error(response=error, status=400)
-                ## saved with new changes:
-                for key, val in data.items():
-                    if key in result.get_fields():
-                        result.set(key, val)
-                try:
-                    data = await result.update()
-                except ModelError as ex:
-                    error = {
-                        "message": f"Invalid {self.name}",
-                        "error": str(ex),
-                    }
-                    return self.error(response=error, status=406)
-                return await self._post_data(data, status=202)
+            if isinstance(data, dict):
+                async with await db.acquire() as conn:
+                    self.model.Meta.connection = conn
+                    # look for this client, after, save changes
+                    error = {"error": f"{self.name} was not Found"}
+                    if isinstance(objid, list):
+                        try:
+                            result = await self.model.updating(_filter=objid, **data)
+                            return await self._post_data(result, status=202)
+                        except ModelError as ex:
+                            error = {
+                                "error": f"Missing Info for Model {self.name}",
+                                "payload": str(ex)
+                            }
+                            return self.error(response=error, status=400)
+                    else:
+                        try:
+                            args = {self.pk: objid}
+                            result = await self.model.get(**args)
+                        except ModelError as ex:
+                            error = {
+                                "error": f"Missing Info for Model {self.name}",
+                                "payload": str(ex)
+                            }
+                            return self.error(response=error, status=400)
+                        except NoDataFound:
+                            self.error(response=error, status=400)
+                        if not result:
+                            self.error(response=error, status=400)
+                        ## saved with new changes:
+                        for key, val in data.items():
+                            if key in result.get_fields():
+                                result.set(key, val)
+                        try:
+                            data = await result.update()
+                        except ModelError as ex:
+                            error = {
+                                "message": f"Invalid {self.name}",
+                                "error": str(ex),
+                            }
+                            return self.error(response=error, status=406)
+                        return await self._post_data(data, status=202)
+            elif isinstance(data, list):
+                async with await db.acquire() as conn:
+                    self.model.Meta.connection = conn
+                    ### iterate over all elements in data:
+                    result = []
+                    for entry in data:
+                        if isinstance(self.pk, str):
+                            pk = [self.pk]
+                        else:
+                            pk = self.pk
+                        try:
+                            _filter = {field: entry[field] for field in pk}
+                        except KeyError:
+                            continue
+                        try:
+                            obj = await self.model.get(**_filter)
+                            print('OBJ ', obj)
+                            ## saved with new changes:
+                            for key, val in entry.items():
+                                if key in obj.get_fields():
+                                    obj.set(key, val)
+                                r = await obj.update()
+                                result.append(r)
+                            # result.append(data)
+                        except ModelError as ex:
+                            error = {
+                                "message": f"Invalid {self.name}",
+                                "error": str(ex),
+                            }
+                            return self.error(response=error, status=406)
+                    return await self._post_data(result, status=202)
         else:
             # create a new client based on data:
             try:
@@ -408,25 +541,33 @@ class ModelHandler(BaseView):
         data = await self._get_del_data(session=session)
         ## getting first the id from params or data:
         try:
-            objid = data[self.pk]
+            objid = self.get_primary(data)
         except (TypeError, KeyError):
             try:
-                objid = params["id"]
+                objid = self.get_primary(params)
             except (TypeError, KeyError):
                 self.error(
-                    reason=f"Invalid {self.name} Data",
+                    reason=f"Invalid Data Primary Key: {self.name}",
                     status=400
                 )
         if objid:
             db = self.request.app["database"]
+            print('FILTER ', objid, type(objid))
             try:
                 async with await db.acquire() as conn:
                     self.model.Meta.connection = conn
                     try:
-                        args = {self.pk: objid}
-                        # Delete them this Client
-                        result = await self.model.get(**args)
-                        data = await result.delete()
+                        if isinstance(objid, list):
+                            data = []
+                            for entry in objid:
+                                args = {self.pk: entry}
+                                obj = await self.model.get(**args)
+                                data.append(await obj.delete())
+                        else:
+                            args = {self.pk: objid}
+                            # Delete them this Client
+                            result = await self.model.get(**args)
+                            data = await result.delete()
                         return self.json_response(data, status=202)
                     except NoDataFound:
                         error = {

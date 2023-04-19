@@ -33,7 +33,7 @@ class AirportHandler(ModelHandler):
     model: Model = Airport
     pk: Union[str, list] = 'iata'
 
-    async def _get_created_by(self, value, column):
+    async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
 ## two required handlers for a ModelHandler.

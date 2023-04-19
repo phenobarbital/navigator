@@ -95,6 +95,8 @@ class ModelHandler(BaseView):
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
                 try:
+                    if isinstance(self.pk, list):
+                        return await self.model.get(**idx)
                     args = {self.pk: idx}
                     if isinstance(idx, list):
                         return await self.model.filter(**args)
@@ -235,7 +237,7 @@ class ModelHandler(BaseView):
                     return objid.split('/')
                 return objid
         elif isinstance(self.pk, list):
-            if 'id' in data[0]:
+            if 'id' in data:
                 try:
                     paramlist = data["id"].split("/")
                     if len(paramlist) != len(self.pk):
@@ -552,7 +554,6 @@ class ModelHandler(BaseView):
                 )
         if objid:
             db = self.request.app["database"]
-            print('FILTER ', objid, type(objid))
             try:
                 async with await db.acquire() as conn:
                     self.model.Meta.connection = conn
@@ -564,9 +565,12 @@ class ModelHandler(BaseView):
                                 obj = await self.model.get(**args)
                                 data.append(await obj.delete())
                         else:
-                            args = {self.pk: objid}
-                            # Delete them this Client
-                            result = await self.model.get(**args)
+                            if isinstance(self.pk, list):
+                                result = await self.model.get(**objid)
+                            else:
+                                args = {self.pk: objid}
+                                # Delete them this Client
+                                result = await self.model.get(**args)
                             data = await result.delete()
                         return self.json_response(data, status=202)
                     except NoDataFound:

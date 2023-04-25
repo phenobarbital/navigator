@@ -28,6 +28,13 @@ class ModelHandler(BaseView):
                 reason="Error Decoding Session", request=self.request, exception=err
             )
         if not self._session:
+            if hasattr(self.model.Meta, 'allowed_methods'):
+                if self.request.method in self.model.Meta.allowed_methods:
+                    self.logger.warning(
+                        f"{self.model.__name__}.{self.request.method} Accepted by exclusion"
+                    )
+                    ## Query can be made anonymously.
+                    return True
             self.error(
                 response={"message": "Unauthorized"},
                 status=403
@@ -174,7 +181,7 @@ class ModelHandler(BaseView):
                     "payload": str(ex),
                 }
                 return self.error(response=error, status=406)
-            except (DriverError, ProviderError, RuntimeError):
+            except (DriverError, ProviderError, RuntimeError) as ex:
                 error = {
                     "error": "Database Error",
                     "payload": str(ex),

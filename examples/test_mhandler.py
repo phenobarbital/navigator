@@ -6,11 +6,11 @@ from asyncdb.models import Model, Column
 from navigator_auth import AuthHandler
 from navigator import Application
 from navigator.responses import HTMLResponse
-from navigator.views import ModelView
+from navigator.views import ModelHandler
 
 class Airport(Model):
     iata: str = Column(primary_key=True, required=True)
-    airport: str = Column(required=True)
+    airport: str
     city: str
     country: str
     created_by: int
@@ -29,7 +29,7 @@ async def hola(request: web.Request) -> web.Response:
     return HTMLResponse(content="<h1>Hola Mundo</h1>")
 
 
-class AirportHandler(ModelView):
+class AirportHandler(ModelHandler):
     model: Model = Airport
     pk: Union[str, list] = 'iata'
 

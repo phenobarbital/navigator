@@ -14,6 +14,7 @@ class Airport(Model):
     city: str
     country: str
     created_by: int
+
     class Meta:
         name: str = 'airports'
         schema = 'public'
@@ -36,9 +37,12 @@ class AirportHandler(ModelView):
     async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
+    async def on_startup(self, *args, **kwargs):
+        print(args, kwargs)
+        print('THIS CODE RUN ON STARTUP')
+
 ## two required handlers for a ModelHandler.
-app.router.add_view(r"/api/v1/airports/{id:.*}", AirportHandler)
-app.router.add_view(r'/api/v1/airports{meta:\:?.*}',AirportHandler)
+AirportHandler.configure(app, '/api/v1/airports')
 
 async def start_example(db):
     """

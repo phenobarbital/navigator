@@ -1,5 +1,5 @@
 from typing import Union, Any, Optional
-import asyncio
+from collections.abc import Callable
 import traceback
 from aiohttp import web
 from navconfig.logging import logger
@@ -14,6 +14,8 @@ from asyncdb.exceptions import (
     StatementError
 )
 from navigator_session import get_session
+from navigator.types import WebApp
+from navigator.applications.base import BaseApplication
 from navigator.conf import AUTH_SESSION_OBJECT
 from navigator.exceptions import (
     NavException,
@@ -45,7 +47,7 @@ async def load_model(tablename: str, schema: str, connection: Any) -> Model:
         mdl = await Model.makeModel(name=tablename, schema=schema, db=connection)
         logger.notice(f'Model: {tablename} {mdl}')
         return mdl
-    except Exception as err: # pylint: disable=W0703
+    except Exception as err:  # pylint: disable=W0703
         logger.error(
             f"Error loading Model {tablename}: {err!s}"
         )
@@ -67,6 +69,9 @@ class ModelView(BaseView):
 
     model: BaseModel = None
     get_model: BaseModel = None
+    path: str = None
+    # Signal for startup method for this ModelView
+    on_startup: Optional[Callable] = None
     name: str = "Model"
     pk: Union[str, list] = "id"
     _required: list = []
@@ -87,6 +92,35 @@ class ModelView(BaseView):
         ## getting get Model:
         if not self.get_model:
             self.get_model = self._get_model()
+
+    @classmethod
+    def configure(cls, app: WebApp, path: str = None) -> WebApp:
+        if isinstance(app, BaseApplication):  # migrate to BaseApplication (on types)
+            app = app.get_app()
+        elif isinstance(app, WebApp):
+            app = app  # register the app into the Extension
+        else:
+            raise TypeError(
+                f"Invalid type for Application Setup: {app}:{type(app)}"
+            )
+        # startup operations over extension backend
+        if callable(cls.on_startup):
+            app.on_startup.append(cls.on_startup)
+        ### added routers:
+        model_path = cls.path
+        if not model_path:
+            model_path = path
+        if not model_path:
+            raise ConfigError(
+                "Wrong Model Configuration: URI path must be provided."
+            )
+        url = f"{model_path}"
+        app.router.add_view(
+            r"{}/{{id:.*}}".format(url), cls
+        )
+        app.router.add_view(
+            r"{}{{meta:\:?.*}}".format(url), cls
+        )
 
     def _get_model(self):
         if self.model:
@@ -122,9 +156,9 @@ class ModelView(BaseView):
             #         load_model(tablename=table, schema=self.schema, connection=None)
             #     )
             # Model doesn't exists
-            raise NoDataFound(
-                f"Model {table} Doesn't Exists"
-            ) from err
+            raise ConfigError(
+                f"Model {self.__name__} Doesn't Exists"
+            )
 
     def service_auth(fn: Union[Any, Any]) -> Any:
         async def _wrap(self, *args, **kwargs):
@@ -160,8 +194,8 @@ class ModelView(BaseView):
                     return True
             self.error(
                 response={
-                    "message": "Unauthorized",
-                    "message": "Hint: maybe you need to login and pass an Authorization token."
+                    "error": "Unauthorized",
+                    "message": "Hint: maybe need to login and pass Authorization token."
                 },
                 status=403
             )
@@ -271,7 +305,7 @@ class ModelView(BaseView):
             else:
                 try:
                     objid = data[self.pk]
-                except (TypeError, KeyError) as err:
+                except (TypeError, KeyError):
                     try:
                         objid = data["id"]
                         if objid == '':
@@ -288,7 +322,10 @@ class ModelView(BaseView):
                     paramlist = data["id"].split("/")
                     if len(paramlist) != len(self.pk):
                         return self.error(
-                            reason=f"Invalid Number of URL elements for PK: {self.pk}, {paramlist!r}",
+                            response={
+                                "message": f"Wrong Number of elements in PK: {self.pk}",
+                                "description": f"{paramlist!r}",
+                            },
                             status=410,
                         )
                     args = {}
@@ -455,19 +492,17 @@ class ModelView(BaseView):
             data = await self.json_data()
         except ValueError:
             return None
-            if isinstance(data, list):
-                for element in data:
-                    await set_column_value(element)
-            elif isinstance(data, dict):
-                    await set_column_value(data)
-            else:
-                self.error(
-                    reason=f"Invalid Data Format: {type(data)}", status=400
-                )
         except (TypeError, AttributeError) as ex:
             self.error(
                 reason=f"Invalid {self.name} Data: {ex}", status=400
             )
+        if isinstance(data, list):
+            for element in data:
+                await set_column_value(element)
+        elif isinstance(data, dict):
+            await set_column_value(data)
+        else:
+            data = None
         return data
 
     async def _patch_response(self, result, status: int = 202) -> web.Response:
@@ -475,7 +510,7 @@ class ModelView(BaseView):
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status = status)
+        return self.json_response(result, status=status)
 
     @service_auth
     async def patch(self):
@@ -484,7 +519,7 @@ class ModelView(BaseView):
             summary: return the metadata from table or, if we got post
             realizes a partially atomic updated of the query.
         """
-        args, meta, qp, fields = self.get_parameters()
+        args, meta, _, fields = self.get_parameters()
         if meta == ':meta':
             ## returning the columns on Model:
             fields = self.model.__fields__
@@ -498,7 +533,7 @@ class ModelView(BaseView):
                 objid = self.get_primary(data)
             except (TypeError, KeyError):
                 try:
-                    objid = self.get_primary(params)
+                    objid = self.get_primary(args)
                 except (TypeError, KeyError):
                     self.error(
                         response={"message": f"Invalid Data Primary Key: {self.name}"},
@@ -539,7 +574,7 @@ class ModelView(BaseView):
             try:
                 # getting metadata of Model
                 data = {}
-                for name, field in self.model.get_columns().items():
+                for _, field in self.model.get_columns().items():
                     key = field.name
                     _type = field.db_type()
                     default = None
@@ -559,7 +594,7 @@ class ModelView(BaseView):
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status = status)
+        return self.json_response(result, status=status)
 
     @service_auth
     async def put(self):
@@ -567,7 +602,7 @@ class ModelView(BaseView):
         put.
            summary: insert a row in table
         """
-        args, meta, qp, fields = self.get_parameters()
+        _, _, qp, fields = self.get_parameters()
         data = await self._post_data()
         if not data:
             return self.error(
@@ -582,10 +617,13 @@ class ModelView(BaseView):
                 self.model.Meta.connection = conn
                 try:
                     result = await self.model.create(data)
-                    return await self._post_response(result, status=201)
+                    return await self._model_response(result, status=201, fields=fields)
                 except DriverError as ex:
                     return self.error(
-                        response={"message": f"Bulk Insert Error", "error": str(ex.message)},
+                        response={
+                            "message": "Bulk Insert Error",
+                            "error": str(ex.message)
+                        },
                         status=410,
                     )
         try:
@@ -634,7 +672,7 @@ class ModelView(BaseView):
         post.
             summary: update (or create) a row in Model
         """
-        args, meta, qp, fields = self.get_parameters()
+        args, _, qp, fields = self.get_parameters()
         data = await self._post_data()
         if not data:
             return self.error(
@@ -683,7 +721,7 @@ class ModelView(BaseView):
                 objid = self.get_primary(data)
             except (TypeError, KeyError):
                 try:
-                    objid = self.get_primary(params)
+                    objid = self.get_primary(args)
                 except (TypeError, KeyError) as ex:
                     self.error(
                         response={
@@ -699,7 +737,11 @@ class ModelView(BaseView):
                 if isinstance(objid, list):
                     try:
                         result = await self.model.updating(_filter=objid, **data)
-                        return await self._model_response(result, status=202, fields=fields)
+                        return await self._model_response(
+                            result,
+                            status=202,
+                            fields=fields
+                        )
                     except ModelError as ex:
                         error = {
                             "error": f"Missing Info for Model {self.__name__}",
@@ -790,7 +832,7 @@ class ModelView(BaseView):
         delete.
            summary: delete a table object
         """
-        args, meta, qp, fields = self.get_parameters()
+        args, _, qp, _ = self.get_parameters()
         data = await self._del_data()
         try:
             objid = self.get_primary(data)

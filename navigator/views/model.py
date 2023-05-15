@@ -74,7 +74,7 @@ class ModelView(BaseView):
     # Signal for startup method for this ModelView
     on_startup: Optional[Callable] = None
     name: str = "Model"
-    pk: Union[str, list] = "id"
+    pk: Union[str, list] = None
     _required: list = []
     _primaries: list = []
     _hidden: list = []
@@ -295,6 +295,13 @@ class ModelView(BaseView):
             Get Primary Id from Parameters.
         """
         objid = None
+        if self.pk is None:
+            ### discover the primary keys of Model.
+            primary_keys = []
+            for key, field in self.model.get_columns().items():
+                if field.primary_key:
+                    primary_keys.append(key)
+            self.pk = primary_keys
         if isinstance(self.pk, str):
             if isinstance(data, list):
                 pk = [self.pk]
@@ -306,7 +313,8 @@ class ModelView(BaseView):
             else:
                 try:
                     objid = data[self.pk]
-                except (TypeError, KeyError):
+                except (TypeError, KeyError) as ex:
+                    print(ex)
                     try:
                         objid = data["id"]
                         if objid == '':
@@ -314,8 +322,9 @@ class ModelView(BaseView):
                     except KeyError:
                         objid = None
                 ## but if objid has /
-                if '/' in objid:
-                    return objid.split('/')
+                if isinstance(objid, str):
+                    if '/' in objid:
+                        return objid.split('/')
                 return objid
         elif isinstance(self.pk, list):
             if 'id' in data:
@@ -324,7 +333,7 @@ class ModelView(BaseView):
                     if len(paramlist) != len(self.pk):
                         return self.error(
                             response={
-                                "message": f"Wrong Number of elements in PK: {self.pk}",
+                                "message": f"Wrong Number of Args in PK: {self.pk}",
                                 "description": f"{paramlist!r}",
                             },
                             status=410,
@@ -337,10 +346,13 @@ class ModelView(BaseView):
                     pass
             else:
                 ### extract PK from data:
-                objid = []
-                for entry in data:
-                    new_entry = {field: entry[field] for field in self.pk}
-                    objid.append(new_entry)
+                if isinstance(data, list):
+                    objid = []
+                    for entry in data:
+                        new_entry = {field: entry[field] for field in self.pk}
+                        objid.append(new_entry)
+                else:
+                    objid = {field: data[field] for field in self.pk}
                 return objid
         else:
             return self.error(

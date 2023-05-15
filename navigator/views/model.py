@@ -380,12 +380,12 @@ class ModelView(BaseView):
                 elif len(args) > 0:
                     print("GET BY ARGS")
                     query = await self.get_model.get(**args)
-                    return query.dict()
+                    return query.to_dict()
                 else:
                     print("ALL")
                     query = await self.get_model.all()
                 if query:
-                    data = [row.dict() for row in query]
+                    data = [row.to_dict() for row in query]
                 else:
                     raise NoDataFound(
                         'No Data was found'

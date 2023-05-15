@@ -4,6 +4,7 @@ import traceback
 from aiohttp import web
 from navconfig.logging import logger
 from datamodel import BaseModel
+from datamodel.converters import parse_type
 from datamodel.exceptions import ValidationError
 from asyncdb.models import Model
 from asyncdb.exceptions import (
@@ -553,16 +554,32 @@ class ModelView(BaseView):
                             obj = await self.model.get(**_filter)
                             for key, val in entry.items():
                                 if key in obj.get_fields():
-                                    obj.set(key, val)
+                                    col = obj.column(key)
+                                    try:
+                                        newval = parse_type(col.type, val)
+                                    except ValueError:
+                                        if col.type == str:
+                                            newval = str(val)
+                                        else:
+                                            newval = val
+                                    obj.set(key, newval)
                             result.append(await obj.update())
                         return await self._patch_response(result, status=202)
                     else:
                         args = {self.pk: objid}
-                        result = await self.model.get(**args)
+                        obj = await self.model.get(**args)
                         for key, val in data.items():
-                            if key in result.get_fields():
-                                result.set(key, val)
-                        result = await result.update()
+                            if key in obj.get_fields():
+                                col = obj.column(key)
+                                try:
+                                    newval = parse_type(col.type, val)
+                                except ValueError:
+                                    if col.type == str:
+                                        newval = str(val)
+                                    else:
+                                        newval = val
+                                obj.set(key, newval)
+                        result = await obj.update()
                     return await self._patch_response(result, status=202)
                 except NoDataFound:
                     headers = {"x-error": f"{self.__name__} was not Found"}
@@ -697,11 +714,18 @@ class ModelView(BaseView):
                         continue
                     try:
                         obj = await self.model.get(**_filter)
-                        print('OBJ ', obj)
                         ## saved with new changes:
                         for key, val in entry.items():
                             if key in obj.get_fields():
-                                obj.set(key, val)
+                                col = obj.column(key)
+                                try:
+                                    newval = parse_type(col.type, val)
+                                except ValueError:
+                                    if col.type == str:
+                                        newval = str(val)
+                                    else:
+                                        newval = val
+                                obj.set(key, newval)
                         r = await obj.update()
                         result.append(r)
                     except ModelError as ex:
@@ -775,7 +799,15 @@ class ModelView(BaseView):
                     ## saved with new changes:
                     for key, val in data.items():
                         if key in result.get_fields():
-                            result.set(key, val)
+                            col = result.column(key)
+                            try:
+                                newval = parse_type(col.type, val)
+                            except ValueError:
+                                if col.type == str:
+                                    newval = str(val)
+                                else:
+                                    newval = val
+                            result.set(key, newval)
                     try:
                         data = await result.update()
                     except ModelError as ex:
@@ -795,8 +827,15 @@ class ModelView(BaseView):
                             "error": f"Invalid payload for {self.__name__}",
                             "payload": str(ex),
                         }
-                        return self.error(response=error, status=406)
-                    return await self._model_response(data, status=202, fields=fields)
+                        return self.error(
+                            response=error,
+                            status=406
+                        )
+                    return await self._model_response(
+                        data,
+                        status=202,
+                        fields=fields
+                    )
 
     async def _del_data(self, *args, **kwargs) -> Any:
         """_get_data.
@@ -856,7 +895,9 @@ class ModelView(BaseView):
                         if isinstance(self.pk, list):
                             result = await self.model.get(**objid)
                         else:
-                            args = {self.pk: objid}
+                            args = {
+                                self.pk: objid
+                            }
                             # Delete them this Client
                             result = await self.model.get(**args)
                         data = await result.delete()

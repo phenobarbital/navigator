@@ -38,6 +38,9 @@ class GroupManager(ModelView):
     async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
+    def required_by_put(self):
+        return ['group_name']
+
     async def on_startup(self, *args, **kwargs):
         print(args, kwargs)
         print('THIS CODE RUN ON STARTUP')

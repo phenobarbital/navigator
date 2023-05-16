@@ -53,6 +53,7 @@ async def load_model(tablename: str, schema: str, connection: Any) -> Model:
             f"Error loading Model {tablename}: {err!s}"
         )
 
+
 class ModelView(BaseView):
     """ModelView.
 
@@ -117,10 +118,10 @@ class ModelView(BaseView):
             )
         url = f"{model_path}"
         app.router.add_view(
-            r"{}/{{id:.*}}".format(url), cls
+            r"{url}/{{id:.*}}".format(url=url), cls
         )
         app.router.add_view(
-            r"{}{{meta:\:?.*}}".format(url), cls
+            r"{url}{{meta:\:?.*}}".format(url=url), cls
         )
 
     def _get_model(self):
@@ -146,16 +147,6 @@ class ModelView(BaseView):
                             pass
             return self.model
         else:
-            # loop = asyncio.get_running_loop()
-            # try:
-            #     table = self.Meta.tablename
-            # except (TypeError, AttributeError) as err:  # pylint: disable=W0703
-            #     print(err)
-            #     table = type(self).__name__
-            # try:
-            #     self.model = loop.run_until_complete(
-            #         load_model(tablename=table, schema=self.schema, connection=None)
-            #     )
             # Model doesn't exists
             raise ConfigError(
                 f"Model {self.__name__} Doesn't Exists"
@@ -216,7 +207,7 @@ class ModelView(BaseView):
             self.error(
                 response={
                     "error": "Unauthorized",
-                    "message": "Hint: maybe you need to login and pass an Authorization token."
+                    "message": "Hint: maybe you need to pass an Authorization token."
                 },
                 status=403
             )
@@ -291,7 +282,6 @@ class ModelView(BaseView):
 
     def get_primary(self, data: dict) -> Any:
         """get_primary.
-
             Get Primary Id from Parameters.
         """
         objid = None
@@ -320,7 +310,7 @@ class ModelView(BaseView):
                         if objid == '':
                             objid = None
                     except KeyError:
-                        objid = None
+                        raise
                 ## but if objid has /
                 if isinstance(objid, str):
                     if '/' in objid:
@@ -360,6 +350,13 @@ class ModelView(BaseView):
                 status=410
             )
 
+    async def _get_primary_data(self, args):
+        try:
+            objid = self.get_primary(args)
+        except (TypeError, KeyError):
+            objid = None
+        return objid
+
     async def _get_data(self, qp, args):
         """_get_data.
 
@@ -369,10 +366,7 @@ class ModelView(BaseView):
         conn = None
         data = None
         ## getting first the id from params or data:
-        try:
-            objid = self.get_primary(args)
-        except (TypeError, KeyError):
-            objid = None
+        objid = await self._get_primary_data(args)
         try:
             async with await db.acquire() as conn:
                 self.get_model.Meta.connection = conn
@@ -454,13 +448,17 @@ class ModelView(BaseView):
                 "error": f"Missing Info for Model {self.name}",
                 "payload": str(ex)
             }
-            return self.error(response=error, status=400)
+            return self.error(
+                response=error, status=400
+            )
         except ValidationError as ex:
             error = {
                 "error": f"Unable to load {self.__name__} info from Database",
                 "payload": ex.payload,
             }
-            return self.error(response=error, status=400)
+            return self.error(
+                response=error, status=400
+            )
         except NoDataFound:
             headers = {
                 "X-STATUS": "EMPTY",
@@ -525,6 +523,28 @@ class ModelView(BaseView):
         """
         return self.json_response(result, status=status)
 
+    def required_by_put(self):
+        return []
+
+    def required_by_patch(self):
+        return []
+
+    def required_by_post(self):
+        return []
+
+    def _is_required(self, required: list, data: Union[dict, list]):
+        if not required:
+            return []
+        else:
+            if isinstance(data, dict):
+                return [f for f in required if f not in data.keys()]
+            elif isinstance(data, list):
+                return [f for f in required if f not in data[0].keys()]
+            else:
+                raise TypeError(
+                    "Expected DATA to be a dict or list"
+                )
+
     @service_auth
     async def patch(self):
         """
@@ -539,6 +559,20 @@ class ModelView(BaseView):
             return self.json_response(fields)
         data = await self._post_data()
         if data:
+            ### validation if data is covered by required columns
+            try:
+                if (required := self._is_required(self.required_by_patch(), data)):
+                    self.error(
+                        response={
+                            "message": f"Missing required data: {', '.join(required)}"
+                        },
+                        status=400
+                    )
+            except TypeError as exc:
+                self.error(
+                    response={"error": str(exc)},
+                    status=400
+                )
             ## patching data:
             db = self.request.app["database"]
             ## getting first the id from params or data:
@@ -638,6 +672,21 @@ class ModelView(BaseView):
                 response={"error": "Cannot Insert a row without data"},
                 state=406,
             )
+        ### validation if data is covered by required columns
+        try:
+            if (required := self._is_required(self.required_by_put(), data)):
+                self.error(
+                    response={
+                        "message": f"Missing required data: {', '.join(required)}",
+                        "required": required
+                    },
+                    status=400
+                )
+        except TypeError as exc:
+            self.error(
+                response={"error": str(exc)},
+                status=400
+            )
         ## validate directly with model:
         if isinstance(data, list):
             ## Bulk Insert
@@ -707,6 +756,21 @@ class ModelView(BaseView):
             return self.error(
                 response={"error": "Cannot Insert a row without data"},
                 state=406,
+            )
+        ### validation if data is covered by required columns
+        try:
+            if (required := self._is_required(self.required_by_post(), data)):
+                self.error(
+                    response={
+                        "message": f"Missing required data: {', '.join(required)}",
+                        "required": required
+                    },
+                    status=400
+                )
+        except TypeError as exc:
+            self.error(
+                response={"error": str(exc)},
+                status=400
             )
         db = self.request.app["database"]
         # updating several at the same time:

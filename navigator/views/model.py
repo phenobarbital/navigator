@@ -320,7 +320,7 @@ class ModelView(BaseView):
                         if objid == '':
                             objid = None
                     except KeyError:
-                        objid = None
+                        raise
                 ## but if objid has /
                 if isinstance(objid, str):
                     if '/' in objid:

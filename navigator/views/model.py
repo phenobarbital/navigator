@@ -121,7 +121,8 @@ class ModelView(BaseView):
             r"{url}/{{id:.*}}".format(url=url), cls
         )
         app.router.add_view(
-            r"{url}{{meta:\:?.*}}".format(url=url), cls
+            r"{url}{{meta:(:.*)?}}".format(url=url), cls
+
         )
 
     def _get_model(self):
@@ -156,7 +157,8 @@ class ModelView(BaseView):
         async def _wrap(self, *args, **kwargs):
             ## get User Session:
             await self.session()
-            self._userid = await self.get_userid(self._session)
+            if self._session:
+                self._userid = await self.get_userid(self._session)
             ## Calling post-authorization Model:
             await self._post_auth(self, *args, **kwargs)
             return await fn(self, *args, **kwargs)

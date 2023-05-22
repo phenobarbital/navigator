@@ -22,6 +22,11 @@ DOMAIN = config.get("DOMAIN", fallback="dev.local")
 # Temp File Path
 files_path = BASE_DIR.joinpath("temp")
 
+## Template Path:
+TEMPLATE_DIRECTORY = config.get(
+    "TEMPLATE_DIRECTORY", BASE_DIR.joinpath('templates')
+)
+
 """
 Security and debugging
 """
@@ -35,7 +40,6 @@ Development
 """
 # Debug
 #
-DEBUG = config.getboolean("DEBUG", fallback=False)
 PRODUCTION = bool(config.getboolean("PRODUCTION", fallback=(not DEBUG)))
 LOCAL_DEVELOPMENT = DEBUG is True and sys.argv[0] == "run.py"
 

@@ -26,9 +26,11 @@ class TemplateParser(BaseExtension):
     Description: NAV extension for adding Jinja2 capabitilies to NAV.
 
     Args:
-        app_name (str): Name of the current Extension, will use it to save it into aiohttp Application.
+        app_name (str): Name of the current Extension, will use it to save it into an
+        aiohttp Application.
         template_dir (str | list): list of folders where templates lives in.
-        filters (Optional[list of callables]): Optional list of any callables will be registered as Jinja2 Filters.
+        filters (Optional[list of callables]): Optional list of any callables will be
+        registered as Jinja2 Filters.
 
     Raises:
         TypeError: Wrong arguments passed to Template.
@@ -54,6 +56,7 @@ class TemplateParser(BaseExtension):
         super(TemplateParser, self).__init__(app_name=app_name, **kwargs)
         self.env: Optional[Environment] = None
         self.filters = filters
+        self.directory: list = []
         if "config" in kwargs:
             self.config = {**jinja_config, **kwargs["config"]}
         else:
@@ -62,35 +65,38 @@ class TemplateParser(BaseExtension):
         template_debug = config.getboolean("TEMPLATE_DEBUG", fallback=False)
         if template_debug is True:
             self.config["extensions"].append("jinja2.ext.debug")
-        self.tmpl_dir = BASE_DIR.joinpath("templates")
-        if self.tmpl_dir.exists():
-            self.directory = [self.tmpl_dir]
-        if isinstance(template_dir, list):
+        if not template_dir:
+            # use default:
+            self.tmpl_dir = BASE_DIR.joinpath("templates")
+            if self.tmpl_dir.exists():
+                self.directory = [self.tmpl_dir]
+        elif isinstance(template_dir, list):
             # iterate over:
             for d in template_dir:
                 if d is not None:
                     if isinstance(d, str):
                         d = Path(d).resolve()
                     if not d.exists():
-                        raise ValueError(f"Missing Template Directory: {d}")
+                        raise ValueError(
+                            f"Missing Template Directory: {d}"
+                        )
                     self.directory.append(d)
         else:
             if template_dir and isinstance(template_dir, str):
                 d = Path(template_dir).resolve()
                 if not d.exists():
-                    raise ValueError(f"Missing Template Directory: {d}")
+                    raise ValueError(
+                        f"Missing Template Directory: {d}"
+                    )
                 self.directory.append(d)
             elif isinstance(template_dir, Path):
                 self.directory.append(template_dir)
             else:
                 pass
 
-    def setup(self, app: WebApp):
-        """setup.
-        Configure Jinja2 Template Parser for Application.
+    def configure(self):
+        """Configure Basic template Parser without integrating into WebApp.
         """
-        ## calling parent Setup:
-        super(TemplateParser, self).setup(app)
         # create loader:
         self.loader = FileSystemLoader(searchpath=self.directory)
         try:
@@ -105,6 +111,15 @@ class TemplateParser(BaseExtension):
             raise RuntimeError(
                 f"NAV: Error loading Template Environment: {err}"
             ) from err
+
+    def setup(self, app: WebApp):
+        """setup.
+        Configure Jinja2 Template Parser for Application.
+        """
+        ## calling parent Setup:
+        super(TemplateParser, self).setup(app)
+        ### configure template Parser:
+        self.configure()
 
     def get_template(self, filename: str):
         """
@@ -135,6 +150,26 @@ class TemplateParser(BaseExtension):
         Property to return the current Template Environment.
         """
         return self.env
+
+    def render_template(self, filename: str, params: Optional[dict] = None) -> str:
+        """Render.
+        Renders a Jinja2 template using blocking syntax.
+        """
+        result = None
+        if not params:
+            params = {}
+        try:
+            template = self.env.get_template(str(filename))
+            result = template.render(**params)
+            return result
+        except TemplateError as ex:
+            raise ValueError(
+                f"Template parsing error, template: {filename}: {ex}"
+            ) from ex
+        except Exception as err:
+            raise RuntimeError(
+                f"NAV: Error rendering: {filename}, error: {err}"
+            ) from err
 
     async def render(self, filename: str, params: Optional[dict] = None) -> str:
         """Render.

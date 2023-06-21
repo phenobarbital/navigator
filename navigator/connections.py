@@ -37,7 +37,7 @@ class ConnectionHandler:
         self.name = name
         self.params = params
         self.kwargs = kwargs
-        self._dsn = dsn
+        self._dsn = dsn if dsn is not None else default_dsn
         if init:
             self._init = init
         if startup:
@@ -75,13 +75,14 @@ class ConnectionHandler:
         try:
             main_app = app["Main"]
             db = main_app[self._register]
-            logging.debug(f"There is already a connection enabled on {app!r}")
-            self.conn = db
-            app[self._register] = self.conn
-            # any callable will be launch on connection startup.
-            if callable(self._startup_):
-                await self._startup_(app, self.conn)
-            return
+            if self._dsn == db._dsn:
+                logging.debug(f"There is already a connection enabled on {app!r}")
+                self.conn = db
+                app[self._register] = self.conn
+                # any callable will be launch on connection startup.
+                if callable(self._startup_):
+                    await self._startup_(app, self.conn)
+                return
         except (TypeError, KeyError):
             pass
         if "database" in app or self._register in app:
@@ -140,6 +141,7 @@ class PostgresPool(ConnectionHandler):
     def __init__(
         self,
         name: str = "",
+        dsn: str = '',
         init: Optional[Callable] = None,
         startup: Optional[Callable] = None,
         shutdown: Optional[Callable] = None,
@@ -166,6 +168,7 @@ class PostgresPool(ConnectionHandler):
         }
         super(PostgresPool, self).__init__(
             driver=self.driver,
+            dsn=dsn,
             name=name,
             init=init,
             startup=startup,
@@ -173,7 +176,7 @@ class PostgresPool(ConnectionHandler):
             evt=evt,
             **kwargs,
         )
-        self._dsn = default_dsn
+        # self._dsn = default_dsn
 
     async def shutdown(self, app: WebApp):
         if callable(self._shutdown_):

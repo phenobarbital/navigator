@@ -11,12 +11,15 @@ from navconfig.logging import logging
 #### BASIC Configuration
 APP_NAME = config.get("APP_NAME", fallback="Navigator")
 APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
+APP_LOGNAME = config.get("APP_LOGNAME", fallback="Navigator")
 logging.debug(f"::: STARTING APP: {APP_NAME} ::: ")
 
 TEMP_DIR = config.get("TEMP_DIR", fallback="/tmp")
 NAV_DIR = BASE_DIR.joinpath("navigator")
 SERVICES_DIR = BASE_DIR.joinpath("services")
-HOSTS = [e.strip() for e in list(config.get("HOSTS", fallback="localhost").split(","))]
+HOSTS = [e.strip() for e in list(
+    config.get("HOSTS", fallback="localhost").split(",")
+)]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
 
 # Temp File Path
@@ -92,14 +95,22 @@ API_NAME = config.get("API_NAME", section="info", fallback="Navigator")
 ##
 #######################
 #### Main Database
-PG_USER = config.get("DBUSER")
-PG_HOST = config.get("DBHOST", fallback="localhost")
-PG_PWD = config.get("DBPWD")
-PG_DATABASE = config.get("DBNAME", fallback="navigator")
-PG_PORT = config.get("DBPORT", fallback=5432)
+DBUSER = config.get("DBUSER")
+DBHOST = config.get("DBHOST", fallback="localhost")
+DBPWD = config.get("DBPWD")
+DBNAME = config.get("DBNAME", fallback="navigator")
+DBPORT = config.get("DBPORT", fallback=5432)
+
+default_dsn = f"postgres://{DBUSER}:{DBPWD}@{DBHOST}:{DBPORT}/{DBNAME}"
+
+## User Database:
+PG_USER = config.get("PG_USER")
+PG_PWD = config.get("PG_PWD")
+PG_HOST = config.get("PG_HOST", fallback="localhost")
+PG_PORT = config.get("PG_PORT", fallback=5432)
+PG_DATABASE = config.get("PG_DATABASE", fallback="navigator")
 
 asyncpg_url = f"postgres://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
-default_dsn = asyncpg_url
 
 DB_TIMEOUT = config.get("DB_TIMEOUT", fallback=60)
 DB_STATEMENT_TIMEOUT = config.get("DB_STATEMENT_TIMEOUT", fallback=360)
@@ -112,10 +123,10 @@ Auth and Cache
 """
 
 #### REDIS SESSIONS
-CACHE_HOST = config.get("CACHEHOST", fallback="localhost")
-CACHE_PORT = config.get("CACHEPORT", fallback=6379)
-CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}"
-# REDIS_SESSION_DB = config.get("REDIS_SESSION_DB", fallback=0)
+CACHE_HOST = config.get("CACHE_HOST", fallback="localhost")
+CACHE_PORT = config.get("CACHE_PORT", fallback=6379)
+CACHE_DB = config.get("CACHE_DB", fallback=0)
+CACHE_URL = f"redis://{CACHE_HOST}:{CACHE_PORT}/{CACHE_DB}"
 CACHE_PREFIX = config.get("CACHE_PREFIX", fallback="navigator")
 
 """
@@ -140,7 +151,7 @@ AUTH_PWD_LENGTH = config.get("AUTH_PWD_LENGTH", fallback=32)
 AUTH_JWT_ALGORITHM = config.get("JWT_ALGORITHM", fallback="HS256")
 AUTH_PWD_SALT_LENGTH = config.get("AUTH_PWD_SALT_LENGTH", fallback=6)
 AUTH_USERNAME_ATTRIBUTE = config.get("AUTH_USERNAME_ATTRIBUTE", fallback="username")
-CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=False)
+CREDENTIALS_REQUIRED = config.getboolean("AUTH_CREDENTIALS_REQUIRED", fallback=True)
 AUTH_USER_MODEL = config.get("AUTH_USER_MODEL", fallback="navigator.auth.models.User")
 AUTH_GROUP_MODEL = config.get(
     "AUTH_GROUP_MODEL", fallback="navigator.auth.models.Group"

@@ -12,6 +12,7 @@ from navigator.connections import PostgresPool
 from navigator.middlewares.error import error_middleware
 from navigator.responses import JSONResponse
 from navigator.exceptions import ConfigError
+from navigator.conf import APP_LOGNAME, asyncpg_url
 from .base import BaseHandler
 
 
@@ -28,6 +29,7 @@ class AppHandler(BaseHandler):
     staticdir: str = None
     enable_pgpool: bool = False
     enable_error_middleware: bool = False
+    dsn: str = None
 
     def __init__(
         self, context: dict, app_name: str = None, evt: asyncio.AbstractEventLoop = None
@@ -36,7 +38,9 @@ class AppHandler(BaseHandler):
         if self.enable_pgpool is True:
             try:
                 # enable a pool-based database connection:
-                pool = PostgresPool(name="Navigator", startup=self.app_startup)
+                if not self.dsn:
+                    self.dsn = asyncpg_url
+                pool = PostgresPool(name=APP_LOGNAME, dsn=self.dsn, startup=self.app_startup)
                 pool.configure(self.app, register="database")  # pylint: disable=E1123
             except (ProviderError, DriverError) as ex:
                 raise web.HTTPServerError(

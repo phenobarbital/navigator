@@ -12,7 +12,7 @@ from navigator.connections import PostgresPool
 from navigator.middlewares.error import error_middleware
 from navigator.responses import JSONResponse
 from navigator.exceptions import ConfigError
-from navigator.conf import APP_LOGNAME, asyncpg_url
+from navigator.conf import APP_LOGNAME, default_dsn
 from .base import BaseHandler
 
 
@@ -39,7 +39,7 @@ class AppHandler(BaseHandler):
             try:
                 # enable a pool-based database connection:
                 if not self.dsn:
-                    self.dsn = asyncpg_url
+                    self.dsn = default_dsn
                 pool = PostgresPool(name=APP_LOGNAME, dsn=self.dsn, startup=self.app_startup)
                 pool.configure(self.app, register="database")  # pylint: disable=E1123
             except (ProviderError, DriverError) as ex:

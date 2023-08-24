@@ -157,7 +157,7 @@ class PostgresPool(ConnectionHandler):
             "server_settings": {
                 "application_name": name,
                 "client_min_messages": "notice",
-                "max_parallel_workers": "256",
+                "max_parallel_workers": "512",
                 "jit": "on",
                 "jit_above_cost": "10000000",
                 "statement_timeout": f"{self.statement_timeout}",

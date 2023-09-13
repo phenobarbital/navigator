@@ -93,13 +93,15 @@ class ConnectionHandler:
                 await self._startup_(app, self.conn)
             return
         logging.debug(f"Starting DB {self.driver} connection on App: {self.name}")
+        if self.timeout is None:
+            self.timeout = 600
         try:
             if self.pool_based:
                 self.conn = AsyncPool(
                     self.driver,
                     dsn=self._dsn,
                     params=self.params,
-                    timeout=self.timeout,
+                    timeout=int(self.timeout),
                     **self.kwargs,
                 )
                 await self.conn.connect()
@@ -108,7 +110,7 @@ class ConnectionHandler:
                     self.driver,
                     dsn=self._dsn,
                     params=self.params,
-                    timeout=self.timeout,
+                    timeout=int(self.timeout),
                     **self.kwargs,
                 )
                 await self.conn.connection()

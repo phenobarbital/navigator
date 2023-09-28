@@ -188,7 +188,11 @@ class ModelHandler(BaseView):
                 }
                 return self.critical(response=error, status=500)
 
-    async def _get_data(self, session: Optional[Any] = None) -> Any:
+    async def _get_data(
+        self,
+        session: Optional[Any] = None,
+        request: web.Request = None
+    ) -> Any:
         """_get_data.
 
         Get and pre-processing POST data before use it.
@@ -203,14 +207,19 @@ class ModelHandler(BaseView):
                         val = value.get(name, None)
                     except AttributeError:
                         val = None
-                    value[name] = await fn(value=val, column=column, data=value)
+                    value[name] = await fn(
+                        value=val,
+                        column=column,
+                        data=value,
+                        request=request
+                    )
         try:
             data = await self.json_data()
             if isinstance(data, list):
                 for element in data:
                     await set_column_value(element)
             elif isinstance(data, dict):
-                    await set_column_value(data)
+                await set_column_value(data)
             else:
                 self.error(
                     reason=f"Invalid Data Format: {type(data)}", status=400
@@ -275,20 +284,23 @@ class ModelHandler(BaseView):
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status = status)
+        return self.json_response(result, status=status)
 
     async def _patch_data(self, result, status: int = 202) -> web.Response:
         """_patch_data.
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status = status)
+        return self.json_response(result, status=status)
 
     async def put(self):
         """Creating Client information."""
         session = await self.session()
         ### get POST Data:
-        data = await self._get_data(session=session)
+        data = await self._get_data(
+            session=session,
+            request=self.request
+        )
         ## validate directly with model:
         if isinstance(data, list):
             db = self.request.app["database"]
@@ -346,7 +358,10 @@ class ModelHandler(BaseView):
                 return self.json_response(fields)
         except KeyError:
             pass
-        data = await self._get_data(session=session)
+        data = await self._get_data(
+            session=session,
+            request=self.request
+        )
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
@@ -404,7 +419,10 @@ class ModelHandler(BaseView):
         session = await self.session()
         ### get session Data:
         params = self.match_parameters()
-        data = await self._get_data(session=session)
+        data = await self._get_data(
+            session=session,
+            request=self.request
+        )
         ## validate directly with model:
         ## getting first the id from params or data:
         try:
@@ -519,8 +537,11 @@ class ModelHandler(BaseView):
                 }
                 return self.error(response=error, status=406)
 
-
-    async def _get_del_data(self, session: Optional[Any] = None) -> Any:
+    async def _get_del_data(
+        self,
+        session: Optional[Any] = None,
+        request: web.Request = None
+    ) -> Any:
         """_get_data.
 
         Get and pre-processing POST data before use it.
@@ -537,7 +558,7 @@ class ModelHandler(BaseView):
                         val = data.get(name, None)
                     except AttributeError:
                         val = None
-                    data[name] = await fn(value=val, column=column)
+                    data[name] = await fn(value=val, column=column, request=request)
         except (TypeError, ValueError, NavException):
             pass
         return data

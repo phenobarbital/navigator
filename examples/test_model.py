@@ -10,9 +10,13 @@ from navigator import Application
 from navigator.responses import HTMLResponse
 from navigator.views import ModelView
 
+
+class Country(Model):
+    country_code: str = Column(primary_key=True)
+    country: str
 class Airport(Model):
-    iata: str = Column(primary_key=True, required=True)
-    airport: str = Column(required=True)
+    iata: str = Column(primary_key=True, required=True, label='IATA Code')
+    airport: str = Column(required=True, label="Airport Name")
     city: str
     country: str
     created_by: int
@@ -35,14 +39,17 @@ async def hola(request: web.Request) -> web.Response:
 
 class AirportHandler(ModelView):
     model: Model = Airport
-    pk: Union[str, list] = 'iata'
+    pk: Union[str, list] = ['iata']
 
     async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
-    async def on_startup(self, *args, **kwargs):
-        print(args, kwargs)
-        print('THIS CODE RUN ON STARTUP')
+    # async def on_startup(self, *args, **kwargs):
+    #     print(args, kwargs)
+    #     print('THIS CODE RUN ON STARTUP')
+
+    # async def on_shutdown(self, *args, **kwargs):
+    #     print('ESTO OCURRE CUANDO SE DETIENE ==== ')
 
 ## two required handlers for a ModelHandler.
 AirportHandler.configure(app, '/api/v1/airports')

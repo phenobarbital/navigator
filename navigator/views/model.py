@@ -458,9 +458,8 @@ class ModelView(BaseView):
                     objid.append(new_entry)
             return objid
         else:
-            return self.error(
-                reason=f"Invalid PK definition for {self.__name__}: {self.pk}",
-                status=410
+            raise ValueError(
+                f"Invalid PK definition for {self.__name__}: {self.pk}"
             )
 
     async def _get_primary_data(self, args):
@@ -713,6 +712,16 @@ class ModelView(BaseView):
                     "Expected DATA to be a dict or list"
                 )
 
+    def get_patch_attribute(self, args: dict):
+        if 'id' in args:
+            try:
+                _attrs = args['id'].split('/')
+                args['id'] = _attrs[0]
+                return args, _attrs[1]
+            except IndexError:
+                pass
+        return args, None
+
     @service_auth
     async def patch(self):
         """
@@ -721,6 +730,7 @@ class ModelView(BaseView):
             realizes a partially atomic updated of the query.
         """
         args, meta, _, fields = self.get_parameters()
+        args, _attribute = self.get_patch_attribute(args)
         if meta == ':meta':
             ## returning the columns on Model:
             fields = self.model.__fields__
@@ -751,20 +761,22 @@ class ModelView(BaseView):
             )
         ## patching data:
         ## getting first the id from params or data:
-        try:
-            objid = self.get_primary(data)
-        except (TypeError, KeyError):
+        if isinstance(data, str):
+            objid = self.get_primary(args)
+        else:
             try:
-                objid = self.get_primary(args)
-            except (TypeError, KeyError) as err:
-                self.error(
-                    response={
-                        "message": f"Invalid Primary Key: {self.__name__}",
-                        "error": str(err)
-                    },
-                    status=400
-                )
-        print('OBJ > ', objid)
+                objid = self.get_primary(data)
+            except (TypeError, KeyError, ValueError):
+                try:
+                    objid = self.get_primary(args)
+                except (TypeError, KeyError, ValueError) as err:
+                    self.error(
+                        response={
+                            "message": f"Invalid Primary Key: {self.__name__}",
+                            "error": str(err)
+                        },
+                        status=400
+                    )
         try:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
@@ -797,17 +809,24 @@ class ModelView(BaseView):
                         else:
                             args = {self.pk: objid}
                             obj = await self.model.get(**args)
-                        for key, val in data.items():
-                            if key in obj.get_fields():
-                                col = obj.column(key)
-                                try:
-                                    newval = parse_type(col.type, val)
-                                except ValueError:
-                                    if col.type == str:
-                                        newval = str(val)
-                                    else:
-                                        newval = val
-                                obj.set(key, newval)
+                        if isinstance(data, dict):
+                            for key, val in data.items():
+                                if key in obj.get_fields():
+                                    col = obj.column(key)
+                                    try:
+                                        newval = parse_type(col.type, val)
+                                    except ValueError:
+                                        if col.type == str:
+                                            newval = str(val)
+                                        else:
+                                            newval = val
+                                    obj.set(key, newval)
+                        else:
+                            # Patching one Single Attribute:
+                            if _attribute in obj.get_fields():
+                                col = obj.column(_attribute)
+                                newval = parse_type(col.type, data)
+                                obj.set(_attribute, newval)
                         result = await obj.update()
                     return await self._patch_response(result, status=202)
                 except NoDataFound:

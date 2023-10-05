@@ -1,6 +1,8 @@
 from typing import Union
 import asyncio
+from datetime import datetime
 from aiohttp import web
+from navconfig.logging import logging
 from asyncdb import AsyncPool
 from asyncdb.models import Model, Column
 from navigator_auth import AuthHandler
@@ -14,6 +16,7 @@ class Airport(Model):
     city: str
     country: str
     created_by: int
+    created_at: datetime = Column(default=datetime.now(), repr=False)
 
     class Meta:
         name: str = 'airports'
@@ -25,9 +28,9 @@ app = Application()
 session = AuthHandler()
 session.setup(app)
 
-@app.get('/hola')
+@app.get('/hello')
 async def hola(request: web.Request) -> web.Response:
-    return HTMLResponse(content="<h1>Hola Mundo</h1>")
+    return HTMLResponse(content="<h1>Hello Airport</h1>")
 
 
 class AirportHandler(ModelView):
@@ -59,6 +62,7 @@ async def start_example(db):
          city character varying(20),
          country character varying(30),
          created_by integer,
+         created_at timestamp with time zone NOT NULL DEFAULT now(),
          CONSTRAINT pk_airports_pkey PRIMARY KEY (iata)
         )
         WITH (
@@ -70,11 +74,26 @@ async def start_example(db):
         print(' == TEST Bulk Insert == ')
         Airport.Meta.connection = conn
         data = [
-            {"iata": "AEP", "airport": "Jorge Newbery", "city": "Buenos Aires", "country": "Argentina"},
-            {"iata": "ADL", "airport": "Adelaide International", "city": "Adelaide", "country": "Australia"},
-            {"iata": "BSB", "airport": "President Juscelino Kubitschek", "city": "Brasilia", "country": "Brasil"},
-            {"iata": "GRU", "airport": "São Paulo-Guarulhos", "city": "Sao Paulo", "country": "Brasil"},
-            {"iata": "CCS", "airport": "Simon Bolívar Maiquetia", "city": "Caracas", "country": "Venezuela"},
+            {
+                "iata": "AEP", "airport": "Jorge Newbery", "city": "Buenos Aires",
+                "country": "Argentina", "created_by": 35
+            },
+            {
+                "iata": "ADL", "airport": "Adelaide International", "city": "Adelaide",
+                "country": "Australia", "created_by": 35
+            },
+            {
+                "iata": "BSB", "airport": "President Juscelino Kubitschek", "city": "Brasilia",
+                "country": "Brasil", "created_by": 35
+            },
+            {
+                "iata": "GRU", "airport": "São Paulo-Guarulhos", "city": "Sao Paulo",
+                "country": "Brasil", "created_by": 35
+            },
+            {
+                "iata": "CCS", "airport": "Simon Bolívar Maiquetia", "city": "Caracas",
+                "country": "Venezuela", "created_by": 35
+            },
         ]
         await Airport.create(data)
     await db.release(conn)
@@ -87,8 +106,7 @@ async def end_example(db):
     async with await db.acquire() as conn:
         drop = "DROP TABLE IF EXISTS public.airports;"
         result = await conn.execute(drop)
-        print(result)
-    # await db.wait_close(timeout=5)
+        logging.debug(f'DELETE {result}')
 
 
 if __name__ == "__main__":
@@ -108,17 +126,17 @@ if __name__ == "__main__":
         }
     }
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         pool = AsyncPool("pg", params=params, loop=loop, **kwargs)
-        app['database'] = pool
         loop.run_until_complete(
             start_example(pool)
         )
-        print('=== START APP === ')
         app.run()
     except KeyboardInterrupt:
-        print(' == CLOSING APP == ')
-        print('== DELETE TABLE ==')
+        pass
+    finally:
         loop.run_until_complete(
             end_example(pool)
         )
+        loop.close()

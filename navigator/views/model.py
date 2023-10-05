@@ -854,11 +854,24 @@ class ModelView(BaseView):
         """
         return self.json_response(result, status=status)
 
+    async def _set_update(self, model, data):
+        for key, val in data.items():
+            if key in model.get_fields():
+                col = model.column(key)
+                try:
+                    newval = parse_type(col.type, val)
+                except ValueError:
+                    if col.type == str:
+                        newval = str(val)
+                    else:
+                        newval = val
+                model.set(key, newval)
+
     @service_auth
     async def put(self):
         """ "
         put.
-           summary: insert a row in table
+           summary: replaces or insert a row in table
         """
         _, _, qp, fields = self.get_parameters()
         data = await self._post_data()
@@ -879,12 +892,12 @@ class ModelView(BaseView):
                 )
         except TypeError as exc:
             self.error(
-                response={"error": str(exc)},
+                response={"Validation error": str(exc)},
                 status=400
             )
         ## validate directly with model:
         if isinstance(data, list):
-            ## Bulk Insert
+            ## Bulk Insert/Replace
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 try:
@@ -899,19 +912,31 @@ class ModelView(BaseView):
                         status=410,
                     )
         try:
-            parameters = {**qp, **data}
+            data = {**qp, **data}
         except TypeError:
-            parameters = data
+            pass
+        objid = self.get_primary(data)
         try:
-            resultset = self.model(**parameters)  # pylint: disable=E1102
-            if not resultset.is_valid():
-                return self.error(
-                    response=f"Invalid data for Schema {self.__name__}"
-                )
             async with await self.handler(request=self.request) as conn:
-                resultset.Meta.connection = conn
-                result = await resultset.insert()
-                return await self._post_response(result, status=201)
+                # check if object exists:
+                try:
+                    self.model.Meta.connection = conn
+                    obj = await self.model.get(**objid)
+                    await self._set_update(obj, data)
+                    result = await obj.update()
+                    status = 202
+                except NoDataFound:
+                    obj = self.model(**data)  # pylint: disable=E1102
+                    obj.Meta.connection = conn
+                    if not obj.is_valid():
+                        return self.error(
+                            response={
+                                "message": f"Invalid data for Schema {self.__name__}"
+                            }
+                        )
+                    result = await obj.insert()
+                    status = 201
+                return await self._post_response(result, status=status)
         except StatementError as ex:
             error = {
                 "message": f"Cannot Insert, duplicated {self.__name__}",
@@ -943,7 +968,7 @@ class ModelView(BaseView):
         post.
             summary: update (or create) a row in Model
         """
-        args, _, qp, fields = self.get_parameters()
+        args, _, _, fields = self.get_parameters()
         data = await self._post_data()
         if not data:
             return self.error(
@@ -981,21 +1006,19 @@ class ModelView(BaseView):
                     except KeyError:
                         continue
                     try:
-                        obj = await self.model.get(**_filter)
-                        ## saved with new changes:
-                        for key, val in entry.items():
-                            if key in obj.get_fields():
-                                col = obj.column(key)
-                                try:
-                                    newval = parse_type(col.type, val)
-                                except ValueError:
-                                    if col.type == str:
-                                        newval = str(val)
-                                    else:
-                                        newval = val
-                                obj.set(key, newval)
-                        r = await obj.update()
-                        result.append(r)
+                        try:
+                            obj = await self.model.get(**_filter)
+                            await self._set_update(obj, entry)
+                            r = await obj.update()
+                            result.append(r)
+                        except NoDataFound:
+                            # Object doesn't exist, create it:
+                            obj = self.model(**entry)  # pylint: disable=E1102
+                            obj.Meta.connection = conn
+                            if not obj.is_valid():
+                                continue
+                            r = await obj.insert()
+                            result.append(r)
                     except ModelError as ex:
                         error = {
                             "message": f"Invalid {self.__name__}",
@@ -1022,6 +1045,7 @@ class ModelView(BaseView):
                         },
                         status=400
                     )
+            print('OBJID > ', objid)
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
@@ -1042,8 +1066,11 @@ class ModelView(BaseView):
                         return self.error(response=error, status=400)
                 else:
                     try:
-                        args = {self.pk: objid}
-                        result = await self.model.get(**args)
+                        if isinstance(self.pk, list):
+                            result = await self.model.get(**objid)
+                        else:
+                            args = {self.pk: objid}
+                            result = await self.model.get(**args)
                     except ModelError as ex:
                         error = {
                             "error": f"Missing Info for Model {self.__name__}",
@@ -1065,17 +1092,7 @@ class ModelView(BaseView):
                                 response=f"Unable to Insert {self.__name__}",
                             )
                     ## saved with new changes:
-                    for key, val in data.items():
-                        if key in result.get_fields():
-                            col = result.column(key)
-                            try:
-                                newval = parse_type(col.type, val)
-                            except ValueError:
-                                if col.type == str:
-                                    newval = str(val)
-                                else:
-                                    newval = val
-                            result.set(key, newval)
+                    await self._set_update(result, data)
                     try:
                         data = await result.update()
                     except ModelError as ex:
@@ -1116,8 +1133,10 @@ class ModelView(BaseView):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                if hasattr(self, f'_get_{name}'):
-                    fn = getattr(self, f'_get_{name}')
+                fn = getattr(self, f'_get_{name}', None)
+                if not fn:
+                    fn = getattr(self, f'_del_{name}', None)
+                if fn:
                     try:
                         val = data.get(name, None)
                     except AttributeError:
@@ -1140,14 +1159,11 @@ class ModelView(BaseView):
            summary: delete a table object
         """
         args, _, qp, _ = self.get_parameters()
-        data = await self._del_data()
+        # data = await self._del_data()
         try:
-            objid = self.get_primary(data)
+            objid = self.get_primary(args)
         except (TypeError, KeyError):
-            try:
-                objid = self.get_primary(args)
-            except (TypeError, KeyError):
-                objid = None
+            objid = None
         if objid:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn

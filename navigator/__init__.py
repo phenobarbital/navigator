@@ -21,7 +21,7 @@ https://github.com/phenobarbital/navigator
 
 """
 import asyncio
-import uvloop
+from .utils.uv import install_uvloop
 try:
     from .navigator import Application
     from .responses import Response
@@ -29,8 +29,7 @@ except FileExistsError:
     pass
 from .version import __title__, __description__, __version__, __author__
 
-asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-uvloop.install()
+install_uvloop()
 
 __all__ = (
     "Application",

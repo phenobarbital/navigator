@@ -297,11 +297,15 @@ class BaseHandler(CorsViewMixin):
         except ValidationError:
             return None
         except Exception as err:  # pylint: disable=W0703
-            self.logger.warning(err)
+            self.logger.warning(
+                f"Invalid JSON data: {err}"
+            )
             return None
 
-    async def body(self, request: web.Request) -> str:
+    async def body(self, request: web.Request = None) -> str:
         body = None
+        if not request:
+            request = self.request
         try:
             if request.body_exists:
                 body = await request.read()

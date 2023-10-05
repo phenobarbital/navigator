@@ -1,5 +1,6 @@
 from typing import Union
 import asyncio
+from datetime import datetime
 from aiohttp import web
 from asyncdb import AsyncPool
 from asyncdb.models import Model, Column
@@ -14,6 +15,8 @@ class Airport(Model):
     city: str
     country: str
     created_by: int
+    created_at: datetime = Column(default=datetime.now(), repr=False)
+
     class Meta:
         name: str = 'airports'
         schema = 'public'
@@ -24,9 +27,9 @@ app = Application()
 session = AuthHandler()
 session.setup(app)
 
-@app.get('/hola')
+@app.get('/hello')
 async def hola(request: web.Request) -> web.Response:
-    return HTMLResponse(content="<h1>Hola Mundo</h1>")
+    return HTMLResponse(content="<h1>Hello Airport</h1>")
 
 
 class AirportHandler(ModelHandler):
@@ -55,6 +58,7 @@ async def start_example(db):
          city character varying(20),
          country character varying(30),
          created_by integer,
+         created_at timestamp with time zone NOT NULL DEFAULT now(),
          CONSTRAINT pk_airports_pkey PRIMARY KEY (iata)
         )
         WITH (
@@ -105,7 +109,12 @@ if __name__ == "__main__":
     }
     try:
         loop = asyncio.get_event_loop()
-        pool = AsyncPool("pg", params=params, loop=loop, **kwargs)
+        pool = AsyncPool(
+            "pg",
+            params=params,
+            loop=loop,
+            **kwargs
+        )
         app['database'] = pool
         loop.run_until_complete(
             start_example(pool)

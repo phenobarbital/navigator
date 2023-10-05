@@ -388,7 +388,7 @@ class ModelView(BaseView):
             status=status
         )
 
-    def get_primary(self, data: dict) -> Any:
+    def get_primary(self, data: dict, args: dict = None) -> Any:
         """get_primary.
             Get Primary Id from Parameters.
         """
@@ -425,37 +425,38 @@ class ModelView(BaseView):
                         return objid.split('/')
                 return objid
         elif isinstance(self.pk, list):
-            if 'id' in data:
-                try:
-                    args = {}
-                    paramlist = data["id"].split("/")
-                    if len(paramlist) != len(self.pk):
-                        if len(self.pk) == 1:
-                            # find various:
-                            args[self.pk[0]] = paramlist
-                            return args
-                        return self.error(
-                            response={
-                                "message": f"Wrong Number of Args in PK: {self.pk}",
-                                "description": f"{paramlist!r}",
-                            },
-                            status=410,
-                        )
-                    for key in self.pk:
-                        args[key] = paramlist.pop(0)
-                    return args
-                except KeyError:
-                    pass
-            else:
-                ### extract PK from data:
-                if isinstance(data, list):
-                    objid = []
-                    for entry in data:
-                        new_entry = {field: entry[field] for field in self.pk}
-                        objid.append(new_entry)
+            if isinstance(data, dict):
+                if 'id' in data:
+                    try:
+                        args = {}
+                        paramlist = [item.strip() for item in data["id"].split("/") if item.strip()]
+                        if not paramlist:
+                            return None
+                        if len(paramlist) != len(self.pk):
+                            if len(self.pk) == 1:
+                                # find various:
+                                args[self.pk[0]] = paramlist
+                                return args
+                            return self.error(
+                                response={
+                                    "message": f"Wrong Number of Args in PK: {self.pk}",
+                                    "description": f"{paramlist!r}",
+                                },
+                                status=410,
+                            )
+                        for key in self.pk:
+                            args[key] = paramlist.pop(0)
+                        return args
+                    except KeyError:
+                        pass
                 else:
                     objid = {field: data[field] for field in self.pk}
-                return objid
+            elif isinstance(data, list):
+                objid = []
+                for entry in data:
+                    new_entry = {field: entry[field] for field in self.pk}
+                    objid.append(new_entry)
+            return objid
         else:
             return self.error(
                 reason=f"Invalid PK definition for {self.__name__}: {self.pk}",
@@ -510,15 +511,24 @@ class ModelView(BaseView):
                         res = await self.get_model.filter(**_filter)
                         if len(res) == 1:
                             return res[0]
+                        return res
                     else:
+                        if isinstance(self.pk, list):
+                            res = await self.get_model.filter(**_primary)
+                            if len(res) == 1:
+                                return res[0]
+                            return res
                         args = {self.pk: _primary}
-                        return await self.get_model.get(**args, **_filter)
+                        args = {**_filter, **args}
+                        return await self.get_model.get(**args)
                 elif len(qp) > 0:
                     print("FILTER")
                     query = await self.get_model.filter(**qp, **_filter)
                 elif len(args) > 0:
                     print("GET BY ARGS")
-                    query = await self.get_model.get(**args, **_filter)
+                    if _filter:
+                        args = {**_filter, **args}
+                    query = await self.get_model.get(**args)
                     return query.to_dict()
                 else:
                     if _filter:
@@ -647,7 +657,9 @@ class ModelView(BaseView):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                fn = getattr(self, f'_get_{name}', f'_set_{name}')
+                fn = getattr(self, f'_get_{name}', None)
+                if not fn:
+                    fn = getattr(self, f'_set_{name}', None)
                 if fn:
                     try:
                         val = value.get(name, None)
@@ -659,21 +671,17 @@ class ModelView(BaseView):
                         data=value,
                         *args, **kwargs
                     )
-        try:
-            data = await self.json_data()
-        except ValueError:
-            return None
-        except (TypeError, AttributeError) as ex:
-            self.error(
-                reason=f"Invalid {self.name} Data: {ex}", status=400
-            )
+        data = await self.json_data()
         if isinstance(data, list):
             for element in data:
                 await set_column_value(element)
         elif isinstance(data, dict):
             await set_column_value(data)
         else:
-            data = None
+            try:
+                data = await self.body()
+            except ValueError:
+                data = None
         return data
 
     async def _patch_response(self, result, status: int = 202) -> web.Response:
@@ -718,33 +726,46 @@ class ModelView(BaseView):
             fields = self.model.__fields__
             return self.json_response(fields)
         data = await self._post_data()
-        if data:
-            ### validation if data is covered by required columns
-            try:
-                if (required := self._is_required(self.required_by_patch(), data)):
-                    self.error(
-                        response={
-                            "message": f"Missing required data: {', '.join(required)}"
-                        },
-                        status=400
-                    )
-            except TypeError as exc:
+        if not data:
+            headers = {"x-error": f"{self.__name__} POST data Missing"}
+            self.error(
+                response={
+                    "message": f"{self.__name__} POST data Missing"
+                },
+                headers=headers,
+                status=412
+            )
+        ### validation if data is covered by required columns
+        try:
+            if (required := self._is_required(self.required_by_patch(), data)):
                 self.error(
-                    response={"error": str(exc)},
+                    response={
+                        "message": f"Missing required: {', '.join(required)}"
+                    },
+                    status=412
+                )
+        except TypeError as exc:
+            self.error(
+                response={"Validation Error": str(exc)},
+                status=400
+            )
+        ## patching data:
+        ## getting first the id from params or data:
+        try:
+            objid = self.get_primary(data)
+        except (TypeError, KeyError):
+            try:
+                objid = self.get_primary(args)
+            except (TypeError, KeyError) as err:
+                self.error(
+                    response={
+                        "message": f"Invalid Primary Key: {self.__name__}",
+                        "error": str(err)
+                    },
                     status=400
                 )
-            ## patching data:
-            ## getting first the id from params or data:
-            try:
-                objid = self.get_primary(data)
-            except (TypeError, KeyError):
-                try:
-                    objid = self.get_primary(args)
-                except (TypeError, KeyError):
-                    self.error(
-                        response={"message": f"Invalid Data Primary Key: {self.name}"},
-                        status=400
-                    )
+        print('OBJ > ', objid)
+        try:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 try:
@@ -771,8 +792,11 @@ class ModelView(BaseView):
                             result.append(await obj.update())
                         return await self._patch_response(result, status=202)
                     else:
-                        args = {self.pk: objid}
-                        obj = await self.model.get(**args)
+                        if isinstance(self.pk, list):
+                            obj = await self.model.get(**objid)
+                        else:
+                            args = {self.pk: objid}
+                            obj = await self.model.get(**args)
                         for key, val in data.items():
                             if key in obj.get_fields():
                                 col = obj.column(key)
@@ -792,6 +816,17 @@ class ModelView(BaseView):
                 if not result:
                     headers = {"x-error": f"{self.__name__} was not Found"}
                     self.no_content(headers=headers)
+        except Exception as ex:
+            self.logger.exception(ex, stack_info=True)
+            error = {
+                "reason": f"Model {self.__name__} Error",
+                "exception": ex,
+                "payload": str(ex),
+                "status": 500
+            }
+            return self.critical(
+                **error
+            )
 
     async def _post_response(self, result, status: int = 200) -> web.Response:
         """_post_data.

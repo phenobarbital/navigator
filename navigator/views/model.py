@@ -27,6 +27,10 @@ from navigator.exceptions import (
 from .base import BaseView
 
 
+class NotSet(BaseException):
+    """Usable for not set Value on Field"""
+
+
 async def load_models(app: str, model, tablelist: list):
     pool = app["database"]
     async with await pool.acquire() as conn:
@@ -490,11 +494,14 @@ class ModelView(BaseView):
                         val = value.get(name, None)
                     except AttributeError:
                         val = None
-                    value[name] = await fn(
-                        value=val,
-                        column=column,
-                        data=value
-                    )
+                    try:
+                        value[name] = await fn(
+                            value=val,
+                            column=column,
+                            data=value
+                        )
+                    except NotSet:
+                        return
             return value
         _filter = await _get_filters()
         # TODO: Add Filter Function
@@ -664,12 +671,15 @@ class ModelView(BaseView):
                         val = value.get(name, None)
                     except AttributeError:
                         val = None
-                    value[name] = await fn(
-                        value=val,
-                        column=column,
-                        data=value,
-                        *args, **kwargs
-                    )
+                    try:
+                        value[name] = await fn(
+                            value=val,
+                            column=column,
+                            data=value,
+                            *args, **kwargs
+                        )
+                    except NotSet:
+                        return
         data = await self.json_data()
         if isinstance(data, list):
             for element in data:
@@ -915,11 +925,18 @@ class ModelView(BaseView):
             data = {**qp, **data}
         except TypeError:
             pass
-        objid = self.get_primary(data)
+        try:
+            objid = self.get_primary(data)
+        except (ValueError, KeyError):
+            objid = {}
         try:
             async with await self.handler(request=self.request) as conn:
                 # check if object exists:
                 try:
+                    if not objid:
+                        raise NoDataFound(
+                            "New Object"
+                        )
                     self.model.Meta.connection = conn
                     obj = await self.model.get(**objid)
                     await self._set_update(obj, data)

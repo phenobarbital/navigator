@@ -1,6 +1,7 @@
 from typing import Union, Any, Optional
 from collections.abc import Callable
 import traceback
+import importlib
 from aiohttp import web
 from navconfig.logging import logger
 from datamodel import BaseModel
@@ -154,6 +155,7 @@ class ModelView(BaseView):
 
     model: BaseModel = None
     get_model: BaseModel = None
+    model_name: str = None  # Override the current model with other.
     path: str = None
     # Signal for startup method for this ModelView
     on_startup: Optional[Callable] = None
@@ -171,6 +173,9 @@ class ModelView(BaseView):
         dsn = kwargs.pop('dsn', None)
         credentials = kwargs.pop('credentials', {})
         dbname = kwargs.pop('dbname', 'database')
+        if self.model_name is not None:
+            ## import Other Model from Variable
+            self.model = self._import_model(self.model_name)
         super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated
         try:
@@ -189,6 +194,18 @@ class ModelView(BaseView):
             dbname=dbname,
             credentials=credentials
         )
+
+    def _import_model(self, model: str):
+        try:
+            parts = model.split(".")
+            name = parts[-1]
+            classpath = ".".join(parts[:-1])
+            module = importlib.import_module(classpath, package=name)
+            obj = getattr(module, name)
+            return obj
+        except ImportError:
+            ## Using fallback Model
+            return self.model
 
     @classmethod
     def configure(cls, app: WebApp, path: str = None) -> WebApp:
@@ -569,12 +586,14 @@ class ModelView(BaseView):
         response = self.model.schema(as_dict=True)
         columns = list(response["properties"].keys())
         size = len(str(response))
+        schema = self.model.Meta.schema if self.model.Meta.schema else 'public'
         headers = {
             "Content-Length": size,
             "X-Columns": f"{columns!r}",
             "X-Model": self.model.__name__,
             "X-Tablename": self.model.Meta.name,
-            "X-Schema": self.model.Meta.schema
+            "X-Schema": schema,
+            "X-Table": f"{schema}.{self.model.Meta.name}"
         }
         return self.no_content(headers=headers)
 
@@ -735,6 +754,52 @@ class ModelView(BaseView):
                 pass
         return args, None
 
+    async def _calculate_column(
+        self,
+        name: str,
+        value: str,
+        column: Any,
+        data: Any = None,
+        **kwargs
+    ):
+        """ Check if a function with name _calculate_{column name} exists
+        then that function is called for getting the field value """
+        fn = getattr(self, f'_calculate_{name}', None)
+        if not fn:
+            return
+        try:
+            return await fn(
+                value=value,
+                column=column,
+                data=data,
+                **kwargs
+            )
+        except NotSet:
+            return
+
+    async def _set_update(self, model, data):
+        for key, val in data.items():
+            if key in model.get_fields():
+                col = model.column(key)
+                if (
+                    newval := await self._calculate_column(
+                        name=key,
+                        value=val,
+                        column=col,
+                        data=data
+                    )
+                ):
+                    model.set(key, newval)
+                    continue
+                try:
+                    newval = parse_type(col.type, val)
+                except ValueError:
+                    if col.type == str:
+                        newval = str(val)
+                    else:
+                        newval = val
+                model.set(key, newval)
+
     @service_auth
     async def patch(self):
         """
@@ -803,17 +868,7 @@ class ModelView(BaseView):
                                 pk = self.pk
                             _filter = {field: entry[field] for field in pk}
                             obj = await self.model.get(**_filter)
-                            for key, val in entry.items():
-                                if key in obj.get_fields():
-                                    col = obj.column(key)
-                                    try:
-                                        newval = parse_type(col.type, val)
-                                    except ValueError:
-                                        if col.type == str:
-                                            newval = str(val)
-                                        else:
-                                            newval = val
-                                    obj.set(key, newval)
+                            await self._set_update(obj, entry)
                             result.append(await obj.update())
                         return await self._patch_response(result, status=202)
                     else:
@@ -822,18 +877,9 @@ class ModelView(BaseView):
                         else:
                             args = {self.pk: objid}
                             obj = await self.model.get(**args)
+                        # Updating Object:
                         if isinstance(data, dict):
-                            for key, val in data.items():
-                                if key in obj.get_fields():
-                                    col = obj.column(key)
-                                    try:
-                                        newval = parse_type(col.type, val)
-                                    except ValueError:
-                                        if col.type == str:
-                                            newval = str(val)
-                                        else:
-                                            newval = val
-                                    obj.set(key, newval)
+                            await self._set_update(obj, data)
                         else:
                             # Patching one Single Attribute:
                             if _attribute in obj.get_fields():
@@ -866,19 +912,6 @@ class ModelView(BaseView):
         Post-processing data after saved and before summit.
         """
         return self.json_response(result, status=status)
-
-    async def _set_update(self, model, data):
-        for key, val in data.items():
-            if key in model.get_fields():
-                col = model.column(key)
-                try:
-                    newval = parse_type(col.type, val)
-                except ValueError:
-                    if col.type == str:
-                        newval = str(val)
-                    else:
-                        newval = val
-                model.set(key, newval)
 
     @service_auth
     async def put(self):
@@ -1065,7 +1098,6 @@ class ModelView(BaseView):
                         },
                         status=400
                     )
-            print('OBJID > ', objid)
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
@@ -1215,6 +1247,9 @@ class ModelView(BaseView):
                 async with await self.handler(request=self.request) as conn:
                     self.model.Meta.connection = conn
                     result = await self.model.remove(**qp)
+                    result = {
+                        "deleted": result
+                    }
                     return await self._model_response(result, status=202)
             else:
                 self.error(

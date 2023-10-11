@@ -64,6 +64,7 @@ class ConnectionHandler:
         self,
         driver: str = 'pg',
         dsn: str = None,
+        dbname: str = 'database',
         credentials: dict = None
     ):
         self.dsn = dsn
@@ -71,6 +72,7 @@ class ConnectionHandler:
         self.driver = driver
         self._default: bool = False
         self._db = None
+        self._dbname = dbname
 
     def connection(self):
         return self._db
@@ -100,7 +102,7 @@ class ConnectionHandler:
             **kwargs
         )
         await pool.connect()
-        request.app["database"] = pool
+        request.app[self._dbname] = pool
         return pool
 
     async def get_connection(self, request: web.Request):
@@ -168,6 +170,7 @@ class ModelView(BaseView):
         driver = kwargs.pop('driver', 'pg')
         dsn = kwargs.pop('dsn', None)
         credentials = kwargs.pop('credentials', {})
+        dbname = kwargs.pop('dbname', 'database')
         super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated
         try:
@@ -183,6 +186,7 @@ class ModelView(BaseView):
         self.handler = ConnectionHandler(
             driver,
             dsn=dsn,
+            dbname=dbname,
             credentials=credentials
         )
 
@@ -226,7 +230,6 @@ class ModelView(BaseView):
         )
         app.router.add_view(
             r"{url}{{meta:(:.*)?}}".format(url=url), cls
-
         )
 
     def _get_model(self):

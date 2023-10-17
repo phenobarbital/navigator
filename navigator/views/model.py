@@ -948,7 +948,11 @@ class ModelView(BaseView):
                 self.model.Meta.connection = conn
                 try:
                     result = await self.model.create(data)
-                    return await self._model_response(result, status=201, fields=fields)
+                    return await self._model_response(
+                        result,
+                        status=201,
+                        fields=fields
+                    )
                 except DriverError as ex:
                     return self.error(
                         response={
@@ -973,18 +977,23 @@ class ModelView(BaseView):
                         raise NoDataFound(
                             "New Object"
                         )
+                    if isinstance(self.pk, list):
+                        _args = objid
+                    else:
+                        _args = {self.pk: objid}
                     self.model.Meta.connection = conn
-                    obj = await self.model.get(**objid)
+                    obj = await self.model.get(**_args)
                     await self._set_update(obj, data)
                     result = await obj.update()
                     status = 202
                 except NoDataFound:
+                    # There is no data to update:
                     obj = self.model(**data)  # pylint: disable=E1102
                     obj.Meta.connection = conn
                     if not obj.is_valid():
                         return self.error(
                             response={
-                                "message": f"Invalid data for Schema {self.__name__}"
+                                "message": f"Invalid data for {self.__name__}"
                             }
                         )
                     result = await obj.insert()

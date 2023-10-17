@@ -1243,6 +1243,60 @@ class ModelView(BaseView):
                     }
                     return self.error(response=error, status=404)
         else:
+            data = await self._post_data()
+            if isinstance(data, list):
+                # Bulk Delete by Post
+                results = []
+                async with await self.handler(request=self.request) as conn:
+                    self.model.Meta.connection = conn
+                    for entry in data:
+                        objid = self.get_primary(entry)
+                        if isinstance(self.pk, list):
+                            result = await self.model.get(**objid)
+                        else:
+                            args = {
+                                self.pk: objid
+                            }
+                            # Delete them this Client
+                            result = await self.model.get(**args)
+                        try:
+                            rst = await result.delete()
+                            result = {
+                                "deleted": rst,
+                                "data": objid
+                            }
+                            results.append(result)
+                        except Exception:
+                            continue
+                return await self._model_response(results, status=202)
+            elif data is not None:
+                # delete with data.
+                try:
+                    objid = self.get_primary(data)
+                    async with await self.handler(request=self.request) as conn:
+                        self.model.Meta.connection = conn
+                        if isinstance(self.pk, list):
+                            result = await self.model.get(**objid)
+                        else:
+                            args = {
+                                self.pk: objid
+                            }
+                            # Delete them this Client
+                            result = await self.model.get(**args)
+                        data = await result.delete()
+                        result = {
+                            "deleted": data,
+                            "data": objid
+                        }
+                        return await self._model_response(data, status=202)
+                except (TypeError, KeyError):
+                    error = {
+                        "message": f"We don't found POST data for deletion on {self.__name__}",
+                    }
+                    return self.error(
+                        response=error,
+                        status=404
+                    )
             if len(qp) > 0:
                 async with await self.handler(request=self.request) as conn:
                     self.model.Meta.connection = conn

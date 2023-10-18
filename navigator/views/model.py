@@ -1267,7 +1267,10 @@ class ModelView(BaseView):
                                 self.pk: objid
                             }
                             # Delete them this Client
-                            result = await self.model.get(**args)
+                            try:
+                                result = await self.model.get(**args)
+                            except NoDataFound:
+                                continue
                         try:
                             rst = await result.delete()
                             result = {
@@ -1284,15 +1287,23 @@ class ModelView(BaseView):
                     objid = self.get_primary(data)
                     async with await self.handler(request=self.request) as conn:
                         self.model.Meta.connection = conn
-                        if isinstance(self.pk, list):
-                            result = await self.model.get(**objid)
-                        else:
-                            args = {
-                                self.pk: objid
-                            }
-                            # Delete them this Client
-                            result = await self.model.get(**args)
-                        data = await result.delete()
+                        try:
+                            if isinstance(self.pk, list):
+                                result = await self.model.get(**objid)
+                            else:
+                                args = {
+                                    self.pk: objid
+                                }
+                                # Delete them this Client
+                                result = await self.model.get(**args)
+                            data = await result.delete()
+                        except NoDataFound:
+                            return await self._model_response(
+                                {
+                                    "error": f"{self.__name__} Not Found"
+                                },
+                                status=404
+                            )
                         result = {
                             "deleted": data,
                             "data": objid

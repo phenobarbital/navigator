@@ -356,11 +356,7 @@ class ModelView(BaseView):
         Get all parameters from URL or from query string.
         """
         args = self.get_args()
-        try:
-            meta = args["meta"]
-            del args["meta"]
-        except KeyError:
-            meta = None
+        meta = args.pop('meta', None)
         qp = self.query_parameters(self.request)
         try:
             fields = qp['fields'].split(',')

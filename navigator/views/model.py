@@ -298,6 +298,7 @@ class ModelView(BaseView):
                 status=403
             )
 
+    @staticmethod
     def service_auth(fn: Union[Any, Any]) -> Any:
         async def _wrap(self, *args, **kwargs):
             ## get User Session:
@@ -521,8 +522,8 @@ class ModelView(BaseView):
         async def _get_filters():
             value = {}
             for name, column in self.model.get_columns().items():
-                ### if a function with name _get_{column name} exists
-                ### then that function is called for getting the field value
+                ### if a function with name _filter_{column name} exists
+                ### then that function is called for filtering the field value
                 fn = getattr(self, f'_filter_{name}', None)
                 if fn:
                     try:

@@ -5,6 +5,7 @@ import importlib
 from aiohttp import web
 from navconfig.logging import logger
 from datamodel import BaseModel
+from datamodel.abstract import ModelMeta
 from datamodel.types import JSON_TYPES
 from datamodel.converters import parse_type
 from datamodel.exceptions import ValidationError
@@ -469,7 +470,25 @@ class ModelView(BaseView):
                                 status=410,
                             )
                         for key in self.pk:
-                            args[key] = paramlist.pop(0)
+                            col = self.model.__columns__[key]
+                            _type = col.type
+                            if isinstance(_type, ModelMeta):
+                                try:
+                                    _type = _type.__columns__[key].type
+                                except (TypeError, AttributeError, KeyError) as ex:
+                                    _type = str
+                            else:
+                                _type = col.type
+                            if _type == int:
+                                try:
+                                    val = int(paramlist.pop(0))
+                                except ValueError:
+                                    val = paramlist.pop(0)
+                            else:
+                                # TODO: use validation from datamodel
+                                # evaluate the corrected type for fields:
+                                val = paramlist.pop(0)
+                            args[key] = val
                         return args
                     except KeyError:
                         pass
@@ -808,7 +827,11 @@ class ModelView(BaseView):
             realizes a partially atomic updated of the query.
         """
         args, meta, _, fields = self.get_parameters()
-        args, _attribute = self.get_patch_attribute(args)
+        if isinstance(self.pk, str):
+            ## Allowing passing the Attribute in the URL
+            args, _attribute = self.get_patch_attribute(args)
+        else:
+            _attribute = None
         if meta == ':meta':
             ## returning the columns on Model:
             fields = self.model.__fields__
@@ -873,6 +896,26 @@ class ModelView(BaseView):
                         return await self._patch_response(result, status=202)
                     else:
                         if isinstance(self.pk, list):
+                            if any(key in data for key in self.pk):
+                                ## Data is trying to change the Primary Key:
+                                try:
+                                    obj = await self.model.get(**objid)
+                                    await self._set_update(obj, data)
+                                    result = await self.model.updating(
+                                        _filter=objid, **obj.to_dict()
+                                    )
+                                    return await self._patch_response(
+                                        result,
+                                        status=202
+                                    )
+                                except (NoDataFound, DriverError) as ex:
+                                    headers = {
+                                        "x-error": f"{self.__name__}:{objid} was not Found",
+                                        "x-message": str(ex)
+                                    }
+                                    return self.no_content(headers=headers)
+                                except Exception as ex:
+                                    print(ex)
                             obj = await self.model.get(**objid)
                         else:
                             args = {self.pk: objid}
@@ -956,8 +999,8 @@ class ModelView(BaseView):
                 except DriverError as ex:
                     return self.error(
                         response={
-                            "message": "Bulk Insert Error",
-                            "error": str(ex.message)
+                            "message": f"{self.__name__} Bulk Insert Error",
+                            "error": str(ex)
                         },
                         status=410,
                     )
@@ -1110,7 +1153,6 @@ class ModelView(BaseView):
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 # look for this client, after, save changes
-                error = {"error": f"{self.__name__} was not Found"}
                 if isinstance(objid, list):
                     try:
                         result = await self.model.updating(_filter=objid, **data)
@@ -1128,16 +1170,23 @@ class ModelView(BaseView):
                 else:
                     try:
                         if isinstance(self.pk, list):
-                            result = await self.model.get(**objid)
+                            args = objid
                         else:
                             args = {self.pk: objid}
-                            result = await self.model.get(**args)
-                    except ModelError as ex:
-                        error = {
-                            "error": f"Missing Info for Model {self.__name__}",
-                            "payload": str(ex)
-                        }
-                        return self.error(response=error, status=400)
+                        # Getting the Object:
+                        result = await self.model.get(**args)
+                        ## saved with new changes:
+                        await self._set_update(result, data)
+                        result = await self.model.updating(
+                            _filter=args, **result.to_dict()
+                        )
+                        return await self._model_response(
+                            result,
+                            status=202,
+                            fields=fields
+                        )
+                    except Exception as exc:
+                        print(exc, type(exc))
                     except NoDataFound:
                         ### need to created:
                         qry = self.model(**data)
@@ -1152,13 +1201,15 @@ class ModelView(BaseView):
                             return self.error(
                                 response=f"Unable to Insert {self.__name__}",
                             )
-                    ## saved with new changes:
-                    await self._set_update(result, data)
-                    try:
-                        data = await result.update()
                     except ModelError as ex:
                         error = {
-                            "message": f"Invalid {self.__name__}",
+                            "error": f"Missing Info for Model {self.__name__}",
+                            "payload": str(ex)
+                        }
+                        return self.error(response=error, status=400)
+                    except DriverError as ex:
+                        error = {
+                            "message": f"{self.__name__} already exists",
                             "error": str(ex),
                         }
                         return self.error(response=error, status=406)
@@ -1168,20 +1219,6 @@ class ModelView(BaseView):
                             "payload": str(ex.payload),
                         }
                         return self.error(response=error, status=400)
-                    except (TypeError, AttributeError, ValueError) as ex:
-                        error = {
-                            "error": f"Invalid payload for {self.__name__}",
-                            "payload": str(ex),
-                        }
-                        return self.error(
-                            response=error,
-                            status=406
-                        )
-                    return await self._model_response(
-                        data,
-                        status=202,
-                        fields=fields
-                    )
 
     async def _del_data(self, *args, **kwargs) -> Any:
         """_get_data.
@@ -1244,7 +1281,7 @@ class ModelView(BaseView):
                             }
                             # Delete them this Client
                             result = await self.model.get(**args)
-                        data = await result.delete()
+                        data = await result.delete(_filter=objid)
                     return await self._model_response(data, status=202)
                 except NoDataFound:
                     error = {
@@ -1289,14 +1326,22 @@ class ModelView(BaseView):
                         self.model.Meta.connection = conn
                         try:
                             if isinstance(self.pk, list):
-                                result = await self.model.get(**objid)
+                                args = objid
                             else:
                                 args = {
                                     self.pk: objid
                                 }
-                                # Delete them this Client
-                                result = await self.model.get(**args)
-                            data = await result.delete()
+                            # Delete them this Client
+                            result = await self.model.get(**args)
+                            data = await result.delete(_filter=objid)
+                        except DriverError as exc:
+                            return await self._model_response(
+                                {
+                                    "error": f"Error on {self.__name__}",
+                                    "message": str(exc)
+                                },
+                                status=400
+                            )
                         except NoDataFound:
                             return await self._model_response(
                                 {

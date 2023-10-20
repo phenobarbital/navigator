@@ -1218,13 +1218,11 @@ class ModelView(BaseView):
                         return self.error(response=error, status=400)
 
     async def _del_data(self, *args, **kwargs) -> Any:
-        """_get_data.
+        """_del_data.
 
-        Get and pre-processing POST data before use it.
+        Get and pre-processing DELETE data before use it.
         """
-        data = {}
-        try:
-            data = await self.json_data()
+        async def set_column_value(value):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
@@ -1233,18 +1231,29 @@ class ModelView(BaseView):
                     fn = getattr(self, f'_del_{name}', None)
                 if fn:
                     try:
-                        val = data.get(name, None)
+                        val = value.get(name, None)
                     except AttributeError:
                         val = None
-                    if callable(fn):
-                        data[name] = await fn(
+                    try:
+                        value[name] = await fn(
                             value=val,
                             column=column,
-                            data=data,
+                            data=value,
                             *args, **kwargs
                         )
-        except (TypeError, ValueError, NavException):
-            pass
+                    except NotSet:
+                        return
+        data = await self.json_data()
+        if isinstance(data, list):
+            for element in data:
+                await set_column_value(element)
+        elif isinstance(data, dict):
+            await set_column_value(data)
+        else:
+            try:
+                data = await self.body()
+            except ValueError:
+                data = None
         return data
 
     @service_auth
@@ -1254,11 +1263,7 @@ class ModelView(BaseView):
            summary: delete a table object
         """
         args, _, qp, _ = self.get_parameters()
-        # data = await self._del_data()
-        try:
-            objid = self.get_primary(args)
-        except (TypeError, KeyError):
-            objid = None
+        objid = await self._get_primary_data(args)
         if objid:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
@@ -1282,11 +1287,11 @@ class ModelView(BaseView):
                     return await self._model_response(data, status=202)
                 except NoDataFound:
                     error = {
-                        "message": f"Key {objid} was not found on {self.__name__}",
+                        "message": f"{objid} was not found on {self.__name__}",
                     }
                     return self.error(response=error, status=404)
         else:
-            data = await self._post_data()
+            data = await self._del_data()
             if isinstance(data, list):
                 # Bulk Delete by Post
                 results = []

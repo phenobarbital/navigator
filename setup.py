@@ -131,7 +131,7 @@ setup(
     package_data={"navigator": ["py.typed"]},
     include_package_data=True,
     license=__license__,
-    license_files = 'LICENSE',
+    license_files='LICENSE',
     setup_requires=[
         "setuptools==67.6.1",
         "Cython==0.29.33",
@@ -142,25 +142,25 @@ setup(
     install_requires=[
         "Cython==0.29.33",
         "asyncio==3.4.3",
-        "uvloop==0.17.0",
+        "uvloop==0.19.0",
         "sockjs==0.11.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
-        "aiohttp==3.8.5",
+        "aiohttp==3.8.6",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.2",
-        "aiohttp-jinja2==1.5",
+        "aiohttp-jinja2==1.5.1",
         "aiohttp-sse==2.1.0",
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
-        "asyncdb[default]>=2.2.0",
-        "navconfig[default]>=1.1.0",
+        "asyncdb[default]>=2.5.5",
+        "navconfig[default]>=1.4.0",
         "aiohttp-cors"
     ],
-    extras_require = {
+    extras_require={
         "locale": [
             "Babel==2.9.1",
         ],
@@ -170,11 +170,11 @@ setup(
     },
     ext_modules=cythonize(extensions),
     tests_require=[
-            'pytest>=5.4.0',
-            'coverage',
-            'pytest-asyncio',
-            'pytest-xdist',
-            'pytest-assume'
+        'pytest>=5.4.0',
+        'coverage',
+        'pytest-asyncio',
+        'pytest-xdist',
+        'pytest-assume'
     ],
     entry_points={
         'console_scripts': [

@@ -1324,41 +1324,57 @@ class ModelView(BaseView):
                 # delete with data.
                 try:
                     objid = self.get_primary(data)
+                except KeyError:
+                    objid = None
+                try:
                     async with await self.handler(request=self.request) as conn:
                         self.model.Meta.connection = conn
-                        try:
-                            if isinstance(self.pk, list):
-                                args = objid
-                            else:
-                                args = {
-                                    self.pk: objid
-                                }
-                            # Delete them this Client
-                            result = await self.model.get(**args)
-                            data = await result.delete(_filter=objid)
-                        except DriverError as exc:
-                            return await self._model_response(
-                                {
-                                    "error": f"Error on {self.__name__}",
-                                    "message": str(exc)
-                                },
-                                status=400
-                            )
-                        except NoDataFound:
-                            return await self._model_response(
-                                {
-                                    "error": f"{self.__name__} Not Found"
-                                },
-                                status=404
-                            )
+                        if objid:
+                            try:
+                                if isinstance(self.pk, list):
+                                    args = objid
+                                else:
+                                    args = {
+                                        self.pk: objid
+                                    }
+                                # Delete them this Client
+                                result = await self.model.get(**args)
+                                data = await result.delete(_filter=objid)
+                            except DriverError as exc:
+                                return await self._model_response(
+                                    {
+                                        "error": f"Error on {self.__name__}",
+                                        "message": str(exc)
+                                    },
+                                    status=400
+                                )
+                            except NoDataFound:
+                                return await self._model_response(
+                                    {
+                                        "error": f"{self.__name__} Not Found"
+                                    },
+                                    status=404
+                                )
+                        else:
+                            # Using a payload for deleting using arguments
+                            try:
+                                objid = data
+                                data = await self.model.remove(**data)
+                            except NoDataFound:
+                                return await self._model_response(
+                                    {
+                                        "error": f"{self.__name__} Not Found"
+                                    },
+                                    status=404
+                                )
                         result = {
                             "deleted": data,
                             "data": objid
                         }
-                        return await self._model_response(data, status=202)
-                except (TypeError, KeyError):
+                        return await self._model_response(result, status=202)
+                except (TypeError, KeyError, ValueError) as exc:
                     error = {
-                        "message": f"We don't found POST data for deletion on {self.__name__}",
+                        "message": f"We don't found POST data for deletion on {self.__name__}, exc",
                     }
                     return self.error(
                         response=error,

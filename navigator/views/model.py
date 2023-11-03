@@ -177,6 +177,8 @@ class ModelView(BaseView):
         if self.model_name is not None:
             ## import Other Model from Variable
             self.model = self._import_model(self.model_name)
+        if self.get_model and isinstance(self.get_model, str):
+            self.get_model = self._import_model(self.get_model)
         super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated
         try:
@@ -305,6 +307,7 @@ class ModelView(BaseView):
             await self.session()
             if self._session:
                 self._userid = await self.get_userid(self._session)
+            # TODO: Checking User Permissions:
             ## Calling post-authorization Model:
             await self._post_auth(self, *args, **kwargs)
             return await fn(self, *args, **kwargs)

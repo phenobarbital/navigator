@@ -1013,6 +1013,7 @@ class ModelView(BaseView):
         except (ValueError, KeyError):
             objid = {}
         try:
+            self.logger.debug('PUT OBJ Check: ', objid)
             async with await self.handler(request=self.request) as conn:
                 # check if object exists:
                 try:
@@ -1043,10 +1044,17 @@ class ModelView(BaseView):
                     status = 201
                 return await self._post_response(result, status=status)
         except StatementError as ex:
-            error = {
-                "message": f"Cannot Insert, duplicated {self.__name__}",
-                "error": str(ex)
-            }
+            err = str(ex)
+            if 'duplicate' in err:
+                error = {
+                    "message": f"Duplicated {self.__name__}",
+                    "error": err
+                }
+            else:
+                error = {
+                    "message": f"Unable to insert {self.__name__}",
+                    "error": err
+                }
             return self.error(response=error, status=400)
         except ModelError as ex:
             error = {
@@ -1288,6 +1296,12 @@ class ModelView(BaseView):
                             result = await self.model.get(**args)
                         data = await result.delete(_filter=objid)
                     return await self._model_response(data, status=202)
+                except DriverError as exc:
+                    error = {
+                        "message": f"Error on {self.__name__}",
+                        "error": str(exc)
+                    }
+                    return self.error(response=error, status=404)
                 except NoDataFound:
                     error = {
                         "message": f"{objid} was not found on {self.__name__}",

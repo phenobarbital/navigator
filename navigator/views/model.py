@@ -1274,7 +1274,10 @@ class ModelView(BaseView):
            summary: delete a table object
         """
         args, _, qp, _ = self.get_parameters()
-        objid = await self._get_primary_data(args)
+        if hasattr(self, '_del_primary_data'):
+            objid = await self._del_primary_data(args)
+        else:
+            objid = await self._get_primary_data(args)
         if objid:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
@@ -1288,13 +1291,14 @@ class ModelView(BaseView):
                     else:
                         if isinstance(self.pk, list):
                             result = await self.model.get(**objid)
+                            data = await result.delete(_filter=objid)
                         else:
                             args = {
                                 self.pk: objid
                             }
                             # Delete them this Client
                             result = await self.model.get(**args)
-                        data = await result.delete(_filter=objid)
+                            data = await result.delete(_filter=args)
                     return await self._model_response(data, status=202)
                 except DriverError as exc:
                     error = {

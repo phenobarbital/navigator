@@ -94,7 +94,7 @@ class ConnectionHandler:
             return
         logging.debug(f"Starting DB {self.driver} connection on App: {self.name}")
         if self.timeout is None:
-            self.timeout = 600
+            self.timeout = 360000
         try:
             if self.pool_based:
                 self.conn = AsyncPool(
@@ -162,11 +162,11 @@ class PostgresPool(ConnectionHandler):
                 "max_parallel_workers": "512",
                 "jit": "on",
                 "jit_above_cost": "10000000",
-                "statement_timeout": f"{self.statement_timeout}",
-                "idle_in_transaction_session_timeout": DB_IDLE_TRANSACTION_TIMEOUT,
-                "idle_session_timeout": DB_SESSION_TIMEOUT,
+                # "statement_timeout": f"{self.statement_timeout}",
+                # "idle_in_transaction_session_timeout": DB_IDLE_TRANSACTION_TIMEOUT,
+                # "idle_session_timeout": DB_SESSION_TIMEOUT,
                 "effective_cache_size": "2147483647",
-                "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
+                # "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
             },
         }
         super(PostgresPool, self).__init__(

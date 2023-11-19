@@ -115,8 +115,8 @@ asyncpg_url = f"postgres://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/{PG_DATABASE}"
 DB_TIMEOUT = config.get("DB_TIMEOUT", fallback=360000)
 DB_STATEMENT_TIMEOUT = config.get("DB_STATEMENT_TIMEOUT", fallback=3600)
 DB_SESSION_TIMEOUT = config.get('DB_SESSION_TIMEOUT', fallback="5min")
-DB_IDLE_TRANSACTION_TIMEOUT = config.get('DB_IDLE_TRANSACTION_TIMEOUT', fallback="10min")
 DB_KEEPALIVE_IDLE = config.get('DB_KEEPALIVE_IDLE', fallback="30min")
+
 
 """
 Auth and Cache

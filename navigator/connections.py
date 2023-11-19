@@ -10,8 +10,6 @@ from navigator.conf import (
     default_dsn,
     DB_TIMEOUT,
     DB_STATEMENT_TIMEOUT,
-    DB_SESSION_TIMEOUT,
-    DB_IDLE_TRANSACTION_TIMEOUT,
     DB_KEEPALIVE_IDLE
 )
 
@@ -159,14 +157,10 @@ class PostgresPool(ConnectionHandler):
             "server_settings": {
                 "application_name": name,
                 "client_min_messages": "notice",
-                "max_parallel_workers": "512",
                 "jit": "on",
                 "jit_above_cost": "10000000",
-                # "statement_timeout": f"{self.statement_timeout}",
-                # "idle_in_transaction_session_timeout": DB_IDLE_TRANSACTION_TIMEOUT,
-                # "idle_session_timeout": DB_SESSION_TIMEOUT,
                 "effective_cache_size": "2147483647",
-                # "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
+                "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
             },
         }
         super(PostgresPool, self).__init__(

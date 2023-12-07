@@ -33,7 +33,7 @@ class ConnectionHandler:
     ):
         self.driver = driver
         self.name = name
-        self.params = params
+        self.params = params if params else {}
         self.kwargs = kwargs
         self._dsn = dsn if dsn is not None else default_dsn
         if init:

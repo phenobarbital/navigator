@@ -25,7 +25,7 @@ cdef class BaseApplication:
         self.handler = None
         self.description: str = description
         self.host = config.get('APP_HOST', fallback='0.0.0.0')
-        self.port = config.get('APP_PORT', fallback=5000)
+        self.port = config.getint('APP_PORT', fallback=5000)
         self.path = None
         self.title = title if title else config.get('APP_NAME', fallback='NAVIGATOR')
         self.contact = contact

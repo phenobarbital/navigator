@@ -31,3 +31,6 @@ cdef class AuthExpired(NavException):
 
 cdef class ValidationError(NavException):
     pass
+
+cdef class ActionError(NavException):
+    pass

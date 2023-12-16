@@ -44,12 +44,12 @@ class AirportHandler(ModelView):
     async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
-    # async def on_startup(self, *args, **kwargs):
-    #     print(args, kwargs)
-    #     print('THIS CODE RUN ON STARTUP')
+    async def on_startup(self, *args, **kwargs):
+        print(args, kwargs)
+        print('THIS CODE RUN ON STARTUP')
 
-    # async def on_shutdown(self, *args, **kwargs):
-    #     print('ESTO OCURRE CUANDO SE DETIENE ==== ')
+    async def on_shutdown(self, *args, **kwargs):
+        print('ESTO OCURRE CUANDO SE DETIENE ==== ')
 
 ## two required handlers for a ModelHandler.
 AirportHandler.configure(app, '/api/v1/airports')
@@ -122,7 +122,7 @@ if __name__ == "__main__":
         "password": "12345678",
         "host": "127.0.0.1",
         "port": "5432",
-        "database": "navigator_dev",
+        "database": "navigator",
         "DEBUG": True,
     }
     kwargs = {

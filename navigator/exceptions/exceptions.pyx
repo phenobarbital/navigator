@@ -66,3 +66,8 @@ cdef class AuthExpired(NavException):
 
     def __init__(self, str message = None):
         super().__init__(message or "Gone: Authentication Expired.", 410)
+
+cdef class ActionError(NavException):
+
+    def __init__(self, str message = None):
+        super().__init__(message or "Action: Error", 400)

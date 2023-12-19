@@ -23,6 +23,14 @@ class FormModel(AbstractModel):
         # Validate Data, if valid, return a DataModel.
         try:
             return self.model(**data)
+        except TypeError as ex:
+            error = {
+                "error": f"Error on {self.__name__}: {ex}",
+                "payload": f"{data!r}",
+            }
+            return self.error(
+                response=error, status=400
+            )
         except ValidationError as ex:
             error = {
                 "error": f"Bad Data for {self.__name__}: {ex}",

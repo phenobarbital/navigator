@@ -208,6 +208,15 @@ except ImportError:
             "Missing *Settings* Module, Settings is required for fine-tune configuration."
         )
 
+### Zammad Integration via Actions:
+# Zammad:
+ZAMMAD_INSTANCE = config.get('ZAMMAD_INSTANCE')
+ZAMMAD_TOKEN = config.get('ZAMMAD_TOKEN')
+ZAMMAD_USER = config.get('ZAMMAD_USER')
+ZAMMAD_PASSWORD = config.get('ZAMMAD_PASSWORD')
+ZAMMAD_DEFAULT_GROUP = config.get('ZAMMAD_DEFAULT_GROUP')
+ZAMMAD_DEFAULT_CUSTOMER = config.get('ZAMMAD_DEFAULT_CUSTOMER')
+ZAMMAD_DEFAULT_CATALOG = config.get('ZAMMAD_DEFAULT_CATALOG')
 
 #### Final: Config dict for AIOHTTP
 Context = {

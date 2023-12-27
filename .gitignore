@@ -156,3 +156,5 @@ target/
 resources/*
 settings/__init__.py
 navigator/applications/base.cpp
+navigator/exceptions/exceptions.c
+*.c

@@ -42,14 +42,11 @@ class ConnectionHandler:
             self._startup_ = startup
         if shutdown:
             self._shutdown_ = shutdown
+        # Empty Connection:
+        self.timeout = kwargs.pop("timeout", DB_TIMEOUT)
+        self.conn: Callable = None
         if self._init_:
             self.conn.setup_func = self._init_
-        # Empty Connection:
-        if "timeout" in kwargs:
-            self.timeout = kwargs["timeout"]
-        else:
-            self.timeout = DB_TIMEOUT
-        self.conn: Callable = None
 
     def connection(self):
         return self.conn
@@ -74,7 +71,9 @@ class ConnectionHandler:
             main_app = app["Main"]
             db = main_app[self._register]
             if self._dsn == db._dsn:
-                logging.debug(f"There is already a connection enabled on {app!r}")
+                logging.debug(
+                    f"There is already a connection enabled on {app!r}"
+                )
                 self.conn = db
                 app[self._register] = self.conn
                 # any callable will be launch on connection startup.
@@ -220,4 +219,4 @@ class RedisPool(ConnectionHandler):
         try:
             await self.conn.close()
         finally:
-            logging.debug("Exiting ...")
+            logging.debug("Exiting Redis ...")

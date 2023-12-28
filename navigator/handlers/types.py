@@ -8,11 +8,13 @@ from aiohttp import web, web_response
 from aiohttp.abc import AbstractView
 from asyncdb.exceptions import ProviderError, DriverError
 from navconfig import BASE_DIR
-from navigator.connections import PostgresPool
-from navigator.middlewares.error import error_middleware
-from navigator.responses import JSONResponse
-from navigator.exceptions import ConfigError
-from navigator.conf import APP_LOGNAME, default_dsn
+# Navigator:
+from ..connections import PostgresPool
+from ..middlewares.error import error_middleware
+from ..responses import JSONResponse
+from ..exceptions import ConfigError
+from ..conf import APP_LOGNAME, default_dsn
+from ..resources import home
 from .base import BaseHandler
 
 
@@ -114,33 +116,45 @@ class AppConfig(AppHandler):
     path: Path = None
     _middleware: list = []
     domain: str = ""
+    auto_home: bool = False
     version: str = "0.0.1"
     description: str = ""
     template: str = "templates"
 
     def __init__(self, *args, **kwargs):
-        self._name = type(self).__name__
+        self._name_ = type(self).__name__
         self._listener: Callable = None
         super(AppConfig, self).__init__(*args, **kwargs)
         if self.path is not None:
             path = BASE_DIR.joinpath("apps")
-            self.path = path.joinpath(self._name)
+            self.path = path.joinpath(self._name_)
         # set the setup_routes
         self.setup_routes()
+        # Auto Home:
+        if self.auto_home is True:
+            self.app.router.add_get(f"/{self._name_}/", home)
         # authorization
-        self.app.router.add_get("/authorize", self.app_authorization)
+        self.app.router.add_get(
+            "/authorize",
+            self.app_authorization
+        )
 
     def setup_routes(self):
         """Setup Routes (URLS) pointing to paths on AppConfig."""
         # set the urls
         # TODO: automatic module loader
         try:
+            if self._name_ == 'AppConfig':
+                return
             cls = importlib.import_module(
-                "{}.{}".format("apps.{}".format(self._name), "urls"),
+                "{}.{}".format("apps.{}".format(self._name_), "urls"),
                 package="apps",  # pylint: disable=C0209
             )
             routes = getattr(cls, "urls")
-        except ModuleNotFoundError:
+        except ModuleNotFoundError as exc:
+            self.logger.warning(
+                f"Cannot Load Application {self._name_}, Error: {exc}"
+            )
             return False
         except ImportError as err:
             self.logger.exception(err, stack_info=True)
@@ -185,7 +199,7 @@ class AppConfig(AppHandler):
                         )
                     else:
                         raise Exception(
-                            f"Unsupported Method for Route {route.method}, program: {self._name}"
+                            f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
                     # self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
@@ -219,7 +233,7 @@ class AppConfig(AppHandler):
                         )
                     else:
                         raise ConfigError(
-                            f"Unsupported Method for Route {route.method}, program: {self._name}"
+                            f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
                     # self.cors.add(r)
 

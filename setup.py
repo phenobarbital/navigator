@@ -159,7 +159,10 @@ setup(
         'python-slugify==8.0.1',
         "asyncdb[default]>=2.6.0",
         "navconfig[default]>=1.5.0",
-        "aiohttp-cors"
+        "aiohttp-cors",
+        "proxylists==0.12.2",
+        "httpx==0.26.0",
+        "beautifulsoup4==4.12.2"
     ],
     extras_require={
         "locale": [

@@ -117,10 +117,13 @@ async def home(request: web.Request):
             description: Template "templates/home.html" not found.
     """
     path = Path(BASE_DIR).joinpath("navigator/templates/home.html")
+    print('HERE > ', path)
     try:
         file_path = path
         if not file_path.exists():
-            return web.HTTPNotFound()
+            return web.HTTPNotFound(
+                "Template not found: navigator/templates/home.html"
+            )
         return web.FileResponse(file_path)
     except Exception as e:  # pylint: disable=W0703
         response_obj = {"status": "failed", "reason": str(e)}

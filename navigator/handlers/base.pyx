@@ -13,7 +13,7 @@ from navigator.functions import cPrint
 from navigator.types import WebApp
 from navigator.utils.functions import get_logger
 # make a home and a ping class
-from navigator.resources import ping
+from navigator.resources import ping, home
 from navigator.exceptions import NavException
 
 
@@ -70,6 +70,7 @@ cdef class BaseHandler:
             client_max_size=(1024 * 1024) * 1024
         )
         app.router.add_route("GET", "/ping", ping, name="ping")
+        app.router.add_route("GET", "/", home, name="home")
         app["name"] = self._name
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions

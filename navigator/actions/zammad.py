@@ -106,7 +106,7 @@ class Zammad(AbstractTicket, RESTAction):
             "title": title,
             "group": group,
             "customer": customer,
-            "catalog": service_catalog,
+            "service_catalog": service_catalog,
             "article": article
         }
         try:
@@ -142,7 +142,7 @@ class Zammad(AbstractTicket, RESTAction):
             "title": title,
             "group": group,
             "customer": customer,
-            "catalog": service_catalog,
+            "service_catalog": service_catalog,
             "article": article
         }
         try:

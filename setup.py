@@ -137,8 +137,7 @@ setup(
         "setuptools==67.6.1",
         "Cython==3.0.6",
         "wheel==0.42.0",
-        "asyncio==3.4.3",
-        "cpython==0.0.6"
+        "asyncio==3.4.3"
     ],
     install_requires=[
         "Cython==3.0.6",

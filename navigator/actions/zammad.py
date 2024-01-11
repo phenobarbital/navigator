@@ -33,6 +33,7 @@ class Zammad(AbstractTicket, RESTAction):
 
     def __init__(self, *args, **kwargs):
         super(Zammad, self).__init__(*args, **kwargs)
+        self.credentials = {}
         self.auth = {
             "apikey": ZAMMAD_TOKEN
         }
@@ -184,7 +185,7 @@ class Zammad(AbstractTicket, RESTAction):
             **self._kwargs
         }
         try:
-            result, _ = await self.async_request(
+            result, _ = await self.request(
                 self.url, self.method, data=data
             )
             return result

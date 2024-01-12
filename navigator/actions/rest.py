@@ -46,8 +46,8 @@ class RESTAction(AbstractAction):
         self.url: str = ''
         ## Auth Object:
         self.auth: dict = {}
-        self._user: str = kwargs.pop('user', None)
-        self._pwd: str = kwargs.pop('password', None)
+        self._user: str = kwargs.get('user', None)
+        self._pwd: str = kwargs.get('password', None)
         self.accept = kwargs.pop('accept', 'application/json')
         self.content_type = kwargs.pop('content_type', 'application/json')
         self._last_execution: dict = {}

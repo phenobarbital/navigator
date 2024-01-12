@@ -194,16 +194,16 @@ class Zammad(AbstractTicket, RESTAction):
                 f"Error creating Zammad User: {e}"
             ) from e
 
-    async def find_user(self):
+    async def find_user(self, search: dict = None):
         """find_user.
 
         Find existing User on Zammad.
 
         TODO: Adding validation with dataclasses.
         """
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/users"
+        self.url = f"{ZAMMAD_INSTANCE}api/v1/users/search"
         self.method = 'get'
-        search = self._kwargs.pop('search')
+        search = self._kwargs.pop('search', search)
         if not isinstance(search, dict):
             raise ConfigError(
                 f"Search Dictionary is required, current: {search}"
@@ -218,7 +218,7 @@ class Zammad(AbstractTicket, RESTAction):
             queryparams=query_string
         )
         try:
-            result, _ = await self.async_request(
+            result, _ = await self.request(
                 self.url, self.method
             )
             return result

@@ -152,9 +152,14 @@ class Zammad(AbstractTicket, RESTAction):
             "article": article
         }
         try:
-            result, _ = await self.request(
+            result, error = await self.request(
                 self.url, self.method, data=data
             )
+            if error is not None:
+                msg = error['message']
+                raise ConfigError(
+                    f"Error creating Zammad Ticket: {msg}"
+                )
             return result
         except Exception as e:
             raise ConfigError(
@@ -185,9 +190,14 @@ class Zammad(AbstractTicket, RESTAction):
             **self._kwargs
         }
         try:
-            result, _ = await self.request(
+            result, error = await self.request(
                 self.url, self.method, data=data
             )
+            if error is not None:
+                msg = error['message']
+                raise ConfigError(
+                    f"Error creating User: {msg}"
+                )
             return result
         except Exception as e:
             raise ConfigError(

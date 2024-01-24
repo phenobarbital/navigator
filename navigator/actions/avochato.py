@@ -1,7 +1,6 @@
 import json
 from navigator.exceptions import ConfigError
 from navconfig import config
-from .ticket import AbstractTicket
 from .rest import RESTAction
 
 AVOCHATO_INSTANCE = 'https://www.avochato.com/v1'
@@ -9,7 +8,7 @@ AVOCHATO_ID = config.get('AVOCHATO_ID')
 AVOCHATO_SECRET = config.get('AVOCHATO_SECRET')
 
 
-class Avochato(AbstractTicket, RESTAction):
+class Avochato(RESTAction):
     '''
         TODO: Manage ConnectionError exception to return status code and error message in an easier way
     '''
@@ -18,13 +17,6 @@ class Avochato(AbstractTicket, RESTAction):
         super(Avochato, self).__init__(*args, **kwargs)
         self.credentials = {}
         self.auth = {}
-
-
-    async def run(self):
-        pass
-
-    async def create(self):
-        pass
 
 
     async def get_broadcasts(self):

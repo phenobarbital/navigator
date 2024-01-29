@@ -17,10 +17,12 @@ class Avochato(RESTAction):
         super(Avochato, self).__init__(*args, **kwargs)
         self.credentials = {}
         self.auth = {}
+        self.avochato_id = self._kwargs.pop('avochato_id', AVOCHATO_ID)
+        self.avochato_secret = self._kwargs.pop('avochato_secret', AVOCHATO_SECRET)
 
 
     async def get_broadcasts(self):
-        self.url = f'{AVOCHATO_INSTANCE}/broadcasts?auth_id={AVOCHATO_ID}&auth_secret={AVOCHATO_SECRET}'
+        self.url = f'{AVOCHATO_INSTANCE}/broadcasts?auth_id={self.avochato_id}&auth_secret={self.avochato_secret}'
         self.method = 'get'
         self.accept = 'application/json'
         result, error = await self.async_request(
@@ -38,8 +40,8 @@ class Avochato(RESTAction):
             args['media_url'] = media_url
 
         data = {
-            "auth_id": AVOCHATO_ID,
-            "auth_secret": AVOCHATO_SECRET,
+            "auth_id": self.avochato_id,
+            "auth_secret": self.avochato_secret,
             "name": name,
             "message": message,
             "via_phone_numbers": via_phone_numbers,
@@ -66,8 +68,8 @@ class Avochato(RESTAction):
             args['media_url'] = media_url
 
         data = {
-            "auth_id": AVOCHATO_ID,
-            "auth_secret": AVOCHATO_SECRET,
+            "auth_id": self.avochato_id,
+            "auth_secret": self.avochato_secret,
             **args
         }
         result, error = await self.async_request(
@@ -81,8 +83,8 @@ class Avochato(RESTAction):
         self.method = 'post'
         self.accept = 'application/json'
         data = {
-            "auth_id": AVOCHATO_ID,
-            "auth_secret": AVOCHATO_SECRET,
+            "auth_id": self.avochato_id,
+            "auth_secret": self.avochato_secret,
             "asap": True
         }
         result, error = await self.async_request(
@@ -92,7 +94,7 @@ class Avochato(RESTAction):
 
 
     async def get_messages(self):
-        self.url = f'{AVOCHATO_INSTANCE}/messages?auth_id={AVOCHATO_ID}&auth_secret={AVOCHATO_SECRET}'
+        self.url = f'{AVOCHATO_INSTANCE}/messages?auth_id={self.avochato_id}&auth_secret={self.avochato_secret}'
         self.method = 'get'
         self.accept = 'application/json'
         result, error = await self.async_request(
@@ -111,8 +113,8 @@ class Avochato(RESTAction):
         if send_as_user_id:
             args['send_as_user_id'] = send_as_user_id
         data = {
-            "auth_id": AVOCHATO_ID,
-            "auth_secret": AVOCHATO_SECRET,
+            "auth_id": self.avochato_id,
+            "auth_secret": self.avochato_secret,
             "phone": phone,
             "message": message,
             "from": from_phone,

@@ -517,9 +517,12 @@ class RESTAction(AbstractAction):
                         if await self.evaluate_error(message, msg):
                             return (response, response.status)
             # Raise an exception
-            raise ConnectionError(
-                f"HTTP Error {response.status}: {message}"
-            )
+            error = {
+                "status": response.status,
+                "message": message,
+                "response": response
+            }
+            return (None, error)
         else:
             if self.download is True:
                 filename = os.path.basename(url)

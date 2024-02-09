@@ -20,6 +20,8 @@ class Avochato(RESTAction):
         self.avochato_id = self._kwargs.pop('avochato_id', AVOCHATO_ID)
         self.avochato_secret = self._kwargs.pop('avochato_secret', AVOCHATO_SECRET)
 
+    async def run(self):
+        pass
 
     async def get_broadcasts(self):
         self.url = f'{AVOCHATO_INSTANCE}/broadcasts?auth_id={self.avochato_id}&auth_secret={self.avochato_secret}'
@@ -29,7 +31,6 @@ class Avochato(RESTAction):
             self.url, self.method, use_json=True
         )
         return result if result is not None else error['message']
-
 
     async def set_broadcast(self, name, message, via_phone_numbers, media_url=None):
         args = {}
@@ -51,7 +52,6 @@ class Avochato(RESTAction):
             self.url, self.method, data, use_json=True
         )
         return result if result is not None else error['message']
-
 
     async def update_broadcast(self, broadcast_id, name=None, message=None, via_phone_numbers=None, media_url=None):
         args = {}
@@ -77,7 +77,6 @@ class Avochato(RESTAction):
         )
         return result if result is not None else error['message']
 
-    
     async def publish_broadcast(self, broadcast_id):
         self.url = f'{AVOCHATO_INSTANCE}/broadcasts/{broadcast_id}/publish'
         self.method = 'post'
@@ -92,7 +91,6 @@ class Avochato(RESTAction):
         )
         return result if result is not None else error['message']
 
-
     async def get_messages(self):
         self.url = f'{AVOCHATO_INSTANCE}/messages?auth_id={self.avochato_id}&auth_secret={self.avochato_secret}'
         self.method = 'get'
@@ -101,7 +99,6 @@ class Avochato(RESTAction):
             self.url, self.method, use_json=True
         )
         return result if result is not None else error['message']
-
 
     async def send_message(self, phone, message, from_phone, media_url=None, send_as_user_id=None):
         args = {}

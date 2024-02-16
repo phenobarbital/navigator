@@ -236,3 +236,22 @@ class Zammad(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error Searching Zammad User: {e}"
             ) from e
+
+    async def get_ticket(self, ticket_id: dict = None):
+        """get_ticket.
+
+        Get a Ticket on Zammad.
+
+        TODO: Adding validation with dataclasses.
+        """
+        self.url = f"{ZAMMAD_INSTANCE}/api/v1/tickets/{ticket_id}"
+        self.method = 'get'
+        try:
+            result, _ = await self.request(
+                self.url, self.method
+            )
+            return result
+        except Exception as e:
+            raise ConfigError(
+                f"Error Getting Zammad Ticket: {e}"
+            ) from e

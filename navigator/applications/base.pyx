@@ -39,6 +39,8 @@ cdef class BaseApplication:
             # also, disable logging for 'aiohttp.access'
             aio = logging.getLogger('aiohttp.access')
             aio.setLevel(logging.CRITICAL)
+        ## Install Uvloop if available:
+        self.install_uvloop()
         ### asyncio loop
         self._loop = evt
 
@@ -47,6 +49,14 @@ cdef class BaseApplication:
 
     def setup_app(self) -> WebApp:
         pass
+
+    def install_uvloop(self):
+        try:
+            import uvloop
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+            uvloop.install()
+        except ImportError:
+            pass
 
     def event_loop(self):
         return self._loop

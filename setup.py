@@ -149,7 +149,7 @@ setup(
         "asn1crypto==1.4.0",
         "aiohttp==3.9.2",
         "aiohttp-jrpc==0.1.0",
-        "jinja2==3.1.2",
+        "jinja2==3.1.3",
         "aiohttp-jinja2==1.6",
         "aiohttp-sse==2.1.0",
         "aiohttp-utils==3.1.1",

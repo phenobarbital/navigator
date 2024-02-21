@@ -159,7 +159,6 @@ setup(
         "navconfig[default]>=1.5.0",
         "aiohttp-cors",
         "proxylists>=0.12.3",
-        "aiofiles==22.1.0",
         "httpx==0.26.0",
         "beautifulsoup4==4.12.2"
     ],

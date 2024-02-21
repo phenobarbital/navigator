@@ -147,7 +147,7 @@ setup(
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
-        "aiohttp==3.9.1",
+        "aiohttp==3.9.2",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.2",
         "aiohttp-jinja2==1.6",

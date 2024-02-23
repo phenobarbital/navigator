@@ -13,7 +13,7 @@ from psycopg2 import Binary  # Import Binary from psycopg2
 from typing import Any, Union
 from pathlib import PosixPath, PurePath, Path
 from decimal import Decimal
-from navigator.exceptions.exceptions cimport ValidationError
+from ..exceptions.exceptions cimport ValidationError
 import orjson
 
 

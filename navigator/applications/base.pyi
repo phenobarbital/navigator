@@ -1,6 +1,6 @@
 import asyncio
 from typing import Any
-from navigator.types import WebApp
+from ..types import WebApp
 
 class BaseApplication:
     def get_app(self) -> WebApp: ...

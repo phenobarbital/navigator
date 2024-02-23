@@ -14,9 +14,9 @@ try:
     from navconfig.conf import APPLICATIONS
 except ImportError:
     APPLICATIONS = []
-from navigator.types import WebApp
-from navigator.handlers.types import AppConfig
-from navigator.utils.types import Singleton
+from ..types import WebApp
+from ..handlers.types import AppConfig
+from ..utils.types import Singleton
 
 # APP DIR
 APP_DIR = BASE_DIR.joinpath("apps")
@@ -48,7 +48,7 @@ class ApplicationInstaller(metaclass=Singleton):
             if item.name != "__pycache__":
                 if item.is_dir():
                     name = item.name
-                    if not name in self._apps_installed:
+                    if name not in self._apps_installed:
                         app_name = f"apps.{item.name}"
                         try:
                             i = importlib.import_module(app_name, package="apps")
@@ -63,7 +63,7 @@ class ApplicationInstaller(metaclass=Singleton):
         for name in APPLICATIONS:
             ## Fallback Application (avoid calling too much app initialization)
             app_name = f"apps.{name}"
-            if not name in self._apps_installed:
+            if name not in self._apps_installed:
                 # virtual app, fallback app:
                 self._apps_installed.append((app_name, None))
                 self._apps_names.append(app_name)

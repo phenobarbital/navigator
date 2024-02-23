@@ -5,8 +5,8 @@ from collections.abc import Callable
 from abc import ABC
 from navconfig import config
 from navconfig.logging import logging
-from navigator.exceptions import NavException, ConfigError
-from navigator.types import WebApp
+from .exceptions import NavException, ConfigError
+from .types import WebApp
 from .applications.base import BaseApplication
 
 if sys.version_info < (3, 10):

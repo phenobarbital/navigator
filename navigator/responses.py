@@ -12,7 +12,7 @@ from aiohttp.web_exceptions import (
     HTTPNoContent,
 )
 from aiohttp_sse import sse_response, EventSourceResponse
-from navigator.libs.json import json_encoder
+from .libs.json import json_encoder
 
 
 __all__ = (

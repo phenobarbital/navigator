@@ -1,9 +1,9 @@
 """Redis Extension.
 Redis connection on any Application.
 """
-from navigator.ext.db import DBConnection
-from navigator.types import WebApp
-from navigator.conf import CACHE_URL
+from ..db import DBConnection
+from ...types import WebApp
+from ...conf import CACHE_URL
 
 
 class RedisConnection(DBConnection):

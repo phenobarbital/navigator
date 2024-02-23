@@ -81,7 +81,8 @@ class ModelView(AbstractModel):
             self.model = self._import_model(self.model_name)
         if self.get_model and isinstance(self.get_model, str):
             self.get_model = self._import_model(self.get_model)
-        super(ModelView, self).__init__(request, *args, **kwargs)
+        AbstractModel.__init__(self, request, *args, **kwargs)
+        # super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated
         try:
             self.model = self._get_model()
@@ -296,6 +297,15 @@ class ModelView(AbstractModel):
         """
         conn = None
         data = None
+        pagination: bool = False
+        page = None
+        size = 1000
+
+        # Default pagination Method:
+        if pagination := qp.get('paginate', False) is True:
+            page = qp.get('page', 1)
+            size = qp.get('size', 1000)
+
         ## getting first primary IDs for filtering:
         _primary = await self._get_primary_data(args)
 

@@ -1,10 +1,10 @@
 """Redis Extension.
 Redis connection on any Application.
 """
-from navigator.extensions import BaseExtension
-from navigator.exceptions import NavException
-from navigator.types import WebApp
-from navigator.conf import MEMCACHE_HOST, MEMCACHE_PORT
+from ...extensions import BaseExtension
+from ...exceptions import NavException
+from ...types import WebApp
+from ...conf import MEMCACHE_HOST, MEMCACHE_PORT
 
 try:
     import aiomcache

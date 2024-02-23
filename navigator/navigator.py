@@ -22,18 +22,18 @@ try:
 except FileExistsError:
     print('Error: Missing ENV directory for Navconfig.')
 
-from navigator.exceptions.handlers import nav_exception_handler, shutdown
-from navigator.handlers import BaseAppHandler
-from navigator.functions import cPrint
-from navigator.exceptions import NavException, ConfigError, InvalidArgument
+from .exceptions.handlers import nav_exception_handler, shutdown
+from .handlers import BaseAppHandler
+from .functions import cPrint
+from .exceptions import NavException, ConfigError, InvalidArgument
 
 # Template Extension.
-from navigator.template import TemplateParser
+from .template import TemplateParser
 
 # websocket resources
-from navigator.resources import WebSocket, channel_handler
-from navigator.libs.json import json_encoder
-from navigator.types import WebApp
+from .resources import WebSocket, channel_handler
+from .libs.json import json_encoder
+from .types import WebApp
 
 
 from .applications.base import BaseApplication
@@ -131,6 +131,20 @@ class Application(BaseApplication):
         # Configure Routes and other things:
         self.handler.configure()
         self.handler.setup_docs()
+        # CORS:
+        # setup cors:
+        self.cors = aiohttp_cors.setup(
+            app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=7200,
+                )
+            },
+        )
         ## Return aiohttp Application.
         return app
 
@@ -145,7 +159,11 @@ class Application(BaseApplication):
         # websockets
         app.router.add_route("GET", "/ws", WebSocket)
         # websocket channels
-        app.router.add_route("GET", "/ws/{channel}", channel_handler)
+        app.router.add_route(
+            "GET",
+            "/ws/{channel}",
+            channel_handler
+        )
 
     def add_routes(self, routes: list) -> None:
         """

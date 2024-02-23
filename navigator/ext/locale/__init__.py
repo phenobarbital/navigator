@@ -9,9 +9,9 @@ from collections.abc import Callable
 from babel import Locale, support, UnknownLocaleError
 from navconfig import config, BASE_DIR
 from navconfig.logging import logging
-from navigator.types import WebApp
-from navigator.extensions import BaseExtension
-from navigator.exceptions import ConfigError
+from ...types import WebApp
+from ...extensions import BaseExtension
+from ...exceptions import ConfigError
 
 
 class LocaleSupport(BaseExtension):

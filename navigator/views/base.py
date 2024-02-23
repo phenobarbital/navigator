@@ -2,6 +2,7 @@ import asyncio
 import datetime
 from typing import Any, Optional, Union
 from collections.abc import Callable
+from abc import ABC
 from dataclasses import dataclass
 from urllib import parse
 from aiohttp import web
@@ -18,22 +19,25 @@ from aiohttp_cors import CorsViewMixin
 from datamodel.exceptions import ValidationError
 from navconfig.logging import logging, loglevel
 from navigator_session import get_session
-from navigator.exceptions import NavException, InvalidArgument
-from navigator.libs.json import JSONContent, json_encoder, json_decoder
-from navigator.responses import JSONResponse
+from ..exceptions import NavException, InvalidArgument
+from ..libs.json import JSONContent, json_encoder, json_decoder
+from ..responses import JSONResponse
 
 
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
 
-class BaseHandler(CorsViewMixin):
+
+#  CorsViewMixin
+class BaseHandler(ABC):
     _config = None
     _mem = None
     _now = None
     _loop = None
     _logger_name: str = "navigator"
     _lasterr = None
-    _allowed = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
+    _allowed = ["get", "post", "put", "patch", "delete", "options", "head"]
+    _allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -46,7 +50,6 @@ class BaseHandler(CorsViewMixin):
     }
 
     def __init__(self, *args, **kwargs):
-        CorsViewMixin.__init__(self)
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
         self._json: Callable = JSONContent()
@@ -257,7 +260,7 @@ class BaseHandler(CorsViewMixin):
             headers = {}
         if not request:
             request = self.request
-        if not allowed:
+        if allowed is not None:
             allow = self._allowed
         else:
             allow = allowed
@@ -465,9 +468,20 @@ class BaseHandler(CorsViewMixin):
             else:
                 return validated
 
-class BaseView(web.View, BaseHandler, AbstractView):
+class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
+
+    cors_config = {
+        "*": aiohttp_cors.ResourceOptions(
+            allow_credentials=True,
+            expose_headers="*",
+            allow_methods="*",
+            allow_headers="*",
+            max_age=7200,
+        )
+    }
+
     def __init__(self, request, *args, **kwargs):
-        # CorsViewMixin.__init__(self)
+        CorsViewMixin.__init__(self)
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
 

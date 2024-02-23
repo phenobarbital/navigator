@@ -10,7 +10,7 @@ from asyncdb.exceptions import (
     StatementError
 )
 from navigator_session import get_session
-from navigator.exceptions import NavException
+from ..exceptions import NavException
 from .base import BaseView
 
 

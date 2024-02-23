@@ -8,6 +8,7 @@ from typing import Any, Union
 from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
+import aiohttp_cors
 from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from aiohttp import web
@@ -438,11 +439,33 @@ class Application(BaseApplication):
 
     def setup_cors(self, app: web.Application):
         # CORS:
+        cors = aiohttp_cors.setup(
+            app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=3600,
+                )
+            },
+        )
         for route in list(app.router.routes()):
+            # Ensure the route has a resource attribute and it's not None
+            routes = getattr(route.resource, '_routes', [])
+            routes = [r for r in routes]
+            if "OPTIONS" in routes:
+                # Skip if OPTIONS is already configured
+                continue
             try:
-                self.cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                # Already set-up CORS directions.
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    cors.add(route, webview=True)
+                else:
+                    cors.add(route)
+            except (TypeError, ValueError):
                 pass
 
     def run(self):
@@ -451,11 +474,13 @@ class Application(BaseApplication):
         """
         ### getting configuration (on runtime)
         from navigator import conf  # pylint: disable=C0415
-
         # getting the resource App
         app = self.setup_app()
         ## and Setup Cors:
-        # self.setup_cors(app)
+        self.setup_cors(app)
+        enable_access_log = conf.ENABLE_ACCESS_LOG
+        if enable_access_log is False:
+            enable_access_log = None
         if self.debug:
             cPrint(" :: Running in DEBUG mode :: ", level="DEBUG")
             logging.debug(" :: Running in DEBUG mode :: ")
@@ -481,12 +506,19 @@ class Application(BaseApplication):
                     port=self.port,
                     ssl_context=ssl_context,
                     handle_signals=True,
+                    access_log=enable_access_log
                 )
             except Exception as err:
                 logging.exception(err, stack_info=True)
                 raise
         elif self.path:
-            web.run_app(app, path=self.path, loop=self._loop, handle_signals=True)
+            web.run_app(
+                app,
+                path=self.path,
+                loop=self._loop,
+                handle_signals=True,
+                access_log=enable_access_log
+            )
         else:
             web.run_app(
                 app,
@@ -494,6 +526,7 @@ class Application(BaseApplication):
                 port=self.port,
                 loop=self._loop,
                 handle_signals=True,
+                access_log=enable_access_log
             )
 
 

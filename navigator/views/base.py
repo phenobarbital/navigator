@@ -41,7 +41,7 @@ class BaseHandler(CorsViewMixin):
             expose_headers="*",
             allow_methods="*",
             allow_headers="*",
-            max_age=3600,
+            max_age=7200,
         )
     }
 
@@ -467,9 +467,10 @@ class BaseHandler(CorsViewMixin):
 
 class BaseView(web.View, BaseHandler, AbstractView):
     def __init__(self, request, *args, **kwargs):
+        # CorsViewMixin.__init__(self)
         AbstractView.__init__(self, request)
         BaseHandler.__init__(self, *args, **kwargs)
-        # CorsViewMixin.__init__(self)
+
         self._request = request
         self._connection: Callable = None
 

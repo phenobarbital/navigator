@@ -15,10 +15,10 @@ from ..responses import JSONResponse
 from ..exceptions import ConfigError
 from ..conf import APP_LOGNAME, default_dsn
 from ..resources import home
-from .base import BaseHandler
+from .base import BaseAppHandler
 
 
-class AppHandler(BaseHandler):
+class AppHandler(BaseAppHandler):
     """
     AppHandler.
 
@@ -167,7 +167,6 @@ class AppConfig(AppHandler):
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
                     )
-                    # self.cors.add(r, webview=True)
                 elif not route.method:
                     r = self.app.router.add_view(
                         route.url, route.handler, name=route.name
@@ -201,10 +200,8 @@ class AppConfig(AppHandler):
                         raise Exception(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
-                    # self.cors.add(r, webview=True)
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
-                # self.cors.add(r, webview=True)
             else:
                 if not route.method:
                     r = self.app.router.add_route(
@@ -235,7 +232,6 @@ class AppConfig(AppHandler):
                         raise ConfigError(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
-                    # self.cors.add(r)
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.

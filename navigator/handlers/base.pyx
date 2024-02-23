@@ -6,7 +6,6 @@ import inspect
 from collections.abc import Callable
 from aiohttp import web
 from aiohttp.abc import AbstractView
-import aiohttp_cors
 from pathlib import Path
 from navconfig import config, DEBUG, BASE_DIR
 from navigator.functions import cPrint
@@ -17,10 +16,11 @@ from navigator.resources import ping, home
 from navigator.exceptions import NavException
 
 
-cdef class BaseHandler:
-    """BaseHandler.
+cdef class BaseAppHandler:
+    """BaseAppHandler.
 
-    Base for all application handlers, is an Abstract class for all Application constructors.
+    Base for all application handlers,
+    is an Abstract class for all Application constructors.
     """
     _middleware: list = []
     enable_static: bool = False
@@ -74,19 +74,6 @@ cdef class BaseHandler:
         app["name"] = self._name
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
-        # CORS
-        self.cors = aiohttp_cors.setup(
-            app,
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=3600,
-                )
-            },
-        )
         return app
 
     def configure(self) -> None:

@@ -2,7 +2,6 @@ from typing import Optional, Union, Any
 from collections.abc import Callable
 from aiohttp import web
 import traceback
-from aiohttp_cors import CorsViewMixin, ResourceOptions
 from asyncdb import AsyncDB, AsyncPool
 from datamodel import BaseModel
 from datamodel.types import JSON_TYPES
@@ -101,7 +100,7 @@ class ConnectionHandler:
             await self._db.close()
 
 
-class AbstractModel(BaseView, CorsViewMixin):
+class AbstractModel(BaseView):
     """AbstractModel.
 
     description: Usable for any dataclass or DataModel.
@@ -121,16 +120,6 @@ class AbstractModel(BaseView, CorsViewMixin):
     on_shutdown: Optional[Callable] = None
     name: str = "Model"
 
-    cors_config = {
-        "*": ResourceOptions(
-            allow_credentials=True,
-            expose_headers="*",
-            allow_methods="*",
-            allow_headers="*",
-            max_age=3600,
-        )
-    }
-
     def __init__(self, request, *args, **kwargs):
         self.__name__ = self.model.__name__
         self._session = None
@@ -139,7 +128,6 @@ class AbstractModel(BaseView, CorsViewMixin):
         credentials = kwargs.pop('credentials', {})
         dbname = kwargs.pop('dbname', 'nav.model')
         BaseView.__init__(self, request, *args, **kwargs)
-        CorsViewMixin.__init__(self)
         # Database Connection Handler
         self.handler = ConnectionHandler(
             driver,

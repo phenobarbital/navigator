@@ -7,7 +7,7 @@ from navconfig import config, DEBUG
 from navconfig.logging import logging, loglevel
 from navigator.types import WebApp
 from navigator.conf import Context # pylint: disable=C0415
-from navigator.handlers.base cimport BaseHandler
+from navigator.handlers.base cimport BaseAppHandler
 
 
 cdef class BaseApplication:

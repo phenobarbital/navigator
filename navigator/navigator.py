@@ -23,7 +23,7 @@ except FileExistsError:
     print('Error: Missing ENV directory for Navconfig.')
 
 from navigator.exceptions.handlers import nav_exception_handler, shutdown
-from navigator.handlers import BaseHandler
+from navigator.handlers import BaseAppHandler
 from navigator.functions import cPrint
 from navigator.exceptions import NavException, ConfigError, InvalidArgument
 
@@ -51,12 +51,12 @@ class Application(BaseApplication):
 
         Main class for Navigator Application.
     Args:
-        Handler (BaseHandler): Main (principal) Application to be wrapped by Navigator.
+        Handler (BaseAppHandler): Main (principal) Application to be wrapped by Navigator.
     """
 
     def __init__(
         self,  # pylint: disable=W0613
-        handler: BaseHandler = None,
+        handler: BaseAppHandler = None,
         title: str = "",
         description: str = "NAVIGATOR APP",
         contact: str = "",
@@ -447,17 +447,11 @@ class Application(BaseApplication):
                     expose_headers="*",
                     allow_methods="*",
                     allow_headers="*",
-                    max_age=3600,
+                    max_age=7200,
                 )
             },
         )
         for route in list(app.router.routes()):
-            # Ensure the route has a resource attribute and it's not None
-            routes = getattr(route.resource, '_routes', [])
-            routes = [r for r in routes]
-            if "OPTIONS" in routes:
-                # Skip if OPTIONS is already configured
-                continue
             try:
                 if inspect.isclass(route.handler) and issubclass(
                     route.handler, AbstractView
@@ -465,7 +459,7 @@ class Application(BaseApplication):
                     cors.add(route, webview=True)
                 else:
                     cors.add(route)
-            except (TypeError, ValueError):
+            except (TypeError, ValueError, RuntimeError):
                 pass
 
     def run(self):

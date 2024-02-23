@@ -7,7 +7,6 @@ from collections.abc import Callable
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from pathlib import Path
-import aiohttp_cors
 from navconfig import config, DEBUG, BASE_DIR
 from ..functions import cPrint
 from ..types import WebApp
@@ -75,19 +74,6 @@ cdef class BaseAppHandler:
         app["name"] = self._name
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
-        # CORS Setup:
-        self.cors = aiohttp_cors.setup(
-            app,
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=7200,
-                )
-            },
-        )
         return app
 
     def configure(self) -> None:

@@ -10,12 +10,12 @@ from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 import traceback
 from asyncdb import AsyncDB
-from navigator.applications.startup import ApplicationInstaller
+from ..applications.startup import ApplicationInstaller
 # Template Extension.
-from navigator.template import TemplateParser
-from navigator.conf import TEMPLATE_DIRECTORY
-from navigator.functions import cPrint
-from navigator.version import __version__
+from ..template import TemplateParser
+from ..conf import TEMPLATE_DIRECTORY
+from ..functions import cPrint
+from ..version import __version__
 from .exceptions import CommandError, CommandNotFound
 
 

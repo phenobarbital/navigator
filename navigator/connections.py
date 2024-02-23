@@ -5,8 +5,8 @@ from typing import Optional
 from collections.abc import Callable
 from asyncdb import AsyncPool, AsyncDB
 from asyncdb.exceptions import ProviderError, DriverError
-from navigator.types import WebApp
-from navigator.conf import (
+from .types import WebApp
+from .conf import (
     default_dsn,
     DB_TIMEOUT,
     DB_STATEMENT_TIMEOUT,

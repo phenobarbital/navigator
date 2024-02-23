@@ -6,7 +6,7 @@ import aiohttp
 from aiohttp import WSMsgType, web  # , web_urldispatcher
 from navconfig import BASE_DIR
 from navigator_session import get_session
-from navigator.libs.json import json_encoder
+from .libs.json import json_encoder
 
 
 async def channel_handler(request: web.Request):

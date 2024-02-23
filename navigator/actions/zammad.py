@@ -1,5 +1,5 @@
-from navigator.exceptions import ConfigError
-from navigator.conf import (
+from ..exceptions import ConfigError
+from ..conf import (
     ZAMMAD_INSTANCE,
     ZAMMAD_TOKEN,
     ZAMMAD_DEFAULT_CUSTOMER,

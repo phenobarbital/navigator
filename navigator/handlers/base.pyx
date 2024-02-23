@@ -7,13 +7,14 @@ from collections.abc import Callable
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from pathlib import Path
+import aiohttp_cors
 from navconfig import config, DEBUG, BASE_DIR
-from navigator.functions import cPrint
-from navigator.types import WebApp
-from navigator.utils.functions import get_logger
+from ..functions import cPrint
+from ..types import WebApp
+from ..utils.functions import get_logger
 # make a home and a ping class
-from navigator.resources import ping, home
-from navigator.exceptions import NavException
+from ..resources import ping, home
+from ..exceptions import NavException
 
 
 cdef class BaseAppHandler:
@@ -74,6 +75,19 @@ cdef class BaseAppHandler:
         app["name"] = self._name
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
+        # CORS Setup:
+        self.cors = aiohttp_cors.setup(
+            app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=7200,
+                )
+            },
+        )
         return app
 
     def configure(self) -> None:

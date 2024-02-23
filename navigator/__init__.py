@@ -20,7 +20,6 @@ TODO:
 https://github.com/phenobarbital/navigator
 
 """
-import asyncio
 from .utils.uv import install_uvloop
 try:
     from .navigator import Application

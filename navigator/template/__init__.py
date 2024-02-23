@@ -7,8 +7,8 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, TemplateError, TemplateNotFound
 from aiohttp import web
 from navconfig import config, BASE_DIR
-from navigator.extensions import BaseExtension
-from navigator.types import WebApp
+from ..extensions import BaseExtension
+from ..types import WebApp
 
 __version__ = "0.0.1"
 __author__ = "Jesus Lara <jesuslarag@gmail.com>"

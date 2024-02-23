@@ -5,14 +5,14 @@ import traceback
 from asyncdb import AsyncDB, AsyncPool
 from datamodel import BaseModel
 from datamodel.types import JSON_TYPES
-from navigator.conf import (
+from navigator_session import get_session
+from ..conf import (
     default_dsn,
     AUTH_SESSION_OBJECT
 )
-from navigator.types import WebApp
-from navigator.applications.base import BaseApplication
-from navigator.exceptions import ConfigError
-from navigator_session import get_session
+from ..types import WebApp
+from ..applications.base import BaseApplication
+from ..exceptions import ConfigError
 from .base import BaseView
 
 

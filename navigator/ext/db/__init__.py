@@ -5,10 +5,9 @@ from collections.abc import Callable
 from navconfig.logging import logging
 from asyncdb import AsyncDB
 from asyncdb.exceptions import ProviderError, DriverError
-from navigator.types import WebApp
-from navigator.extensions import BaseExtension
-from navigator.exceptions import NavException, ConfigError
-from navigator.conf import CACHE_URL
+from ...types import WebApp
+from ...extensions import BaseExtension
+from ...exceptions import NavException, ConfigError
 
 
 class DBConnection(BaseExtension):

@@ -1,6 +1,6 @@
 from asyncdb import AsyncDB
 from asyncdb.exceptions import DriverError, NoDataFound
-from navigator.exceptions import NavException
+from ..exceptions import NavException
 from .base import BaseView
 
 class DataView(BaseView):

@@ -1,5 +1,3 @@
-import json
-from navigator.exceptions import ConfigError
 from navconfig import config
 from .rest import RESTAction
 

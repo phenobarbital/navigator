@@ -6,7 +6,7 @@ from typing import Tuple, Callable, Awaitable
 from urllib.parse import urlparse, parse_qs, ParseResult
 from aiohttp import web
 from navconfig import config, DEBUG
-from navigator.exceptions.exceptions import ValidationError
+from .exceptions.exceptions import ValidationError
 
 # Useful types:
 WebApp = web.Application

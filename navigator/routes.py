@@ -3,7 +3,7 @@
 Define Path Router configuration.
 """
 from typing import Optional
-from navigator.types import HTTPMethod, HTTPLocation, HTTPHandler
+from .types import HTTPMethod, HTTPLocation, HTTPHandler
 
 
 #######################

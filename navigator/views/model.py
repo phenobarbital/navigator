@@ -752,7 +752,6 @@ class ModelView(AbstractModel):
         except (ValueError, KeyError):
             objid = {}
         try:
-            self.logger.debug('PUT OBJ Check: ', objid)
             async with await self.handler(request=self.request) as conn:
                 # check if object exists:
                 try:

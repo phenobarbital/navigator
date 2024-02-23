@@ -67,7 +67,6 @@ class AppHandler(BaseAppHandler):
         setup_docs.
         description: define DOC configuration
         """
-        # Configure CORS, swagger and documentation from all routes.
         for route in list(self.app.router.routes()):
             fn = route.handler
             signature = inspect.signature(fn)

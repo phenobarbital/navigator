@@ -28,7 +28,6 @@ DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
 
 
-#  CorsViewMixin
 class BaseHandler(ABC):
     _config = None
     _mem = None
@@ -39,15 +38,6 @@ class BaseHandler(ABC):
     _allowed = ["get", "post", "put", "patch", "delete", "options", "head"]
     _allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
-    cors_config = {
-        "*": aiohttp_cors.ResourceOptions(
-            allow_credentials=True,
-            expose_headers="*",
-            allow_methods="*",
-            allow_headers="*",
-            max_age=7200,
-        )
-    }
 
     def __init__(self, *args, **kwargs):
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")

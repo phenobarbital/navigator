@@ -132,19 +132,19 @@ class Application(BaseApplication):
         self.handler.configure()
         self.handler.setup_docs()
         # CORS:
-        # setup cors:
-        self.cors = aiohttp_cors.setup(
-            app,
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=7200,
-                )
-            },
-        )
+        # # setup cors:
+        # self.cors = aiohttp_cors.setup(
+        #     app,
+        #     defaults={
+        #         "*": aiohttp_cors.ResourceOptions(
+        #             allow_credentials=True,
+        #             expose_headers="*",
+        #             allow_methods="*",
+        #             allow_headers="*",
+        #             max_age=7200,
+        #         )
+        #     },
+        # )
         ## Return aiohttp Application.
         return app
 

@@ -21,6 +21,7 @@ HOSTS = [e.strip() for e in list(
     config.get("HOSTS", fallback="localhost").split(",")
 )]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
+ENABLE_ACCESS_LOG = config.getboolean("ENABLE_ACCESS_LOG", fallback=False)
 
 # Temp File Path
 files_path = BASE_DIR.joinpath("temp")

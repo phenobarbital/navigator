@@ -1,5 +1,4 @@
 from typing import Union, Any
-import traceback
 import importlib
 from aiohttp import web
 from navconfig.logging import logger
@@ -81,8 +80,7 @@ class ModelView(AbstractModel):
             self.model = self._import_model(self.model_name)
         if self.get_model and isinstance(self.get_model, str):
             self.get_model = self._import_model(self.get_model)
-        AbstractModel.__init__(self, request, *args, **kwargs)
-        # super(ModelView, self).__init__(request, *args, **kwargs)
+        super(ModelView, self).__init__(request, *args, **kwargs)
         # getting model associated
         try:
             self.model = self._get_model()

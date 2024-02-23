@@ -127,7 +127,7 @@ class AbstractModel(BaseView):
         dsn = kwargs.pop('dsn', None)
         credentials = kwargs.pop('credentials', {})
         dbname = kwargs.pop('dbname', 'nav.model')
-        BaseView.__init__(self, request, *args, **kwargs)
+        super().__init__(request, *args, **kwargs)
         # Database Connection Handler
         self.handler = ConnectionHandler(
             driver,

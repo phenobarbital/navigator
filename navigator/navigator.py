@@ -131,7 +131,7 @@ class Application(BaseApplication):
         # Configure Routes and other things:
         self.handler.configure()
         self.handler.setup_docs()
-        self.handler.setup_cors(app)
+        self.handler.setup_cors()
         ## Return aiohttp Application.
         return app
 
@@ -441,20 +441,6 @@ class Application(BaseApplication):
     ) -> None:
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
-
-    def setup_cors(self, app: web.Application):
-        # CORS:
-        cors = app[AIOHTTP_CORS_KEY]
-        for route in list(app.router.routes()):
-            try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    cors.add(route, webview=True)
-                else:
-                    cors.add(route)
-            except (TypeError, ValueError, RuntimeError):
-                pass
 
     def run(self):
         """run.

@@ -240,7 +240,7 @@ class AppConfig(AppHandler):
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
         # Set CORS at the end of initialization
-        self.setup_cors(app=self.app)
+        self.setup_cors()
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.

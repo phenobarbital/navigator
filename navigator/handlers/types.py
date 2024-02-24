@@ -199,6 +199,14 @@ class AppConfig(AppHandler):
                         raise Exception(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
+                    # CORS:
+                    try:
+                        self.cors.add(r, webview=True)
+                    except (AttributeError, RuntimeError) as exc:
+                        self.logger.warning(
+                            f"CORS not enabled for {self._name_}: {exc}"
+                        )
+                        pass
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
             else:
@@ -231,6 +239,8 @@ class AppConfig(AppHandler):
                         raise ConfigError(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
+        # Set CORS at the end of initialization
+        self.setup_cors(app=self.app)
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.

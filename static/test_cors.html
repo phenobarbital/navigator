@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>API Calls Example</title>
+    <script>
+        // Function to make an API call and display the result in a specified div
+        function fetchAndDisplay(apiUrl, resultDivId) {
+            fetch(apiUrl).then(response => response.json()).then(data => {
+                    document.getElementById(resultDivId).textContent = JSON.stringify(data, null, 2);
+                }).catch(error => console.error('Error fetching data:', error));
+        }
+
+        // Function to call when the page loads
+        function loadData() {
+            fetchAndDisplay(
+                'http://nav-api.dev.local:5000/api/v1/versions',
+                'versionsResult'
+            );
+            fetchAndDisplay(
+                'http://nav-api.dev.local:5000/api/v1/clients?subdomain_prefix=navigator-new',
+                'clientsResult'
+            );
+        }
+    </script>
+</head>
+<body onload="loadData()">
+    <h2>API Call Results</h2>
+    <div>
+        <h3>Versions:</h3>
+        <pre id="versionsResult"></pre>
+    </div>
+    <div>
+        <h3>Clients:</h3>
+        <pre id="clientsResult"></pre>
+    </div>
+</body>
+</html>

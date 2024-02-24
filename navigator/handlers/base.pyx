@@ -6,6 +6,7 @@ import inspect
 from collections.abc import Callable
 from aiohttp import web
 from aiohttp.abc import AbstractView
+import aiohttp_cors
 from pathlib import Path
 from navconfig import config, DEBUG, BASE_DIR
 from ..functions import cPrint
@@ -74,7 +75,39 @@ cdef class BaseAppHandler:
         app["name"] = self._name
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
+        # CORS
+        self.cors = aiohttp_cors.setup(
+            app,
+            defaults={
+                "*": aiohttp_cors.ResourceOptions(
+                    allow_credentials=True,
+                    expose_headers="*",
+                    allow_methods="*",
+                    allow_headers="*",
+                    max_age=1600,
+                )
+            },
+        )
         return app
+
+    def setup_cors(self, app: web.Application):
+        # CORS:
+        print('=== Setting up CORS ==== ')
+        for route in list(app.router.routes()):
+            try:
+                if inspect.isclass(route.handler) and issubclass(
+                    route.handler, AbstractView
+                ):
+                    self.cors.add(route, webview=True)
+                else:
+                    self.cors.add(route)
+            except (TypeError, ValueError, RuntimeError) as exc:
+                if 'already has OPTIONS handler' in str(exc):
+                    continue
+                self.logger.warning(
+                    f"Error setting up CORS for route {route}: {exc}"
+                )
+                continue
 
     def configure(self) -> None:
         """
@@ -107,6 +140,10 @@ cdef class BaseAppHandler:
 
     def add_view(self, route: str, view: Callable) -> None:
         self.app.router.add_view(route, view)
+        try:
+            self.cors.add(route, webview=True)
+        except RuntimeError as ex:
+            pass
 
     def event_loop(self) -> asyncio.AbstractEventLoop:
         return self._loop

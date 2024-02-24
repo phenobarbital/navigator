@@ -8,7 +8,7 @@ from typing import Any, Union
 from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
-import aiohttp_cors
+from aiohttp_cors import APP_CONFIG_KEY as AIOHTTP_CORS_KEY
 from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from aiohttp import web
@@ -95,7 +95,7 @@ class Application(BaseApplication):
                 cls = import_module("navigator.handlers.types", package=default_handler)
                 app_obj = getattr(cls, default_handler)
                 # create an instance of AppHandler
-                self.handler = app_obj(Context, evt=self._loop, **kwargs)
+                self.handler: BaseAppHandler = app_obj(Context, evt=self._loop, **kwargs)
             except ImportError as ex:
                 raise NavException(
                     f"Cannot Import default App Handler {default_handler}: {ex}"
@@ -131,20 +131,7 @@ class Application(BaseApplication):
         # Configure Routes and other things:
         self.handler.configure()
         self.handler.setup_docs()
-        # CORS:
-        # # setup cors:
-        # self.cors = aiohttp_cors.setup(
-        #     app,
-        #     defaults={
-        #         "*": aiohttp_cors.ResourceOptions(
-        #             allow_credentials=True,
-        #             expose_headers="*",
-        #             allow_methods="*",
-        #             allow_headers="*",
-        #             max_age=7200,
-        #         )
-        #     },
-        # )
+        self.handler.setup_cors(app)
         ## Return aiohttp Application.
         return app
 
@@ -457,18 +444,7 @@ class Application(BaseApplication):
 
     def setup_cors(self, app: web.Application):
         # CORS:
-        cors = aiohttp_cors.setup(
-            app,
-            defaults={
-                "*": aiohttp_cors.ResourceOptions(
-                    allow_credentials=True,
-                    expose_headers="*",
-                    allow_methods="*",
-                    allow_headers="*",
-                    max_age=7200,
-                )
-            },
-        )
+        cors = app[AIOHTTP_CORS_KEY]
         for route in list(app.router.routes()):
             try:
                 if inspect.isclass(route.handler) and issubclass(
@@ -488,8 +464,6 @@ class Application(BaseApplication):
         from navigator import conf  # pylint: disable=C0415
         # getting the resource App
         app = self.setup_app()
-        ## and Setup Cors:
-        self.setup_cors(app)
         enable_access_log = conf.ENABLE_ACCESS_LOG
         if enable_access_log is False:
             enable_access_log = None

@@ -90,10 +90,9 @@ cdef class BaseAppHandler:
         )
         return app
 
-    def setup_cors(self, app: web.Application):
+    def setup_cors(self) -> None:
         # CORS:
-        print('=== Setting up CORS ==== ')
-        for route in list(app.router.routes()):
+        for route in list(self.app.router.routes()):
             try:
                 if inspect.isclass(route.handler) and issubclass(
                     route.handler, AbstractView

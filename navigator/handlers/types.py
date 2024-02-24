@@ -123,12 +123,10 @@ class AppConfig(AppHandler):
     def __init__(self, *args, **kwargs):
         self._name_ = type(self).__name__
         self._listener: Callable = None
-        super(AppConfig, self).__init__(*args, **kwargs)
+        AppHandler.__init__(self, *args, **kwargs)
         if self.path is not None:
             path = BASE_DIR.joinpath("apps")
             self.path = path.joinpath(self._name_)
-        # set the setup_routes
-        self.setup_routes()
         # Auto Home:
         if self.auto_home is True:
             self.app.router.add_get(f"/{self._name_}/", home)
@@ -137,6 +135,8 @@ class AppConfig(AppHandler):
             "/authorize",
             self.app_authorization
         )
+        # set the setup_routes
+        self.setup_routes()
 
     def setup_routes(self):
         """Setup Routes (URLS) pointing to paths on AppConfig."""
@@ -199,14 +199,6 @@ class AppConfig(AppHandler):
                         raise Exception(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
-                    # CORS:
-                    try:
-                        self.cors.add(r, webview=True)
-                    except (AttributeError, RuntimeError) as exc:
-                        self.logger.warning(
-                            f"CORS not enabled for {self._name_}: {exc}"
-                        )
-                        pass
             elif inspect.isclass(route.handler):
                 r = self.app.router.add_view(route.url, route.handler, name=route.name)
             else:
@@ -239,8 +231,6 @@ class AppConfig(AppHandler):
                         raise ConfigError(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
-        # Set CORS at the end of initialization
-        self.setup_cors()
 
     async def app_authorization(self, request: web.Request) -> web.Response:
         """app_authorization.

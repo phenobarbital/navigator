@@ -232,6 +232,8 @@ class Zammad(AbstractTicket, RESTAction):
                 self.url, self.method
             )
             return result
+        except ConfigError:
+            raise
         except Exception as e:
             raise ConfigError(
                 f"Error Searching Zammad User: {e}"

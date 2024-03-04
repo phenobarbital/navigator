@@ -249,6 +249,14 @@ class RESTAction(AbstractAction):
                     "headers": self.headers
                 }
                 return (result, error)
+            except HTTPError as err:
+                self._logger.error(
+                    f"HTTP error occurred: {err}"
+                )
+                # Log the error or perform other error handling
+                raise ConfigError(
+                    f"{err}"
+                )
             except requests.exceptions.ReadTimeout as err:
                 self._logger.warning(
                     f"Timeout Error: {err!r}"
@@ -282,7 +290,7 @@ class RESTAction(AbstractAction):
                     f"HTTP error occurred: {http_err}"
                 )
                 # You can choose to continue, break, or return based on your logic
-                continue
+                raise
             try:
                 if self.download is True:
                     # Filename:

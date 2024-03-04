@@ -132,7 +132,9 @@ class Zammad(AbstractTicket, RESTAction):
         """
         self.url = f"{ZAMMAD_INSTANCE}api/v1/tickets"
         self.method = 'post'
-        group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
+        group = self._kwargs.pop('group')
+        if not group:
+            group = ZAMMAD_DEFAULT_GROUP
         title = self._kwargs.pop('title', None)
         service_catalog = self._kwargs.pop('service_catalog')
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)

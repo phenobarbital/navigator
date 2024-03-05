@@ -286,11 +286,17 @@ class RESTAction(AbstractAction):
                 # Handle HTTP errors here
                 error = http_err
                 # Log the error or perform other error handling
+                if response.headers.get('content_type') == 'application/json':
+                    rsp = response.json()
+                else:
+                    rsp = response.text
                 self._logger.error(
-                    f"HTTP error occurred: {http_err}"
+                    f"HTTP error: {http_err} with response: {rsp!s}"
                 )
                 # You can choose to continue, break, or return based on your logic
-                raise
+                raise HTTPError(
+                    f"HTTP error: {http_err} with response: {rsp!s}"
+                )
             try:
                 if self.download is True:
                     # Filename:

@@ -138,6 +138,7 @@ class Zammad(AbstractTicket, RESTAction):
         title = self._kwargs.pop('title', None)
         service_catalog = self._kwargs.pop('service_catalog')
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
+        _type = self._kwargs.pop('type', 'Incident')
         user = self._kwargs.pop('user', None)
         if user:
             self.headers['X-On-Behalf-Of'] = user
@@ -150,6 +151,7 @@ class Zammad(AbstractTicket, RESTAction):
             "title": title,
             "group": group,
             "customer": customer,
+            "type": _type,
             "service_catalog": service_catalog,
             "article": article
         }

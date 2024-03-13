@@ -160,7 +160,10 @@ setup(
         "aiohttp-cors",
         "proxylists>=0.12.3",
         "httpx==0.26.0",
-        "beautifulsoup4==4.12.2"
+        "beautifulsoup4==4.12.2",
+        "polyline==2.0.1",
+        "cartopy==0.22.0",
+        "matplotlib==3.8.3"
     ],
     extras_require={
         "locale": [

@@ -1,3 +1,5 @@
+import base64
+import magic
 from ..exceptions import ConfigError
 from ..conf import (
     ZAMMAD_INSTANCE,
@@ -130,6 +132,12 @@ class Zammad(AbstractTicket, RESTAction):
 
         Create a new Ticket.
         """
+        supported_types = [
+            'text/plain', 'image/png', 'image/jpeg', 'image/gif', 'application/pdf',
+            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'text/csv'
+        ]
         self.url = f"{ZAMMAD_INSTANCE}api/v1/tickets"
         self.method = 'post'
         group = self._kwargs.pop('group')
@@ -140,13 +148,35 @@ class Zammad(AbstractTicket, RESTAction):
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
         _type = self._kwargs.pop('type', 'Incident')
         user = self._kwargs.pop('user', None)
+        attachments = []
+        for attachment in self._kwargs.get('attachments', []):
+            mime_type = attachment.get('mime_type')
+            encoded_data = attachment.get('data')
+            if not mime_type:
+                try:
+                    # Decode the Base64-encoded data to get the binary content
+                    binary_data = base64.b64decode(encoded_data)
+                    # Use python-magic to determine the file's MIME type
+                    mime_type = magic.from_buffer(binary_data, mime=True)
+                except Exception:
+                    mime_type = 'text/plain'
+            attach = {
+                "mime-type": mime_type,
+                "filename": attachment['filename'],
+                "data": encoded_data
+            }
+            if mime_type in supported_types:
+                attachments.append(attach)
         if user:
             self.headers['X-On-Behalf-Of'] = user
         article = {
             "subject": self._kwargs.pop('subject', title),
-            "body": self._kwargs.pop('body', None)
+            "body": self._kwargs.pop('body', None),
+            "type": self._kwargs.pop('article_type', 'note'),
         }
         article = {**self.article_base, **article}
+        if attachments:
+            article['attachments'] = attachments
         data = {
             "title": title,
             "group": group,

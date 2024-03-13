@@ -9,6 +9,7 @@ import datetime
 import urllib.parse
 import pytz
 import polyline
+import aiohttp
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
 import cartopy.io.img_tiles as cimgt
@@ -283,12 +284,14 @@ class Route(GoogleService):
                         url_map = self.plot_route(decoded_polyline)
                 # Extract the optimal order of stores:
                 response = {
-                    "Optimal Route": bestroute,
-                    "Total Duration": f"{total_duration_min:.2f} minutes",
-                    "Total Distance": f"{total_distance_miles:.2f} miles",
-                    "Map URL": map_url,
-                    "Map": url_map,
-                    "Route Overview": decoded_polyline
+                    "route_legs": bestroute,
+                    "duration": total_duration_min,
+                    "distance": total_distance_miles,
+                    "total_duration": f"{total_duration_min:.2f} minutes",
+                    "total_distance": f"{total_distance_miles:.2f} miles",
+                    "map_url": map_url,
+                    "map": url_map,
+                    "overview": decoded_polyline
                 }
                 if complete is True:
                     response['response'] = result
@@ -353,9 +356,11 @@ class Route(GoogleService):
         params['waypoints'] += "|".join(
             [",".join([str(x) for x in loc]) for loc in locations_list]
         )
-        response = requests.get(base_url, params=params)
-        if response.status_code == 200:
-            result = response.json()
+        timeout = aiohttp.ClientTimeout(total=60)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.request('GET', base_url, params=params) as response:
+                if response.status == 200:
+                    result = await response.json()
             if result['status'] == 'OK':
                 # Extracting route, duration, and distance information
                 route = result['routes'][0]
@@ -394,13 +399,15 @@ class Route(GoogleService):
                 waypoint_order = route['waypoint_order']
                 route = [locations[i]['store_id'] for i in waypoint_order]
                 response = {
-                    "Optimal Route": bestroute,
+                    "route_legs": bestroute,
                     "route": route,  # The ordered list of store IDs
-                    "Total Duration": f"{total_duration_min:.2f} minutes",
-                    "Total Distance": f"{total_distance_miles:.2f} miles",
-                    "Map URL": map_url,
-                    "Map": url_map,
-                    "Route Overview": decoded_polyline
+                    "duration": total_duration_min,
+                    "distance": total_distance_miles,
+                    "total_duration": f"{total_duration_min:.2f} minutes",
+                    "total_distance": f"{total_distance_miles:.2f} miles",
+                    "map_url": map_url,
+                    "map": url_map,
+                    # "route_overview": decoded_polyline
                 }
                 if complete is True:
                     response['response'] = result

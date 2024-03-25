@@ -135,12 +135,12 @@ setup(
     license_files='LICENSE',
     setup_requires=[
         "setuptools==67.6.1",
-        "Cython==3.0.6",
+        "Cython==3.0.9",
         "wheel==0.42.0",
         "asyncio==3.4.3"
     ],
     install_requires=[
-        "Cython==3.0.6",
+        "Cython==3.0.9",
         "asyncio==3.4.3",
         "uvloop==0.19.0",
         "aiohttp==3.9.3",

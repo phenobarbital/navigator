@@ -36,8 +36,10 @@ class Zammad(AbstractTicket, RESTAction):
     def __init__(self, *args, **kwargs):
         super(Zammad, self).__init__(*args, **kwargs)
         self.credentials = {}
+        self.zammad_instance = self._kwargs.pop('zammad_instance', ZAMMAD_INSTANCE)
+        self.zammad_token = self._kwargs.pop('zammad_token', ZAMMAD_TOKEN)
         self.auth = {
-            "apikey": ZAMMAD_TOKEN
+            "apikey": self.zammad_token
         }
 
     async def get_user_token(self):
@@ -47,7 +49,7 @@ class Zammad(AbstractTicket, RESTAction):
         Usage: using X-On-Behalf-Of to getting User Token.
 
         """
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/user_access_token"
+        self.url = f"{self.zammad_instance}api/v1/user_access_token"
         self.method = 'post'
         permissions: list = self._kwargs.pop('permissions', [])
         user = self._kwargs.pop('user', ZAMMAD_DEFAULT_CUSTOMER)
@@ -70,7 +72,7 @@ class Zammad(AbstractTicket, RESTAction):
             Getting a List of all opened tickets by User.
         """
         self.method = 'get'
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/tickets/search?query=state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
+        self.url = f"{self.zammad_instance}api/v1/tickets/search?query=state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
         try:
             result, _ = await self.request(
                 self.url, self.method
@@ -103,7 +105,7 @@ class Zammad(AbstractTicket, RESTAction):
             raise ConfigError(
                 "Ticket ID is required."
             )
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/tickets/{self.ticket}"
+        self.url = f"{self.zammad_instance}api/v1/tickets/{self.ticket}"
         article = {
             "subject": self._kwargs.pop('subject', title),
             "body": self._kwargs.pop('body', None),
@@ -138,13 +140,11 @@ class Zammad(AbstractTicket, RESTAction):
             'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'text/csv'
         ]
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/tickets"
+        self.url = f"{self.zammad_instance}api/v1/tickets"
         self.method = 'post'
-        group = self._kwargs.pop('group')
-        if not group:
-            group = ZAMMAD_DEFAULT_GROUP
+        group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
         title = self._kwargs.pop('title', None)
-        service_catalog = self._kwargs.pop('service_catalog')
+        service_catalog = self._kwargs.pop('service_catalog', None)
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
         _type = self._kwargs.pop('type', 'Incident')
         user = self._kwargs.pop('user', None)
@@ -207,7 +207,7 @@ class Zammad(AbstractTicket, RESTAction):
 
         TODO: Adding validation with dataclasses.
         """
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/users"
+        self.url = f"{self.zammad_instance}api/v1/users"
         self.method = 'post'
         organization = self._kwargs.pop(
             'organization',
@@ -245,7 +245,7 @@ class Zammad(AbstractTicket, RESTAction):
 
         TODO: Adding validation with dataclasses.
         """
-        self.url = f"{ZAMMAD_INSTANCE}api/v1/users/search"
+        self.url = f"{self.zammad_instance}api/v1/users/search"
         self.method = 'get'
         search = self._kwargs.pop('search', search)
         if not isinstance(search, dict):
@@ -280,7 +280,7 @@ class Zammad(AbstractTicket, RESTAction):
 
         TODO: Adding validation with dataclasses.
         """
-        self.url = f"{ZAMMAD_INSTANCE}/api/v1/tickets/{ticket_id}"
+        self.url = f"{self.zammad_instance}/api/v1/tickets/{ticket_id}"
         self.method = 'get'
         try:
             result, _ = await self.request(

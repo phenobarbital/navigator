@@ -35,6 +35,7 @@ class Zammad(AbstractTicket, RESTAction):
 
     def __init__(self, *args, **kwargs):
         super(Zammad, self).__init__(*args, **kwargs)
+        self.timeout = 360
         self.credentials = {}
         self.zammad_instance = self._kwargs.pop('zammad_instance', ZAMMAD_INSTANCE)
         self.zammad_token = self._kwargs.pop('zammad_token', ZAMMAD_TOKEN)
@@ -129,7 +130,7 @@ class Zammad(AbstractTicket, RESTAction):
                 f"Error Updating Zammad Ticket: {e}"
             ) from e
 
-    async def create(self):
+    async def create(self, **kwargs):
         """create.
 
         Create a new Ticket.
@@ -183,7 +184,8 @@ class Zammad(AbstractTicket, RESTAction):
             "customer": customer,
             "type": _type,
             "service_catalog": service_catalog,
-            "article": article
+            "article": article,
+            **kwargs
         }
         try:
             result, error = await self.request(

@@ -1013,7 +1013,12 @@ class ModelView(AbstractModel):
         if hasattr(self, '_del_primary_data'):
             objid = await self._del_primary_data(args)
         else:
-            objid = await self._get_primary_data(args)
+            return self.error(
+                response={
+                    "message": "A _del_primary_data method is required for filtering DELETE data."
+                },
+                status=422
+            )
         if objid:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn

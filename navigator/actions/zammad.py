@@ -1,5 +1,6 @@
 import base64
 import magic
+from urllib.parse import quote_plus
 from ..exceptions import ConfigError
 from ..conf import (
     ZAMMAD_INSTANCE,
@@ -12,6 +13,8 @@ from ..conf import (
 )
 from .ticket import AbstractTicket
 from .rest import RESTAction
+
+
 
 class Zammad(AbstractTicket, RESTAction):
     """Zammad.
@@ -67,13 +70,25 @@ class Zammad(AbstractTicket, RESTAction):
         )
         return result['token']
 
-    async def list_tickets(self):
+    async def list_tickets(self, **kwargs):
         """list_tickets.
 
             Getting a List of all opened tickets by User.
         """
         self.method = 'get'
-        self.url = f"{self.zammad_instance}api/v1/tickets/search?query=state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
+        states = kwargs.pop('state_id', [1, 2, 3])  # Open by Default
+        if ',' in states:
+            states = states.split(',')
+
+        if states:
+            # Then, after getting the states, we can join them with a delimiter
+            # state_id: 1 OR state_id: 2 OR state_id: 3
+            state_id_parts = ["state_id:{}".format(state) for state in states[1:]]
+            query_string = "state_id:{} OR ".format(states[0]) + " OR ".join(state_id_parts)
+            qs = quote_plus(query_string)
+        else:
+            qs = "state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
+        self.url = f"{self.zammad_instance}api/v1/tickets/search?query={qs}"
         try:
             result, _ = await self.request(
                 self.url, self.method
@@ -84,10 +99,10 @@ class Zammad(AbstractTicket, RESTAction):
                 f"Error getting Zammad Tickets: {e}"
             ) from e
 
-    async def update(self, ticket: int):
-        """list_tickets.
+    async def update(self, ticket: int, **kwargs):
+        """update.
 
-            Getting a List of all opened tickets by User.
+           Update an Existing Ticket.
         """
         self.method = 'post'
         title = self._kwargs.pop('title', None)
@@ -118,7 +133,8 @@ class Zammad(AbstractTicket, RESTAction):
             "group": group,
             "customer": customer,
             "service_catalog": service_catalog,
-            "article": article
+            "article": article,
+            **kwargs
         }
         try:
             result, _ = await self.request(

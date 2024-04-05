@@ -309,3 +309,23 @@ class Zammad(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error Getting Zammad Ticket: {e}"
             ) from e
+    
+    async def get_articles(self, ticket_id: int):
+        """get_articles
+
+        get all articles of a ticket
+
+        Args:
+            ticket_id (int): id of ticket
+        """
+        self.url = f"{self.zammad_instance}/api/v1/ticket_articles/by_ticket/{ticket_id}"
+        self.method = 'get'
+        try:
+            result, _ = await self.request(
+                self.url, self.method
+            )
+            return result
+        except Exception as e:
+            raise ConfigError(
+                f"Error Getting Zammad Ticket: {e}"
+            ) from e

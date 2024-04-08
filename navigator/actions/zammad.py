@@ -104,7 +104,7 @@ class Zammad(AbstractTicket, RESTAction):
 
            Update an Existing Ticket.
         """
-        self.method = 'post'
+        self.method = 'put'
         title = self._kwargs.pop('title', None)
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
         group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
@@ -136,6 +136,7 @@ class Zammad(AbstractTicket, RESTAction):
             "article": article,
             **kwargs
         }
+        data = self._encoder.dumps(data)
         try:
             result, _ = await self.request(
                 self.url, self.method, data=data

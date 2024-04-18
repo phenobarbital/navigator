@@ -143,7 +143,7 @@ setup(
         "Cython==3.0.9",
         "asyncio==3.4.3",
         "uvloop==0.19.0",
-        "aiohttp==3.9.3",
+        "aiohttp==3.9.4",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",

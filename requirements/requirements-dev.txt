@@ -10,7 +10,8 @@ mypy==1.7.1
 pylint==2.16.1
 pyperf==2.6.2
 pytest>=6.0.0
-pytest-asyncio==0.23.2
+pytest-aiohttp==1.0.5
+pytest-asyncio==0.23.6
 pytest-cov==4.0.0
 pytest-cython==0.2.0
 pytest-xdist==3.5.0

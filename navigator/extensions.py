@@ -3,6 +3,7 @@ import sys
 from typing import Optional
 from collections.abc import Callable
 from abc import ABC
+from aiohttp.web import AppKey
 from navconfig import config
 from navconfig.logging import logging
 from .exceptions import NavException, ConfigError
@@ -62,7 +63,8 @@ class BaseExtension(ABC):
         else:
             raise TypeError(f"Invalid type for Application Setup: {app}:{type(app)}")
         # register the extension into the app
-        self.app[self.name] = self
+        self.app[AppKey(self.name, WebApp)] = self
+        # self.app[self.name] = self
         try:
             self.app.extensions[self.name] = self
         except AttributeError:

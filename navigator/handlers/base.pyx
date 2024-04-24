@@ -7,6 +7,7 @@ from collections.abc import Callable
 from aiohttp import web
 from aiohttp.abc import AbstractView
 import aiohttp_cors
+from aiohttp_cors import setup as cors_setup, ResourceOptions
 from pathlib import Path
 from navconfig import config, DEBUG, BASE_DIR
 from ..functions import cPrint
@@ -76,13 +77,13 @@ cdef class BaseAppHandler:
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
         # CORS
-        self.cors = aiohttp_cors.setup(
+        self.cors = cors_setup(
             app,
             defaults={
-                "*": aiohttp_cors.ResourceOptions(
+                "*": ResourceOptions(
                     allow_credentials=True,
                     expose_headers="*",
-                    allow_methods="*",
+                    # -- allow_methods="*",
                     allow_headers="*",
                     max_age=1600,
                 )
@@ -94,12 +95,13 @@ cdef class BaseAppHandler:
         # CORS:
         for route in list(self.app.router.routes()):
             try:
-                if inspect.isclass(route.handler) and issubclass(
-                    route.handler, AbstractView
-                ):
-                    self.cors.add(route, webview=True)
-                else:
-                    self.cors.add(route)
+                if not isinstance(route.resource, web.StaticResource):
+                    if inspect.isclass(route.handler) and issubclass(
+                        route.handler, AbstractView
+                    ):
+                        self.cors.add(route, webview=True)
+                    else:
+                        self.cors.add(route)
             except (TypeError, ValueError, RuntimeError) as exc:
                 if 'already has OPTIONS handler' in str(exc):
                     continue

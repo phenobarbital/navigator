@@ -7,6 +7,7 @@ an Application is a subApp created inside of "apps" folder.
 """
 import importlib
 from types import ModuleType
+from aiohttp.web import AppKey
 from navconfig.logging import logging
 from navconfig import BASE_DIR
 
@@ -100,9 +101,11 @@ def app_startup(app_list: list, app: WebApp, context: dict = None, **kwargs):
             # TODO: build automatic documentation
             try:
                 # can I add Main to subApp?
-                sub_app["Main"] = app
+                main_key = AppKey("Main", WebApp)
+                sub_app[main_key] = app
                 for name, ext in app.extensions.items():
-                    sub_app[name] = ext
+                    sub_key = AppKey(name, WebApp)
+                    sub_app[sub_key] = ext
                     sub_app.extensions[name] = ext
             except (KeyError, AttributeError) as err:
                 logging.warning(err)

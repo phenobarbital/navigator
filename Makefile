@@ -13,7 +13,6 @@ develop:
 	python -m pip install -Ur requirements/requirements-dev.txt
 	# add other dependencies:
 	pip install --upgrade navigator-session navigator-auth
-	pip install -e services/aiohttp-cors
 	echo 'start develop Navigator'
 
 setup:

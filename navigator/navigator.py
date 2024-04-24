@@ -80,6 +80,8 @@ class Application(BaseApplication):
             self._loop = asyncio.get_event_loop()
         except RuntimeError:
             self._loop = asyncio.new_event_loop()
+        if 'evt' in kwargs:
+            self._loop = kwargs.pop('evt')
         self._loop.set_exception_handler(nav_exception_handler)
         asyncio.set_event_loop(self._loop)
         # May want to catch other signals too
@@ -492,14 +494,25 @@ class Application(BaseApplication):
                 access_log=enable_access_log
             )
         else:
-            web.run_app(
-                app,
-                host=self.host,
-                port=self.port,
-                loop=self._loop,
-                handle_signals=True,
-                access_log=enable_access_log
-            )
+            try:
+                web.run_app(
+                    app,
+                    host=self.host,
+                    port=self.port,
+                    loop=self._loop,
+                    handle_signals=True,
+                    access_log=enable_access_log
+                )
+            except RuntimeError:
+                # loop already running
+                web.run_app(
+                    app,
+                    host=self.host,
+                    port=self.port,
+                    loop=asyncio.get_running_loop(),
+                    handle_signals=True,
+                    access_log=enable_access_log
+                )
 
 
 async def app_runner(

@@ -81,13 +81,13 @@ with open(version, 'r', encoding='utf-8') as meta:
     for node in (n for n in t.body if isinstance(n, ast.Assign)):
         if len(node.targets) == 1:
             name = node.targets[0]
-            if isinstance(name, ast.Name) and \
-                    name.id in (
-                            '__version__',
-                            '__title__',
-                            '__description__',
-                            '__author__',
-                            '__license__', '__author_email__'):
+            if isinstance(name, ast.Name) and name.id in (
+                '__version__',
+                '__title__',
+                '__description__',
+                '__author__',
+                '__license__', '__author_email__'
+            ):
                 v = node.value
                 if name.id == '__version__':
                     __version__ = v.s
@@ -131,6 +131,7 @@ setup(
     packages=find_packages(exclude=('tests', 'docs', )),
     package_data={"navigator": ["py.typed"]},
     include_package_data=True,
+    zip_safe=False,
     license=__license__,
     license_files='LICENSE',
     setup_requires=[
@@ -143,7 +144,7 @@ setup(
         "Cython==3.0.9",
         "asyncio==3.4.3",
         "uvloop==0.19.0",
-        "aiohttp==3.9.3",
+        "aiohttp==3.9.5",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
@@ -153,7 +154,6 @@ setup(
         "httptools==0.5.0",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
-        "aiohttp-cors",
         "proxylists>=0.12.4",
         "httpx==0.26.0",
         "beautifulsoup4==4.12.3",
@@ -164,6 +164,7 @@ setup(
         "aiohttp-sse==2.2.0",
         "asyncdb>=2.6.0",
         "navconfig[default]>=1.6.3",
+        "alt-aiohttp-cors==0.7.1"   # aiohttp-cors replacement
     ],
     extras_require={
         "locale": [

@@ -104,7 +104,7 @@ class Zammad(AbstractTicket, RESTAction):
 
            Update an Existing Ticket.
         """
-        self.method = 'post'
+        self.method = 'put'
         title = self._kwargs.pop('title', None)
         customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
         group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
@@ -136,6 +136,7 @@ class Zammad(AbstractTicket, RESTAction):
             "article": article,
             **kwargs
         }
+        data = self._encoder.dumps(data)
         try:
             result, _ = await self.request(
                 self.url, self.method, data=data
@@ -299,6 +300,26 @@ class Zammad(AbstractTicket, RESTAction):
         TODO: Adding validation with dataclasses.
         """
         self.url = f"{self.zammad_instance}/api/v1/tickets/{ticket_id}"
+        self.method = 'get'
+        try:
+            result, _ = await self.request(
+                self.url, self.method
+            )
+            return result
+        except Exception as e:
+            raise ConfigError(
+                f"Error Getting Zammad Ticket: {e}"
+            ) from e
+    
+    async def get_articles(self, ticket_id: int):
+        """get_articles
+
+        get all articles of a ticket
+
+        Args:
+            ticket_id (int): id of ticket
+        """
+        self.url = f"{self.zammad_instance}/api/v1/ticket_articles/by_ticket/{ticket_id}"
         self.method = 'get'
         try:
             result, _ = await self.request(

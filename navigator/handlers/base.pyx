@@ -83,7 +83,7 @@ cdef class BaseAppHandler:
                 "*": ResourceOptions(
                     allow_credentials=True,
                     expose_headers="*",
-                    # -- allow_methods="*",
+                    allow_methods="*",
                     allow_headers="*",
                     max_age=1600,
                 )

@@ -164,7 +164,7 @@ setup(
         "aiohttp-sse==2.2.0",
         "asyncdb>=2.6.0",
         "navconfig[default]>=1.6.3",
-        "alt-aiohttp-cors==0.7.1"   # aiohttp-cors replacement
+        "alt-aiohttp-cors==0.7.1"
     ],
     extras_require={
         "locale": [

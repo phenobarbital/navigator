@@ -71,6 +71,7 @@ class Application(BaseApplication):
             description=description,
             **kwargs,
         )
+        self._middlewares: list = kwargs.pop('middlewares', [])
         self.enable_jinja2 = enable_jinja2
         self.template_dirs = template_dirs
         from navigator.conf import Context  # pylint: disable=C0415
@@ -103,7 +104,7 @@ class Application(BaseApplication):
                     f"Cannot Import default App Handler {default_handler}: {ex}"
                 ) from ex
         else:
-            self.handler = handler(Context, evt=self._loop, **kwargs)
+            self.handler: BaseAppHandler = handler(Context, evt=self._loop, **kwargs)
 
     def setup_app(self) -> WebApp:
         app = self.handler.app
@@ -115,6 +116,9 @@ class Application(BaseApplication):
             except Exception as e:
                 logging.exception(e)
                 raise ConfigError(f"Error on Template configuration, {e}") from e
+        if self._middlewares:
+            for middleware in self._middlewares:
+                app.middlewares.append(middleware)
         # setup The Application and Sub-Applications Startup
         installer = ApplicationInstaller()
         INSTALLED_APPS: list = installer.installed_apps()
@@ -125,7 +129,11 @@ class Application(BaseApplication):
             )
             cls = import_module(app_init, package="app_startup")
             app_startup = getattr(cls, "app_startup")
-            app_startup(INSTALLED_APPS, app, context=app["config"])
+            app_startup(
+                INSTALLED_APPS,
+                app,
+                context=app["config"]
+            )
         except ImportError as ex:
             raise NavException(
                 f"Exception: Can't load Application Startup: {app_init}"

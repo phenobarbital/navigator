@@ -3,7 +3,6 @@ import sys
 from typing import Optional
 from collections.abc import Callable
 from abc import ABC
-from aiohttp.web import AppKey
 from navconfig import config
 from navconfig.logging import logging
 from .exceptions import NavException, ConfigError
@@ -47,7 +46,7 @@ class BaseExtension(ABC):
 
     def __init__(self, *args: P.args, app_name: str = None, **kwargs: P.kwargs) -> None:
         ### added config support
-        self.config: config
+        self.config = config
         if app_name:
             self.name = app_name  # override name
         self._args = args
@@ -63,8 +62,7 @@ class BaseExtension(ABC):
         else:
             raise TypeError(f"Invalid type for Application Setup: {app}:{type(app)}")
         # register the extension into the app
-        self.app[AppKey(self.name, WebApp)] = self
-        # self.app[self.name] = self
+        self.app[self.name] = self
         try:
             self.app.extensions[self.name] = self
         except AttributeError:

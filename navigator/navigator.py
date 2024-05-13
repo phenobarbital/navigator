@@ -22,6 +22,7 @@ try:
 except FileExistsError:
     print('Error: Missing ENV directory for Navconfig.')
 
+from navigator_auth.conf import exclude_list
 from .exceptions.handlers import nav_exception_handler, shutdown
 from .handlers import BaseAppHandler
 from .functions import cPrint
@@ -247,10 +248,17 @@ class Application(BaseApplication):
     def Response(self, content: Any) -> web.Response:
         return web.Response(text=content)
 
-    def get(self, route: str):
+    @property
+    def router(self):
+        return self.get_app().router
+
+    def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()
 
         def _decorator(func):
+            if allow_anonymous is True:
+                # add this route to the exclude list:
+                exclude_list.append(route)
             r = app.router.add_get(route, func)
 
             @wraps(func)
@@ -267,12 +275,11 @@ class Application(BaseApplication):
 
         return _decorator
 
-    @property
-    def router(self):
-        return self.get_app().router
-
-    def post(self, route: str):
+    def post(self, route: str, allow_anonymous: bool = False):
         def _decorator(func):
+            if allow_anonymous is True:
+                # add this route to the exclude list:
+                exclude_list.append(route)
             self.get_app().router.add_post(route, func)
 
             @wraps(func)
@@ -348,7 +355,7 @@ class Application(BaseApplication):
 
     def validate(self, model: Union[dataclass, BaseModel], **kwargs) -> web.Response:
         """validate.
-        Description: Validate Request input using a Datamodel
+        Description: Validate Request input using a dataclass or Datamodel.
         Args:
             model (Union[dataclass,BaseModel]): Model can be a dataclass or BaseModel.
             kwargs: Any other data passed as arguments to function.

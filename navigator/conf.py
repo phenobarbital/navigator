@@ -10,6 +10,8 @@ from navconfig.logging import logging
 
 #### BASIC Configuration
 APP_NAME = config.get("APP_NAME", fallback="Navigator")
+APP_HOST = config.get('APP_HOST', fallback="localhost")
+APP_PORT = config.get('APP_PORT', fallback=5000)
 APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 APP_LOGNAME = config.get("APP_LOGNAME", fallback="Navigator")
 logging.debug(f"::: STARTING APP: {APP_NAME} ::: ")

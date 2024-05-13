@@ -53,7 +53,7 @@ class ClassDict(dict, MutableMapping):
 
     def set(self, key, value) -> None:
         self.mapping[key] = value
-        if not key in self._columns:
+        if key not in self._columns:
             self._columns.append(key)
 
     ### Section: Simple magic methods
@@ -76,7 +76,7 @@ class ClassDict(dict, MutableMapping):
 
     def __setitem__(self, key, value):
         self.mapping[key] = value
-        if not key in self._columns:
+        if key not in self._columns:
             self._columns.append(key)
 
     def __getitem__(self, key: Union[str, int]) -> Any:

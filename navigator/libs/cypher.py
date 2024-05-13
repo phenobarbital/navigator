@@ -47,7 +47,7 @@ class Cipher:
         msg = codecs.decode(passphrase, "hex")
         if self.type == "AES":
             try:
-                return self.cipher.decrypt(msg)[len(self.iv) :].decode("utf-8")
+                return self.cipher.decrypt(msg)[len(self.iv):].decode("utf-8")
             except Exception as e:
                 print(e)
                 raise (e)

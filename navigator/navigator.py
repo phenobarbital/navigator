@@ -8,7 +8,6 @@ from typing import Any, Union
 from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
-from aiohttp_cors import APP_CONFIG_KEY as AIOHTTP_CORS_KEY
 from datamodel import BaseModel
 from datamodel.exceptions import ValidationError
 from aiohttp import web
@@ -22,7 +21,12 @@ try:
 except FileExistsError:
     print('Error: Missing ENV directory for Navconfig.')
 
-from navigator_auth.conf import exclude_list
+try:
+    from navigator_auth.conf import exclude_list
+    AUTH_INSTALLED = True
+except ImportError:
+    AUTH_INSTALLED = False
+
 from .exceptions.handlers import nav_exception_handler, shutdown
 from .handlers import BaseAppHandler
 from .functions import cPrint
@@ -215,7 +219,7 @@ class Application(BaseApplication):
                     result = await func(request)
                 return result
             except (ValueError, RuntimeError) as err:
-                self._logger.exception(err)
+                self.logger.exception(err)
                 raise InvalidArgument(
                     f"Error running Threaded Function: {err}"
                 ) from err
@@ -252,13 +256,17 @@ class Application(BaseApplication):
     def router(self):
         return self.get_app().router
 
+    def auth_excluded(self, route: str):
+        if AUTH_INSTALLED:
+            exclude_list.append(route)
+
     def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()
 
         def _decorator(func):
             if allow_anonymous is True:
                 # add this route to the exclude list:
-                exclude_list.append(route)
+                self.auth_excluded(route)
             r = app.router.add_get(route, func)
 
             @wraps(func)
@@ -266,7 +274,7 @@ class Application(BaseApplication):
                 try:
                     return f"{func(request, args, **kwargs)}"
                 except Exception as err:
-                    self._logger.exception(err)
+                    self.logger.exception(err)
                     raise ConfigError(
                         f"Error configuring GET Route {route}: {err}"
                     ) from err
@@ -279,7 +287,7 @@ class Application(BaseApplication):
         def _decorator(func):
             if allow_anonymous is True:
                 # add this route to the exclude list:
-                exclude_list.append(route)
+                self.auth_excluded(route)
             self.get_app().router.add_post(route, func)
 
             @wraps(func)
@@ -287,7 +295,7 @@ class Application(BaseApplication):
                 try:
                     return f"{func(request, args, **kwargs)}"
                 except Exception as err:
-                    self._logger.exception(err)
+                    self.logger.exception(err)
                     raise ConfigError(
                         f"Error configuring POST Route {route}: {err}"
                     ) from err

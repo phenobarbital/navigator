@@ -259,8 +259,6 @@ class Application(BaseApplication):
     def auth_excluded(self, route: str):
         if AUTH_INSTALLED:
             exclude_list.append(route)
-        else:
-            self.logger.warning("Navigator Auth not installed.")
 
     def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()
@@ -289,7 +287,7 @@ class Application(BaseApplication):
         def _decorator(func):
             if allow_anonymous is True:
                 # add this route to the exclude list:
-                exclude_list.append(route)
+                self.auth_excluded(route)
             self.get_app().router.add_post(route, func)
 
             @wraps(func)

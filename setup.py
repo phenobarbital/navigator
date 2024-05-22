@@ -149,7 +149,7 @@ setup(
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
         "aiohttp-jrpc==0.1.0",
-        "jinja2==3.1.3",
+        "jinja2==3.1.4",
         "aiohttp-utils==3.1.1",
         "httptools==0.5.0",
         "aiosocks==0.2.6",
@@ -163,8 +163,9 @@ setup(
         "sockjs==0.11.0",
         "aiohttp-sse==2.2.0",
         "asyncdb>=2.6.0",
-        "navconfig[default]>=1.6.3",
-        "alt-aiohttp-cors==0.7.1"
+        "navconfig[default]>=1.7.0",
+        "alt-aiohttp-cors==0.7.1",
+        "aiofile==3.8.8"
     ],
     extras_require={
         "locale": [

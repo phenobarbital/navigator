@@ -163,8 +163,9 @@ setup(
         "sockjs==0.11.0",
         "aiohttp-sse==2.2.0",
         "asyncdb>=2.6.0",
-        "navconfig[default]>=1.6.3",
-        "alt-aiohttp-cors==0.7.1"
+        "navconfig[default]>=1.7.0",
+        "alt-aiohttp-cors==0.7.1",
+        "aiofile==3.8.8"
     ],
     extras_require={
         "locale": [

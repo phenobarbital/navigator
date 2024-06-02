@@ -163,7 +163,10 @@ class AbstractModel(BaseView):
         if callable(cls.on_shutdown):
             app.on_shutdown.append(cls.on_shutdown)
         ### added routers:
-        model_path = cls.path
+        try:
+            model_path = cls.path
+        except AttributeError:
+            model_path = None
         if not model_path:
             model_path = path
         if not model_path:

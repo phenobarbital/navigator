@@ -686,7 +686,7 @@ class ModelView(AbstractModel):
                 **error
             )
 
-    async def _post_response(self, result, status: int = 200) -> web.Response:
+    async def _post_response(self, result, status: int = 200, fields: list = None) -> web.Response:
         """_post_data.
 
         Post-processing data after saved and before summit.
@@ -728,7 +728,7 @@ class ModelView(AbstractModel):
                 self.model.Meta.connection = conn
                 try:
                     result = await self.model.create(data)
-                    return await self._model_response(
+                    return await self._post_response(
                         result,
                         status=201,
                         fields=fields
@@ -778,7 +778,7 @@ class ModelView(AbstractModel):
                         )
                     result = await obj.insert()
                     status = 201
-                return await self._post_response(result, status=status)
+                return await self._post_response(result, status=status, fields=fields)
         except StatementError as ex:
             err = str(ex)
             if 'duplicate' in err:
@@ -874,7 +874,7 @@ class ModelView(AbstractModel):
                             "error": str(ex),
                         }
                         return self.error(response=error, status=406)
-                return await self._model_response(
+                return await self._post_response(
                     result,
                     status=202,
                     fields=fields
@@ -900,7 +900,7 @@ class ModelView(AbstractModel):
                 if isinstance(objid, list):
                     try:
                         result = await self.model.updating(_filter=objid, **data)
-                        return await self._model_response(
+                        return await self._post_response(
                             result,
                             status=202,
                             fields=fields
@@ -924,7 +924,7 @@ class ModelView(AbstractModel):
                         result = await self.model.updating(
                             _filter=args, **result.to_dict()
                         )
-                        return await self._model_response(
+                        return await self._post_response(
                             result,
                             status=202,
                             fields=fields
@@ -1003,6 +1003,13 @@ class ModelView(AbstractModel):
                 data = None
         return data
 
+    async def _delete_response(self, result, status: int = 200) -> web.Response:
+        """_delete_response.
+
+        Post-processing data after deleted and before summit.
+        """
+        return self.json_response(result, status=status)
+
     @service_auth
     async def delete(self):
         """ "
@@ -1040,7 +1047,7 @@ class ModelView(AbstractModel):
                             # Delete them this Client
                             result = await self.model.get(**args)
                             data = await result.delete(_filter=args)
-                    return await self._model_response(data, status=202)
+                    return await self._delete_response(data, status=202)
                 except DriverError as exc:
                     error = {
                         "message": f"Error on {self.__name__}",
@@ -1081,7 +1088,7 @@ class ModelView(AbstractModel):
                             results.append(result)
                         except Exception:
                             continue
-                return await self._model_response(results, status=202)
+                return await self._delete_response(results, status=202)
             elif data is not None:
                 # delete with data.
                 try:
@@ -1103,7 +1110,7 @@ class ModelView(AbstractModel):
                                 result = await self.model.get(**args)
                                 data = await result.delete(_filter=objid)
                             except DriverError as exc:
-                                return await self._model_response(
+                                return await self._delete_response(
                                     {
                                         "error": f"Error on {self.__name__}",
                                         "message": str(exc)
@@ -1111,7 +1118,7 @@ class ModelView(AbstractModel):
                                     status=400
                                 )
                             except NoDataFound:
-                                return await self._model_response(
+                                return await self._delete_response(
                                     {
                                         "error": f"{self.__name__} Not Found"
                                     },
@@ -1123,7 +1130,7 @@ class ModelView(AbstractModel):
                                 objid = data
                                 data = await self.model.remove(**data)
                             except NoDataFound:
-                                return await self._model_response(
+                                return await self._delete_response(
                                     {
                                         "error": f"{self.__name__} Not Found"
                                     },
@@ -1133,7 +1140,7 @@ class ModelView(AbstractModel):
                             "deleted": data,
                             "data": objid
                         }
-                        return await self._model_response(result, status=202)
+                        return await self._delete_response(result, status=202)
                 except (TypeError, KeyError, ValueError) as exc:
                     error = {
                         "message": f"We don't found POST data for deletion on {self.__name__}, exc",
@@ -1149,7 +1156,7 @@ class ModelView(AbstractModel):
                     result = {
                         "deleted": result
                     }
-                    return await self._model_response(result, status=202)
+                    return await self._delete_response(result, status=202)
             else:
                 self.error(
                     reason=f"Cannot Delete {self.__name__} with Empy Query",

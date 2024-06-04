@@ -58,7 +58,7 @@ if __name__ == "__main__":
         "password": "12345678",
         "host": "127.0.0.1",
         "port": "5432",
-        "database": "navigator_dev",
+        "database": "navigator",
         "DEBUG": True,
     }
     kwargs = {
@@ -69,11 +69,10 @@ if __name__ == "__main__":
         }
     }
     try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        pool = AsyncPool("pg", params=params, loop=loop, **kwargs)
         ## Create Application
         app = Application()
+        loop = app.event_loop()
+        pool = AsyncPool("pg", params=params, loop=loop, **kwargs)
         app['database'] = pool
         loop.run_until_complete(
             start_example(pool)
@@ -81,7 +80,7 @@ if __name__ == "__main__":
         session = AuthHandler()
         session.setup(app)
         ## two required handlers for a ModelView.
-        GroupManager.configure(app, '/api/v2/groups')
+        GroupManager.configure(app, '/api/v1/groups')
         print('=== START APP === ')
         app.run()
     except KeyboardInterrupt:

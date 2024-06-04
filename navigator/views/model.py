@@ -388,6 +388,13 @@ class ModelView(AbstractModel):
     @service_auth
     async def get(self):
         """GET Model information."""
+        if not await self._pre_get():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         args, meta, qp, fields = self.get_parameters()
         response = await self._get_meta_info(meta, fields)
         if response is not None:
@@ -441,9 +448,13 @@ class ModelView(AbstractModel):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                fn = getattr(self, f'_get_{name}', None)
+                fn = getattr(self, f'_set_{name}', None)
                 if not fn:
-                    fn = getattr(self, f'_set_{name}', None)
+                    fn = getattr(self, f'_get_{name}', None)
+                    raise DeprecationWarning(
+                        f"Method _get_{name} is deprecated. "
+                        f"Use _set_{name} instead."
+                    )
                 if fn:
                     try:
                         val = value.get(name, None)
@@ -563,6 +574,13 @@ class ModelView(AbstractModel):
             summary: return the metadata from table or, if we got post
             realizes a partially atomic updated of the query.
         """
+        if not await self._pre_patch():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         args, meta, _, fields = self.get_parameters()
         if isinstance(self.pk, str):
             ## Allowing passing the Attribute in the URL
@@ -699,6 +717,13 @@ class ModelView(AbstractModel):
         put.
            summary: replaces or insert a row in table
         """
+        if not await self._pre_put():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         _, _, qp, fields = self.get_parameters()
         data = await self._post_data()
         if not data:
@@ -817,6 +842,13 @@ class ModelView(AbstractModel):
         post.
             summary: update (or create) a row in Model
         """
+        if not await self._pre_post():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         args, _, _, fields = self.get_parameters()
         data = await self._post_data()
         if not data:
@@ -973,9 +1005,9 @@ class ModelView(AbstractModel):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                fn = getattr(self, f'_get_{name}', None)
+                fn = getattr(self, f'_del_{name}', None)
                 if not fn:
-                    fn = getattr(self, f'_del_{name}', None)
+                    fn = getattr(self, f'_get_{name}', None)
                 if fn:
                     try:
                         val = value.get(name, None)
@@ -1016,6 +1048,13 @@ class ModelView(AbstractModel):
         delete.
            summary: delete a table object
         """
+        if not await self._pre_delete():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         args, _, qp, _ = self.get_parameters()
         if hasattr(self, '_del_primary_data'):
             objid = await self._del_primary_data(args)

@@ -1,9 +1,12 @@
-from typing import Optional, Union, Any
+from typing import Optional, Union, Any, TypeVar
 from collections.abc import Callable
-from aiohttp import web
+import asyncio
+from aiohttp import web, hdrs
 import traceback
+from functools import wraps
 from asyncdb import AsyncDB, AsyncPool
 from datamodel import BaseModel
+from datamodel.exceptions import ValidationError
 from datamodel.types import JSON_TYPES
 from navigator_session import get_session
 from ..conf import (
@@ -15,6 +18,8 @@ from ..applications.base import BaseApplication
 from ..exceptions import ConfigError
 from .base import BaseView
 
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 class NotSet(BaseException):
     """Usable for not set Value on Field"""
@@ -62,6 +67,7 @@ class ConnectionHandler:
         pool = AsyncPool(
             self.driver,
             dsn=default_dsn,
+            loop=asyncio.get_event_loop(),
             **kwargs
         )
         await pool.connect()
@@ -74,11 +80,13 @@ class ConnectionHandler:
             db = AsyncDB(
                 self.driver,
                 dsn=self.dsn,
+                loop=asyncio.get_event_loop()
             )
         elif self.credentials:
             db = AsyncDB(
                 self.driver,
-                params=self.credentials
+                params=self.credentials,
+                loop=asyncio.get_event_loop()
             )
         else:
             # Using Default Connection
@@ -181,6 +189,38 @@ class AbstractModel(BaseView):
             r"{url}{{meta:(:.*)?}}".format(url=url), cls
         )
 
+    async def validate_payload(self):
+        """Get information for usage in Form."""
+        data = await self.json_data()
+        if not data:
+            headers = {"x-error": f"{self.__name__} POST data Missing"}
+            self.error(
+                response={
+                    "message": f"{self.__name__} POST data Missing"
+                },
+                headers=headers,
+                status=412
+            )
+        # Validate Data, if valid, return a DataModel.
+        try:
+            return self.model(**data)
+        except TypeError as ex:
+            error = {
+                "error": f"Error on {self.__name__}: {ex}",
+                "payload": f"{data!r}",
+            }
+            return self.error(
+                response=error, status=400
+            )
+        except ValidationError as ex:
+            error = {
+                "error": f"Bad Data for {self.__name__}: {ex}",
+                "payload": f"{ex.payload!r}",
+            }
+            return self.error(
+                response=error, status=400
+            )
+
     async def get_userid(self, session, idx: str = 'user_id') -> int:
         if not session:
             self.error(
@@ -200,6 +240,52 @@ class AbstractModel(BaseView):
                 },
                 status=403
             )
+
+    @staticmethod
+    def service_groups(groups: list, *args, **kwargs):
+        def _wrapper(fn: F) -> Any:
+            @wraps(fn)
+            async def _wrap(self, *args, **kwargs) -> web.StreamResponse:
+                request = self.request
+                if request.get("authenticated", False) is False:
+                    # check credentials:
+                    raise web.HTTPUnauthorized(
+                        reason="Access Denied",
+                        headers={
+                            hdrs.CONTENT_TYPE: "application/json",
+                            hdrs.CONNECTION: "keep-alive",
+                        },
+                    )
+                # User is authenticated
+                self._userid = await self.get_userid(self._session)
+                self.logger.info(
+                    f"Scheduler: Authenticated User: {self._userid}"
+                )
+                # get user information:
+                userinfo = self._session.get(AUTH_SESSION_OBJECT, {})
+                if userinfo.get("superuser", False) is True:
+                    self.logger.info(
+                        f"Audit: User {self._userid} is calling {fn!r}"
+                    )
+                    return await fn(self, *args, **kwargs)
+                if "groups" in userinfo:
+                    member = bool(
+                        not set(userinfo["groups"]).isdisjoint(groups)
+                    )
+                    if member:
+                        self.logger.info(
+                            f"Audit: User {self._userid} is calling {fn!r}"
+                        )
+                        return await fn(self, *args, **kwargs)
+                raise web.HTTPForbidden(
+                    reason="Access Denied",
+                    headers={
+                        hdrs.CONTENT_TYPE: "application/json",
+                        hdrs.CONNECTION: "keep-alive",
+                    },
+                )
+            return _wrap
+        return _wrapper
 
     @staticmethod
     def service_auth(fn: Union[Any, Any]) -> Any:
@@ -324,3 +410,24 @@ class AbstractModel(BaseView):
                 )
         else:
             return None
+
+    # Pre and post operations:
+    async def _pre_get(self, *args, **kwargs):
+        """Pre-get Model."""
+        return True
+
+    async def _pre_patch(self, *args, **kwargs):
+        """Post-get Model."""
+        return True
+
+    async def _pre_put(self, *args, **kwargs):
+        """Pre-put Model."""
+        return True
+
+    async def _pre_post(self, *args, **kwargs):
+        """Post-put Model."""
+        return True
+
+    async def _pre_delete(self, *args, **kwargs):
+        """Pre-delete Model."""
+        return True

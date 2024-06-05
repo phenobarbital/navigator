@@ -451,10 +451,11 @@ class ModelView(AbstractModel):
                 fn = getattr(self, f'_set_{name}', None)
                 if not fn:
                     fn = getattr(self, f'_get_{name}', None)
-                    raise DeprecationWarning(
-                        f"Method _get_{name} is deprecated. "
-                        f"Use _set_{name} instead."
-                    )
+                    if fn:
+                        raise DeprecationWarning(
+                            f"Method _get_{name} is deprecated. "
+                            f"Use _set_{name} instead."
+                        )
                 if fn:
                     try:
                         val = value.get(name, None)
@@ -506,6 +507,8 @@ class ModelView(AbstractModel):
                 return [f for f in required if f not in data.keys()]
             elif isinstance(data, list):
                 return [f for f in required if f not in data[0].keys()]
+            elif isinstance(data, BaseModel):
+                return [f for f in required if f not in data.get_fields()]
             else:
                 raise TypeError(
                     "Expected DATA to be a dict or list"
@@ -567,6 +570,45 @@ class ModelView(AbstractModel):
                         newval = val
                 model.set(key, newval)
 
+    async def _patch_data(self, *args, **kwargs) -> Any:
+        """_patch_data.
+
+        Get and pre-processing PATCH data before use it.
+        """
+        async def set_column_value(value):
+            for name, column in self.model.get_columns().items():
+                ### if a function with name _get_{column name} exists
+                ### then that function is called for getting the field value
+                fn = getattr(self, f'_set_{name}', None)
+                if not fn:
+                    fn = getattr(self, f'_patch_{name}', None)
+                if fn:
+                    try:
+                        val = value.get(name, None)
+                    except AttributeError:
+                        val = None
+                    try:
+                        value[name] = await fn(
+                            value=val,
+                            column=column,
+                            data=value,
+                            *args, **kwargs
+                        )
+                    except NotSet:
+                        return
+        data = await self.json_data()
+        if isinstance(data, list):
+            for element in data:
+                await set_column_value(element)
+        elif isinstance(data, dict):
+            await set_column_value(data)
+        else:
+            try:
+                data = await self.body()
+            except ValueError:
+                data = None
+        return data
+
     @service_auth
     async def patch(self):
         """
@@ -591,7 +633,7 @@ class ModelView(AbstractModel):
             ## returning the columns on Model:
             fields = self.model.__fields__
             return self.json_response(fields)
-        data = await self._post_data()
+        data = await self._patch_data()
         if not data:
             headers = {"x-error": f"{self.__name__} POST data Missing"}
             self.error(
@@ -705,7 +747,7 @@ class ModelView(AbstractModel):
             )
 
     async def _post_response(self, result, status: int = 200, fields: list = None) -> web.Response:
-        """_post_data.
+        """_post_response.
 
         Post-processing data after saved and before summit.
         """
@@ -748,6 +790,8 @@ class ModelView(AbstractModel):
             )
         ## validate directly with model:
         if isinstance(data, list):
+            if isinstance(data[0], BaseModel):
+                data = [d.to_dict() for d in data]
             ## Bulk Insert/Replace
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
@@ -767,6 +811,8 @@ class ModelView(AbstractModel):
                         status=410,
                     )
         try:
+            if isinstance(data, BaseModel):
+                data = data.to_dict()
             data = {**qp, **data}
         except TypeError:
             pass
@@ -913,6 +959,8 @@ class ModelView(AbstractModel):
                 )
         else:
             objid = None
+            if isinstance(data, BaseModel):
+                data = data.to_dict()
             try:
                 objid = self.get_primary(data)
             except (TypeError, KeyError):
@@ -1007,7 +1055,7 @@ class ModelView(AbstractModel):
                 ### then that function is called for getting the field value
                 fn = getattr(self, f'_del_{name}', None)
                 if not fn:
-                    fn = getattr(self, f'_get_{name}', None)
+                    fn = getattr(self, f'_set_{name}', None)
                 if fn:
                     try:
                         val = value.get(name, None)

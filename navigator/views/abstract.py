@@ -189,9 +189,10 @@ class AbstractModel(BaseView):
             r"{url}{{meta:(:.*)?}}".format(url=url), cls
         )
 
-    async def validate_payload(self):
+    async def validate_payload(self, data: Optional[dict] = None):
         """Get information for usage in Form."""
-        data = await self.json_data()
+        if not data:
+            data = await self.json_data()
         if not data:
             headers = {"x-error": f"{self.__name__} POST data Missing"}
             self.error(
@@ -201,9 +202,36 @@ class AbstractModel(BaseView):
                 headers=headers,
                 status=412
             )
-        # Validate Data, if valid, return a DataModel.
+        # getting ID of Model
+        args = self.get_args()
         try:
-            return self.model(**data)
+            objid = self.get_primary(args)
+        except KeyError:
+            objid = {}
+        if isinstance(objid, dict):
+            if isinstance(data, list):
+                new_data = []
+                for d in data:
+                    obj = {**d, **objid}
+                    new_data.append(obj)
+                data = new_data
+            else:
+                data = {**data, **objid}
+        elif isinstance(objid, str):
+            if isinstance(data, dict):
+                data[self.pk] = objid
+            elif isinstance(data, list):
+                new_data = []
+                for d in data:
+                    d[self.pk] = objid
+                    new_data.append(d)
+                data = new_data
+        # Validate Data, if valid, return a DataModel
+        try:
+            if isinstance(data, dict):
+                return self.model(**data)
+            elif isinstance(data, list):
+                return [self.model(**d) for d in data]
         except TypeError as ex:
             error = {
                 "error": f"Error on {self.__name__}: {ex}",

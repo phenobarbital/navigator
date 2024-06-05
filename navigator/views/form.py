@@ -56,6 +56,13 @@ class FormModel(AbstractModel):
     @service_auth
     async def get(self):
         """GET Model information."""
+        if not await self._pre_get():
+            return self.error(
+                response={
+                    "message": f"{self.__name__} Error on Pre-Validation"
+                },
+                status=412
+            )
         args, meta, qp, fields = self.get_parameters()
         response = await self._get_meta_info(meta, fields)
         if response is not None:

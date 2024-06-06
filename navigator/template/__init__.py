@@ -4,7 +4,12 @@ Jinja2 Template Engine adapted for Navigator.
 from typing import List, Optional, Union
 from collections.abc import Callable
 from pathlib import Path
-from jinja2 import Environment, FileSystemLoader, TemplateError, TemplateNotFound
+from jinja2 import (
+    Environment,
+    FileSystemLoader,
+    TemplateError,
+    TemplateNotFound
+)
 from aiohttp import web
 from navconfig import config, BASE_DIR
 from ..extensions import BaseExtension
@@ -16,7 +21,10 @@ __author__ = "Jesus Lara <jesuslarag@gmail.com>"
 
 jinja_config = {
     "enable_async": True,
-    "extensions": ["jinja2.ext.i18n", "jinja2.ext.loopcontrols"],
+    "extensions": [
+        "jinja2.ext.i18n",
+        "jinja2.ext.loopcontrols"
+    ],
 }
 
 

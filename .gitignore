@@ -158,3 +158,8 @@ settings/__init__.py
 navigator/applications/base.cpp
 navigator/exceptions/exceptions.c
 *.c
+etc/ssl/*
+app.py
+run.py
+nav.py
+test_*.py

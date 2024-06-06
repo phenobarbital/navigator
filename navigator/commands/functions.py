@@ -1,6 +1,6 @@
 import asyncio
 from navconfig.logging import logging
-from aiofile import AIOFile
+import aiofiles
 
 def read_file(path, filename):
     f = open(path.joinpath("navigator", "commands", "templates", filename), "r")
@@ -34,7 +34,7 @@ def save_file(dir, filename, content):
     async def main(filename, content):
         try:
             path = dir.joinpath(filename)
-            async with AIOFile(path, "w+") as afp:
+            async with aiofiles.open(path, "w+") as afp:
                 await afp.write(content)
                 await afp.fsync()
             return True

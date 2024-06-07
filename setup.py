@@ -151,7 +151,7 @@ setup(
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.4",
         "aiohttp-utils==3.1.1",
-        "httptools==0.5.0",
+        "psycopg2-binary==2.9.9",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
         "proxylists>=0.12.4",

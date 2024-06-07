@@ -31,6 +31,7 @@ apps/troc/migrations/__init__.py
 env/
 .venv/
 .venv/*
+.venv12/*
 .troc/
 develop-eggs/
 #dist/

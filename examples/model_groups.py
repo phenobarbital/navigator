@@ -35,7 +35,7 @@ class GroupManager(ModelView):
     model: Model = Group
     pk: str = 'group_id'
 
-    async def _get_created_by(self, value, column, **kwargs):
+    async def _set_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
 
     def required_by_put(self):

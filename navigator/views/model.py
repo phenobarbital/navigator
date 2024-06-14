@@ -1090,6 +1090,79 @@ class ModelView(AbstractModel):
         """
         return self.json_response(result, status=status)
 
+    def _del_primary(self, args: dict = None) -> Any:
+        """_del_primary.
+            Get Primary Id from Parameters for DELETE method
+        """
+        objid = None
+        if self.pk is None:
+            ### discover the primary keys of Model.
+            primary_keys = []
+            for key, field in self.model.get_columns().items():
+                if field.primary_key:
+                    primary_keys.append(key)
+            self.pk = primary_keys
+        if isinstance(self.pk, str):
+            objid = args.get('id', None)
+            return objid
+        elif isinstance(self.pk, list):
+            if isinstance(args, dict):
+                if 'id' in args:
+                    try:
+                        _args = {}
+                        paramlist = [
+                            item.strip() for item in args["id"].split("/") if item.strip()
+                        ]
+                        if not paramlist:
+                            return None
+                        if len(paramlist) != len(self.pk):
+                            if len(self.pk) == 1:
+                                # find various:
+                                _args[self.pk[0]] = paramlist
+                                return _args
+                            return self.error(
+                                response={
+                                    "message": f"Wrong Number of Args in PK: {self.pk}",
+                                    "description": f"{paramlist!r}",
+                                },
+                                status=410,
+                            )
+                        for key in self.pk:
+                            col = self.model.__columns__[key]
+                            _type = col.type
+                            if isinstance(_type, ModelMeta):
+                                try:
+                                    _type = _type.__columns__[key].type
+                                except (TypeError, AttributeError, KeyError):
+                                    _type = str
+                            else:
+                                _type = col.type
+                            if _type == int:
+                                try:
+                                    val = int(paramlist.pop(0))
+                                except ValueError:
+                                    val = paramlist.pop(0)
+                            else:
+                                # TODO: use validation from datamodel
+                                # evaluate the corrected type for fields:
+                                val = paramlist.pop(0)
+                            args[key] = val
+                        return args
+                    except KeyError:
+                        pass
+                else:
+                    objid = {field: args[field] for field in self.pk}
+            elif isinstance(args, list):
+                objid = []
+                for entry in args:
+                    new_entry = {field: entry[field] for field in self.pk}
+                    objid.append(new_entry)
+            return objid
+        else:
+            raise ValueError(
+                f"Invalid PK definition for {self.__name__}: {self.pk}"
+            )
+
     @service_auth
     async def delete(self):
         """ "
@@ -1107,12 +1180,11 @@ class ModelView(AbstractModel):
         if hasattr(self, '_del_primary_data'):
             objid = await self._del_primary_data(args)
         else:
-            return self.error(
-                response={
-                    "message": "A _del_primary_data method is required for filtering DELETE data."
-                },
-                status=422
-            )
+            try:
+                objid = self._del_primary(args)
+            except (TypeError, KeyError) as exc:
+                print(f'DEL Error: {exc}')
+                objid = None
         if objid:
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn

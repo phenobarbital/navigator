@@ -31,7 +31,8 @@ class ConnectionHandler:
         driver: str = 'pg',
         dsn: str = None,
         dbname: str = 'nav.model',
-        credentials: dict = None
+        credentials: dict = None,
+        model_kwargs: dict = {}
     ):
         self.dsn = dsn
         self.credentials = credentials
@@ -39,6 +40,7 @@ class ConnectionHandler:
         self._default: bool = False
         self._db = None
         self._dbname = dbname
+        self._model_kwargs = model_kwargs
 
     def connection(self):
         return self._db
@@ -80,13 +82,15 @@ class ConnectionHandler:
             db = AsyncDB(
                 self.driver,
                 dsn=self.dsn,
-                loop=asyncio.get_event_loop()
+                loop=asyncio.get_event_loop(),
+                **self._model_kwargs
             )
         elif self.credentials:
             db = AsyncDB(
                 self.driver,
                 params=self.credentials,
-                loop=asyncio.get_event_loop()
+                loop=asyncio.get_event_loop(),
+                **self._model_kwargs
             )
         else:
             # Using Default Connection
@@ -126,6 +130,7 @@ class AbstractModel(BaseView):
     # Signal for startup method for this ModelView
     on_startup: Optional[Callable] = None
     on_shutdown: Optional[Callable] = None
+    model_kwargs: dict = {}
     name: str = "Model"
 
     def __init__(self, request, *args, **kwargs):
@@ -141,7 +146,8 @@ class AbstractModel(BaseView):
             driver,
             dsn=dsn,
             dbname=dbname,
-            credentials=credentials
+            credentials=credentials,
+            model_kwargs=self.model_kwargs
         )
 
     @classmethod

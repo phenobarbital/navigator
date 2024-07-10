@@ -135,7 +135,7 @@ class BackgroundQueue:
             if task is None:
                 break  # Exit signal
             self.logger.info(
-                f"Task started {task}"
+                ":: Task started"
             )
             result = None
             try:
@@ -153,6 +153,9 @@ class BackgroundQueue:
             finally:
                 ### Task Completed
                 self.queue.task_done()
+                self.logger.info(
+                    ":: Task Done"
+                )
                 await self._callback(
                     task, result=result
                 )

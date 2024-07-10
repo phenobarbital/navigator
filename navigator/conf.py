@@ -200,6 +200,11 @@ ALLOWED_HOSTS = [
 MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
 MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
 
+"""
+Background Tasks
+"""
+QUEUE_CALLBACK = config.get('QUEUE_CALLBACK', fallback=None)
+
 # get configuration settings (user can override settings).
 try:
     from navconfig.conf import *  # pylint: disable=W0401,W0614

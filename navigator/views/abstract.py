@@ -195,7 +195,7 @@ class AbstractModel(BaseView):
             r"{url}{{meta:(:.*)?}}".format(url=url), cls
         )
 
-    async def validate_payload(self, data: Optional[dict] = None):
+    async def validate_payload(self, data: Optional[Union[dict, list]] = None):
         """Get information for usage in Form."""
         if not data:
             data = await self.json_data()

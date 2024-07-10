@@ -38,7 +38,6 @@ class BaseHandler(ABC):
     _allowed = ["get", "post", "put", "patch", "delete", "options", "head"]
     _allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
-
     def __init__(self, *args, **kwargs):
         self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         self._loop = asyncio.get_event_loop()
@@ -464,8 +463,8 @@ class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
         "*": aiohttp_cors.ResourceOptions(
             allow_credentials=True,
             expose_headers="*",
-            allow_methods="*",
             allow_headers="*",
+            allow_methods="*",
             max_age=7200,
         )
     }

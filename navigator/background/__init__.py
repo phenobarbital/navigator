@@ -74,7 +74,7 @@ class BackgroundQueue:
 
     async def put(
         self,
-        fn: Callable[P, Awaitable],
+        fn: Union[partial, Callable[P, Awaitable]],
         *args: P.args,
         **kwargs: P.kwargs
     ) -> None:
@@ -129,7 +129,6 @@ class BackgroundQueue:
 
     async def process_queue(self):
         loop = asyncio.get_running_loop()
-        executor = ThreadPoolExecutor(max_workers=self.max_workers)
         while True:
             task = await self.queue.get()
             if task is None:
@@ -140,16 +139,18 @@ class BackgroundQueue:
             result = None
             try:
                 if isinstance(task, partial):
-                    result = await loop.run_in_executor(executor, task)
+                    with ThreadPoolExecutor(max_workers=1) as executor:
+                        result = await loop.run_in_executor(executor, task)
                 else:
                     # Unpack the function and its arguments
                     func, args, kwargs = task
                     if asyncio.iscoroutinefunction(func):
                         result = await func(*args, **kwargs)
                     elif callable(func):
-                        result = await loop.run_in_executor(
-                            executor, func, *args, **kwargs
-                        )
+                        with ThreadPoolExecutor(max_workers=1) as executor:
+                            result = await loop.run_in_executor(
+                                executor, func, *args, **kwargs
+                            )
             finally:
                 ### Task Completed
                 self.queue.task_done()
@@ -167,3 +168,34 @@ class BackgroundQueue:
                 self.process_queue()
             )
             self.consumers.append(task)
+
+
+class BackgroundTask:
+    """BackgroundTask.
+
+    Calling functions in the background.
+    """
+    def __init__(self, fn: Callable[P, Awaitable], *args: P.args, **kwargs: P.kwargs) -> None:
+        self.fn = fn
+        self.args = args
+        self.kwargs = kwargs
+        self.id = kwargs.get('id', None)
+
+    async def __call__(self):
+        return await self.fn(*self.args, **self.kwargs)
+
+    def __repr__(self):
+        return f'<BackgroundTask {self.fn.__name__} with ID {self.id}>'
+
+    async def run(self):
+        loop = asyncio.get_running_loop()
+        if isinstance(self.fn, partial):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                await loop.run_in_executor(executor, self.fn)
+        elif asyncio.iscoroutinefunction(self.fn):
+            await self.fn(*self.args, **self.kwargs)
+        elif callable(self.fn):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                await loop.run_in_executor(
+                    executor, self.fn, *self.args, **self.kwargs
+                )

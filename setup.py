@@ -165,7 +165,8 @@ setup(
         "asyncdb>=2.6.0",
         "navconfig[default]>=1.7.0",
         "alt-aiohttp-cors==0.7.1",
-        "aiofile==3.8.8"
+        "aiofile==3.8.8",
+        "psutil==6.0.0"
     ],
     extras_require={
         "locale": [

@@ -1,13 +1,13 @@
 from typing import Any, TypeVar, Union
 from collections.abc import Callable
-import asyncio
 from pathlib import PurePath
 from functools import wraps
 import inspect
-from aiohttp import web, hdrs
+from aiohttp import web
 from aiohttp.abc import AbstractView
 from .parser import TemplateParser
 from ..libs.json import json_decoder
+
 
 F = TypeVar("F", bound=Callable[..., Any])
 

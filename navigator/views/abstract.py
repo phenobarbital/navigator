@@ -7,6 +7,7 @@ import traceback
 from functools import wraps
 import babel
 from asyncdb import AsyncDB, AsyncPool
+from dataclasses import make_dataclass
 from datamodel import BaseModel
 from datamodel.fields import Field
 from datamodel.exceptions import ValidationError
@@ -413,24 +414,36 @@ class AbstractModel(BaseView):
 
     def _translate_model(self, translator):
         try:
-            model = copy.deepcopy(self.model)
-            fields = model.columns(self.model)
+            model_cls = copy.deepcopy(self.model)
+            fields = model_cls.columns(model_cls)
             for name, field in fields.items():
-                label = field.metadata.get('label', name)
+                if 'label' in field.metadata:
+                    if 'original_label' in field.metadata:
+                        label = field.metadata.get('original_label')
+                    else:
+                        label = field.metadata.get('label', name)
                 translated_label = translator(label)
                 if label != translated_label:
                     new_metadata = dict(field.metadata)
                     new_metadata['label'] = translated_label
+                    if 'original_label' not in new_metadata:
+                        new_metadata['original_label'] = label
+                    field_params = {
+                        'metadata': new_metadata,
+                        'repr': field.repr,
+                        'compare': field.compare,
+                        'init': field.init
+                    }
                     f = Field(
-                        **new_metadata
+                        **field_params
                     )
                     f.name = name
                     f.type = field.type
                     f.default = field.default
-                    model.__columns__[name] = f
-                    setattr(model, name, f)
-                    model.__dataclass_fields__[field.name] = f
-            return model
+                    model_cls.__columns__[name] = f
+                    setattr(model_cls, name, f)
+                    model_cls.__dataclass_fields__[field.name] = f
+            return model_cls
         except Exception as exc:
             self.logger.warning(
                 f"Unable to Translate Model {self.model}: {exc}"
@@ -458,6 +471,9 @@ class AbstractModel(BaseView):
                         lang = lang[0]
                     trans = locale.translator(lang=lang)
                     _model = self._translate_model(trans)
+                    self.logger.info(
+                        f"Model {_model} translated to {lang}"
+                    )
                     # returning JSON schema of Model:
                     response = _model.schema(as_dict=True)
                     return self.json_response(response)

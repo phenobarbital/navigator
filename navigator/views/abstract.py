@@ -1,11 +1,15 @@
 from typing import Optional, Union, Any, TypeVar
 from collections.abc import Callable
 import asyncio
+import copy
 from aiohttp import web, hdrs
 import traceback
 from functools import wraps
+import babel
 from asyncdb import AsyncDB, AsyncPool
+from dataclasses import make_dataclass
 from datamodel import BaseModel
+from datamodel.fields import Field
 from datamodel.exceptions import ValidationError
 from datamodel.types import JSON_TYPES
 from navigator_session import get_session
@@ -408,12 +412,83 @@ class AbstractModel(BaseView):
         }
         return self.no_content(headers=headers)
 
+    def _translate_model(self, translator):
+        try:
+            model_cls = copy.deepcopy(self.model)
+            fields = model_cls.columns(model_cls)
+            for name, field in fields.items():
+                if 'label' in field.metadata:
+                    if 'original_label' in field.metadata:
+                        label = field.metadata.get('original_label')
+                    else:
+                        label = field.metadata.get('label', name)
+                translated_label = translator(label)
+                if label != translated_label:
+                    new_metadata = dict(field.metadata)
+                    new_metadata['label'] = translated_label
+                    if 'original_label' not in new_metadata:
+                        new_metadata['original_label'] = label
+                    field_params = {
+                        'metadata': new_metadata,
+                        'repr': field.repr,
+                        'compare': field.compare,
+                        'init': field.init
+                    }
+                    f = Field(
+                        **field_params
+                    )
+                    f.name = name
+                    f.type = field.type
+                    f.default = field.default
+                    model_cls.__columns__[name] = f
+                    setattr(model_cls, name, f)
+                    model_cls.__dataclass_fields__[field.name] = f
+            return model_cls
+        except Exception as exc:
+            self.logger.warning(
+                f"Unable to Translate Model {self.model}: {exc}"
+            )
+
     async def _get_meta_info(self, meta: str, fields: list):
-        """GET Model information."""
+        """
+        _get_meta_info.
+
+        Get Meta information from Model.
+        """
         if meta == ":meta":
-            # returning JSON schema of Model:
-            response = self.model.schema(as_dict=True)
-            return self.json_response(response)
+            # Adding translation if locale is enabled:
+            try:
+                locale = self.request.app['locale']
+            except KeyError:
+                locale = None
+            if locale:
+                try:
+                    lang = self.request.headers.get(
+                        'Accept-Language',
+                        locale.current_locale()
+                    )
+                    if isinstance(lang, tuple):
+                        lang = lang[0]
+                    trans = locale.translator(lang=lang)
+                    _model = self._translate_model(trans)
+                    self.logger.info(
+                        f"Model {_model} translated to {lang}"
+                    )
+                    # returning JSON schema of Model:
+                    response = _model.schema(as_dict=True)
+                    return self.json_response(response)
+                except babel.core.UnknownLocaleError as exc:
+                    self.logger.warning(
+                        str(exc)
+                    )
+                except Exception as exc:
+                    self.logger.warning(
+                        str(exc)
+                    )
+            else:
+                # returning JSON schema of Model:
+                response = self.model.schema(as_dict=True)
+                return self.json_response(response)
         elif meta == ':sample':
             # return a JSON sample of data:
             response = self.model.sample()

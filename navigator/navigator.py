@@ -120,7 +120,9 @@ class Application(BaseApplication):
                 parser.setup(app)
             except Exception as e:
                 logging.exception(e)
-                raise ConfigError(f"Error on Template configuration, {e}") from e
+                raise ConfigError(
+                    f"Error on Template configuration, {e}"
+                ) from e
         if self._middlewares:
             for middleware in self._middlewares:
                 app.middlewares.append(middleware)

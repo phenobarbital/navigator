@@ -16,9 +16,17 @@ from navigator_auth.conf import exclude_list
 Useful decorators for the navigator app.
 """
 def allow_anonymous(func):
+    """
+    allow_anonymous.
+
+    Add this path to exclude_list to bypass auth.
+    """
     @wraps(func)
     async def wrapper(*args, **kwargs):
-        request = args[-1]
+        if inspect.isclass(func) and issubclass(func, AbstractView):
+            request = args[0]
+        else:
+            request = args[-1]
         path = request.path
         exclude_list.add(path)  # Add this path to exclude_list to bypass auth
         return await func(*args, **kwargs)

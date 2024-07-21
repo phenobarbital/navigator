@@ -1,0 +1,5 @@
+cd locale/{LANG}/LC_MESSAGES/
+
+* Compile .po file into .mo file:
+
+msgfmt nav.po -o nav.mo

@@ -4,12 +4,24 @@ from asyncdb.models import Model, Column
 
 
 class Airport(Model):
-    iata: str = Column(primary_key=True, required=True)
-    airport: str = Column(required=True)
-    city: str
-    country: str
-    created_by: int
-    created_at: datetime = Column(default=datetime.now(), repr=False)
+    iata: str = Column(
+        primary_key=True, required=True, label="IATA"
+    )
+    airport: str = Column(
+        required=True, label="airport"
+    )
+    city: str = Column(
+        required=False, label="city"
+    )
+    country: str = Column(
+        required=False, label="country"
+    )
+    created_by: int = Column(
+        required=False, label="created_by"
+    )
+    created_at: datetime = Column(
+        default=datetime.now, repr=False, label="created_at"
+    )
 
     class Meta:
         name: str = 'airports'

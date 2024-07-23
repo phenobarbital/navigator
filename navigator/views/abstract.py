@@ -469,7 +469,17 @@ class AbstractModel(BaseView):
                     )
                     if isinstance(lang, tuple):
                         lang = lang[0]
-                    trans = locale.translator(lang=lang)
+                    elif isinstance(lang, str):
+                        lang = lang.split(',')[0]
+                    if '-' in lang:
+                        lang = lang.replace('-', '_')
+                    try:
+                        trans = locale.translator(lang=lang)
+                    except babel.core.UnknownLocaleError as exc:
+                        trans = locale.translator(lang='en_US')
+                        self.logger.warning(
+                            str(exc)
+                        )
                     _model = self._translate_model(trans)
                     self.logger.info(
                         f"Model {_model} translated to {lang}"
@@ -477,10 +487,7 @@ class AbstractModel(BaseView):
                     # returning JSON schema of Model:
                     response = _model.schema(as_dict=True)
                     return self.json_response(response)
-                except babel.core.UnknownLocaleError as exc:
-                    self.logger.warning(
-                        str(exc)
-                    )
+
                 except Exception as exc:
                     self.logger.warning(
                         str(exc)

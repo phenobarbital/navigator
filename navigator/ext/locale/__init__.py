@@ -3,7 +3,7 @@ Add Support for Babel (L18n engine) for Navigator.
 """
 import locale
 import gettext
-from typing import Union
+from typing import Union, Optional
 from pathlib import Path
 from collections.abc import Callable
 from babel import Locale, support, UnknownLocaleError
@@ -37,10 +37,10 @@ class LocaleSupport(BaseExtension):
     def __init__(
         self,
         app_name: str = None,
-        localization: Union[str, list] = None,
-        language: str = None,
-        country: str = None,
-        locale_section: str = "l18n",  # INI section for default locales
+        localization: Union[str, list, None] = None,
+        language: Optional[Union[str, None]] = None,
+        country: Optional[Union[str, None]] = None,
+        locale_section: str = "i18n",  # INI section for default locales
         locale_path: Union[str, Path] = None,
         domain: str = None,
         **kwargs,
@@ -70,6 +70,9 @@ class LocaleSupport(BaseExtension):
             ]
         elif isinstance(self.localization, str):
             self.localization = [self.localization]
+        for local in self.localization:
+            if '-' in local and '_' not in local:
+                self.localization.append(local.replace('-', '_'))
         if country is None:
             self.country = config.get(
                 "country", section=self.locale_section, fallback="US"

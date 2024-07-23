@@ -11,7 +11,7 @@ session.setup(app)
 
 # support localization:
 l18n = LocaleSupport(
-    localization=['en_US', 'es_ES', 'it_IT', 'de_DE', 'fr_FR'],
+    localization=['en_US', 'es_ES', 'es', 'it_IT', 'de_DE', 'fr_FR'],
     domain='nav'
 )
 l18n.setup(app)
@@ -45,6 +45,7 @@ class Airport(Model):
 class AirportHandler(ModelView):
     model: Model = Airport
     pk: str = 'iata'
+    to_locale: list = ['label', 'description' ]
 
     async def _get_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)

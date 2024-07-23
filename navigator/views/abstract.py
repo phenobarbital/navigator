@@ -469,10 +469,6 @@ class AbstractModel(BaseView):
                     )
                     if isinstance(lang, tuple):
                         lang = lang[0]
-                    elif isinstance(lang, str):
-                        lang = lang.split(',')[0]
-                    if '-' in lang:
-                        lang = lang.replace('-', '_')
                     try:
                         trans = locale.translator(lang=lang)
                     except babel.core.UnknownLocaleError as exc:

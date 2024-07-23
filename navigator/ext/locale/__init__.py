@@ -1,7 +1,8 @@
 """Locale (Babel) Extension.
-Add Support for Babel (L18n engine) for Navigator.
+Add Support for Babel (i18n engine) for Navigator.
 """
 import locale
+import re
 import gettext
 from typing import Union, Optional
 from pathlib import Path
@@ -14,10 +15,11 @@ from ...extensions import BaseExtension
 from ...exceptions import ConfigError
 
 
+locale_finder = re.compile(r'([a-zA-Z]+-[a-zA-Z]+)(?:;q=(\d\.\d))?')
 class LocaleSupport(BaseExtension):
     """LocaleSupport.
 
-    Description: Add Support for Babel (L18n engine) and localization for Navigator.
+    Description: Add Support for Babel (i18n engine) and localization for Navigator.
 
     Args:
         app_name (str): Name of the current connection, will use it to save it into aiohttp Application.
@@ -147,21 +149,43 @@ class LocaleSupport(BaseExtension):
     def currency(self, number: Union[float, int], grouping: bool = True) -> str:
         return locale.currency(number, grouping=grouping)
 
-    def current_l18n(self):
+    def current_i18n(self):
         return self.translation.gettext
 
+    def parse_accept_language(self, accept_language: str):
+        # Regular expression to parse the accept language header
+        # Use the compiled pattern to find all matches
+        locales = locale_finder.findall(accept_language)
+        # Sorting locales by quality factor, defaulting to 1.0 for unspecified
+        sorted_locales = sorted(
+            locales, key=lambda x: float(x[1]) if x[1] else 1.0,
+            reverse=True
+        )
+        return [locale.replace('-', '_') for locale, _ in sorted_locales]
+
     def translator(
-        self, domain: str = None, locale: Locale = None, lang: str = None
+        self,
+        domain: Union[str, None] = None,
+        locale: Union[Locale, None] = None,
+        lang: str = None
     ) -> support.Translations:  # pylint: disable=W0621
         if domain is None:
             domain = self.domain
         if lang is not None:
-            locale = Locale(lang)
-        if not locale:
-            locale = self._locale
+            lng = self.parse_accept_language(lang)
+            if not lng:
+                lng = self.localization[0]
+            elif isinstance(lng, list):
+                lng = lng[0]
+            lc = Locale(lng)
+        if not lc:
+            if locale:
+                lc = locale
+            else:
+                lc = self._locale
         try:
             trans = support.Translations.load(
-                self.locale_path, domain=domain, locales=locale
+                self.locale_path, domain=domain, locales=lc
             )
             return trans.gettext
         except FileNotFoundError as ex:

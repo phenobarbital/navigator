@@ -158,8 +158,7 @@ class PostgresPool(ConnectionHandler):
                 "client_min_messages": "notice",
                 "jit": "on",
                 "jit_above_cost": "10000000",
-                "effective_cache_size": "2147483647",
-                "tcp_keepalives_idle": DB_KEEPALIVE_IDLE
+                "effective_cache_size": "2147483647"
             },
         }
         super(PostgresPool, self).__init__(

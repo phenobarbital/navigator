@@ -417,11 +417,10 @@ class AbstractModel(BaseView):
             model_cls = copy.deepcopy(self.model)
             fields = model_cls.columns(model_cls)
             for name, field in fields.items():
-                if 'label' in field.metadata:
-                    if 'original_label' in field.metadata:
-                        label = field.metadata.get('original_label')
-                    else:
-                        label = field.metadata.get('label', name)
+                if 'original_label' in field.metadata:
+                    label = field.metadata.get('original_label')
+                else:
+                    label = field.metadata.get('label', name)
                 translated_label = translator(label)
                 if label != translated_label:
                     new_metadata = dict(field.metadata)

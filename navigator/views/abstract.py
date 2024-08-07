@@ -475,12 +475,12 @@ class AbstractModel(BaseView):
                         self.logger.warning(
                             str(exc)
                         )
-                    _model = self._translate_model(trans)
-                    self.logger.info(
-                        f"Model {_model} translated to {lang}"
-                    )
+                    # _model = self._translate_model(trans)
                     # returning JSON schema of Model:
-                    response = _model.schema(as_dict=True)
+                    response = self.model.schema(as_dict=True, locale=trans)
+                    self.logger.info(
+                        f"Model {self.model} translated to {lang}"
+                    )
                     return self.json_response(response)
 
                 except Exception as exc:

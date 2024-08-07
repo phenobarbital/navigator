@@ -40,6 +40,7 @@ class Airport(Model):
     class Meta:
         name: str = 'airports'
         schema = 'public'
+        description: str = 'Airports Table'
         strict = True
 
 class AirportHandler(ModelView):

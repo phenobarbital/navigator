@@ -11,8 +11,10 @@ import pytz
 import polyline
 import aiohttp
 import matplotlib.pyplot as plt
+import numpy as np
 import cartopy.crs as ccrs
 import cartopy.io.img_tiles as cimgt
+import matplotlib.colors as mcolors
 from navigator.conf import BASE_DIR, TIMEZONE
 from .models import (
     TravelerSearch
@@ -128,6 +130,30 @@ class Route(GoogleService):
         print(f"Map saved as: {output_file}")
         return output_file
 
+    def get_gradient_colors(
+        self,
+        num_colors: int = 10,
+        start_color: str = '0x0000FF',
+        end_color: str = '0xFF0000'
+    ):
+        """Generating a list of gradient colors.
+        """
+        start_color = start_color.replace('0x', '#')
+        end_color = end_color.replace('0x', '#')
+        start_rgb = mcolors.hex2color(start_color)
+        end_rgb = mcolors.hex2color(end_color)
+        # generate a gradient of colors
+        # Create a colormap
+        cmap = mcolors.LinearSegmentedColormap.from_list(
+            "custom_gradient", [start_rgb, end_rgb]
+        )
+        # Generate the gradient
+        gradient = [
+            mcolors.to_hex(cmap(i / (num_colors - 1))) for i in range(num_colors)
+        ]
+        gradient = [color.upper().replace('#', '0x') for color in gradient]
+        return gradient
+
     def get_google_map(
         self,
         origin,
@@ -135,7 +161,9 @@ class Route(GoogleService):
         directions_result,
         payload,
         encoded_polyline,
-        locations: list = None
+        locations: list = None,
+        start_color: str = "0x0000FF",
+        end_color: str = "0xFF0000"
     ):
         # Base URL for Static Maps API
         base_url = "https://maps.googleapis.com/maps/api/staticmap"
@@ -156,20 +184,8 @@ class Route(GoogleService):
         if locations:
             waypoint_order = directions_result['routes'][0].get('waypoint_order', [])
             waypoints = [locations[i] for i in waypoint_order]
-            # Waypoint markers (blue)
-            color_range = [
-                "0x0000FF",  # Start (avoid pure blue)
-                "0x0033FF",
-                "0x0066FF",
-                "0x0099FF",
-                "0x00CCFF",  # Midpoint (avoid pure blue)
-                "0x00FFFF",  # Midpoint (avoid pure white)
-                "0xFFCC00",  # Midpoint (avoid pure red)
-                "0xFF9900",
-                "0xFF6600",
-                "0xFF3300",
-                "0xFF0000"   # End (avoid pure red)
-            ]
+            num_waypoints = len(waypoints)
+            color_range = self.get_gradient_colors(num_waypoints, start_color, end_color)
             alpha_lower = string.ascii_uppercase
             for i, waypoint in enumerate(waypoints):
                 color = color_range[i]

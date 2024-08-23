@@ -307,7 +307,8 @@ class Route(GoogleService):
                     "total_distance": f"{total_distance_miles:.2f} miles",
                     "map_url": map_url,
                     "map": url_map,
-                    "overview": decoded_polyline
+                    "overview": decoded_polyline,
+                    "result": result
                 }
                 if complete is True:
                     response['response'] = result
@@ -423,7 +424,8 @@ class Route(GoogleService):
                     "total_distance": f"{total_distance_miles:.2f} miles",
                     "map_url": map_url,
                     "map": url_map,
-                    # "route_overview": decoded_polyline
+                    "overview": decoded_polyline,
+                    "response": result
                 }
                 if complete is True:
                     response['response'] = result

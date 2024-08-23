@@ -38,8 +38,6 @@ class StoreLocation(Location):
 
 
 class TravelerSearch(BaseModel):
-    stores: list = Field(required=True)
-    warehouse_id: str = Field(required=True)
     origin: Union[Location, StoreLocation] = Field(required=False)
     destination: Union[Location, StoreLocation] = Field(required=False)
     locations: list = Field(required=False, default_factory=list)

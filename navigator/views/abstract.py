@@ -131,6 +131,7 @@ class AbstractModel(BaseView):
         required: true
     """
     model: BaseModel = None
+    get_model: BaseModel = None
     # Signal for startup method for this ModelView
     on_startup: Optional[Callable] = None
     on_shutdown: Optional[Callable] = None
@@ -144,6 +145,9 @@ class AbstractModel(BaseView):
         dsn = kwargs.pop('dsn', None)
         credentials = kwargs.pop('credentials', {})
         dbname = kwargs.pop('dbname', 'nav.model')
+        ## getting get Model:
+        if not self.get_model:
+            self.get_model = self.model
         super().__init__(request, *args, **kwargs)
         # Database Connection Handler
         self.handler = ConnectionHandler(
@@ -475,11 +479,10 @@ class AbstractModel(BaseView):
                         self.logger.warning(
                             str(exc)
                         )
-                    # _model = self._translate_model(trans)
                     # returning JSON schema of Model:
-                    response = self.model.schema(as_dict=True, locale=trans)
+                    response = self.get_model.schema(as_dict=True, locale=trans)
                     self.logger.info(
-                        f"Model {self.model} translated to {lang}"
+                        f"Model {self.get_model} translated to {lang}"
                     )
                     return self.json_response(response)
 

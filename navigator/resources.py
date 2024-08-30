@@ -117,7 +117,6 @@ async def home(request: web.Request):
             description: Template "templates/home.html" not found.
     """
     path = Path(BASE_DIR).joinpath("navigator/templates/home.html")
-    print('HERE > ', path)
     try:
         file_path = path
         if not file_path.exists():

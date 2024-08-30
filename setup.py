@@ -135,23 +135,21 @@ setup(
     license=__license__,
     license_files='LICENSE',
     setup_requires=[
-        "setuptools==67.6.1",
-        "Cython==3.0.9",
-        "wheel==0.42.0",
-        "asyncio==3.4.3"
+        'setuptools==74.0.0',
+        'Cython==3.0.11',
+        'wheel==0.44.0'
     ],
     install_requires=[
-        "Cython==3.0.9",
+        "Cython==3.0.11",
         "asyncio==3.4.3",
-        "uvloop==0.19.0",
-        "aiohttp==3.9.5",
+        "aiohttp>=3.10.0",
         "PySocks==1.7.1",
         "aiodns==3.0.0",
         "asn1crypto==1.4.0",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.4",
         "aiohttp-utils==3.1.1",
-        "psycopg2-binary==2.9.9",
+        "psycopg2-binary>=2.9.9",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
         "proxylists>=0.12.4",
@@ -162,7 +160,8 @@ setup(
         "matplotlib==3.8.3",
         "sockjs==0.11.0",
         "aiohttp-sse==2.2.0",
-        "asyncdb>=2.6.0",
+        "aiomcache>=0.8.2",
+        "asyncdb[default]>=2.8.0",
         "navconfig[default]>=1.7.0",
         "alt-aiohttp-cors==0.7.1",
         "aiofile==3.8.8",
@@ -175,6 +174,9 @@ setup(
         "memcache": [
             "aiomcache==0.8.1",
         ],
+        "uvloop": [
+            "uvloop==0.20.0",
+        ]
     },
     ext_modules=cythonize(extensions),
     tests_require=[

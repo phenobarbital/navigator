@@ -22,7 +22,7 @@ class Airport(Model):
         primary_key=True, required=True, label="IATA"
     )
     airport: str = Column(
-        required=True, label="airport"
+        required=True, label="airport", description="Airport"
     )
     city: str = Column(
         required=False, label="city"
@@ -34,13 +34,14 @@ class Airport(Model):
         required=False, label="created_by"
     )
     created_at: datetime = Column(
-        default=datetime.now, repr=False, label="created_at"
+        default=datetime.now, repr=False, label="created_at", description='date_creation'
     )
 
     class Meta:
         name: str = 'airports'
         schema = 'public'
         description: str = 'Airports Table'
+        title: str = 'List of Airports'
         strict = True
 
 class AirportHandler(ModelView):

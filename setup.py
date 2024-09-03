@@ -142,9 +142,8 @@ setup(
     install_requires=[
         "Cython==3.0.11",
         "asyncio==3.4.3",
-        "aiohttp>=3.10.0",
+        "aiohttp[speedups]>=3.10.0",
         "PySocks==1.7.1",
-        "aiodns==3.0.0",
         "asn1crypto==1.4.0",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.4",
@@ -164,6 +163,8 @@ setup(
         "asyncdb[default]>=2.8.0",
         "navconfig[default]>=1.7.0",
         "alt-aiohttp-cors==0.7.1",
+        "brotli==1.1.0",
+        "brotlicffi==1.1.0.0",
         "aiofile==3.8.8",
         "psutil==6.0.0"
     ],
@@ -172,7 +173,7 @@ setup(
             "Babel==2.9.1",
         ],
         "memcache": [
-            "aiomcache==0.8.1",
+            "aiomcache==0.8.2",
         ],
         "uvloop": [
             "uvloop==0.20.0",

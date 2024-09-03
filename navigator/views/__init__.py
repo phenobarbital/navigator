@@ -9,6 +9,7 @@ from .data import DataView
 from .model import ModelView, load_models
 from .mhandler import ModelHandler
 from .form import FormModel
+from .abstract import model_url
 
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
@@ -20,5 +21,6 @@ __all__ = (
     'ModelView',
     'load_models',
     'ModelHandler',
-    'FormModel'
+    'FormModel',
+    'model_url'
 )

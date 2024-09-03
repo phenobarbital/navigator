@@ -6,6 +6,7 @@ from aiohttp import web, hdrs
 import traceback
 from functools import wraps
 import babel
+from pathlib import path
 from asyncdb import AsyncDB, AsyncPool
 from dataclasses import make_dataclass
 from datamodel import BaseModel
@@ -27,6 +28,21 @@ F = TypeVar("F", bound=Callable[..., Any])
 
 class NotSet(BaseException):
     """Usable for not set Value on Field"""
+
+
+def model_url(
+    handler: web.RequestHandler,
+    version: str = 'v1',
+    name: str = '_model_'
+) -> list:
+    _path = handler.path
+    name = getattr(handler, 'name', name)
+    model = _path if _path else name
+    url = f"/api/{version}/{model}"
+    return [
+        path("", r"{}/{{id:.*}}".format(url), handler, name=f"{name}_{model}_id"),
+        path("", r"{}{{meta:\:?.*}}".format(url), handler, name=f"{name}_{model}"),
+    ]
 
 
 class ConnectionHandler:

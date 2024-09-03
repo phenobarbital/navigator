@@ -480,6 +480,14 @@ class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
     async def get_connection(self):
         return self._connection
 
+    async def head(self):
+        # For HEAD, we usually just want to return the same headers as GET,
+        # but without the body.  You might need to adjust this depending
+        # on your specific application logic.
+        response = await self.get()
+        response.body = None  # Remove the body for HEAD requests
+        return response
+
     async def connect(self, request):
         try:
             self._connection = await request.app["database"].acquire()

@@ -6,9 +6,7 @@ from aiohttp import web, hdrs
 import traceback
 from functools import wraps
 import babel
-from pathlib import path
 from asyncdb import AsyncDB, AsyncPool
-from dataclasses import make_dataclass
 from datamodel import BaseModel
 from datamodel.fields import Field
 from datamodel.exceptions import ValidationError
@@ -19,6 +17,7 @@ from ..conf import (
     AUTH_SESSION_OBJECT
 )
 from ..types import WebApp
+from ..routes import path
 from ..applications.base import BaseApplication
 from ..exceptions import ConfigError
 from .base import BaseView

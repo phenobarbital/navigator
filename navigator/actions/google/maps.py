@@ -297,9 +297,15 @@ class Route(GoogleService):
                     total_duration += leg['duration']['value']
                     total_distance += leg['distance']['value']
                 # Convert duration to minutes
-                total_duration_min = total_duration / 60
+                try:
+                    total_duration_min = total_duration / 60
+                except ZeroDivisionError:
+                    total_duration_min = 0
                 # Convert distance to miles
-                total_distance_miles = total_distance / 1609.34
+                try:
+                    total_distance_miles = total_distance / 1609.34
+                except ZeroDivisionError:
+                    total_distance_miles = 0
                 bestroute = []
                 for i, leg in enumerate(route['legs']):
                     step = leg['steps'][0]
@@ -417,7 +423,7 @@ class Route(GoogleService):
                 # Convert duration to minutes
                 if total_duration > 0:
                     total_duration_min = total_duration / 60
-                if total_distance_miles > 0:
+                if total_distance > 0:
                     # Convert distance to miles
                     total_distance_miles = total_distance / 1609.34
                 bestroute = []

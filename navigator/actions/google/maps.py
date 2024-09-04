@@ -185,7 +185,18 @@ class Route(GoogleService):
             waypoint_order = directions_result['routes'][0].get('waypoint_order', [])
             waypoints = [locations[i] for i in waypoint_order]
             num_waypoints = len(waypoints)
-            color_range = self.get_gradient_colors(num_waypoints, start_color, end_color)
+            try:
+                color_range = self.get_gradient_colors(
+                    num_waypoints,
+                    start_color,
+                    end_color
+                )
+            except ZeroDivisionError:
+                color_range = self.get_gradient_colors(
+                    10,
+                    start_color,
+                    end_color
+                )
             alpha_lower = string.ascii_uppercase
             for i, waypoint in enumerate(waypoints):
                 color = color_range[i]
@@ -217,7 +228,8 @@ class Route(GoogleService):
     async def get_route(
         self,
         payload: TravelerSearch,
-        complete: bool = False
+        complete: bool = True,
+        add_overview: bool = True
     ):
         base_url = 'https://maps.googleapis.com/maps/api/directions/json'
         if payload.departure_time != 'now':
@@ -306,9 +318,10 @@ class Route(GoogleService):
                     "total_duration": f"{total_duration_min:.2f} minutes",
                     "total_distance": f"{total_distance_miles:.2f} miles",
                     "map_url": map_url,
-                    "map": url_map,
-                    "overview": decoded_polyline
+                    "map": url_map
                 }
+                if add_overview is True:
+                    response['overview'] = decoded_polyline
                 if complete is True:
                     response['response'] = result
                 return response
@@ -316,7 +329,8 @@ class Route(GoogleService):
     async def waypoint_route(
         self,
         payload: TravelerSearch,
-        complete: bool = False
+        complete: bool = True,
+        add_overview: bool = True
     ):
         locations_list = []
         locations = payload.locations
@@ -378,6 +392,7 @@ class Route(GoogleService):
                 if response.status == 200:
                     result = await response.json()
             if result['status'] == 'OK':
+                self._logger.debug('Google: Route Found')
                 # Extracting route, duration, and distance information
                 route = result['routes'][0]
                 encoded_polyline = route['overview_polyline']['points']
@@ -391,16 +406,20 @@ class Route(GoogleService):
                     locations=locations
                 )
                 total_duration = 0
+                total_duration_min = 0
                 total_distance = 0
+                total_distance_miles = 0
                 # Duration in seconds
                 # Distance in meters
                 for leg in route['legs']:
                     total_duration += leg['duration']['value']
                     total_distance += leg['distance']['value']
                 # Convert duration to minutes
-                total_duration_min = total_duration / 60
-                # Convert distance to miles
-                total_distance_miles = total_distance / 1609.34
+                if total_duration > 0:
+                    total_duration_min = total_duration / 60
+                if total_distance_miles > 0:
+                    # Convert distance to miles
+                    total_distance_miles = total_distance / 1609.34
                 bestroute = []
                 for i, leg in enumerate(route['legs']):
                     step = leg['steps'][0]
@@ -422,9 +441,10 @@ class Route(GoogleService):
                     "total_duration": f"{total_duration_min:.2f} minutes",
                     "total_distance": f"{total_distance_miles:.2f} miles",
                     "map_url": map_url,
-                    "map": url_map,
-                    # "route_overview": decoded_polyline
+                    "map": url_map
                 }
+                if add_overview is True:
+                    response['overview'] = decoded_polyline
                 if complete is True:
                     response['response'] = result
                 return response

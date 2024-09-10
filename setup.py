@@ -152,7 +152,7 @@ setup(
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
         "proxylists>=0.12.4",
-        "httpx==0.26.0",
+        "httpx>=0.25.0,<=0.27.0",
         "beautifulsoup4==4.12.3",
         "polyline==2.0.1",
         "cartopy==0.22.0",

@@ -15,7 +15,9 @@ from ...extensions import BaseExtension
 from ...exceptions import ConfigError
 
 
-locale_finder = re.compile(r'([a-zA-Z]+-[a-zA-Z]+)(?:;q=(\d\.\d))?')
+locale_finder = re.compile(r'([a-zA-Z]{2,3}(?:[_-][a-zA-Z]{2})?)(?:;q=(\d\.\d))?')
+
+
 class LocaleSupport(BaseExtension):
     """LocaleSupport.
 
@@ -161,7 +163,10 @@ class LocaleSupport(BaseExtension):
             locales, key=lambda x: float(x[1]) if x[1] else 1.0,
             reverse=True
         )
-        return [locale.replace('-', '_') for locale, _ in sorted_locales]
+        locales = [locale.replace('-', '_') for locale, _ in sorted_locales if locale is not None]
+        if not locales:
+            locales = accept_language.replace('-', '_')
+        return locales
 
     def translator(
         self,
@@ -169,23 +174,41 @@ class LocaleSupport(BaseExtension):
         locale: Union[Locale, None] = None,
         lang: str = None
     ) -> support.Translations:  # pylint: disable=W0621
+        lc = None
         if domain is None:
             domain = self.domain
-        if lang is not None:
+        if lang:
             lng = self.parse_accept_language(lang)
             if not lng:
                 lng = self.localization[0]
             elif isinstance(lng, list):
                 lng = lng[0]
-            lc = Locale(lng)
+            # TODO: manual patch for Chinese and Taiwanese
+            if lng == 'zh_CN':
+                lng = 'zh_Hans_CN'
+            if lng == 'zh_TW':
+                lng = 'zh_Hant_TW'
+            try:
+                lc = Locale(lng)
+            except Exception as ex:
+                self.logger.error(
+                    f"Error Getting locale {ex}"
+                )
         if not lc:
             if locale:
                 lc = locale
             else:
                 lc = self._locale
         try:
+            # Add this line for debugging
+            self.logger.notice(
+                f"Locales attempted to load: {lc}"
+            )
             trans = support.Translations.load(
                 self.locale_path, domain=domain, locales=lc
+            )
+            self.logger.notice(
+                f"Translation Requested: {trans!r}"
             )
             return trans.gettext
         except FileNotFoundError as ex:

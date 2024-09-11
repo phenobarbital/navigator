@@ -431,42 +431,6 @@ class AbstractModel(BaseView):
         }
         return self.no_content(headers=headers)
 
-    def _translate_model(self, translator):
-        try:
-            model_cls = copy.deepcopy(self.model)
-            fields = model_cls.columns(model_cls)
-            for name, field in fields.items():
-                if 'original_label' in field.metadata:
-                    label = field.metadata.get('original_label')
-                else:
-                    label = field.metadata.get('label', name)
-                translated_label = translator(label)
-                if label != translated_label:
-                    new_metadata = dict(field.metadata)
-                    new_metadata['label'] = translated_label
-                    if 'original_label' not in new_metadata:
-                        new_metadata['original_label'] = label
-                    field_params = {
-                        'metadata': new_metadata,
-                        'repr': field.repr,
-                        'compare': field.compare,
-                        'init': field.init
-                    }
-                    f = Field(
-                        **field_params
-                    )
-                    f.name = name
-                    f.type = field.type
-                    f.default = field.default
-                    model_cls.__columns__[name] = f
-                    setattr(model_cls, name, f)
-                    model_cls.__dataclass_fields__[field.name] = f
-            return model_cls
-        except Exception as exc:
-            self.logger.warning(
-                f"Unable to Translate Model {self.model}: {exc}"
-            )
-
     async def _get_meta_info(self, meta: str, fields: list):
         """
         _get_meta_info.
@@ -492,7 +456,7 @@ class AbstractModel(BaseView):
                     except babel.core.UnknownLocaleError as exc:
                         trans = locale.translator(lang='en_US')
                         self.logger.warning(
-                            str(exc)
+                            f"Unable to load Language, defaulting to en_US, {exc}"
                         )
                     # returning JSON schema of Model:
                     response = self.get_model.schema(as_dict=True, locale=trans)

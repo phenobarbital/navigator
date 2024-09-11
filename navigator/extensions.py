@@ -53,6 +53,8 @@ class BaseExtension(ABC):
         self._kwargs = kwargs
         ## name of the extension:
         self.__name__ = self.__class__.__name__
+        # Logger:
+        self.logger = logging.getLogger(name=self.__name__)
 
     def setup(self, app: WebApp) -> WebApp:
         if isinstance(app, BaseApplication):  # migrate to BaseApplication (on types)

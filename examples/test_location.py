@@ -11,7 +11,7 @@ session.setup(app)
 
 # support localization:
 l18n = LocaleSupport(
-    localization=['en_US', 'es_ES', 'es', 'it_IT', 'de_DE', 'fr_FR'],
+    localization=['en_US', 'es_ES', 'es', 'it_IT', 'de_DE', 'fr_FR', 'zh_CN'],
     domain='nav'
 )
 l18n.setup(app)

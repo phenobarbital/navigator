@@ -258,9 +258,9 @@ class AbstractModel(BaseView):
         # Validate Data, if valid, return a DataModel
         try:
             if isinstance(data, dict):
-                return self.model(**data)
+                return self.model(**data)  # pylint: disable=E1102 # noqa
             elif isinstance(data, list):
-                return [self.model(**d) for d in data]
+                return [self.model(**d) for d in data]  # pylint: disable=E1102 # noqa
         except TypeError as ex:
             error = {
                 "error": f"Error on {self.__name__}: {ex}",

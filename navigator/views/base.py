@@ -3,6 +3,8 @@ import datetime
 from typing import Any, Optional, Union
 from collections.abc import Callable
 from abc import ABC
+import tempfile
+from pathlib import Path
 from dataclasses import dataclass
 from urllib import parse
 from aiohttp import web
@@ -456,6 +458,97 @@ class BaseHandler(ABC):
                     return validated
             else:
                 return validated
+
+    async def handle_upload(
+        self,
+        request: Optional[web.Request] = None,
+        form_key: Optional[str] = None,
+        ext: str = '.csv',
+        preserve_filenames: bool = True
+    ) -> dict:
+        """handle_upload.
+
+        Description: Handle File Uploads.
+
+        Args:
+            request (Optional[web.Request], optional): Request Handler. Defaults to None.
+
+        Returns:
+            dict: File Uploaded (tempfile).
+        """
+        if not request:
+            request = self.request
+
+        # Initialize a list to hold file paths if handling multiple files
+        uploaded_files = []
+        reader = await request.multipart()
+        # Process each part of the multipart request
+        async for part in reader:
+            if part.filename:
+                if form_key and part.name != form_key:
+                    # Validation about only using a form key.
+                    continue
+                # Create a temporary file for each uploaded file
+                file_ext = Path(part.filename).suffix or ext
+                if preserve_filenames:
+                    # Use the original filename and save in the temp directory
+                    temp_file_path = Path(tempfile.gettempdir()) / part.filename
+                else:
+                    with tempfile.NamedTemporaryFile(
+                        delete=False,
+                        dir=tempfile.gettempdir(),
+                        suffix=file_ext
+                    ) as temp_file:
+                        temp_file_path = Path(temp_file.name)
+                # Write the file content
+                with temp_file_path.open("wb") as f:
+                    while True:
+                        chunk = await part.read_chunk()
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                uploaded_files.append(temp_file_path)
+        if not uploaded_files:
+            return {'error': 'No file uploaded'}
+        return {'files': uploaded_files}
+
+    async def delete_uploaded_files(self, file_paths: list):
+        """delete_uploaded_files.
+
+        Description: Delete Uploaded Files.
+
+        Args:
+            file_paths (list): List of File Paths to delete.
+        """
+        for file_path in file_paths:
+            if Path(file_path).exists():
+                Path(file_path).unlink()
+
+    async def handle_download(
+        self,
+        request: Optional[web.Request] = None,
+        file_path: str = None
+    ) -> web.FileResponse:
+        """handle_download.
+
+        Description: Handle File Downloads.
+
+        Args:
+            request (Optional[web.Request], optional): Request Handler. Defaults to None.
+            file_path (str, optional): File Path to download. Defaults to None.
+
+        Returns:
+            web.FileResponse: File Response.
+        """
+        if not request:
+            request = self.request
+        if not file_path:
+            return self.error(
+                reason="No File Path Provided",
+                status=404
+            )
+        return web.FileResponse(file_path)
+
 
 class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
 

@@ -25,14 +25,17 @@ coroutine = Callable[[int], Coroutine[Any, Any, str]]
 SERVICE_NAME: str = 'service_queue'
 
 
-def coroutine_in_thread(coro: coroutine):
+def coroutine_in_thread(coro: coroutine, callback: Optional[coroutine] = None):
     """Run a coroutine in a new thread with its own event loop."""
     done_event = threading.Event()
 
     def run():
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
-        new_loop.run_until_complete(coro)
+        result = new_loop.run_until_complete(coro)
+        # if callback exists:
+        if callback:
+            new_loop.run_until_complete(callback(result))
         new_loop.close()
         done_event.set()  # Signal that the coroutine has completed
     thread = threading.Thread(target=run, daemon=True)
@@ -84,9 +87,10 @@ class TaskWrapper:
             # Delay the execution by jitter seconds
             await asyncio.sleep(delay)
         try:
-            result = await self.fn(
-                *self.args, **self.kwargs
-            )
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                coro = self.fn(*self.args, **self.kwargs)
+                coroutine_in_thread(coro, self._callback_)
+                return True  # end this
         except Exception as e:
             logging.error(
                 f"Error executing TaskWrapper {self.fn.__name__}: {e}"
@@ -269,7 +273,7 @@ class BackgroundQueue:
             try:
                 result = await task()
             except Exception as e:
-                self.logger.execption(
+                self.logger.exception(
                     f"Error executing TaskWrapper {task!r}: {e}",
                     exc_info=True
                 )
@@ -290,7 +294,6 @@ class BackgroundQueue:
         else:
             try:
                 loop = asyncio.get_running_loop()
-                # with ThreadPoolExecutor(max_workers=1) as executor:
                 result = await loop.run_in_executor(
                     self.executor,
                     asyncio.run,
@@ -371,6 +374,7 @@ class BackgroundQueue:
                         )
                         continue
             except Exception as e:  # Catch all exceptions
+                print('ERROR > ', e)
                 self.logger.error(
                     f"Error executing task {func.__name__}: {e}"
                 )
@@ -393,7 +397,7 @@ class BackgroundQueue:
                         Peak Memory Usage: {peak_memory / (1024 ** 2):.2f} MB
                     """)
                 except Exception as e:
-                    print('ERROR > ', e)
+                    print('LOG ERROR > ', e)
                 # Call your task completion callback (if any)
                 try:
                     await self._callback(task, result=result)

@@ -166,7 +166,9 @@ setup(
         "brotli==1.1.0",
         "brotlicffi==1.1.0.0",
         "aiofile==3.8.8",
-        "psutil==6.0.0"
+        "psutil==6.0.0",
+        "aiormq==6.8.1",
+        "Faker==22.2.0"
     ],
     extras_require={
         "locale": [

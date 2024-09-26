@@ -6,7 +6,12 @@ from navconfig.logging import logging
 from navigator_auth import AuthHandler
 from navigator import Application
 from navigator.responses import HTMLResponse
-from navigator.background import SERVICE_NAME, BackgroundQueue, BackgroundTask
+from navigator.background import (
+    SERVICE_NAME,
+    BackgroundQueue,
+    BackgroundTask,
+    TaskWrapper
+)
 
 # Middleware to print request details
 @web.middleware
@@ -43,6 +48,12 @@ async def send_email(email, message):
     print(' :: Waiting for 10 seconds to finish task :: ')
     await asyncio.sleep(10)  # Simulate email sending
     print(f"Email sent to {email} with message: {message}")
+    return f"Email sent to {email} with message: {message}"
+
+async def sent_message(message, *args, **kwargs):
+    print(':: Called as Callback ::')
+    print(message, args, kwargs)
+
 
 def blocking_code(request):
     time.sleep(10)
@@ -56,12 +67,19 @@ def blocking_task(request):
 async def handle_post(request):
     data = await request.json()
     tasker = request.app[SERVICE_NAME]
-    await tasker.put(send_email, data['email'], data['message'])
-    fn = partial(blocking_code, request)
+    # await tasker.put(send_email, data['email'], data['message'])
+    fn = partial(blocking_task, request)
     await tasker.put(fn)
+    # Or using the Task Wrapper:
+    task = TaskWrapper(
+        send_email, data['email'], data['message'],
+        jitter=5
+    )
+    task.add_callback(sent_message)
+    await tasker.put(task)
     # Using Background Task Runner:
-    task = BackgroundTask(blocking_task, request)
-    asyncio.create_task(task.run())
+    # task = BackgroundTask(blocking_task, request)
+    # asyncio.create_task(task.run())
     return web.json_response({'status': 'Task enqueued'})
 
 

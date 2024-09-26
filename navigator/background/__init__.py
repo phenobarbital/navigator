@@ -78,6 +78,9 @@ class TaskWrapper:
         if self.jitter > 0:
             # Random delay between 0 and jitter to avoid "thundering herd" problem
             delay = random.uniform(0.1, self.jitter)
+            self.logger.debug(
+                f"executing {self.fn.__name__} with Jitter: {delay} sec."
+            )
             # Delay the execution by jitter seconds
             await asyncio.sleep(delay)
         try:

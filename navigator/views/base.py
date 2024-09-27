@@ -489,11 +489,12 @@ class BaseHandler(ABC):
                 status=406,
                 content_type='application/json'
             )
+        form_data = {}
         uploaded_files = []
         try:
             reader = await request.multipart()
         except KeyError:
-            return {'error': 'No file uploaded'}
+            raise FileNotFoundError("No File Uploaded")
 
         # Process each part of the multipart request
         async for part in reader:
@@ -521,9 +522,12 @@ class BaseHandler(ABC):
                             break
                         f.write(chunk)
                 uploaded_files.append(temp_file_path)
-        if not uploaded_files:
-            return {'error': 'No file uploaded'}
-        return {'files': uploaded_files}
+            else:
+                # If it's a form field, add it to the dictionary
+                form_field_name = part.name
+                form_field_value = await part.text()  # Read the value as text
+                form_data[form_field_name] = form_field_value
+        return uploaded_files, form_data
 
     async def delete_uploaded_files(self, file_paths: list):
         """delete_uploaded_files.

@@ -479,9 +479,22 @@ class BaseHandler(ABC):
         if not request:
             request = self.request
 
-        # Initialize a list to hold file paths if handling multiple files
+        # Check if Content-Type is correctly set
+        content_type = request.headers.get('Content-Type', '')
+        if 'multipart/form-data' not in content_type:
+            return self.response(
+                response={
+                    'error': 'Invalid Content-Type. Use multipart/form-data'
+                },
+                status=406,
+                content_type='application/json'
+            )
         uploaded_files = []
-        reader = await request.multipart()
+        try:
+            reader = await request.multipart()
+        except KeyError:
+            return {'error': 'No file uploaded'}
+
         # Process each part of the multipart request
         async for part in reader:
             if part.filename:

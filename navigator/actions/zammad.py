@@ -77,6 +77,12 @@ class Zammad(AbstractTicket, RESTAction):
         """
         self.method = 'get'
         states = kwargs.pop('state_id', [1, 2, 3])  # Open by Default
+        per_page = kwargs.pop('per_page', 100) # Max tickets count per page
+        page = 1  # First Page
+        all_tickets = []  # List for tickets
+        all_assets = {}  # Dict for all assets
+        tickets_count = 0  # Total tickets count
+
         if ',' in states:
             states = states.split(',')
 
@@ -88,16 +94,48 @@ class Zammad(AbstractTicket, RESTAction):
             qs = quote_plus(query_string)
         else:
             qs = "state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
-        self.url = f"{self.zammad_instance}api/v1/tickets/search?query={qs}"
-        try:
-            result, _ = await self.request(
-                self.url, self.method
-            )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error getting Zammad Tickets: {e}"
-            ) from e
+
+        # Pagination Loop
+        while True:
+            self.url = f"{self.zammad_instance}api/v1/tickets/search?query={qs}&page={page}&limit={per_page}"
+
+            try:
+                result, _ = await self.request(self.url, self.method)
+
+                # Get actual tickets and add to array
+                tickets = result.get("tickets", [])
+                if not tickets or len(tickets) == 0:
+                    break  # If there are no more tickets on the current page, exit the loop
+                all_tickets.extend(tickets)
+
+                # Get actual assets and add to dict
+                assets = result.get("assets", {})
+                for key, value in assets.items():
+                    if key not in all_assets:
+                        all_assets[key] = value
+                    else:
+                        # If is a list
+                        if isinstance(value, list):
+                            all_assets[key].extend(value)
+                        # If is a dict
+                        elif isinstance(value, dict):
+                            all_assets[key].update(value)
+                        else:
+                            all_assets[key] = value
+
+                page += 1  # Next page
+
+            except Exception as e:
+                raise ConfigError(
+                    f"Error getting Zammad Tickets: {e}"
+                ) from e
+        tickets_count = len(all_tickets)
+
+        return {
+            "tickets": all_tickets,
+            "tickets_count": tickets_count,
+            "assets": all_assets
+        }
 
     async def update(self, ticket: int, **kwargs):
         """update.

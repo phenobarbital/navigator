@@ -105,6 +105,8 @@ cdef class BaseAppHandler:
             except (TypeError, ValueError, RuntimeError) as exc:
                 if 'already has OPTIONS handler' in str(exc):
                     continue
+                if 'already has a ' in str(exc):
+                    continue
                 self.logger.warning(
                     f"Error setting up CORS for route {route}: {exc}"
                 )

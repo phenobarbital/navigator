@@ -8,7 +8,6 @@ from pathlib import Path
 from dataclasses import dataclass
 from urllib import parse
 from aiohttp import web
-from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import (
     HTTPMethodNotAllowed,
     HTTPNoContent,
@@ -17,32 +16,31 @@ from aiohttp.web_exceptions import (
 import orjson
 from orjson import JSONDecodeError
 import aiohttp_cors
-from aiohttp_cors import CorsViewMixin
 from datamodel.exceptions import ValidationError
 from navconfig.logging import logging, loglevel
 from navigator_session import get_session
 from ..exceptions import NavException, InvalidArgument
 from ..libs.json import JSONContent, json_encoder, json_decoder
 from ..responses import JSONResponse
+from ..applications.base import BaseApplication
+from ..types import WebApp
+from ..conf import CORS_MAX_AGE
 
 
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
 
 
-class BaseHandler(ABC):
-    _config = None
-    _mem = None
-    _now = None
-    _loop = None
+class BaseHandler:
     _logger_name: str = "navigator"
     _lasterr = None
     _allowed = ["get", "post", "put", "patch", "delete", "options", "head"]
     _allowed_methods = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"]
 
     def __init__(self, *args, **kwargs):
-        self._now = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-        self._loop = asyncio.get_event_loop()
+        super().__init__(*args, **kwargs)
+        self._config = None
+        self._loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
         self._json: Callable = JSONContent()
         self.logger: logging.Logger = None
         self.post_init(self, *args, **kwargs)
@@ -51,11 +49,11 @@ class BaseHandler(ABC):
         self.logger = logging.getLogger(self._logger_name)
         self.logger.setLevel(loglevel)
 
-    def now(self):
-        return self._now
-
     def log(self, message: str):
         self.logger.info(message)
+
+    def log_error(self, message: str):
+        self.logger.error(message)
 
     async def session(self):
         session = None
@@ -566,8 +564,7 @@ class BaseHandler(ABC):
             )
         return web.FileResponse(file_path)
 
-
-class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
+class BaseView(aiohttp_cors.CorsViewMixin, BaseHandler, web.View):
 
     cors_config = {
         "*": aiohttp_cors.ResourceOptions(
@@ -575,17 +572,21 @@ class BaseView(CorsViewMixin, web.View, BaseHandler, AbstractView):
             expose_headers="*",
             allow_headers="*",
             allow_methods="*",
-            max_age=7200,
+            max_age=CORS_MAX_AGE,
         )
     }
 
     def __init__(self, request, *args, **kwargs):
-        CorsViewMixin.__init__(self)
-        AbstractView.__init__(self, request)
-        BaseHandler.__init__(self, *args, **kwargs)
-
+        super().__init__(request, *args, **kwargs)
         self._request = request
         self._connection: Callable = None
+
+    @classmethod
+    def setup(cls, app: Union[WebApp, web.Application], route: str) -> None:
+        if isinstance(app, BaseApplication):
+            app = app.get_app()
+        # add route view:
+        app.router.add_view(route, cls)
 
     async def get_connection(self):
         return self._connection

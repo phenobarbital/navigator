@@ -168,7 +168,8 @@ setup(
         "aiofile==3.8.8",
         "psutil==6.0.0",
         "aiormq==6.8.1",
-        "Faker==22.2.0"
+        "Faker==22.2.0",
+        "google-cloud-storage==2.17.0"
     ],
     extras_require={
         "locale": [

@@ -24,7 +24,7 @@ from ..libs.json import JSONContent, json_encoder, json_decoder
 from ..responses import JSONResponse
 from ..applications.base import BaseApplication
 from ..types import WebApp
-
+from ..conf import CORS_MAX_AGE
 
 
 DEFAULT_JSON_ENCODER = json_encoder
@@ -572,7 +572,7 @@ class BaseView(aiohttp_cors.CorsViewMixin, BaseHandler, web.View):
             expose_headers="*",
             allow_headers="*",
             allow_methods="*",
-            max_age=7200,
+            max_age=CORS_MAX_AGE,
         )
     }
 

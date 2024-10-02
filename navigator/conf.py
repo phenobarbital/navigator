@@ -24,6 +24,7 @@ HOSTS = [e.strip() for e in list(
 )]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
 ENABLE_ACCESS_LOG = config.getboolean("ENABLE_ACCESS_LOG", fallback=False)
+CORS_MAX_AGE = config.getint('CORS_MAX_AGE', fallback=7200)
 
 # Temp File Path
 files_path = BASE_DIR.joinpath("temp")
@@ -205,17 +206,6 @@ Background Tasks
 """
 QUEUE_CALLBACK = config.get('QUEUE_CALLBACK', fallback=None)
 
-# get configuration settings (user can override settings).
-try:
-    from navconfig.conf import *  # pylint: disable=W0401,W0614
-except ImportError:
-    try:
-        from settings.settings import *  # pylint: disable=W0401,W0614
-    except ImportError:
-        logging.warning(
-            "Missing *Settings* Module, Settings is required for fine-tune configuration."
-        )
-
 ### Zammad Integration via Actions:
 # Zammad:
 ZAMMAD_INSTANCE = config.get('ZAMMAD_INSTANCE')
@@ -227,6 +217,17 @@ ZAMMAD_DEFAULT_CUSTOMER = config.get('ZAMMAD_DEFAULT_CUSTOMER')
 ZAMMAD_DEFAULT_CATALOG = config.get('ZAMMAD_DEFAULT_CATALOG')
 ZAMMAD_ORGANIZATION = config.get('ZAMMAD_ORGANIZATION')
 ZAMMAD_DEFAULT_ROLE = config.get('ZAMMAD_DEFAULT_ROLE', 'Customer')
+
+# get configuration settings (user can override settings).
+try:
+    from navconfig.conf import *  # pylint: disable=W0401,W0614 # noqa
+except ImportError:
+    try:
+        from settings.settings import *  # pylint: disable=W0401,W0614 # noqa
+    except ImportError:
+        logging.warning(
+            "Missing *Settings* Module, Settings is required for fine-tune configuration."
+        )
 
 #### Final: Config dict for AIOHTTP
 Context = {

@@ -3,15 +3,17 @@ GCSFileManager.
 
 Exposing Files stored in Google Cloud Storage as static File Manager.
 """
-
-from typing import Union
+from typing import Union, Any
 import os
+from datetime import datetime, timedelta, timezone
+from pathlib import PurePath, Path
 from urllib.parse import quote, urljoin
 from aiohttp import web
+import google.auth
 from google.cloud import storage
+from google.oauth2 import service_account
 from ..types import WebApp
 from ..applications.base import BaseApplication
-from datetime import timedelta
 
 
 class GCSFileManager:
@@ -21,22 +23,87 @@ class GCSFileManager:
     Exposing Files stored in Google Cloud Storage as static File Manager.
     """
 
-    def __init__(self, bucket_name, credentials=None):
+    def __init__(
+        self,
+        bucket_name: str,
+        route: str = '/data',
+        **kwargs
+    ):
         """
         Initialize the GCSFileManager.
 
         Args:
             bucket_name (str): The name of the GCS bucket.
-            credentials (google.auth.credentials.Credentials, optional): The credentials to use.
+            credentials (google.auth.credentials.Credentials, optional):
+            The credentials to use.
         """
         self.app = None
-        self.route = '/data'
+        self.route = route
         self.base_url = None
         self.bucket_name = bucket_name
-        self.client = storage.Client(credentials=credentials)
+        self.credentials = None
+        self.project = None
+        json_credentials = kwargs.get('json_credentials', None)
+        credentials = kwargs.get('credentials', None)
+        # Example Scope: ['https://www.googleapis.com/auth/cloud-platform']
+        self.scopes: list = kwargs.get('scopes', None)
+        scoped_credentials = None
+        if json_credentials:
+            # Using Json:
+            self.credentials = service_account.Credentials.from_service_account_info(
+                json_credentials
+            )
+        elif credentials:
+            # Using File
+            self.credentials = service_account.Credentials.from_service_account_file(
+                credentials
+            )
+        else:
+            self.credentials, self.project = google.auth.default(
+                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            )
+        if self.scopes:
+            scoped_credentials = self.credentials.with_scopes(
+                self.scopes
+            )
+        # Initialize the GCS client
+        if scoped_credentials:
+            self.client = storage.Client(credentials=scoped_credentials)
+        else:
+            self.client = storage.Client(credentials=self.credentials)
         self.bucket = self.client.bucket(bucket_name)
 
-    def upload_file(self, source_file_path, destination_blob_name):
+    def list_all_files(self, prefix=None):
+        """
+        List all files in the bucket.
+
+        Args:
+            prefix (str, optional): The prefix to filter by.
+
+        Returns:
+            list: A list of blob names.
+        """
+        blobs = self.bucket.list_blobs(prefix=prefix)
+        return blobs
+
+    def list_files(self, prefix=None):
+        """
+        List files in the bucket.
+
+        Args:
+            prefix (str, optional): The prefix to filter by.
+
+        Returns:
+            list: A list of blob names.
+        """
+        blobs = self.bucket.list_blobs(prefix=prefix)
+        return [blob.name for blob in blobs]
+
+    def upload_file(
+        self,
+        source_file_path,
+        destination_blob_name: Union[str, PurePath] = None
+    ):
         """
         Uploads a file to the bucket.
 
@@ -47,11 +114,13 @@ class GCSFileManager:
         Returns:
             str: The blob name.
         """
+        if isinstance(source_file_path, PurePath) and destination_blob_name is None:
+            destination_blob_name = str(source_file_path.name)
         blob = self.bucket.blob(destination_blob_name)
         blob.upload_from_filename(source_file_path)
         return destination_blob_name
 
-    def upload_file_from_string(self, data, destination_blob_name):
+    def upload_file_from_string(self, data: Any, destination_blob_name):
         """
         Uploads data to the bucket from a string or bytes object.
 
@@ -76,6 +145,44 @@ class GCSFileManager:
         blob = self.bucket.blob(blob_name)
         blob.delete()
 
+    def get_response(
+        self,
+        reason: str = 'OK',
+        status: int = 200,
+        content_type: str = 'text/html',
+        binary: bool = True
+    ):
+        """
+        Get a response object.
+
+        Args:
+            content_type (str, optional): The content type of the response.
+            binary (bool, optional): if True, file is a octect stream.
+        Returns:
+            aiohttp.web.Response: The response object.
+        """
+        if binary is True:
+            content_type = 'application/octet-stream'
+        current = datetime.now(timezone.utc)
+        expires = current + timedelta(days=7)
+        last_modified = current - timedelta(hours=1)
+        return web.Response(
+            status=status,
+            reason=reason,
+            content_type=content_type,
+            headers={
+                "Pragma": "public",  # required,
+                "Last-Modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+                "Expires": expires.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+                "Connection": "keep-alive",
+                "Cache-Control": "private",  # required for certain browsers,
+                "Content-Description": "File Transfer",
+                "Content-Type": content_type,
+                "Content-Transfer-Encoding": "binary",
+                "Date": current.strftime("%a, %d %b %Y %H:%M:%S GMT"),
+            },
+        )
+
     async def handle_file(self, request):
         """
         Handle the file request by streaming the file from GCS to the client.
@@ -95,9 +202,12 @@ class GCSFileManager:
         blob = self.bucket.blob(filename)
 
         if not blob.exists():
-            return web.Response(status=404, text='File not found')
+            return web.Response(
+                status=404,
+                text='File not found'
+            )
 
-        response = web.StreamResponse()
+        response = self.get_response()
         response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
         response.headers['Content-Type'] = blob.content_type or 'application/octet-stream'
         await response.prepare(request)

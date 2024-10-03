@@ -253,7 +253,13 @@ class GCSFileManager:
             route + "/{filename}", self.handle_file
         )
 
-    def get_file_url(self, blob_name, base_url=None, use_signed_url=False, expiration=3600):
+    def get_file_url(
+        self,
+        blob_name,
+        base_url=None,
+        use_signed_url=False,
+        expiration=3600
+    ):
         """
         Generate a URL to access the file.
 
@@ -269,7 +275,9 @@ class GCSFileManager:
         if use_signed_url:
             # Generate a signed URL to GCS
             blob = self.bucket.blob(blob_name)
-            url = blob.generate_signed_url(expiration=timedelta(seconds=expiration))
+            url = blob.generate_signed_url(
+                expiration=timedelta(seconds=expiration)
+            )
             return url
         else:
             # Generate a URL to serve the file via the web application
@@ -289,3 +297,88 @@ class GCSFileManager:
             )
             full_url = url + filename_encoded
             return full_url
+
+    def find_files(self, keywords=None, extension=None, prefix=None):
+        """
+        Find files in the bucket based on keywords or extension.
+
+        Args:
+            keywords (str or list, optional): Keywords to search for in the file name.
+            extension (str, optional): File extension to filter by (e.g., ".csv").
+            prefix (str, optional): The prefix to filter by.
+
+        Returns:
+            list: A list of matching blob names.
+        """
+        blobs = self.bucket.list_blobs(prefix=prefix)
+        matching_files = []
+
+        for blob in blobs:
+            if keywords:
+                if isinstance(keywords, str):
+                    keywords = [keywords]
+                if not all(keyword in blob.name for keyword in keywords):
+                    continue
+
+            if extension:
+                if not blob.name.endswith(extension):
+                    continue
+
+            matching_files.append(blob.name)
+
+        return matching_files
+
+    def create_folder(self, folder_name):
+        """
+        Create a "folder" in GCS (simulated by creating an empty object).
+
+        Args:
+            folder_name (str): The name of the folder to create.
+                Should end with a slash ("/").
+        """
+        if not folder_name.endswith("/"):
+            folder_name += "/"
+        blob = self.bucket.blob(folder_name)
+        blob.upload_from_string("")
+
+    def remove_folder(self, folder_name):
+        """
+        Remove a "folder" in GCS (by deleting all objects with the prefix).
+
+        Args:
+            folder_name (str): The name of the folder to remove.
+        """
+        if not folder_name.endswith("/"):
+            folder_name += "/"
+        blobs = self.bucket.list_blobs(prefix=folder_name)
+        for blob in blobs:
+            blob.delete()
+
+    def rename_folder(self, old_folder_name, new_folder_name):
+        """
+        Rename a "folder" in GCS (by renaming all objects with the prefix).
+
+        Args:
+            old_folder_name (str): The current name of the folder.
+            new_folder_name (str): The new name for the folder.
+        """
+        if not old_folder_name.endswith("/"):
+            old_folder_name += "/"
+        if not new_folder_name.endswith("/"):
+            new_folder_name += "/"
+
+        blobs = self.bucket.list_blobs(prefix=old_folder_name)
+        for blob in blobs:
+            new_blob_name = blob.name.replace(old_folder_name, new_folder_name, 1)
+            self.bucket.rename_blob(blob, new_blob_name)
+
+    def rename_file(self, old_file_name, new_file_name):
+        """
+        Rename a file in GCS.
+
+        Args:
+            old_file_name (str): The current name of the file.
+            new_file_name (str): The new name for the file.
+        """
+        blob = self.bucket.blob(old_file_name)
+        self.bucket.rename_blob(blob, new_file_name)

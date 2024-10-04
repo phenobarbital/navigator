@@ -125,6 +125,28 @@ class GCSFileManager:
         blob.upload_from_filename(source_file_path)
         return destination_blob_name
 
+    def upload_file_from_bytes(
+        self,
+        file_obj: bytes,
+        destination_blob_name,
+        content_type='application/zip'
+    ):
+        """
+        Uploads data to the bucket from a file-like object.
+
+        Args:
+            file_obj (BytesIO): The file-like object containing the data to upload.
+            destination_blob_name (str): The destination blob name in GCS.
+
+        Returns:
+            str: The blob name.
+        """
+        # Ensure the file pointer is at the beginning
+        file_obj.seek(0)
+        blob = self.bucket.blob(destination_blob_name)
+        blob.upload_from_file(file_obj, content_type=content_type)
+        return destination_blob_name
+
     def upload_file_from_string(self, data: Any, destination_blob_name):
         """
         Uploads data to the bucket from a string or bytes object.

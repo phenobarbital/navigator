@@ -10,7 +10,6 @@ class InMemoryZip:
         filename: Optional[str] = None,
         mode: str = 'a',
         compression: int = ZIP_DEFLATED,
-        compress_level: int = 9,
         **kwargs
     ):
         # Create the in-memory file-like object
@@ -20,7 +19,6 @@ class InMemoryZip:
             self.file_bytes,
             mode=mode,
             compression=compression,
-            compresslevel=compress_level,
             allowZip64=False,
             **kwargs
         )
@@ -30,15 +28,12 @@ class InMemoryZip:
         handler,
         mode: str = 'a',
         compression: int = ZIP_DEFLATED,
-        compress_level: int = 9,
         **kwargs
     ) -> ZipFile:
         zf = ZipFile(
             handler,
             mode=mode,
             compression=compression,
-            compresslevel=compress_level,
-            allowZip64=False,
             **kwargs
         )
         return zf
@@ -61,6 +56,12 @@ class InMemoryZip:
             zfile.create_system = 0
 
         return self
+
+    def get_bytes(self):
+        """Returns a BytesIO from Zip File."""
+        self.file_bytes.seek(0)
+        self.ziphandler.close()
+        return self.file_bytes
 
     def read(self):
         """Returns a string with the contents of the in-memory zip."""

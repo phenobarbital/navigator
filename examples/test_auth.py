@@ -9,8 +9,8 @@ from navigator import Application
 from navigator.responses import HTMLResponse
 
 
-# @is_authenticated()
-# @user_session()
+@is_authenticated()
+@user_session()
 class ChatHandler(BaseView):
     """
     ChatHandler.

@@ -12,6 +12,7 @@ from aiohttp import web
 import google.auth
 from google.cloud import storage
 from google.oauth2 import service_account
+from navconfig.logging import logging
 from ..types import WebApp
 from ..applications.base import BaseApplication
 
@@ -72,6 +73,10 @@ class GCSFileManager:
         else:
             self.client = storage.Client(credentials=self.credentials)
         self.bucket = self.client.bucket(bucket_name)
+        self.logger = logging.getLogger('storage.GCS')
+        self.logger.info(
+            f"Started GCSFileManager for bucket: {bucket_name}"
+        )
 
     def list_all_files(self, prefix=None):
         """
@@ -148,9 +153,7 @@ class GCSFileManager:
     def get_response(
         self,
         reason: str = 'OK',
-        status: int = 200,
-        content_type: str = 'text/html',
-        binary: bool = True
+        status: int = 200
     ):
         """
         Get a response object.
@@ -161,15 +164,12 @@ class GCSFileManager:
         Returns:
             aiohttp.web.Response: The response object.
         """
-        if binary is True:
-            content_type = 'application/octet-stream'
         current = datetime.now(timezone.utc)
         expires = current + timedelta(days=7)
         last_modified = current - timedelta(hours=1)
-        return web.Response(
+        return web.StreamResponse(
             status=status,
             reason=reason,
-            content_type=content_type,
             headers={
                 "Pragma": "public",  # required,
                 "Last-Modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
@@ -177,7 +177,6 @@ class GCSFileManager:
                 "Connection": "keep-alive",
                 "Cache-Control": "private",  # required for certain browsers,
                 "Content-Description": "File Transfer",
-                "Content-Type": content_type,
                 "Content-Transfer-Encoding": "binary",
                 "Date": current.strftime("%a, %d %b %Y %H:%M:%S GMT"),
             },
@@ -193,12 +192,16 @@ class GCSFileManager:
         Returns:
             aiohttp.web.StreamResponse: The streaming response.
         """
-        filename = request.match_info.get('filename', None)
+        filename = request.match_info.get('filepath', None)
+
         if not filename:
             raise web.HTTPNotFound()
 
         # Sanitize the filename to prevent path traversal attacks
-        filename = os.path.basename(filename)
+        try:
+            filename = PurePath(filename).relative_to('/')
+        except ValueError:
+            pass
         blob = self.bucket.blob(filename)
 
         if not blob.exists():
@@ -207,21 +210,70 @@ class GCSFileManager:
                 text='File not found'
             )
 
+        # Get the blob size
+        blob.reload()  # Fetch the latest blob metadata
+
         response = self.get_response()
-        response.headers['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response.enable_chunked_encoding = False  # Disable chunked encoding
+        response.content_length = blob.size  # Set the total content length
+
+        file = os.path.basename(filename)
+        response.headers['Content-Disposition'] = f'attachment; filename="{file}"'
         response.headers['Content-Type'] = blob.content_type or 'application/octet-stream'
+
+        # Handle Range requests for partial content
+        if 'Range' in request.headers:
+            start, end = self.parse_range_header(
+                request.headers['Range'], blob.size
+            )
+            response.content_length = end - start + 1
+            response.set_status(206)  # Partial Content
+            response.headers['Content-Range'] = f'bytes {start}-{end}/{blob.size}'
+            blob_file = blob.open('rb')
+            blob_file.seek(start)
+        else:
+            start = 0
+            end = blob.size - 1
+            blob_file = blob.open('rb')
+
         await response.prepare(request)
 
         # Stream the file in chunks to the client
         chunk_size = 1024 * 1024  # 1 MB
-        with blob.open('rb') as blob_file:
-            while True:
-                chunk = blob_file.read(chunk_size)
-                if not chunk:
-                    break
-                await response.write(chunk)
+        while start <= end:
+            chunk = blob_file.read(min(chunk_size, end - start + 1))
+            if not chunk:
+                break
+            await response.write(chunk)
+            start += len(chunk)
+
+        blob_file.close()
         await response.write_eof()
         return response
+
+    def parse_range_header(self, range_header, file_size):
+        """
+        Parses a Range header to get the start and end byte positions.
+
+        Args:
+            range_header (str): The Range header value.
+            file_size (int): The total size of the file.
+
+        Returns:
+            tuple: A tuple containing the start and end byte positions.
+        """
+        try:
+            unit, ranges = range_header.strip().split('=')
+            if unit != 'bytes':
+                raise ValueError('Invalid unit in Range header')
+            start, end = ranges.split('-')
+            start = int(start) if start else 0
+            end = int(end) if end else file_size - 1
+            if start > end or end >= file_size:
+                raise ValueError('Invalid range in Range header')
+            return start, end
+        except (ValueError, IndexError) as e:
+            raise web.HTTPBadRequest(reason=f'Invalid Range header: {e}')
 
     def setup(
         self,
@@ -250,7 +302,7 @@ class GCSFileManager:
 
         # Set the route with a wildcard
         app.router.add_get(
-            route + "/{filename}", self.handle_file
+            route + "/{filepath:.*}", self.handle_file
         )
 
     def get_file_url(

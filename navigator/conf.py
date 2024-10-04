@@ -23,6 +23,7 @@ HOSTS = [e.strip() for e in list(
     config.get("HOSTS", fallback="localhost").split(",")
 )]
 DOMAIN = config.get("DOMAIN", fallback="dev.local")
+BASE_API_URL = config.get('BASE_API_URL', fallback='http://localhost:5000')
 ENABLE_ACCESS_LOG = config.getboolean("ENABLE_ACCESS_LOG", fallback=False)
 CORS_MAX_AGE = config.getint('CORS_MAX_AGE', fallback=7200)
 

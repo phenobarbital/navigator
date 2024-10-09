@@ -3,19 +3,18 @@ Google Maps API.
 
 Interface for interacting with Google Maps API.
 """
-import requests
 import string
 import datetime
 import urllib.parse
+import requests
 import pytz
 import polyline
 import aiohttp
 import matplotlib.pyplot as plt
-import numpy as np
+import matplotlib.colors as mcolors
 import cartopy.crs as ccrs
 import cartopy.io.img_tiles as cimgt
-import matplotlib.colors as mcolors
-from navigator.conf import BASE_DIR, TIMEZONE
+from ...conf import BASE_DIR, TIMEZONE
 from .models import (
     TravelerSearch
 )

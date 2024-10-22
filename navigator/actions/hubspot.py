@@ -1,6 +1,7 @@
 from hubspot import HubSpot
 from hubspot.crm.contacts import SimplePublicObjectInput
 from hubspot.crm.contacts.exceptions import ApiException as ContactsApiException, UnauthorizedException as ContactsUnauthorizedException
+from hubspot.crm.properties.exceptions import ApiException as PropertiesApiException, UnauthorizedException as PropertiesUnauthorizedException
 from .abstract import AbstractAction
 from navconfig import config
 from ..exceptions import ConfigError, FailedAuth 
@@ -41,9 +42,9 @@ class Hubspot(AbstractAction):
                 for property in response.results
             ]
             return {'list': prop_list, 'properties' : properties}
-        except ContactsUnauthorizedException as e:
+        except PropertiesUnauthorizedException as e:
             raise FailedAuth(f"Hubspot: Unauthorized to list contact properties: {e.body}") from e
-        except ContactsApiException as e:
+        except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact properties: {e.body}") from e
     
     def list_contact_lifecyclestage(self):
@@ -59,9 +60,9 @@ class Hubspot(AbstractAction):
                 {"value": option.value, "label": option.label} for option in lifecyclestage_property.options
             ]
             return {'list': lifecyclestage_list, 'properties': lifecyclestage_options}
-        except ContactsUnauthorizedException as e:
+        except PropertiesUnauthorizedException as e:
             raise FailedAuth(f"Hubspot: Unauthorized to list contact lifecyclestage: {e.body}") from e
-        except ContactsApiException as e:
+        except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact lifecyclestage: {e.body}") from e
 
     def get_contacts(self):

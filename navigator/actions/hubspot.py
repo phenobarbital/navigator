@@ -1,7 +1,7 @@
 from hubspot import HubSpot as HubSpot
 from hubspot.crm.contacts import SimplePublicObjectInput as ContactSimplePublicObjectInput
 from hubspot.crm.companies import SimplePublicObjectInput as CompanySimplePublicObjectInput
-from hubspot.crm.objects.leads import SimplePublicObjectInput as LeadSimplePublicObjectInput
+from hubspot.crm.objects.leads import SimplePublicObjectInputForCreate as LeadSimplePublicObjectInputForCreate
 from hubspot.crm.objects.leads.exceptions import ApiException as LeadsApiException, UnauthorizedException as LeadsUnauthorizedException
 from hubspot.crm.contacts.exceptions import ApiException as ContactsApiException, UnauthorizedException as ContactsUnauthorizedException
 from hubspot.crm.companies.exceptions import ApiException as CompaniesApiException, UnauthorizedException as CompaniesUnauthorizedException
@@ -77,7 +77,7 @@ class Hubspot(AbstractAction):
         """
         Create a new contact in HubSpot.
         
-        :param properties: A dictionary with contact properties (e.g., firstname, lastname, email, etc.).
+        :param properties: A dictionary with contact properties.
         :return: The created contact object.
         """
         contact_input = ContactSimplePublicObjectInput(properties=properties)
@@ -180,7 +180,7 @@ class Hubspot(AbstractAction):
         """
         Create a new company in HubSpot.
 
-        :param properties: A dictionary with company properties (e.g., name, domain, industry).
+        :param properties: A dictionary with company properties.
         :return: The created company object.
         """
         company_input = CompanySimplePublicObjectInput(properties=properties)
@@ -247,7 +247,7 @@ class Hubspot(AbstractAction):
         """
         Search for leads in HubSpot by a specific property and value.
 
-        :param property: The property name to search for (e.g., 'email', 'firstname').
+        :param property: The property name to search for.
         :param value: The value of the property to match.
         :return: List of leads matching the search criteria.
         """
@@ -262,14 +262,14 @@ class Hubspot(AbstractAction):
         except LeadsApiException as e:
             raise ConfigError(f"Hubspot: Error searching leads: {e.body}") from e
 
-    async def create_lead(self, properties: dict):
+    async def create_lead(self, properties: dict, associations: list):
         """
         Create a new lead in HubSpot.
 
-        :param properties: A dictionary with lead properties (e.g., firstname, lastname, email).
+        :param properties: A dictionary with lead properties.
         :return: The created lead object.
         """
-        lead_input = LeadSimplePublicObjectInput(properties=properties)
+        lead_input = LeadSimplePublicObjectInputForCreate(properties=properties, associations=associations)
         try:
             client = HubSpot(access_token=self.token)
             response = client.crm.objects.leads.basic_api.create(simple_public_object_input_for_create=lead_input)

@@ -408,6 +408,35 @@ class ModelView(AbstractModel):
             self.get_model.Meta.connection = None
         return data
 
+    async def _filtering(self, queryparams: dict) -> web.Response:
+        # Making a filter based on field received.
+        filter_param = queryparams.get('_filter')
+        if filter_param:
+            # Split the filter parameter into field and value
+            field, value = filter_param.split('=')
+            # Get the table and schema names
+            table_name = self.get_model.Meta.name
+            schema_name = self.get_model.Meta.schema
+            # TODO: discover the field type from Model.
+            ftype = self.get_model.column(field)
+            # Build the SQL query
+            query = f"""
+            SELECT {field} FROM {schema_name}.{table_name}
+            WHERE {field} LIKE '{value}%'"""
+            async with await self.handler(request=self.request) as conn:
+                result, error = await conn.query(query)
+                if error:
+                    self.logger.warning(
+                        f"Unable to filter by criteria {filter_param}"
+                    )
+                    return None
+                return self.json_response(
+                    result,
+                    status=200
+                )
+        else:
+            return None
+
     @service_auth
     async def get(self):
         """GET Model information."""
@@ -423,6 +452,10 @@ class ModelView(AbstractModel):
         if response is not None:
             return response
         try:
+            # Add Filtering
+            response = await self._filtering(qp)
+            if response is not None:
+                return response
             # TODO: Add Query
             # TODO: Add Pagination (offset, limit)
             data = await self._get_data(qp, args)

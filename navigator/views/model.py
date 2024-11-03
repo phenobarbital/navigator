@@ -1,10 +1,11 @@
-from typing import Union, Any
+from collections.abc import Awaitable
+from typing import Optional, Union, Any
 import importlib
+import asyncio
 from aiohttp import web
 from navconfig.logging import logger
 from datamodel import BaseModel
 from datamodel.abstract import ModelMeta
-from datamodel.types import JSON_TYPES
 from datamodel.converters import parse_type
 from datamodel.exceptions import ValidationError
 from asyncdb.models import Model
@@ -73,6 +74,12 @@ class ModelView(AbstractModel):
     _required: list = []
     _primaries: list = []
     _hidden: list = []
+    # New Callables to be used on response:
+    _get_callback: Optional[Awaitable] = None
+    _put_callback: Optional[Awaitable] = None
+    _post_callback: Optional[Awaitable] = None
+    _patch_callback: Optional[Awaitable] = None
+    _delete_callback: Optional[Awaitable] = None
 
     def __init__(self, request, *args, **kwargs):
         if self.model_name is not None:
@@ -183,11 +190,27 @@ class ModelView(AbstractModel):
                     result[field] = getattr(response, field, None)
         else:
             result = response
-        return self.json_response(
+        response = self.json_response(
             result,
             headers=headers,
             status=status
         )
+        # calling a callback into a send-and-forget response:
+        loop = asyncio.get_event_loop()
+        if callable(self._get_callback):
+            try:
+                # Run the coroutine in a new thread
+                asyncio.run_coroutine_threadsafe(
+                    self._get_callback(response, result),
+                    loop
+                )
+            except Exception as ex:
+                self.logger.warning(
+                    f"Error in _get_callback: {ex}"
+                )
+        return response
+
+    _get_response = _model_response  # alias
 
     def get_primary(self, data: dict, args: dict = None) -> Any:
         """get_primary.
@@ -385,6 +408,35 @@ class ModelView(AbstractModel):
             self.get_model.Meta.connection = None
         return data
 
+    async def _filtering(self, queryparams: dict) -> web.Response:
+        # Making a filter based on field received.
+        filter_param = queryparams.get('_filter')
+        if filter_param:
+            # Split the filter parameter into field and value
+            field, value = filter_param.split('=')
+            # Get the table and schema names
+            table_name = self.get_model.Meta.name
+            schema_name = self.get_model.Meta.schema
+            # TODO: discover the field type from Model.
+            ftype = self.get_model.column(field)
+            # Build the SQL query
+            query = f"""
+            SELECT {field} FROM {schema_name}.{table_name}
+            WHERE {field} LIKE '{value}%'"""
+            async with await self.handler(request=self.request) as conn:
+                result, error = await conn.query(query)
+                if error:
+                    self.logger.warning(
+                        f"Unable to filter by criteria {filter_param}"
+                    )
+                    return None
+                return self.json_response(
+                    result,
+                    status=200
+                )
+        else:
+            return None
+
     @service_auth
     async def get(self):
         """GET Model information."""
@@ -400,6 +452,10 @@ class ModelView(AbstractModel):
         if response is not None:
             return response
         try:
+            # Add Filtering
+            response = await self._filtering(qp)
+            if response is not None:
+                return response
             # TODO: Add Query
             # TODO: Add Pagination (offset, limit)
             data = await self._get_data(qp, args)
@@ -488,7 +544,21 @@ class ModelView(AbstractModel):
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status=status)
+        response = self.json_response(result, status=status)
+        # calling a callback into a send-and-forget response:
+        loop = asyncio.get_event_loop()
+        if callable(self._patch_callback):
+            try:
+                # Run the coroutine in a new thread
+                asyncio.run_coroutine_threadsafe(
+                    self._patch_callback(response, result),
+                    loop
+                )
+            except Exception as ex:
+                self.logger.warning(
+                    f"Error in _patch_callback: {ex}"
+                )
+        return response
 
     def required_by_put(self):
         return []
@@ -746,12 +816,47 @@ class ModelView(AbstractModel):
                 **error
             )
 
-    async def _post_response(self, result, status: int = 200, fields: list = None) -> web.Response:
+    async def _post_response(self, result: BaseModel, status: int = 200, fields: list = None) -> web.Response:
         """_post_response.
 
         Post-processing data after saved and before summit.
         """
-        return self.json_response(result, status=status)
+        response = self.json_response(result, status=status)
+        # calling a callback into a send-and-forget response:
+        loop = asyncio.get_event_loop()
+        if callable(self._post_callback):
+            try:
+                # Run the coroutine in a new thread
+                asyncio.run_coroutine_threadsafe(
+                    self._post_callback(response, result),
+                    loop
+                )
+            except Exception as ex:
+                self.logger.warning(
+                    f"Error in _post_callback: {ex}"
+                )
+        return response
+
+    async def _put_response(self, result: BaseModel, status: int = 200, fields: list = None) -> web.Response:
+        """_put_response.
+
+        Post-processing data after saved and before summit.
+        """
+        response = self.json_response(result, status=status)
+        # calling a callback into a send-and-forget response:
+        loop = asyncio.get_event_loop()
+        if callable(self._put_callback):
+            try:
+                # Run the coroutine in a new thread
+                asyncio.run_coroutine_threadsafe(
+                    self._put_callback(response, result),
+                    loop
+                )
+            except Exception as ex:
+                self.logger.warning(
+                    f"Error in _put_callback: {ex}"
+                )
+        return response
 
     @service_auth
     async def put(self):
@@ -797,7 +902,7 @@ class ModelView(AbstractModel):
                 self.model.Meta.connection = conn
                 try:
                     result = await self.model.create(data)
-                    return await self._post_response(
+                    return await self._put_response(
                         result,
                         status=201,
                         fields=fields
@@ -847,9 +952,25 @@ class ModelView(AbstractModel):
                                 "message": f"Invalid data for {self.__name__}"
                             }
                         )
-                    result = await obj.insert()
-                    status = 201
-                return await self._post_response(result, status=status, fields=fields)
+                    try:
+                        result = await obj.insert()
+                        status = 201
+                    except DriverError as exc:
+                        return self.error(
+                            response={
+                                "message": f"Unable to insert over {self.__name__}",
+                                "error": str(exc)
+                            }
+                        )
+                return await self._put_response(result, status=status, fields=fields)
+        except NoDataFound as exc:
+            return self.error(
+                response={
+                    "message": f"Unable to insert over {self.__name__}",
+                    "error": str(exc)
+                },
+                status=404
+            )
         except StatementError as ex:
             err = str(ex)
             if 'duplicate' in err:
@@ -859,19 +980,19 @@ class ModelView(AbstractModel):
                 }
             else:
                 error = {
-                    "message": f"Unable to insert {self.__name__}",
+                    "message": f"Unable to insert over {self.__name__}",
                     "error": err
                 }
             return self.error(response=error, status=400)
         except ModelError as ex:
             error = {
-                "message": f"Unable to insert {self.__name__}",
+                "message": f"Unable to insert over {self.__name__}",
                 "error": str(ex)
             }
             return self.error(response=error, status=400)
         except ValidationError as ex:
             error = {
-                "error": f"Unable to insert {self.__name__} info",
+                "error": f"Unable to insert over {self.__name__} info",
                 "payload": ex.payload,
             }
             return self.error(response=error, status=400)
@@ -944,8 +1065,16 @@ class ModelView(AbstractModel):
                             obj.Meta.connection = conn
                             if not obj.is_valid():
                                 continue
-                            r = await obj.insert()
-                            result.append(r)
+                            try:
+                                r = await obj.insert()
+                                result.append(r)
+                            except DriverError as exc:
+                                return self.error(
+                                    response={
+                                        "message": f"Unable to insert over {self.__name__}",
+                                        "error": str(exc)
+                                    }
+                                )
                     except ModelError as ex:
                         error = {
                             "message": f"Invalid {self.__name__}",
@@ -985,6 +1114,13 @@ class ModelView(AbstractModel):
                             status=202,
                             fields=fields
                         )
+                    except DriverError as exc:
+                        return self.error(
+                            response={
+                                "message": f"Unable to insert over {self.__name__}",
+                                "error": str(exc)
+                            }
+                        )
                     except ModelError as ex:
                         error = {
                             "error": f"Missing Info for Model {self.__name__}",
@@ -1015,15 +1151,24 @@ class ModelView(AbstractModel):
                         ### need to created:
                         qry = self.model(**data)
                         if qry.is_valid():
-                            result = await qry.insert()
-                            return await self._model_response(
+                            try:
+                                result = await qry.insert()
+                            except DriverError as exc:
+                                return self.error(
+                                    response={
+                                        "message": f"Unable to Insert over {self.__name__}",
+                                        "error": str(exc),
+                                    },
+                                    status=406
+                                )
+                            return await self._post_response(
                                 result,
                                 status=201,
                                 fields=fields
                             )
                         else:
                             return self.error(
-                                response=f"Unable to Insert {self.__name__}",
+                                response=f"Unable to Insert over {self.__name__}",
                             )
                     except ModelError as ex:
                         error = {
@@ -1039,7 +1184,7 @@ class ModelView(AbstractModel):
                         return self.error(response=error, status=406)
                     except ValidationError as ex:
                         error = {
-                            "error": f"Unable to insert {self.__name__} info",
+                            "error": f"Unable to insert over {self.__name__} info",
                             "payload": str(ex.payload),
                         }
                         return self.error(response=error, status=400)

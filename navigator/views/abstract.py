@@ -5,7 +5,11 @@ import copy
 from aiohttp import web, hdrs
 import traceback
 from functools import wraps
-import babel
+try:
+    import babel
+    BABEL_INSTALLED = True
+except ModuleNotFoundError:
+    BABEL_INSTALLED = False
 from asyncdb import AsyncDB, AsyncPool
 from datamodel import BaseModel
 from datamodel.fields import Field
@@ -443,7 +447,7 @@ class AbstractModel(BaseView):
                 locale = self.request.app['locale']
             except KeyError:
                 locale = None
-            if locale:
+            if BABEL_INSTALLED is True and locale:
                 try:
                     lang = self.request.headers.get(
                         'Accept-Language',

@@ -25,14 +25,14 @@ class Hubspot(AbstractAction):
     async def run(self):
         pass
 
-    def open(self):
+    async def open(self):
         pass
 
-    def close(self):
+    async def close(self):
         pass
 
 
-    def get_contacts(self):
+    async def get_contacts(self):
         """
         Retrieve details of a all contacts
         
@@ -55,7 +55,7 @@ class Hubspot(AbstractAction):
         except ContactsApiException as e:
             raise ConfigError(f"Hubspot: Error getting contacts: {e.body}") from e
 
-    def search_contacts(self, property: str, value: str):
+    async def search_contacts(self, property: str, value: str):
         """
         Search for contacts in HubSpot by a specific query.
 
@@ -73,7 +73,7 @@ class Hubspot(AbstractAction):
         except ContactsApiException as e:
             raise ConfigError(f"Hubspot: Error searching contacts: {e.body}") from e
 
-    def create_contact(self, properties: dict):
+    async def create_contact(self, properties: dict):
         """
         Create a new contact in HubSpot.
         
@@ -83,14 +83,14 @@ class Hubspot(AbstractAction):
         contact_input = ContactSimplePublicObjectInput(properties=properties)
         try:
             client = HubSpot(access_token=self.token)
-            response = client.crm.contacts.basic_api.create(simple_public_object_input=contact_input)
-            return response
+            response = client.crm.contacts.basic_api.create(simple_public_object_input_for_create=contact_input)
+            return response.to_dict()
         except ContactsUnauthorizedException as e:
             raise FailedAuth(f"Hubspot: Unauthorized to create contact: {e.body}") from e
         except ContactsApiException as e:
             raise ConfigError(f"Hubspot: Error creating contact: {e.body}") from e
 
-    def get_contact_properties(self):
+    async def get_contact_properties(self):
         """
         List all contact properties available in HubSpot.
         
@@ -116,7 +116,7 @@ class Hubspot(AbstractAction):
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact properties: {e.body}") from e
     
-    def get_contact_lifecyclestage(self):
+    async def get_contact_lifecyclestage(self):
         """
         List all contact lifecyclestages available in HubSpot.
         
@@ -135,7 +135,7 @@ class Hubspot(AbstractAction):
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact lifecyclestage: {e.body}") from e
 
-    def get_contact_associations(self, contact_id: str, to_object_type: str = 'company'):
+    async def get_contact_associations(self, contact_id: str, to_object_type: str = 'company'):
         """
         Retrieve associations of a contact with other objects (default: companies).
 
@@ -152,7 +152,7 @@ class Hubspot(AbstractAction):
         except ContactsApiException as e:
             raise ConfigError(f"Hubspot: Error getting contact associations: {e.body}") from e
 
-    def get_companies(self):
+    async def get_companies(self):
         """
         Retrieve details of all companies.
 
@@ -175,7 +175,7 @@ class Hubspot(AbstractAction):
         except CompaniesApiException as e:
             raise ConfigError(f"Hubspot: Error getting companies: {e.body}") from e
 
-    def search_companies(self, property: str, value: str):
+    async def search_companies(self, property: str, value: str):
         """
         Search for companies in HubSpot by a specific query.
 
@@ -193,7 +193,7 @@ class Hubspot(AbstractAction):
         except CompaniesApiException as e:
             raise ConfigError(f"Hubspot: Error searching companies: {e.body}") from e
 
-    def create_company(self, properties: dict):
+    async def create_company(self, properties: dict):
         """
         Create a new company in HubSpot.
 
@@ -203,14 +203,14 @@ class Hubspot(AbstractAction):
         company_input = CompanySimplePublicObjectInput(properties=properties)
         try:
             client = HubSpot(access_token=self.token)
-            response = client.crm.companies.basic_api.create(simple_public_object_input=company_input)
+            response = client.crm.companies.basic_api.create(simple_public_object_input_for_create=company_input)
             return response.to_dict()
         except CompaniesUnauthorizedException as e:
             raise FailedAuth(f"Hubspot: Unauthorized to create company: {e.body}") from e
         except CompaniesApiException as e:
             raise ConfigError(f"Hubspot: Error creating company: {e.body}") from e
 
-    def get_company_properties(self):
+    async def get_company_properties(self):
         """
         List all company properties available in HubSpot.
         
@@ -236,24 +236,7 @@ class Hubspot(AbstractAction):
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing company properties: {e.body}") from e
 
-    def create_lead(self, properties: dict):
-        """
-        Create a new lead in HubSpot.
-
-        :param properties: A dictionary with lead properties (e.g., firstname, lastname, email).
-        :return: The created lead object.
-        """
-        lead_input = LeadSimplePublicObjectInput(properties=properties)
-        try:
-            client = HubSpot(access_token=self.token)
-            response = client.crm.objects.leads.basic_api.create(simple_public_object_input=lead_input)
-            return response.to_dict()
-        except LeadsUnauthorizedException as e:
-            raise FailedAuth(f"Hubspot: Unauthorized to create lead: {e.body}") from e
-        except LeadsApiException as e:
-            raise ConfigError(f"Hubspot: Error creating lead: {e.body}") from e
-
-    def get_leads(self, limit: int = 100):
+    async def get_leads(self, limit: int = 100):
         """
         Retrieve a list of leads in HubSpot.
 
@@ -277,7 +260,43 @@ class Hubspot(AbstractAction):
         except LeadsApiException as e:
             raise ConfigError(f"Hubspot: Error getting leads: {e.body}") from e
 
-    def get_lead_properties(self):
+    async def search_leads(self, property: str, value: str):
+        """
+        Search for leads in HubSpot by a specific property and value.
+
+        :param property: The property name to search for (e.g., 'email', 'firstname').
+        :param value: The value of the property to match.
+        :return: List of leads matching the search criteria.
+        """
+        try:
+            client = HubSpot(access_token=self.token)
+            search_filter = {"filters": [{"propertyName": property, "operator": "EQ", "value": value}]}
+            search_request = {"filterGroups": [search_filter], "limit": 10}
+            response = client.crm.objects.leads.search_api.do_search(search_request)
+            return [lead.to_dict() for lead in response.results]
+        except LeadsUnauthorizedException as e:
+            raise FailedAuth(f"Hubspot: Unauthorized to search leads: {e.body}") from e
+        except LeadsApiException as e:
+            raise ConfigError(f"Hubspot: Error searching leads: {e.body}") from e
+
+    async def create_lead(self, properties: dict):
+        """
+        Create a new lead in HubSpot.
+
+        :param properties: A dictionary with lead properties (e.g., firstname, lastname, email).
+        :return: The created lead object.
+        """
+        lead_input = LeadSimplePublicObjectInput(properties=properties)
+        try:
+            client = HubSpot(access_token=self.token)
+            response = client.crm.objects.leads.basic_api.create(simple_public_object_input_for_create=lead_input)
+            return response.to_dict()
+        except LeadsUnauthorizedException as e:
+            raise FailedAuth(f"Hubspot: Unauthorized to create lead: {e.body}") from e
+        except LeadsApiException as e:
+            raise ConfigError(f"Hubspot: Error creating lead: {e.body}") from e
+
+    async def get_lead_properties(self):
         """
         List all lead properties available in HubSpot.
         

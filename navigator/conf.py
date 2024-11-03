@@ -8,6 +8,8 @@ from cryptography import fernet
 from navconfig import BASE_DIR, config, DEBUG
 from navconfig.logging import logging
 
+logging.getLogger('google.cloud.storage').setLevel(logging.INFO)
+
 #### BASIC Configuration
 APP_NAME = config.get("APP_NAME", fallback="Navigator")
 APP_HOST = config.get('APP_HOST', fallback="localhost")

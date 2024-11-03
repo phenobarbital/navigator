@@ -6,7 +6,14 @@ from typing import Optional
 from navconfig import config, DEBUG
 from navconfig.logging import logging, loglevel
 from ..types import WebApp
-from ..conf import Context # pylint: disable=C0415
+from ..conf import (
+    APP_HOST,
+    APP_PORT,
+    APP_NAME,
+    EMAIL_CONTACT,
+    USE_SSL,
+    Context
+) # pylint: disable=C0415
 from ..handlers.base cimport BaseAppHandler
 
 
@@ -24,14 +31,14 @@ cdef class BaseApplication:
         ### Application handler:
         self.handler = None
         self.description: str = description
-        self.host = config.get('APP_HOST', fallback='0.0.0.0')
-        self.port = config.getint('APP_PORT', fallback=5000)
+        self.host = APP_HOST
+        self.port = APP_PORT
         self.path = None
-        self.title = title if title else config.get('APP_NAME', fallback='NAVIGATOR')
+        self.title = title if title else APP_NAME
         self.contact = contact
         if not contact:
-            self.contact = config.get('EMAIL_CONTACT')
-        self.use_ssl = config.getboolean('USE_SSL', fallback=False)
+            self.contact = EMAIL_CONTACT
+        self.use_ssl = USE_SSL
         self.debug = DEBUG
         self.logger = logging.getLogger(self.title)
         self.logger.setLevel(loglevel)
@@ -39,8 +46,6 @@ cdef class BaseApplication:
             # also, disable logging for 'aiohttp.access'
             aio = logging.getLogger('aiohttp.access')
             aio.setLevel(logging.CRITICAL)
-        ## Install Uvloop if available:
-        self.install_uvloop()
         ### asyncio loop
         self._loop = evt
 
@@ -49,14 +54,6 @@ cdef class BaseApplication:
 
     def setup_app(self) -> WebApp:
         pass
-
-    def install_uvloop(self):
-        try:
-            import uvloop
-            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
-            uvloop.install()
-        except ImportError:
-            pass
 
     def event_loop(self):
         return self._loop

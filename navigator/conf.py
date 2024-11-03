@@ -5,7 +5,7 @@ import orjson
 from cryptography import fernet
 
 # Import Config Class
-from navconfig import BASE_DIR, config, DEBUG
+from navconfig import BASE_DIR, config, DEBUG, SETTINGS_DIR
 from navconfig.logging import logging
 
 logging.getLogger('google.cloud.storage').setLevel(logging.INFO)
@@ -13,7 +13,7 @@ logging.getLogger('google.cloud.storage').setLevel(logging.INFO)
 #### BASIC Configuration
 APP_NAME = config.get("APP_NAME", fallback="Navigator")
 APP_HOST = config.get('APP_HOST', fallback="localhost")
-APP_PORT = config.get('APP_PORT', fallback=5000)
+APP_PORT = config.getint('APP_PORT', fallback=5000)
 APP_TITLE = config.get("APP_TITLE", fallback="NAVIGATOR").upper()
 APP_LOGNAME = config.get("APP_LOGNAME", fallback="Navigator")
 logging.debug(f"::: STARTING APP: {APP_NAME} ::: ")
@@ -222,6 +222,9 @@ ZAMMAD_ORGANIZATION = config.get('ZAMMAD_ORGANIZATION')
 ZAMMAD_DEFAULT_ROLE = config.get('ZAMMAD_DEFAULT_ROLE', 'Customer')
 
 # get configuration settings (user can override settings).
+logging.debug(
+    f":: Settings Directory: {SETTINGS_DIR!s}"
+)
 try:
     from navconfig.conf import *  # pylint: disable=W0401,W0614 # noqa
 except ImportError:

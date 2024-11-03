@@ -135,23 +135,6 @@ class Hubspot(AbstractAction):
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact lifecyclestage: {e.body}") from e
 
-    async def get_contact_associations(self, contact_id: str, to_object_type: str = 'company'):
-        """
-        Retrieve associations of a contact with other objects (default: companies).
-
-        :param contact_id: The HubSpot contact ID.
-        :param to_object_type: The type of associated objects (default is 'company').
-        :return: List of associated object IDs.
-        """
-        try:
-            client = HubSpot(access_token=self.token)
-            response = client.crm.contacts.associations_api.get_all(contact_id, to_object_type)
-            return [assoc.id for assoc in response.results]
-        except ContactsUnauthorizedException as e:
-            raise FailedAuth(f"Hubspot: Unauthorized to get contact associations: {e.body}") from e
-        except ContactsApiException as e:
-            raise ConfigError(f"Hubspot: Error getting contact associations: {e.body}") from e
-
     async def get_companies(self):
         """
         Retrieve details of all companies.

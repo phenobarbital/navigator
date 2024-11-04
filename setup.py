@@ -147,7 +147,6 @@ setup(
         "asn1crypto==1.4.0",
         "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.4",
-        "aiohttp-utils==3.1.1",
         "psycopg2-binary>=2.9.9",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
@@ -169,7 +168,7 @@ setup(
         "psutil==6.0.0",
         "aiormq==6.8.1",
         "Faker==22.2.0",
-        "google-cloud-storage==2.17.0",
+        "google-cloud-storage>=2.17.0",
         "hubspot-api-client==10.0.0"
     ],
     extras_require={
@@ -180,7 +179,7 @@ setup(
             "aiomcache==0.8.2",
         ],
         "uvloop": [
-            "uvloop==0.20.0",
+            "uvloop==0.21.0",
         ]
     },
     ext_modules=cythonize(extensions),

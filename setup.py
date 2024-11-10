@@ -145,9 +145,7 @@ setup(
         "aiohttp[speedups]>=3.10.0",
         "PySocks==1.7.1",
         "asn1crypto==1.4.0",
-        "aiohttp-jrpc==0.1.0",
         "jinja2==3.1.4",
-        "aiohttp-utils==3.1.1",
         "psycopg2-binary>=2.9.9",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
@@ -159,8 +157,7 @@ setup(
         "matplotlib>=3.8.3",
         "sockjs==0.11.0",
         "aiohttp-sse==2.2.0",
-        "aiomcache>=0.8.2",
-        "asyncdb[default]>=2.8.0",
+        "asyncdb[uvloop,default]>=2.8.0",
         "navconfig[default]>=1.7.0",
         "alt-aiohttp-cors==0.7.1",
         "brotli==1.1.0",
@@ -169,7 +166,7 @@ setup(
         "psutil==6.0.0",
         "aiormq==6.8.1",
         "Faker==22.2.0",
-        "google-cloud-storage==2.17.0"
+        "google-cloud-storage==2.18.2"
     ],
     extras_require={
         "locale": [

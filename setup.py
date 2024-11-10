@@ -176,7 +176,7 @@ setup(
             "aiomcache==0.8.2",
         ],
         "uvloop": [
-            "uvloop==0.20.0",
+            "uvloop==0.21.0",
         ]
     },
     ext_modules=cythonize(extensions),

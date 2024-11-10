@@ -166,7 +166,8 @@ setup(
         "psutil==6.0.0",
         "aiormq==6.8.1",
         "Faker==22.2.0",
-        "google-cloud-storage==2.18.2"
+        "google-cloud-storage==2.18.2",
+        "hubspot-api-client==10.0.0"
     ],
     extras_require={
         "locale": [

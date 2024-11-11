@@ -153,7 +153,7 @@ class WebSocketHandler(web.View):
             )
             return web.Response(
                 status=500,
-                text=f'Internal Server Error on WebSocketHandler {e}'
+                text='Internal Server Error on WebSocketHandler'
             )
 
         try:

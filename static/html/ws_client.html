@@ -1,0 +1,72 @@
+<!-- client.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>WebSocket Channel Test</title>
+</head>
+<body>
+    <h1>WebSocket Channel Test</h1>
+    <label for="channel">Channel Name:</label>
+    <input type="text" id="channel" value="default"><br><br>
+    <button id="connect">Connect</button>
+    <button id="disconnect" disabled>Disconnect</button>
+    <br><br>
+    <textarea id="messages" cols="50" rows="10" readonly></textarea><br><br>
+    <input type="text" id="message" placeholder="Type your message here">
+    <button id="send" disabled>Send</button>
+
+    <script>
+        let ws;
+
+        document.getElementById('connect').onclick = function() {
+            const channel = document.getElementById('channel').value;
+            const username = prompt('Enter your username:');
+            ws = new WebSocket(`ws://127.0.0.1:5000/ws/${channel}?username=${encodeURIComponent(username)}`);
+
+            ws.onopen = function() {
+                document.getElementById('messages').value += 'Connected to channel: ' + channel + '\n';
+                document.getElementById('connect').disabled = true;
+                document.getElementById('disconnect').disabled = false;
+                document.getElementById('send').disabled = false;
+            };
+
+            ws.onmessage = function(event) {
+                const message = event.data;
+                if (message.startsWith('Your username is:')) {
+                    const username = message.substring('Your username is:'.length).trim();
+                    console.log('Your username:', username);
+                } else {
+                    document.getElementById('messages').value += message + '\n';
+                }
+            };
+
+            ws.onclose = function() {
+                document.getElementById('messages').value += 'Disconnected from channel: ' + channel + '\n';
+                document.getElementById('connect').disabled = false;
+                document.getElementById('disconnect').disabled = true;
+                document.getElementById('send').disabled = true;
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        };
+
+        document.getElementById('disconnect').onclick = function() {
+            if (ws) {
+                ws.close();
+            }
+        };
+
+        document.getElementById('send').onclick = function() {
+            const message = document.getElementById('message').value;
+            if (ws && message) {
+                ws.send(message);
+                document.getElementById('messages').value += 'You: ' + message + '\n';
+                document.getElementById('message').value = '';
+            }
+        };
+    </script>
+</body>
+</html>

@@ -31,7 +31,7 @@ DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
 
 
-class BaseHandler:
+class BaseHandler(ABC):
     _logger_name: str = "navigator"
     _lasterr = None
     _allowed = ["get", "post", "put", "patch", "delete", "options", "head"]

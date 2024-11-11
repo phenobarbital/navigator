@@ -3,7 +3,6 @@ import sys
 import base64
 import orjson
 from cryptography import fernet
-
 # Import Config Class
 from navconfig import BASE_DIR, config, DEBUG, SETTINGS_DIR
 from navconfig.logging import logging

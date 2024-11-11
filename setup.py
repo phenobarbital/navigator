@@ -178,6 +178,9 @@ setup(
         ],
         "uvloop": [
             "uvloop==0.21.0",
+        ],
+        "gunicorn": [
+            "gunicorn==23.0.0"
         ]
     },
     ext_modules=cythonize(extensions),

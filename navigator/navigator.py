@@ -18,8 +18,14 @@ import sockjs
 try:
     from navconfig import config
     from navconfig.logging import logging
-except FileExistsError:
-    print('Error: Missing ENV directory for Navconfig.')
+except FileExistsError as exc:
+    # NavConfig is not Installed:
+    raise ImportError(
+        (
+            "NavConfig is not installed, please install it."
+            " pip install navconfig[default]."
+        )
+    ) from exc
 
 try:
     from navigator_auth.conf import exclude_list
@@ -36,7 +42,7 @@ from .exceptions import NavException, ConfigError, InvalidArgument
 from .template import TemplateParser
 
 # websocket resources
-from .resources import WebSocket, channel_handler
+from .resources import WebSocketHandler
 from .libs.json import json_encoder
 from .types import WebApp
 
@@ -161,13 +167,7 @@ class Application(BaseApplication):
         if self.debug:
             logging.debug(":: Enabling WebSockets ::")
         # websockets
-        app.router.add_route("GET", "/ws", WebSocket)
-        # websocket channels
-        app.router.add_route(
-            "GET",
-            "/ws/{channel}",
-            channel_handler
-        )
+        app.router.add_view(r"/ws/{channel}", WebSocketHandler)
 
     def add_routes(self, routes: list) -> None:
         """

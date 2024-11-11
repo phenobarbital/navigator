@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from ast import Dict
 from typing import Any, List, Optional, Union
 from aiohttp import web
-from aiohttp.web import Request, Route
+from aiohttp.web import Request
 from aiohttp.web_urldispatcher import URL
 from aiohttp.web_exceptions import HTTPNotAcceptable
 from .types import HTTPMethod, HTTPLocation, HTTPHandler
@@ -176,7 +176,7 @@ class RouteChooser(ABC):
         self._handlers_: Dict[HTTPHandler] = {}
 
     @abstractmethod
-    async def choose(self, request: Request) -> Optional[Route]:
+    async def choose(self, request: Request) -> Optional[HTTPHandler]:
         """choose.
 
         Description:
@@ -213,7 +213,7 @@ class AcceptChooser(RouteChooser):
     Description:
         RouteChooser that selects a handler based on the request's Accept header.
     """
-    async def choose(self, request: Request) -> Optional[Route]:
+    async def choose(self, request: Request) -> Optional[HTTPHandler]:
         """choose.
 
         Description:

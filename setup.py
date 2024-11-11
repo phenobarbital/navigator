@@ -159,7 +159,7 @@ setup(
         "aiohttp-sse==2.2.0",
         "asyncdb[uvloop,default]>=2.8.0",
         "navconfig[default]>=1.7.10",
-        "alt-aiohttp-cors==0.7.2"
+        "alt-aiohttp-cors==0.7.2",
         "brotli==1.1.0",
         "brotlicffi==1.1.0.0",
         "aiofile==3.9.0",

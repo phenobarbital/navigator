@@ -111,7 +111,14 @@ class TemplateParser(BaseExtension):
             # TODO: check the bug ,encoding='ANSI'
             self.env = Environment(loader=self.loader, **self.config)
             compiled_path = str(self.tmpl_dir.joinpath(".compiled"))
-            self.env.compile_templates(target=compiled_path, zip="deflated")
+            try:
+                self.env.compile_templates(
+                    target=compiled_path,
+                    zip="deflated",
+                    ignore_errors=True
+                )
+            except UnicodeDecodeError:
+                pass
             ### adding custom filters:
             if self.filters is not None:
                 self.env.filters.update(self.filters)

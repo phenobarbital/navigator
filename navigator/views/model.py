@@ -1145,11 +1145,18 @@ class ModelView(AbstractModel):
                             status=202,
                             fields=fields
                         )
-                    except Exception as exc:
-                        print(exc, type(exc))
                     except NoDataFound:
                         ### need to created:
-                        qry = self.model(**data)
+                        try:
+                            qry = self.model(**data)
+                        except (TypeError, ValidationError) as exc:
+                            payload = getattr(exc, 'payload', None)
+                            error = {
+                                "message": f"Unable to insert over {self.__name__}",
+                                "error": str(exc),
+                                "payload": payload
+                            }
+                            return self.error(response=error, status=406)
                         if qry.is_valid():
                             try:
                                 result = await qry.insert()
@@ -1168,7 +1175,7 @@ class ModelView(AbstractModel):
                             )
                         else:
                             return self.error(
-                                response=f"Unable to Insert over {self.__name__}",
+                                response=f"Invalid Data for {self.__name__}",
                             )
                     except ModelError as ex:
                         error = {
@@ -1178,7 +1185,7 @@ class ModelView(AbstractModel):
                         return self.error(response=error, status=400)
                     except DriverError as ex:
                         error = {
-                            "message": f"{self.__name__} already exists",
+                            "message": f"{self.__name__} {str(ex)}",
                             "error": str(ex),
                         }
                         return self.error(response=error, status=406)
@@ -1188,6 +1195,14 @@ class ModelView(AbstractModel):
                             "payload": str(ex.payload),
                         }
                         return self.error(response=error, status=400)
+                    except Exception as ex:
+                        return self.error(
+                            response={
+                                "message": f"Unable to insert over {self.__name__}",
+                                "error": str(ex)
+                            },
+                            status=406
+                        )
 
     async def _del_data(self, *args, **kwargs) -> Any:
         """_del_data.

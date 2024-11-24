@@ -167,7 +167,14 @@ setup(
         "aiormq==6.8.1",
         "Faker==22.2.0",
         "google-cloud-storage==2.18.2",
-        "hubspot-api-client==10.0.0"
+        "hubspot-api-client==10.0.0",
+        'cloudpickle>=3.0.0',
+        'jsonpickle>=3.0.2',
+        'async-timeout==4.0.3',
+        'msgpack==1.1.0',
+        'aiormq==6.8.1',
+        'modin==0.32.0',
+        'dask[complete]==2024.8.2'
     ],
     extras_require={
         "locale": [

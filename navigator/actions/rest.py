@@ -346,6 +346,7 @@ class RESTAction(AbstractAction):
                     buffer = BytesIO(data)
                     buffer.seek(0)
                     result = buffer
+                    return ((result, response), error)
                 elif self.accept in (
                     'text/html',
                     'application/xhtml+xml',

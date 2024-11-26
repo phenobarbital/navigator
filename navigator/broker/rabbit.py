@@ -13,7 +13,7 @@ from navigator.libs.json import json_encoder, json_decoder
 from navigator.exceptions import ValidationError
 from ..conf import rabbitmq_dsn
 from .pickle import DataSerializer
-from ..wrappers.base import QueueWrapper
+from .wrapper import BaseWrapper
 
 
 class RabbitMQConnection:
@@ -228,7 +228,7 @@ class RabbitMQConnection:
         elif is_dataclass(body) or isinstance(body, BaseModel):
             body = self._serializer.encode(body)
             properties_kwargs['content_type'] = 'application/jsonpickle'
-        elif isinstance(body, QueueWrapper):
+        elif isinstance(body, BaseWrapper):
             body = self._serializer.serialize(body)
             properties_kwargs['content_type'] = 'application/cloudpickle'
         else:

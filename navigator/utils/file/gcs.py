@@ -6,15 +6,15 @@ Exposing Files stored in Google Cloud Storage as static File Manager.
 from typing import Union, Any
 import os
 from datetime import datetime, timedelta, timezone
-from pathlib import PurePath, Path
+from pathlib import PurePath
 from urllib.parse import quote, urljoin
 from aiohttp import web
 import google.auth
 from google.cloud import storage
 from google.oauth2 import service_account
 from navconfig.logging import logging
-from ..types import WebApp
-from ..applications.base import BaseApplication
+from ...types import WebApp
+from ...applications.base import BaseApplication
 
 
 class GCSFileManager:

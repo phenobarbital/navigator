@@ -174,7 +174,8 @@ setup(
         'msgpack==1.1.0',
         'aiormq==6.8.1',
         'modin==0.32.0',
-        'dask[complete]==2024.8.2'
+        'dask[complete]==2024.8.2',
+        'aioboto3==13.2.0'
     ],
     extras_require={
         "locale": [

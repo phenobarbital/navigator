@@ -9,8 +9,8 @@ import tempfile
 from pathlib import Path
 from urllib.parse import quote, urljoin
 from aiohttp import web
-from ..types import WebApp
-from ..applications.base import BaseApplication
+from ...types import WebApp
+from ...applications.base import BaseApplication
 
 
 class TempFileManager:

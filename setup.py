@@ -169,7 +169,7 @@ setup(
         "google-cloud-storage==2.18.2",
         "hubspot-api-client==10.0.0",
         'cloudpickle>=3.0.0',
-        'jsonpickle>=3.0.2',
+        'jsonpickle>=4.0.0',
         'async-timeout==4.0.3',
         'msgpack==1.1.0',
         'aiormq==6.8.1',

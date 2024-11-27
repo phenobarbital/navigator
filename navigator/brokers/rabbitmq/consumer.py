@@ -10,7 +10,7 @@ import aiormq
 from navconfig.logging import logging
 from navigator.applications.base import BaseApplication
 from .rabbit import RabbitMQConnection
-from .pickle import DataSerializer
+from ..pickle import DataSerializer
 
 
 # Disable Debug Logging for AIORMQ

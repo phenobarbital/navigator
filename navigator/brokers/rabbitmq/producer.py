@@ -15,9 +15,9 @@ from navigator_session import get_session
 from navigator_auth.conf import (
     AUTH_SESSION_OBJECT
 )
-from ..conf import BROKER_MANAGER_QUEUE_SIZE
+from ...conf import BROKER_MANAGER_QUEUE_SIZE
 from .rabbit import RabbitMQConnection
-from .pickle import DataSerializer
+from ..pickle import DataSerializer
 
 
 # Disable Debug Logging for AIORMQ
@@ -31,6 +31,10 @@ class BrokerManager(RabbitMQConnection, metaclass=Singleton):
 
 
     Args:
+        dsn: RabbitMQ DSN.
+        queue_size: Size of Asyncio Queue for enqueuing messages before send.
+        num_workers: Number of workers to process the queue.
+        timeout: Timeout for RabbitMQ Connection.
 
     """
     _name_: str = "broker_manager"

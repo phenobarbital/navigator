@@ -258,3 +258,62 @@ class SQSConnection(BaseConnection):
         except Exception as e:
             self.logger.error(f"Error consuming messages from queue '{queue_name}': {e}")
             raise
+
+    async def consume_message(
+        self,
+        queue_name: str,
+        callback: Optional[Callable[[dict, str], Awaitable[None]]] = None,
+        wait_time: int = 5,
+    ) -> Optional[dict]:
+        """
+        Consume a single message from the specified queue.
+
+        Args:
+            queue_name (str): The name of the queue to consume a message from.
+            callback (Callable, optional): An optional callback function to process the message.
+            wait_time (int): The wait time for long polling (default: 5 seconds).
+
+        Returns:
+            Optional[dict]: The processed message, or None if no message is available.
+        """
+        try:
+            # Ensure the queue exists
+            queue = await self.ensure_queue(queue_name)
+
+            # Receive a single message with long polling
+            messages = await queue.receive_messages(
+                MessageAttributeNames=["All"],
+                MaxNumberOfMessages=1,
+                WaitTimeSeconds=wait_time,
+            )
+
+            if not messages:
+                self.logger.info("No messages available in the queue.")
+                return None
+
+            # Process the first message
+            message = messages[0]
+            body = await message.body
+            attributes = await message.message_attributes or {}
+
+            processed_message = await self.process_message(body, attributes)
+
+            # Optionally invoke a callback with the processed message
+            if callback:
+                if asyncio.iscoroutinefunction(callback):
+                    await callback(processed_message, body)
+                else:
+                    callback(processed_message, body)
+
+            # Delete the message from the queue
+            await message.delete()
+            self.logger.info(
+                f"Message consumed and deleted from queue '{queue_name}'."
+            )
+
+            return processed_message
+        except Exception as e:
+            self.logger.error(
+                f"Error consuming a single message from queue '{queue_name}': {e}"
+            )
+            raise

@@ -4,11 +4,13 @@ from dataclasses import dataclass
 import jsonpickle
 from jsonpickle.handlers import BaseHandler
 from jsonpickle.unpickler import loadclass
+import msgpack
 import cloudpickle
 from datamodel import Model, BaseModel
 
 
 class ModelHandler(BaseHandler):
+
     """ModelHandler.
     This class can handle with serializable Data Models.
     """
@@ -71,5 +73,21 @@ class DataSerializer:
         try:
             decoded_data = base64.b64decode(data)
             return cloudpickle.loads(decoded_data)
+        except Exception as err:
+            raise RuntimeError(err) from err
+
+    def pack(self, data: Any) -> bytes:
+        """Pack Data.
+        """
+        try:
+            return msgpack.packb(data)
+        except Exception as err:
+            raise RuntimeError(err) from err
+
+    def unpack(self, data) -> Any:
+        """Unpack Data.
+        """
+        try:
+            return msgpack.unpackb(data)
         except Exception as err:
             raise RuntimeError(err) from err

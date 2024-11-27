@@ -130,8 +130,17 @@ class SQSConnection(BaseConnection):
             queue = await self.ensure_queue(queue_name)
             message_attributes = attributes or {}
 
-            if isinstance(body, (dict, list)):
-                # JSON serialization for dict or list
+            # Determine serialization method based on the type of 'body'
+            if isinstance(body, (int, float, bool, None.__class__)):
+                # Use msgpack for primitives
+                body = self._serializer.pack(body)
+                message_attributes["ContentType"] = {"StringValue": "application/msgpack", "DataType": "String"}
+            elif isinstance(body, bytes):
+                # Use msgpack for raw bytes
+                body = self._serializer.pack(body)
+                message_attributes["ContentType"] = {"StringValue": "application/msgpack", "DataType": "String"}
+            elif isinstance(body, (dict, list)):
+                # Use JSON for dictionaries
                 body = json_encoder(body)
                 message_attributes["ContentType"] = {"StringValue": "application/json", "DataType": "String"}
             elif is_dataclass(body) or isinstance(body, (Model, BaseModel)):
@@ -172,6 +181,8 @@ class SQSConnection(BaseConnection):
             content_type = attributes.get("ContentType", {}).get("StringValue", "text/plain")
             if content_type == 'application/json':
                 return json_decoder(body)
+            elif content_type == "application/msgpack":
+                return self._serializer.unpack(body)
             elif content_type == 'application/jsonpickle':
                 try:
                     return self._serializer.decode(body)
@@ -183,7 +194,10 @@ class SQSConnection(BaseConnection):
             elif content_type == 'text/plain':
                 return body
             else:
-                return body
+                self.logger.warning(
+                    f"Unknown content type: {content_type}. Returning raw body."
+                )
+            return body
         except ValidationError:
             self.logger.warning("Error decoding message.")
             return body

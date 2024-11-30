@@ -7,43 +7,27 @@ import asyncio
 from dataclasses import is_dataclass
 import aiormq
 from aiormq.abc import AbstractConnection, AbstractChannel
-from navconfig.logging import logging
 from datamodel import BaseModel
 from navigator.libs.json import json_encoder, json_decoder
 from navigator.exceptions import ValidationError
-from ..conf import rabbitmq_dsn
-from .pickle import DataSerializer
-from .wrapper import BaseWrapper
+from ...conf import rabbitmq_dsn
+from ..wrapper import BaseWrapper
+from ..connection import BaseConnection
 
-
-class RabbitMQConnection:
+class RabbitMQConnection(BaseConnection):
     """
     Manages connection and disconnection of RabbitMQ Service.
     """
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        credentials: Union[str, dict] = None,
         timeout: Optional[int] = 5,
         **kwargs
     ):
-        self._dsn = rabbitmq_dsn if dsn is None else dsn
+        self._dsn = rabbitmq_dsn if credentials is None else credentials
+        super().__init__(credentials, timeout=timeout, **kwargs)
         self._connection: Optional[AbstractConnection] = None
         self._channel: Optional[AbstractChannel] = None
-        self._timeout: int = timeout
-        self._monitor_task: Optional[Awaitable] = None
-        self.logger = logging.getLogger('RabbitMQConnection')
-        self.reconnect_attempts = 0
-        self.max_reconnect_attempts = kwargs.get(
-            'max_reconnect_attempts', 3
-        )
-        self.reconnect_delay = 1  # Initial delay in seconds
-        self._lock = asyncio.Lock()
-        self._serializer = DataSerializer()
-
-    def get_connection(self) -> Optional[AbstractConnection]:
-        if not self._connection:
-            raise RuntimeError('No connection established.')
-        return self._connection
 
     def get_channel(self) -> Optional[AbstractChannel]:
         return self._channel
@@ -265,7 +249,7 @@ class RabbitMQConnection:
                 return json_decoder(body_str)
             except ValidationError:
                 self.logger.warning(
-                    "Error deserializing JSON object."
+                    "Error unserializing JSON object."
                 )
                 return body_str
         elif content_type == 'application/jsonpickle':
@@ -278,10 +262,10 @@ class RabbitMQConnection:
                 return body_str
         elif content_type == 'application/cloudpickle':
             try:
-                return self._serializer.deserialize(body_str)
+                return self._serializer.unserialize(body_str)
             except RuntimeError:
                 self.logger.warning(
-                    "Error deserializing cloudpickled object."
+                    "Error unserializing cloudpickled object."
                 )
                 return body_str
         elif content_type == 'text/plain':

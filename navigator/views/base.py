@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-from typing import Any, Optional, Union
+from typing import Any, Optional, Union, Tuple, List
 from collections.abc import Callable
 from abc import ABC
 import tempfile
@@ -463,7 +463,7 @@ class BaseHandler(ABC):
         form_key: Optional[str] = None,
         ext: str = '.csv',
         preserve_filenames: bool = True
-    ) -> dict:
+    ) -> Tuple[List[dict], dict]:
         """handle_upload.
 
         Description: Handle File Uploads.
@@ -480,15 +480,12 @@ class BaseHandler(ABC):
         # Check if Content-Type is correctly set
         content_type = request.headers.get('Content-Type', '')
         if 'multipart/form-data' not in content_type:
-            return self.response(
-                response={
-                    'error': 'Invalid Content-Type. Use multipart/form-data'
-                },
-                status=406,
+            raise web.HTTPUnsupportedMediaType(
+                text='Invalid Content-Type. Use multipart/form-data',
                 content_type='application/json'
             )
         form_data = {}
-        uploaded_files = []
+        uploaded_files_info = []
         try:
             reader = await request.multipart()
         except KeyError:
@@ -498,7 +495,6 @@ class BaseHandler(ABC):
         async for part in reader:
             if part.filename:
                 if form_key and part.name != form_key:
-                    # Validation about only using a form key.
                     continue
                 # Create a temporary file for each uploaded file
                 file_ext = Path(part.filename).suffix or ext
@@ -519,13 +515,20 @@ class BaseHandler(ABC):
                         if not chunk:
                             break
                         f.write(chunk)
-                uploaded_files.append(temp_file_path)
+                # Get Content-Type header
+                mime_type = part.headers.get('Content-Type', '')
+                # Collect file info
+                uploaded_files_info.append({
+                    'file_path': temp_file_path,
+                    'file_name': part.filename,
+                    'mime_type': mime_type
+                })
             else:
                 # If it's a form field, add it to the dictionary
                 form_field_name = part.name
-                form_field_value = await part.text()  # Read the value as text
+                form_field_value = await part.text()
                 form_data[form_field_name] = form_field_value
-        return uploaded_files, form_data
+        return uploaded_files_info, form_data
 
     async def delete_uploaded_files(self, file_paths: list):
         """delete_uploaded_files.

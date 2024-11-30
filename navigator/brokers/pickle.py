@@ -1,12 +1,16 @@
 from typing import Any
 import base64
+from dataclasses import dataclass
 import jsonpickle
+from jsonpickle.handlers import BaseHandler
 from jsonpickle.unpickler import loadclass
+import msgpack
 import cloudpickle
-from datamodel import BaseModel
+from datamodel import Model, BaseModel
 
 
-class ModelHandler(jsonpickle.handlers.BaseHandler):
+class ModelHandler(BaseHandler):
+
     """ModelHandler.
     This class can handle with serializable Data Models.
     """
@@ -17,15 +21,14 @@ class ModelHandler(jsonpickle.handlers.BaseHandler):
     def restore(self, obj):
         module_and_type = obj['py/object']
         mdl = loadclass(module_and_type)
-        if hasattr(mdl, '__new__'):
-            cls = mdl.__new__(mdl)
-        else:
-            cls = object.__new__(mdl)
-
-        cls.__dict__ = self.context.restore(obj['__dict__'], reset=False)
+        cls = mdl.__new__(mdl)  # Create a new instance without calling __init__
+        # cls.__dict__ = self.context.restore(obj['__dict__'], reset=False)
+        # Restore attributes from the saved __dict__
+        cls.__dict__.update(self.context.restore(obj['__dict__'], reset=False))
         return cls
 
 jsonpickle.handlers.registry.register(BaseModel, ModelHandler, base=True)
+jsonpickle.handlers.registry.register(Model, ModelHandler, base=True)
 
 
 class DataSerializer:
@@ -49,6 +52,7 @@ class DataSerializer:
         try:
             return jsonpickle.decode(data)
         except Exception as err:
+            print('JSON ', err)
             raise RuntimeError(err) from err
 
     @staticmethod
@@ -69,5 +73,21 @@ class DataSerializer:
         try:
             decoded_data = base64.b64decode(data)
             return cloudpickle.loads(decoded_data)
+        except Exception as err:
+            raise RuntimeError(err) from err
+
+    def pack(self, data: Any) -> bytes:
+        """Pack Data.
+        """
+        try:
+            return msgpack.packb(data)
+        except Exception as err:
+            raise RuntimeError(err) from err
+
+    def unpack(self, data) -> Any:
+        """Unpack Data.
+        """
+        try:
+            return msgpack.unpackb(data)
         except Exception as err:
             raise RuntimeError(err) from err

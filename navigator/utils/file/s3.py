@@ -9,7 +9,7 @@ from pathlib import PurePath
 from aiohttp import web
 import aioboto3
 from navconfig.logging import logging
-from ..types import WebApp
+from ...types import WebApp
 from ...conf import AWS_CREDENTIALS
 from ...applications.base import BaseApplication
 

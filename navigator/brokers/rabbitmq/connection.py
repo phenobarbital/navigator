@@ -24,7 +24,7 @@ class RabbitMQConnection(BaseConnection):
         timeout: Optional[int] = 5,
         **kwargs
     ):
-        self._dsn = rabbitmq_dsn if credentials is None else credentials
+        self._dsn = credentials if credentials is not None else rabbitmq_dsn
         super().__init__(credentials, timeout=timeout, **kwargs)
         self._connection: Optional[AbstractConnection] = None
         self._channel: Optional[AbstractChannel] = None
@@ -354,7 +354,7 @@ class RabbitMQConnection(BaseConnection):
 
     async def consume_messages(
         self,
-        queue: str,
+        queue_name: str,
         callback: Callable[[aiormq.abc.DeliveredMessage, str], Awaitable[None]],
         prefetch_count: int = 1
     ) -> None:
@@ -364,18 +364,18 @@ class RabbitMQConnection(BaseConnection):
         await self.ensure_connection()
         try:
             # Ensure the queue exists
-            await self._channel.queue_declare(queue=queue, durable=True)
+            await self._channel.queue_declare(queue=queue_name, durable=True)
 
             # Set QoS (Quality of Service) settings
             await self._channel.basic_qos(prefetch_count=prefetch_count)
 
             # Start consuming messages from the queue
             await self._channel.basic_consume(
-                queue=queue,
+                queue=queue_name,
                 consumer_callback=self.wrap_callback(callback),
             )
             self.logger.info(
-                f"Started consuming messages from queue '{queue}'."
+                f"Started consuming messages from queue '{queue_name}'."
             )
         except Exception as e:
             self.logger.error(

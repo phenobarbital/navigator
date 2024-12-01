@@ -3,9 +3,9 @@ AWS SQS interface (connection and disconnections).
 """
 from typing import Optional, Union, Any
 from collections.abc import Awaitable, Callable
+from dataclasses import is_dataclass
 import asyncio
 import aioboto3
-from dataclasses import is_dataclass
 from datamodel import Model, BaseModel
 from navconfig import config
 from navconfig.logging import logging
@@ -276,7 +276,7 @@ class SQSConnection(BaseConnection):
     async def consume_message(
         self,
         queue_name: str,
-        callback: Optional[Callable[[dict, str], Awaitable[None]]] = None,
+        callback: Union[Callable, Awaitable[None]] = None,
         wait_time: int = 5,
     ) -> Optional[dict]:
         """

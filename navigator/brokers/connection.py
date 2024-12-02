@@ -5,7 +5,9 @@ from typing import Optional, Union, Any
 from collections.abc import Awaitable, Callable
 from abc import ABC, abstractmethod
 import asyncio
+from aiohttp import web
 from navconfig.logging import logging
+from navigator.applications.base import BaseApplication
 from .pickle import DataSerializer
 
 
@@ -16,7 +18,8 @@ class BaseConnection(ABC):
 
     def __init__(
         self,
-        credentials: Union[str, dict],
+        *args,
+        credentials: Union[str, dict] = None,
         timeout: Optional[int] = 5,
         **kwargs
     ):
@@ -33,6 +36,7 @@ class BaseConnection(ABC):
         self.reconnect_delay = 1  # Initial delay in seconds
         self._lock = asyncio.Lock()
         self._serializer = DataSerializer()
+        super().__init__(*args, **kwargs)
 
     def get_connection(self) -> Optional[Union[Callable, Awaitable]]:
         if not self._connection:
@@ -73,9 +77,8 @@ class BaseConnection(ABC):
     @abstractmethod
     async def publish_message(
         self,
-        exchange_name: str,
-        routing_key: str,
         body: Union[str, list, dict, Any],
+        queue_name: Optional[str] = None,
         **kwargs
     ) -> None:
         """
@@ -105,3 +108,27 @@ class BaseConnection(ABC):
         Process a message from the Broker Service.
         """
         raise NotImplementedError
+
+    async def start(self, app: web.Application) -> None:
+        await self.connect()
+
+    async def stop(self, app: web.Application) -> None:
+        # close the RabbitMQ connection
+        await self.disconnect()
+
+    def setup(self, app: web.Application = None) -> None:
+        """
+        Setup Broker Connection.
+        """
+        if isinstance(app, BaseApplication):
+            self.app = app.get_app()
+        else:
+            self.app = app
+        if self.app is None:
+            raise ValueError(
+                'App is not defined.'
+            )
+        # Initialize the Producer instance.
+        self.app.on_startup.append(self.start)
+        self.app.on_shutdown.append(self.stop)
+        self.app[self._name_] = self

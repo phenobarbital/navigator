@@ -31,8 +31,8 @@ cdef class BaseApplication:
         ### Application handler:
         self.handler = None
         self.description: str = description
-        self.host = APP_HOST
-        self.port = APP_PORT
+        self.host = kwargs.pop('host', APP_HOST)
+        self.port = kwargs.pop('port', APP_PORT)
         self.path = None
         self.title = title if title else APP_NAME
         self.contact = contact

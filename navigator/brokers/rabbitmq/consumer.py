@@ -8,24 +8,25 @@ from collections.abc import Callable, Awaitable
 from aiohttp import web
 import aiormq
 from navconfig.logging import logging
-from navigator.applications.base import BaseApplication
-from .rabbit import RabbitMQConnection
-from ..pickle import DataSerializer
+from .connection import RabbitMQConnection
+from ..consumer import BrokerConsumer
 
 
 # Disable Debug Logging for AIORMQ
 logging.getLogger('aiormq').setLevel(logging.INFO)
 
 
-class BrokerConsumer(RabbitMQConnection):
+class RMQConsumer(RabbitMQConnection, BrokerConsumer):
     """
+    RMQConsumer.
+
     Broker Client (Consumer) using RabbitMQ.
     """
-    _name_: str = "broker_consumer"
+    _name_: str = "rabbitmq_consumer"
 
     def __init__(
         self,
-        dsn: Optional[str] = None,
+        credentials: Union[str, dict] = None,
         timeout: Optional[int] = 5,
         callback: Optional[Union[Awaitable, Callable]] = None,
         **kwargs
@@ -33,11 +34,16 @@ class BrokerConsumer(RabbitMQConnection):
         self._routing_key = kwargs.get('routing_key', '*')
         self._exchange_type = kwargs.get('exchange_type', 'topic')
         self._exchange_name = kwargs.get('exchange_name', 'navigator')
-        self._queue_name = kwargs.get('queue_name', 'navigator')
-        super(BrokerConsumer, self).__init__(dsn, timeout, **kwargs)
-        self.logger = logging.getLogger('BrokerConsumer')
-        self._serializer = DataSerializer()
-        self._callback_ = callback if callback else self.subscriber_callback
+        self._queue_name = kwargs.get('queue_name', None)
+        if self._queue_name:
+            self._exchange_name = self._queue_name
+        super().__init__(
+            credentials=credentials,
+            timeout=timeout,
+            callback=callback,
+            **kwargs
+        )
+        self.logger = logging.getLogger('RMQConsumer')
 
     async def subscriber_callback(
         self,
@@ -59,13 +65,13 @@ class BrokerConsumer(RabbitMQConnection):
 
     async def event_subscribe(
         self,
-        queue: str,
+        queue_name: str,
         callback: Union[Callable, Awaitable]
     ) -> None:
         """Event Subscribe.
         """
         await self.consume_messages(
-            queue=queue,
+            queue_name=queue_name,
             callback=self.wrap_callback(callback)
         )
 
@@ -123,7 +129,7 @@ class BrokerConsumer(RabbitMQConnection):
 
         Connect to RabbitMQ, and start consuming.
         """
-        await self.connect()
+        await super().start(app)
         await self.subscribe_to_events(
             exchange=self._exchange_name,
             queue_name=self._queue_name,
@@ -134,24 +140,3 @@ class BrokerConsumer(RabbitMQConnection):
             prefetch_count=1,
             requeue_on_fail=True,
         )
-
-    async def stop(self, app: web.Application) -> None:
-        # close the RabbitMQ connection
-        await self.disconnect()
-
-    def setup(self, app: web.Application = None) -> None:
-        """
-        Setup BrokerManager.
-        """
-        if isinstance(app, BaseApplication):
-            self.app = app.get_app()
-        else:
-            self.app = app
-        if self.app is None:
-            raise ValueError(
-                'App is not defined.'
-            )
-        # Initialize the Producer instance.
-        self.app.on_startup.append(self.start)
-        self.app.on_shutdown.append(self.stop)
-        self.app[self._name_] = self

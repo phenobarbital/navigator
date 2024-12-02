@@ -1,29 +1,25 @@
 """
-RabbitMQ Producer Module.
+Redis Producer Module.
 
-can be used to send messages to RabbitMQ.
+can be used to send messages to Redis Streams.
 """
 from typing import Union, Optional
-from navconfig.logging import logging
-from .connection import RabbitMQConnection
+from .connection import RedisConnection
 from ..producer import BrokerProducer
 
 
-# Disable Debug Logging for AIORMQ
-logging.getLogger('aiormq').setLevel(logging.INFO)
+class RedisProducer(RedisConnection, BrokerProducer):
+    """RedisProducer.
 
-class RMQProducer(BrokerProducer, RabbitMQConnection):
-    """RMQProducer.
-
-    RMQProducer is the Producer functionality for RabbitMQ using aiormq.
+    RedisProducer is the Producer functionality for Message Queue using Redis Streams.
 
     Args:
-        credentials: RabbitMQ DSN.
+        credentials: dictionary of redis credentials.
         queue_size: Size of Asyncio Queue for enqueuing messages before send.
         num_workers: Number of workers to process the queue.
-        timeout: Timeout for RabbitMQ Connection.
+        timeout: Timeout for Redis Connection.
     """
-    _name_: str = "rabbitmq_producer"
+    _name_: str = "redis_producer"
 
     def __init__(
         self,
@@ -33,7 +29,7 @@ class RMQProducer(BrokerProducer, RabbitMQConnection):
         timeout: Optional[int] = 5,
         **kwargs
     ):
-        super(RMQProducer, self).__init__(
+        super(RedisProducer, self).__init__(
             credentials=credentials,
             queue_size=queue_size,
             num_workers=num_workers,

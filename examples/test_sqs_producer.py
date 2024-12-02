@@ -28,19 +28,19 @@ async def main():
     )
     async with connection as sqs:
         # Create an SQS Queue
-        queue_name = "MainEvent"
+        queue_name = "navigator"
         print(f"Creating queue: {queue_name}")
         queue = await sqs.create_queue(queue_name)
         queue_url = queue.url
         print(f"Queue URL: {queue_url}")
         # # Publish a JSON Message
-        # await sqs.publish_message("MyTestQueue", {"key": "value"})
+        # await sqs.publish_message({"key": "value"}, "MyTestQueue")
         # # Publish JSONPickle
         # model = ExampleModel(name="John Doe", age=30)
-        # await sqs.publish_message("MyTestQueue", model)
+        # await sqs.publish_message(model, "MyTestQueue")
         # # Dataclasses:
         # mdl = Example(name="John Doe", age=30)
-        # await sqs.publish_message("MyTestQueue", mdl)
+        # await sqs.publish_message(mdl, "MyTestQueue")
 
         # # Publish CloudPickle
         # class CustomWrapper:
@@ -48,7 +48,7 @@ async def main():
         #         self.data = data
 
         # wrapper = CustomWrapper(data={"nested_key": "nested_value"})
-        # await sqs.publish_message("MyTestQueue", wrapper)
+        # await sqs.publish_message(wrapper, "MyTestQueue")
 
         form = {
             "metadata": {
@@ -70,7 +70,7 @@ async def main():
             }
         }
         # Publish plain text
-        await sqs.publish_message("MainEvent", form)
+        await sqs.publish_message(form, "navigator")
 
 if __name__ == "__main__":
     try:

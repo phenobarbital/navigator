@@ -3,9 +3,10 @@ AWS SQS interface (connection and disconnections).
 """
 from typing import Optional, Union, Any
 from collections.abc import Awaitable, Callable
-import asyncio
-import aioboto3
 from dataclasses import is_dataclass
+import asyncio
+from asyncio import Task
+import aioboto3
 from datamodel import Model, BaseModel
 from navconfig import config
 from navconfig.logging import logging
@@ -28,17 +29,19 @@ class SQSConnection(BaseConnection):
 
     def __init__(
         self,
-        credentials: Union[str, dict],
+        credentials: Union[str, dict] = None,
         timeout: Optional[int] = 5,
         **kwargs
     ):
         if not credentials:
+            credentials = {}
             credentials['aws_access_key_id'] = config.get('AWS_KEY')
             credentials['aws_secret_access_key'] = config.get('AWS_SECRET')
             credentials['region_name'] = config.get('AWS_REGION')
-        super().__init__(credentials, timeout, **kwargs)
+        super().__init__(credentials=credentials, timeout=timeout, **kwargs)
         self._connection = None
         self._session = None
+        self.consumer_task: Optional[Task] = None
 
     async def connect(self):
         """
@@ -119,16 +122,16 @@ class SQSConnection(BaseConnection):
 
     async def publish_message(
         self,
+        body: Union[str, list, dict, Any],
         queue_name: str,
-        body: Union[str, dict, list, Any],
-        attributes: Optional[dict] = None,
+        **kwargs
     ):
         """
         Publish a message to the specified queue.
         """
         try:
             queue = await self.ensure_queue(queue_name)
-            message_attributes = attributes or {}
+            message_attributes = kwargs.get('attributes', {})
 
             # Determine serialization method based on the type of 'body'
             if isinstance(body, (int, float, bool, None.__class__)):
@@ -276,7 +279,7 @@ class SQSConnection(BaseConnection):
     async def consume_message(
         self,
         queue_name: str,
-        callback: Optional[Callable[[dict, str], Awaitable[None]]] = None,
+        callback: Union[Callable, Awaitable[None]] = None,
         wait_time: int = 5,
     ) -> Optional[dict]:
         """

@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 from typing import Awaitable, Callable, Union, Optional, Any
 import asyncio
 from functools import wraps
@@ -107,9 +107,9 @@ class BrokerProducer(BaseConnection, ABC):
 
     async def queue_event(
         self,
-        exchange: str,
-        routing_key: str,
         body: str,
+        queue_name: str,
+        routing_key: Optional[str] = None,
         **kwargs
     ) -> None:
         """
@@ -118,9 +118,9 @@ class BrokerProducer(BaseConnection, ABC):
         try:
             self.event_queue.put_nowait(
                 {
-                    'exchange': exchange,
-                    'routing_key': routing_key,
                     'body': body,
+                    'queue_name': queue_name,
+                    'routing_key': routing_key,
                     **kwargs
                 }
             )
@@ -133,9 +133,8 @@ class BrokerProducer(BaseConnection, ABC):
 
     async def publish_event(
         self,
-        exchange: str,
-        routing_key: str,
         body: str,
+        queue_name: str,
         **kwargs
     ) -> None:
         """
@@ -143,9 +142,8 @@ class BrokerProducer(BaseConnection, ABC):
         """
         # Ensure the exchange exists before publishing
         await self.publish_message(
-            exchange=exchange,
-            routing_key=routing_key,
             body=body,
+            queue_name=queue_name,
             **kwargs
         )
 
@@ -196,8 +194,8 @@ class BrokerProducer(BaseConnection, ABC):
         Uses as an REST API to send events to RabbitMQ.
         """
         data = await request.json()
-        exc = data.get('exchange', 'navigator')
-        routing_key = data.get('routing_key')
+        qs = data.pop('queue_name', 'navigator')
+        routing_key = data.pop('routing_key', None)
         if not routing_key:
             return web.json_response(
                 {
@@ -206,7 +204,7 @@ class BrokerProducer(BaseConnection, ABC):
                 },
                 status=422
             )
-        body = data.get('body')
+        body = data.pop('body')
         if not body:
             return web.json_response(
                 {
@@ -216,10 +214,10 @@ class BrokerProducer(BaseConnection, ABC):
                 status=422
             )
         try:
-            await self.queue_event(exc, routing_key, body)
+            await self.queue_event(body, qs, routing_key, **data)
             return web.json_response({
                 'status': 'success',
-                'message': f'Event {exc}.{routing_key} Published Successfully.'
+                'message': f'Event {qs}.{routing_key} Published Successfully.'
             })
         except asyncio.QueueFull:
             return web.json_response(
@@ -244,19 +242,20 @@ class BrokerProducer(BaseConnection, ABC):
             event = await self.event_queue.get()
             try:
                 # data:
-                routing = event.get('routing_key')
-                exchange = event.get('exchange')
-                body = event.get('body')
-                max_retries = event.get('max_retries', 5)
+                routing = event.pop('routing_key')
+                queue_name = event.pop('queue_name')
+                body = event.pop('body')
+                max_retries = event.pop('max_retries', 5)
                 retry_count = 0
                 retry_delay = 1
                 while True:
                     try:
                         # Publish the event to RabbitMQ
                         await self.publish_message(
-                            exchange_name=exchange,
+                            body=body,
+                            queue_name=queue_name,
                             routing_key=routing,
-                            body=body
+                            **event
                         )
                         self.logger.info(
                             f"Worker {worker_id} published event: {routing}"

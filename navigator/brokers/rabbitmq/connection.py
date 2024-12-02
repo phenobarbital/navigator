@@ -25,7 +25,8 @@ class RabbitMQConnection(BaseConnection):
         **kwargs
     ):
         self._dsn = credentials if credentials is not None else rabbitmq_dsn
-        super().__init__(credentials, timeout=timeout, **kwargs)
+        print('DSN > ', rabbitmq_dsn)
+        super().__init__(credentials=credentials, timeout=timeout, **kwargs)
         self._connection: Optional[AbstractConnection] = None
         self._channel: Optional[AbstractChannel] = None
 
@@ -184,9 +185,9 @@ class RabbitMQConnection(BaseConnection):
 
     async def publish_message(
         self,
-        exchange_name: str,
-        routing_key: str,
         body: Union[str, list, dict, Any],
+        queue_name: str,
+        routing_key: str,
         **kwargs
     ) -> None:
         """
@@ -194,7 +195,7 @@ class RabbitMQConnection(BaseConnection):
         """
         await self.ensure_connection()
         # Ensure the exchange exists before publishing
-        await self.ensure_exchange(exchange_name)
+        await self.ensure_exchange(queue_name)
         headers = kwargs.get('headers', {})
         headers.setdefault('x-retry', '0')
         args = {
@@ -222,7 +223,7 @@ class RabbitMQConnection(BaseConnection):
         try:
             await self._channel.basic_publish(
                 body.encode('utf-8'),
-                exchange=exchange_name,
+                exchange=queue_name,
                 routing_key=routing_key,
                 properties=aiormq.spec.Basic.Properties(
                     **properties_kwargs

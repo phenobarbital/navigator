@@ -208,6 +208,36 @@ Background Tasks
 """
 QUEUE_CALLBACK = config.get('QUEUE_CALLBACK', fallback=None)
 
+"""
+Brokers:
+"""
+
+"""
+RabbitMQ Configuration.
+"""
+USE_RABBITMQ = config.getboolean('USE_RABBITMQ', fallback=False)
+RABBITMQ_HOST = config.get("RABBITMQ_HOST", fallback="localhost")
+RABBITMQ_PORT = config.get("RABBITMQ_PORT", fallback=5672)
+RABBITMQ_USER = config.get("RABBITMQ_USER", fallback="guest")
+RABBITMQ_PASS = config.get("RABBITMQ_PASS", fallback="guest")
+RABBITMQ_VHOST = config.get("RABBITMQ_VHOST", fallback="navigator")
+# RabbitMQ DSN
+rabbitmq_dsn = f"amqp://{RABBITMQ_USER}:{RABBITMQ_PASS}@{RABBITMQ_HOST}:{RABBITMQ_PORT}/{RABBITMQ_VHOST}"
+BROKER_MANAGER_QUEUE_SIZE = config.getint(
+    "BROKER_MANAGER_QUEUE_SIZE",
+    fallback=4
+)
+
+"""
+Redis Configuration.
+"""
+REDIS_BROKER_HOST = config.get("REDIS_BROKER_HOST", fallback=CACHE_HOST)
+REDIS_BROKER_PORT = config.get("REDIS_BROKER_PORT", fallback=CACHE_PORT)
+REDIS_BROKER_PASSWORD = config.get("REDIS_BROKER_PASSWORD", fallback=None)
+REDIS_BROKER_DB = config.get("REDIS_BROKER_DB", fallback=CACHE_DB)
+REDIS_BROKER_URL = f"redis://{REDIS_BROKER_HOST}:{REDIS_BROKER_PORT}/{REDIS_BROKER_DB}"
+
+
 ### Zammad Integration via Actions:
 # Zammad:
 ZAMMAD_INSTANCE = config.get('ZAMMAD_INSTANCE')

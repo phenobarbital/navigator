@@ -16,7 +16,7 @@ from ..consumer import BrokerConsumer
 logging.getLogger('aiormq').setLevel(logging.INFO)
 
 
-class RMQConsumer(BrokerConsumer, RabbitMQConnection):
+class RMQConsumer(RabbitMQConnection, BrokerConsumer):
     """
     RMQConsumer.
 
@@ -26,7 +26,7 @@ class RMQConsumer(BrokerConsumer, RabbitMQConnection):
 
     def __init__(
         self,
-        credentials: Union[str, dict],
+        credentials: Union[str, dict] = None,
         timeout: Optional[int] = 5,
         callback: Optional[Union[Awaitable, Callable]] = None,
         **kwargs
@@ -34,7 +34,15 @@ class RMQConsumer(BrokerConsumer, RabbitMQConnection):
         self._routing_key = kwargs.get('routing_key', '*')
         self._exchange_type = kwargs.get('exchange_type', 'topic')
         self._exchange_name = kwargs.get('exchange_name', 'navigator')
-        super(BrokerConsumer, self).__init__(credentials, timeout, **kwargs)
+        self._queue_name = kwargs.get('queue_name', None)
+        if self._queue_name:
+            self._exchange_name = self._queue_name
+        super().__init__(
+            credentials=credentials,
+            timeout=timeout,
+            callback=callback,
+            **kwargs
+        )
         self.logger = logging.getLogger('RMQConsumer')
 
     async def subscriber_callback(

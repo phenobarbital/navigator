@@ -109,13 +109,13 @@ class Application(BaseApplication):
                 cls = import_module("navigator.handlers.types", package=default_handler)
                 app_obj = getattr(cls, default_handler)
                 # create an instance of AppHandler
-                self.handler: BaseAppHandler = app_obj(Context, evt=self._loop, **kwargs)
+                self.handler: BaseAppHandler = app_obj(Context, evt=self._loop)
             except ImportError as ex:
                 raise NavException(
                     f"Cannot Import default App Handler {default_handler}: {ex}"
                 ) from ex
         else:
-            self.handler: BaseAppHandler = handler(Context, evt=self._loop, **kwargs)
+            self.handler: BaseAppHandler = handler(Context, evt=self._loop)
 
     def setup_app(self) -> WebApp:
         app = self.handler.app

@@ -360,6 +360,11 @@ class Zammad(AbstractTicket, RESTAction):
         self.url = f"{self.zammad_instance}/api/v1/ticket_articles/by_ticket/{ticket_id}"
         self.method = 'get'
         try:
+            """
+            In the `articles` array returned by the URL `/api/v1/ticket_articles/by_ticket/{ticket_id}`,
+            if any item contains the `attachments` attribute, it should be destructured in the frontend
+            to request the images using `get_attachment_img`.
+            """
             result, _ = await self.request(
                 self.url, self.method
             )
@@ -368,3 +373,48 @@ class Zammad(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error Getting Zammad Ticket: {e}"
             ) from e
+
+    async def get_attachment_img(self, attachment: str):
+        """get_attachment.
+
+        Get an attachment from a ticket.
+
+        Args:
+            attachment (str): The attachment path.
+        """
+        self.url = f"{self.zammad_instance}/api/v1/ticket_attachment{attachment}"
+        self.method = 'get'
+        self.file_buffer = True
+
+        try:
+            result, error = await self.request(self.url, self.method)
+            if error is not None:
+                msg = error['message']
+                raise ConfigError(f"Error Getting Zammad Attachment: {msg}")
+
+            image, response = result
+
+            image_name = response.headers.get('Content-Disposition', 'attachment').split('=')[1].replace('"', '')
+            image_format = response.headers.get('Content-Type', 'image/png')
+            from aiohttp.web import StreamResponse
+
+            response = StreamResponse(
+                status=200,
+                headers={
+                    'Content-Type': image_format,
+                    'Content-Disposition': f'attachment; filename="{image_name}"',
+                    'Content-Length': str(len(image)),
+                    'Transfer-Encoding': 'chunked',
+                    'Connection': 'keep-alive',
+                    'Content-Description': 'File Transfer',
+                    'Content-Transfer-Encoding': 'binary'
+                }
+            )
+            await response.prepare()
+            await response.write(image)
+            await response.write_eof()
+            return response
+        
+        except Exception as e:
+            raise ConfigError(f"Error Getting Zammad Attachment: {e}") from e
+

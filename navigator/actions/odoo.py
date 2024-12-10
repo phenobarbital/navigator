@@ -11,21 +11,30 @@ class Odoo(RESTAction):
         super(Odoo, self).__init__(*args, **kwargs)
         self.instance = self._kwargs.pop('instance', ODOO_HOST)
         self.api_key = self._kwargs.pop('api_key', ODOO_APIKEY)
-
-    async def run(self):
-        pass
-
-    async def fieldservice_order(self, data):
-        url = f'{self.instance}api/webhook/fieldservice_order'
         self.credentials = {}
         self.auth = {}
         self.method = 'post'
         self.accept = 'application/json'
         self.headers['Content-Type'] = 'application/json'
         self.headers['api-key'] = self.api_key
-        
+
+
+    async def run(self):
+        pass
+
+    async def fieldservice_order(self, data):
+        url = f'{self.instance}api/webhook/fieldservice_order'
         result, error = await self.async_request(
             url, self.method, data, use_json=True
         )
         
-        return result if result is not None else error['message']
+        return result or error['message']
+
+    
+    async def create_lead(self, data):
+        url = f'{self.instance}api/webhook/lead'
+        result, error = await self.async_request(
+            url, self.method, data, use_json=True
+        )
+        
+        return result or error['message']

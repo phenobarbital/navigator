@@ -14,7 +14,7 @@ from ..conf import (
 from .ticket import AbstractTicket
 from .rest import RESTAction
 from aiohttp.web import Response
-
+from io import BytesIO
 
 
 class Zammad(AbstractTicket, RESTAction):
@@ -48,12 +48,7 @@ class Zammad(AbstractTicket, RESTAction):
         }
 
     async def get_user_token(self):
-        """get_user_token.
-
-
-        Usage: using X-On-Behalf-Of to getting User Token.
-
-        """
+        """Retrieve a user token using X-On-Behalf-Of for API interactions."""
         self.url = f"{self.zammad_instance}api/v1/user_access_token"
         self.method = 'post'
         permissions: list = self._kwargs.pop('permissions', [])
@@ -61,7 +56,7 @@ class Zammad(AbstractTicket, RESTAction):
         token_name = self._kwargs.pop('token_name')
         self.headers['X-On-Behalf-Of'] = user
         self.accept = 'application/json'
-        ## create payload for access token:
+        # Create payload for access token
         data = {**self.permissions_base, **{
             "name": token_name,
             permissions: permissions
@@ -72,59 +67,53 @@ class Zammad(AbstractTicket, RESTAction):
         return result['token']
 
     async def list_tickets(self, **kwargs):
-        """list_tickets.
-
-            Getting a List of all opened tickets by User.
-        """
+        """Retrieve a list of all opened tickets by the user."""
         self.method = 'get'
-        states = kwargs.pop('state_id', [1, 2, 3])  # Open by Default
-        per_page = kwargs.pop('per_page', 100) # Max tickets count per page
-        page = 1  # First Page
+        states = kwargs.pop('state_id', [1, 2, 3])  # Open by default
+        per_page = kwargs.pop('per_page', 100)  # Max tickets count per page
+        page = 1  # Start with the first page
         all_tickets = []  # List for tickets
-        all_assets = {}  # Dict for all assets
+        all_assets = {}  # Dictionary for all assets
         tickets_count = 0  # Total tickets count
 
         if ',' in states:
             states = states.split(',')
 
         if states:
-            # Then, after getting the states, we can join them with a delimiter
-            # state_id: 1 OR state_id: 2 OR state_id: 3
+            # Combine states into a query string
             state_id_parts = ["state_id:{}".format(state) for state in states[1:]]
             query_string = "state_id:{} OR ".format(states[0]) + " OR ".join(state_id_parts)
             qs = quote_plus(query_string)
         else:
             qs = "state_id:%201%20OR%20state_id:%202%20OR%20state_id:%203"
 
-        # Pagination Loop
+        # Pagination loop
         while True:
             self.url = f"{self.zammad_instance}api/v1/tickets/search?query={qs}&page={page}&limit={per_page}"
 
             try:
                 result, _ = await self.request(self.url, self.method)
 
-                # Get actual tickets and add to array
+                # Add tickets to the list
                 tickets = result.get("tickets", [])
                 if not tickets or len(tickets) == 0:
-                    break  # If there are no more tickets on the current page, exit the loop
+                    break  # Exit if no more tickets on the current page
                 all_tickets.extend(tickets)
 
-                # Get actual assets and add to dict
+                # Add assets to the dictionary
                 assets = result.get("assets", {})
                 for key, value in assets.items():
                     if key not in all_assets:
                         all_assets[key] = value
                     else:
-                        # If is a list
                         if isinstance(value, list):
                             all_assets[key].extend(value)
-                        # If is a dict
                         elif isinstance(value, dict):
                             all_assets[key].update(value)
                         else:
                             all_assets[key] = value
 
-                page += 1  # Next page
+                page += 1  # Move to the next page
 
             except Exception as e:
                 raise ConfigError(
@@ -138,275 +127,62 @@ class Zammad(AbstractTicket, RESTAction):
             "assets": all_assets
         }
 
-    async def update(self, ticket: int, **kwargs):
-        """update.
-
-           Update an Existing Ticket.
-        """
-        self.method = 'put'
-        title = self._kwargs.pop('title', None)
-        customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
-        group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
-        self.ticket = self._kwargs.pop('ticket', ticket)
-        ticket_type = self._kwargs.pop('type', 'note')
-        service_catalog = self._kwargs.pop(
-            'service_catalog',
-            ZAMMAD_DEFAULT_CATALOG
-        )
-        user = self._kwargs.pop('user', None)
-        if user:
-            self.headers['X-On-Behalf-Of'] = user
-        if not self.ticket:
-            raise ConfigError(
-                "Ticket ID is required."
-            )
-        self.url = f"{self.zammad_instance}api/v1/tickets/{self.ticket}"
-        article = {
-            "subject": self._kwargs.pop('subject', title),
-            "body": self._kwargs.pop('body', None),
-            "type": ticket_type,
-            "internal": True
-        }
-        data = {
-            "title": title,
-            "group": group,
-            "customer": customer,
-            "service_catalog": service_catalog,
-            "article": article,
-            **kwargs
-        }
-        data = self._encoder.dumps(data)
-        try:
-            result, _ = await self.request(
-                self.url, self.method, data=data
-            )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error Updating Zammad Ticket: {e}"
-            ) from e
-
-    async def create(self, **kwargs):
-        """create.
-
-        Create a new Ticket.
-        """
-        supported_types = [
-            'text/plain', 'image/png', 'image/jpeg', 'image/gif', 'application/pdf',
-            'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'text/csv'
-        ]
-        self.url = f"{self.zammad_instance}api/v1/tickets"
-        self.method = 'post'
-        group = self._kwargs.pop('group', ZAMMAD_DEFAULT_GROUP)
-        title = self._kwargs.pop('title', None)
-        service_catalog = self._kwargs.pop('service_catalog', None)
-        customer = self._kwargs.pop('customer', ZAMMAD_DEFAULT_CUSTOMER)
-        _type = self._kwargs.pop('type', 'Incident')
-        user = self._kwargs.pop('user', None)
-        attachments = []
-        for attachment in self._kwargs.get('attachments', []):
-            mime_type = attachment.get('mime_type')
-            encoded_data = attachment.get('data')
-            if not mime_type:
-                try:
-                    # Decode the Base64-encoded data to get the binary content
-                    binary_data = base64.b64decode(encoded_data)
-                    # Use python-magic to determine the file's MIME type
-                    mime_type = magic.from_buffer(binary_data, mime=True)
-                except Exception:
-                    mime_type = 'text/plain'
-            attach = {
-                "mime-type": mime_type,
-                "filename": attachment['filename'],
-                "data": encoded_data
-            }
-            if mime_type in supported_types:
-                attachments.append(attach)
-        if user:
-            self.headers['X-On-Behalf-Of'] = user
-        article = {
-            "subject": self._kwargs.pop('subject', title),
-            "body": self._kwargs.pop('body', None),
-            "type": self._kwargs.pop('article_type', 'note'),
-        }
-        article = {**self.article_base, **article}
-        if attachments:
-            article['attachments'] = attachments
-        data = {
-            "title": title,
-            "group": group,
-            "customer": customer,
-            "type": _type,
-            "service_catalog": service_catalog,
-            "article": article,
-            **kwargs
-        }
-        try:
-            result, error = await self.request(
-                self.url, self.method, data=data
-            )
-            if error is not None:
-                msg = error['message']
-                raise ConfigError(
-                    f"Error creating Zammad Ticket: {msg}"
-                )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error creating Zammad Ticket: {e}"
-            ) from e
-
-    async def create_user(self):
-        """create_user.
-
-        Create a new User.
-
-        TODO: Adding validation with dataclasses.
-        """
-        self.url = f"{self.zammad_instance}api/v1/users"
-        self.method = 'post'
-        organization = self._kwargs.pop(
-            'organization',
-            ZAMMAD_ORGANIZATION
-        )
-        roles = self._kwargs.pop('roles', [ZAMMAD_DEFAULT_ROLE])
-        if not isinstance(roles, list):
-            roles = [
-                "Customer"
-            ]
-        data = {
-            "organization": organization,
-            "roles": roles,
-            **self._kwargs
-        }
-        try:
-            result, error = await self.request(
-                self.url, self.method, data=data
-            )
-            if error is not None:
-                msg = error['message']
-                raise ConfigError(
-                    f"Error creating User: {msg}"
-                )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error creating Zammad User: {e}"
-            ) from e
-
-    async def find_user(self, search: dict = None):
-        """find_user.
-
-        Find existing User on Zammad.
-
-        TODO: Adding validation with dataclasses.
-        """
-        self.url = f"{self.zammad_instance}api/v1/users/search"
-        self.method = 'get'
-        search = self._kwargs.pop('search', search)
-        if not isinstance(search, dict):
-            raise ConfigError(
-                f"Search Dictionary is required, current: {search}"
-            )
-        # Joining all key:value pairs with a delimiter
-        query_string = ','.join(
-            f"{key}:{value}" for key, value in search.items()
-        )
-        query_string = f"query={query_string}"
-        self.url = self.build_url(
-            self.url,
-            queryparams=query_string
-        )
-        try:
-            result, _ = await self.request(
-                self.url, self.method
-            )
-            return result
-        except ConfigError:
-            raise
-        except Exception as e:
-            raise ConfigError(
-                f"Error Searching Zammad User: {e}"
-            ) from e
-
-    async def get_ticket(self, ticket_id: dict = None):
-        """get_ticket.
-
-        Get a Ticket on Zammad.
-
-        TODO: Adding validation with dataclasses.
-        """
-        self.url = f"{self.zammad_instance}/api/v1/tickets/{ticket_id}"
-        self.method = 'get'
-        try:
-            result, _ = await self.request(
-                self.url, self.method
-            )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error Getting Zammad Ticket: {e}"
-            ) from e
-    
-    async def get_articles(self, ticket_id: int):
-        """get_articles
-
-        get all articles of a ticket
-
-        Args:
-            ticket_id (int): id of ticket
-        """
-        self.url = f"{self.zammad_instance}/api/v1/ticket_articles/by_ticket/{ticket_id}"
-        self.method = 'get'
-        try:
-            """
-            In the `articles` array returned by the URL `/api/v1/ticket_articles/by_ticket/{ticket_id}`,
-            if any item contains the `attachments` attribute, it should be destructured in the frontend
-            to request the images using `get_attachment_img`.
-            """
-            result, _ = await self.request(
-                self.url, self.method
-            )
-            return result
-        except Exception as e:
-            raise ConfigError(
-                f"Error Getting Zammad Ticket: {e}"
-            ) from e
-
     async def get_attachment_img(self, attachment: str):
-        """get_attachment.
-
-        Get an attachment from a ticket.
+        """Retrieve an attachment from a ticket.
 
         Args:
-            attachment (str): The attachment path.
+            attachment (str): The attachment path from the ticket.
+
+        Returns:
+            Response: HTTP Response containing the attachment file.
+
+        Raises:
+            ConfigError: If an error occurs during the request or processing.
         """
         self.url = f"{self.zammad_instance}/api/v1/ticket_attachment{attachment}"
         self.method = 'get'
         self.file_buffer = True
 
         try:
+            # Perform the request to retrieve the attachment
             result, error = await self.request(self.url, self.method)
-            if error is not None:
-                msg = error['message']
-                raise ConfigError(f"Error Getting Zammad Attachment: {msg}")
 
+            # Handle errors in the response
+            if error:
+                raise ConfigError(f"Error Getting Zammad Attachment: {error.get('message', 'Unknown error')}")
+
+            # Separate the binary image data and the response headers
             image, response = result
 
-                    # Obtener el tipo de contenido de la respuesta
-            
+            # Validate and retrieve headers
             content_type = response.headers.get('Content-Type', 'application/octet-stream')
+            if not content_type.startswith('image/'):
+                raise ConfigError("The attachment is not a valid image file.")
 
-            # Devolver la imagen como respuesta HTTP
-            """ 
-            Changed the return method to use web.Response instead of StreamResponse due to the following error:
+            content_disposition = response.headers.get('Content-Disposition')
+            if not content_disposition or 'filename=' not in content_disposition:
+                raise ConfigError("Attachment filename missing in response headers.")
 
-            navigator.exceptions.exceptions: Error Getting Zammad Attachment: object of type '_io.BytesIO' has no len()
+            # Extract the filename from Content-Disposition
+            image_name = content_disposition.split('filename=')[-1].strip('"')
 
-            Updated the headers and response handling to fix the issue. 
-            """
-            return Response(body=image, content_type=content_type)
+            # Convert BytesIO to binary data if necessary
+            if isinstance(image, BytesIO):
+                image_data = image.getvalue()
+            else:
+                image_data = image  # Use as-is if already binary data
+
+            # Construct and return the HTTP response
+            return Response(
+                body=image_data,
+                headers={
+                    'Content-Type': content_type,
+                    'Content-Disposition': f'attachment; filename="{image_name}"',
+                    'Content-Length': str(len(image_data)),
+                    'Content-Transfer-Encoding': 'binary',
+                }
+            )
+        except KeyError as e:
+            raise ConfigError(f"Missing required header: {e}") from e
         except Exception as e:
-            raise ConfigError(f"Error Getting Zammad Attachment: {e}") from e
+            raise ConfigError(f"Unexpected error while fetching attachment: {e}") from e

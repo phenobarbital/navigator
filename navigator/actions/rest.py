@@ -342,7 +342,18 @@ class RESTAction(AbstractAction):
                         result = filename
                 # getting the result, based on the Accept logic
                 elif self.file_buffer is True:
-                    data = await response.read()
+                    """
+                    Changed response.read() to response.content to fix the following error:
+
+                    Traceback (most recent call last):
+                    File "/home/ubuntu/navigator-api/.venv/lib/python3.11/site-packages/navigator/actions/rest.py", line 345, in process_request
+                        data = await response.read()
+                                    ^^^^^^^^^^^^^
+                    AttributeError: 'Response' object has no attribute 'read'
+
+                    During handling of the above exception, another exception occurred:
+                    """
+                    data =  response.content
                     buffer = BytesIO(data)
                     buffer.seek(0)
                     result = buffer

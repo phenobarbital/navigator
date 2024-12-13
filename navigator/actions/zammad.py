@@ -13,6 +13,7 @@ from ..conf import (
 )
 from .ticket import AbstractTicket
 from .rest import RESTAction
+from aiohttp.web import Response
 
 
 
@@ -394,27 +395,18 @@ class Zammad(AbstractTicket, RESTAction):
 
             image, response = result
 
-            image_name = response.headers.get('Content-Disposition', 'attachment').split('=')[1].replace('"', '')
-            image_format = response.headers.get('Content-Type', 'image/png')
-            from aiohttp.web import StreamResponse
+                    # Obtener el tipo de contenido de la respuesta
+            
+            content_type = response.headers.get('Content-Type', 'application/octet-stream')
 
-            response = StreamResponse(
-                status=200,
-                headers={
-                    'Content-Type': image_format,
-                    'Content-Disposition': f'attachment; filename="{image_name}"',
-                    'Content-Length': str(len(image)),
-                    'Transfer-Encoding': 'chunked',
-                    'Connection': 'keep-alive',
-                    'Content-Description': 'File Transfer',
-                    'Content-Transfer-Encoding': 'binary'
-                }
-            )
-            await response.prepare()
-            await response.write(image)
-            await response.write_eof()
-            return response
-        
+            # Devolver la imagen como respuesta HTTP
+            """ 
+            Changed the return method to use web.Response instead of StreamResponse due to the following error:
+
+            navigator.exceptions.exceptions: Error Getting Zammad Attachment: object of type '_io.BytesIO' has no len()
+
+            Updated the headers and response handling to fix the issue. 
+            """
+            return Response(body=image, content_type=content_type)
         except Exception as e:
             raise ConfigError(f"Error Getting Zammad Attachment: {e}") from e
-

@@ -342,7 +342,7 @@ class RESTAction(AbstractAction):
                         result = filename
                 # getting the result, based on the Accept logic
                 elif self.file_buffer is True:
-                    data = await response.read()
+                    data =  response.content
                     buffer = BytesIO(data)
                     buffer.seek(0)
                     result = buffer

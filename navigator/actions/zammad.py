@@ -1,6 +1,9 @@
 import base64
 import magic
+from datetime import datetime, timedelta
 from urllib.parse import quote_plus
+from aiohttp.web import Request, StreamResponse
+from io import BytesIO
 from ..exceptions import ConfigError
 from ..conf import (
     ZAMMAD_INSTANCE,
@@ -13,8 +16,8 @@ from ..conf import (
 )
 from .ticket import AbstractTicket
 from .rest import RESTAction
-from aiohttp.web import Response
-from io import BytesIO
+
+
 
 
 
@@ -377,7 +380,7 @@ class Zammad(AbstractTicket, RESTAction):
             ) from e
 
 
-    async def get_attachment_img(self, attachment: str):
+    async def get_attachment_img(self, attachment: str, request: Request):
         """Retrieve an attachment from a ticket.
 
         Args:
@@ -390,7 +393,7 @@ class Zammad(AbstractTicket, RESTAction):
             ConfigError: If an error occurs during the request or processing.
         """
         # Construir la URL para obtener el adjunto
-        self.url = f"{self.zammad_instance}/api/v1/ticket_attachment{attachment}"
+        self.url = f"{self.zammad_instance}api/v1/ticket_attachment{attachment}"
         self.method = 'get'
         self.file_buffer = True
 
@@ -423,19 +426,27 @@ class Zammad(AbstractTicket, RESTAction):
             else:
                 image_data = image  # Ya es un objeto binario válido
 
+            expiring_date = datetime.now() + timedelta(days=2)
             # Crear y devolver la respuesta HTTP
-            return Response(
-                body=image_data,
+            response = StreamResponse(
+                status=200,
                 headers={
                     'Content-Type': content_type,
                     'Content-Disposition': f'attachment; filename="{image_name}"',
-                    'Content-Length': str(len(image_data)),
                     'Content-Transfer-Encoding': 'binary',
+                    'Transfer-Encoding': 'chunked',
+                    'Connection': 'keep-alive',
+                    "Content-Description": "File Transfer",
+                    "Content-Transfer-Encoding": "binary",
+                    'Expires': expiring_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),
                 }
             )
+            response.content_length = len(image_data)
+            await response.prepare(request)
+            await response.write(image_data)
+            await response.write_eof()
+            return response
         except KeyError as e:
             raise ConfigError(f"Missing required header: {e}") from e
         except Exception as e:
             raise ConfigError(f"Unexpected error while fetching attachment: {e}") from e
-
-

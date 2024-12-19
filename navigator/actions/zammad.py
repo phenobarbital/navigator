@@ -1,6 +1,9 @@
 import base64
 import magic
+from datetime import datetime, timedelta
 from urllib.parse import quote_plus
+from aiohttp.web import Request, StreamResponse
+from io import BytesIO
 from ..exceptions import ConfigError
 from ..conf import (
     ZAMMAD_INSTANCE,
@@ -13,6 +16,8 @@ from ..conf import (
 )
 from .ticket import AbstractTicket
 from .rest import RESTAction
+
+
 
 
 
@@ -360,6 +365,11 @@ class Zammad(AbstractTicket, RESTAction):
         self.url = f"{self.zammad_instance}/api/v1/ticket_articles/by_ticket/{ticket_id}"
         self.method = 'get'
         try:
+            """
+            In the `articles` array returned by the URL `/api/v1/ticket_articles/by_ticket/{ticket_id}`,
+            if any item contains the `attachments` attribute, it should be destructured in the frontend
+            to request the images using `get_attachment_img`.
+            """
             result, _ = await self.request(
                 self.url, self.method
             )
@@ -368,3 +378,89 @@ class Zammad(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error Getting Zammad Ticket: {e}"
             ) from e
+
+
+    async def get_attachment_img(self, attachment: str, request: Request):
+        """Retrieve an attachment from a ticket.
+
+        Args:
+            attachment (str): The attachment path from the ticket.
+
+        Returns:
+            Response: HTTP Response containing the attachment file.
+
+        Raises:
+            ConfigError: If an error occurs during the request or processing.
+        """
+        # Construir la URL para obtener el adjunto
+        self.url = f"{self.zammad_instance}api/v1/ticket_attachment{attachment}"
+        self.method = 'get'
+        self.file_buffer = True
+
+        try:
+            # Realizar la solicitud al servidor
+            result, error = await self.request(self.url, self.method)
+
+            # Manejar errores en la respuesta
+            if error:
+                raise ConfigError(f"Error Getting Zammad Attachment: {error.get('message', 'Unknown error')}")
+
+            # Separar el cuerpo y la respuesta
+            image, response = result
+
+            # Validar y obtener encabezados
+            content_type = response.headers.get('Content-Type', 'application/octet-stream')
+            if not content_type.startswith('image/'):
+                raise ConfigError("The attachment is not a valid image file.")
+
+            content_disposition = response.headers.get('Content-Disposition')
+            if not content_disposition or 'filename=' not in content_disposition:
+                raise ConfigError("Attachment filename missing in response headers.")
+
+            # Extraer el nombre del archivo desde Content-Disposition
+            image_name = content_disposition.split('filename=')[-1].strip('"')
+
+            # Convertir el flujo de bytes en datos completos si es necesario
+            if isinstance(image, BytesIO):
+                image_data = image.getvalue()
+            else:
+                image_data = image  # Ya es un objeto binario válido
+
+            expiring_date = datetime.now() + timedelta(days=2)
+            chunk_size = 16384
+            content_length = len(image_data)
+            # Crear y devolver la respuesta HTTP
+            response = StreamResponse(
+                status=200,
+                headers={
+                    'Content-Type': content_type,
+                    'Content-Disposition': f'attachment; filename="{image_name}"',
+                    'Content-Transfer-Encoding': 'binary',
+                    'Transfer-Encoding': 'chunked',
+                    'Connection': 'keep-alive',
+                    "Content-Description": "File Transfer",
+                    "Content-Transfer-Encoding": "binary",
+                    'Expires': expiring_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+                }
+            )
+            response.headers[
+                "Content-Range"
+            ] = f"bytes 0-{chunk_size}/{content_length}"
+            try:
+                i = 0
+                await response.prepare(request)
+                while True:
+                    chunk = image_data[i: i + chunk_size]
+                    i += chunk_size
+                    if not chunk:
+                        break
+                    await response.write(chunk)
+                    await response.drain()  # deprecated
+                await response.write_eof()
+                return response
+            except Exception as e:
+                raise ConfigError(f"Error while writing attachment: {e}") from e
+        except KeyError as e:
+            raise ConfigError(f"Missing required header: {e}") from e
+        except Exception as e:
+            raise ConfigError(f"Unexpected error while fetching attachment: {e}") from e

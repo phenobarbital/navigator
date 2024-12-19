@@ -427,6 +427,8 @@ class Zammad(AbstractTicket, RESTAction):
                 image_data = image  # Ya es un objeto binario válido
 
             expiring_date = datetime.now() + timedelta(days=2)
+            chunk_size = 16384
+            content_length = len(image_data)
             # Crear y devolver la respuesta HTTP
             response = StreamResponse(
                 status=200,
@@ -441,10 +443,23 @@ class Zammad(AbstractTicket, RESTAction):
                     'Expires': expiring_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),
                 }
             )
-            await response.prepare(request)
-            await response.write(image_data)
-            await response.write_eof()
-            return response
+            response.headers[
+                "Content-Range"
+            ] = f"bytes 0-{chunk_size}/{content_length}"
+            try:
+                i = 0
+                await response.prepare(request)
+                while True:
+                    chunk = image_data[i: i + chunk_size]
+                    i += chunk_size
+                    if not chunk:
+                        break
+                    await response.write(chunk)
+                    await response.drain()  # deprecated
+                await response.write_eof()
+                return response
+            except Exception as e:
+                raise ConfigError(f"Error while writing attachment: {e}") from e
         except KeyError as e:
             raise ConfigError(f"Missing required header: {e}") from e
         except Exception as e:

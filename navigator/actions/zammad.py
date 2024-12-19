@@ -441,7 +441,6 @@ class Zammad(AbstractTicket, RESTAction):
                     'Expires': expiring_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),
                 }
             )
-            response.content_length = len(image_data)
             await response.prepare(request)
             await response.write(image_data)
             await response.write_eof()

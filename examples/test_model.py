@@ -1,5 +1,6 @@
 from typing import Union
 import asyncio
+from enum import Enum
 from datetime import datetime
 from aiohttp import web
 from navconfig.logging import logging
@@ -9,14 +10,33 @@ from navigator_auth import AuthHandler
 from navigator import Application
 from navigator.responses import HTMLResponse
 from navigator.views import ModelView
+from navigator.conf import PG_USER, PG_PWD, PG_HOST, PG_PORT
+
+# Example DSN:
+dsn = f'postgresql://{PG_USER}:{PG_PWD}@{PG_HOST}:{PG_PORT}/pruebas'
+
+class AirportType(Enum):
+    """
+    Enum for Airport Types.
+    """
+    CITY = 1
+    INTERNATIONAL = 2
+    DOMESTIC = 3
 
 
 class Country(Model):
     country_code: str = Column(primary_key=True)
     country: str
+
 class Airport(Model):
     iata: str = Column(primary_key=True, required=True, label='IATA Code')
     airport: str = Column(required=True, label="Airport Name")
+    airport_type: AirportType = Column(
+        required=True,
+        label='Airport Type',
+        choices=AirportType,
+        default=AirportType.CITY
+    )
     city: str
     country: str
     created_by: int
@@ -40,9 +60,18 @@ async def hola(request: web.Request) -> web.Response:
 class AirportHandler(ModelView):
     model: Model = Airport
     pk: Union[str, list] = ['iata']
+    dsn: str = dsn
 
-    async def _get_created_by(self, value, column, **kwargs):
+    async def _set_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
+
+    async def _put_callback(self, response: web.Response, result, *args, **kwargs):
+        print('RESULT > ', result)
+        print('RESPONSE > ', response)
+        print('PUT CALLBACK')
+        return response
+
+    _post_callback = _put_callback
 
     async def on_startup(self, *args, **kwargs):
         print(args, kwargs)
@@ -67,6 +96,7 @@ async def start_example(db):
          iata character varying(3),
          airport character varying(60),
          city character varying(20),
+         airport_type integer,
          country character varying(30),
          created_by integer,
          created_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -122,7 +152,7 @@ if __name__ == "__main__":
         "password": "12345678",
         "host": "127.0.0.1",
         "port": "5432",
-        "database": "navigator",
+        "database": "pruebas",
         "DEBUG": True,
     }
     kwargs = {

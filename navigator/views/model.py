@@ -1,5 +1,5 @@
-from collections.abc import Awaitable
-from typing import Optional, Union, Any
+from collections.abc import Iterable
+from typing import Optional, Union, Any, Awaitable, Callable
 import importlib
 import asyncio
 from aiohttp import web
@@ -51,6 +51,9 @@ async def load_model(tablename: str, schema: str, connection: Any) -> Model:
         )
 
 
+CallbackType = Optional[Callable[[web.Response, BaseModel], Awaitable[None]]]
+
+
 class ModelView(AbstractModel):
     """ModelView.
 
@@ -70,16 +73,16 @@ class ModelView(AbstractModel):
     get_model: BaseModel = None
     model_name: str = None  # Override the current model with other.
     path: str = None
-    pk: Union[str, list] = None
+    pk: Optional[Iterable] = None
     _required: list = []
     _primaries: list = []
     _hidden: list = []
     # New Callables to be used on response:
-    _get_callback: Optional[Awaitable] = None
-    _put_callback: Optional[Awaitable] = None
-    _post_callback: Optional[Awaitable] = None
-    _patch_callback: Optional[Awaitable] = None
-    _delete_callback: Optional[Awaitable] = None
+    _get_callback: CallbackType = None
+    _put_callback: CallbackType = None
+    _post_callback: CallbackType = None
+    _patch_callback: CallbackType = None
+    _delete_callback: CallbackType = None
 
     def __init__(self, request, *args, **kwargs):
         if self.model_name is not None:
@@ -371,7 +374,12 @@ class ModelView(AbstractModel):
                             if len(res) == 1:
                                 return res[0]
                             return res
-                        args = {self.pk: _primary}
+                        elif isinstance(self.pk, str):
+                            args = {self.pk: _primary}  # pylint: disable=E1143
+                        else:
+                            raise ValueError(
+                                f"Invalid PK definition for {self.__name__}: {self.pk}"
+                            )
                         args = {**_filter, **args}
                         return await self.get_model.get(**args)
                 elif len(qp) > 0:
@@ -1271,7 +1279,7 @@ class ModelView(AbstractModel):
                     try:
                         _args = {}
                         paramlist = [
-                            item.strip() for item in args["id"].split("/") if item.strip()
+                            item.strip() for item in args.get('id', '').split("/") if item.strip()
                         ]
                         if not paramlist:
                             return None
@@ -1306,8 +1314,8 @@ class ModelView(AbstractModel):
                                 # TODO: use validation from datamodel
                                 # evaluate the corrected type for fields:
                                 val = paramlist.pop(0)
-                            args[key] = val
-                        return args
+                            _args[key] = val
+                        return _args
                     except KeyError:
                         pass
                 else:
@@ -1352,7 +1360,7 @@ class ModelView(AbstractModel):
                     if isinstance(objid, list):
                         data = []
                         for entry in objid:
-                            args = {self.pk: entry}
+                            args = {self.pk: entry}  # noqa
                             obj = await self.model.get(**args)
                             data.append(await obj.delete())
                     else:

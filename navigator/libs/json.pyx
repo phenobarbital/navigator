@@ -13,6 +13,7 @@ from psycopg2 import Binary  # Import Binary from psycopg2
 from typing import Any, Union
 from pathlib import PosixPath, PurePath, Path
 from decimal import Decimal
+from enum import Enum, EnumType
 from ..exceptions.exceptions cimport ValidationError
 import orjson
 
@@ -52,6 +53,13 @@ cdef class JSONContent:
             return [obj.lower, up]
         elif hasattr(obj, 'tolist'): # numpy array
             return obj.tolist()
+        elif isinstance(obj, Enum):  # Handle Enum serialization
+            if obj is None:
+                return None
+            return obj.value if hasattr(obj, 'value') else obj.name
+        elif isinstance(obj, type) and issubclass(obj, Enum):
+            return [{'value': e.value, 'name': e.name} for e in obj]
+            # return [e.name for e in obj]  # Serialize the names of the Enum class members
         elif isinstance(obj, _MISSING_TYPE):
             return None
         elif obj == MISSING:

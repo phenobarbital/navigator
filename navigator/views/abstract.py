@@ -1,10 +1,9 @@
-from typing import Optional, Union, Any, TypeVar
-from collections.abc import Callable
+from typing import Optional, Union, Any, TypeVar, Type
+from collections.abc import Awaitable, Callable
 import asyncio
-import copy
-from aiohttp import web, hdrs
 import traceback
 from functools import wraps
+from aiohttp import web, hdrs
 try:
     import babel
     BABEL_INSTALLED = True
@@ -82,13 +81,15 @@ class ConnectionHandler:
     async def default_connection(self, request: web.Request):
         if self._dbname in request.app:
             return request.app[self._dbname]
-        kwargs = {
-            "server_settings": {
-                'client_min_messages': 'notice',
-                'max_parallel_workers': '24',
-                'tcp_keepalives_idle': '30'
+        kwargs = {}
+        if self.driver == 'pg':
+            kwargs = {
+                "server_settings": {
+                    'client_min_messages': 'notice',
+                    'max_parallel_workers': '24',
+                    'tcp_keepalives_idle': '30'
+                }
             }
-        }
         pool = AsyncPool(
             self.driver,
             dsn=default_dsn,
@@ -148,37 +149,37 @@ class AbstractModel(BaseView):
         in: Model
         type: BaseModel
         required: true
+        description: DataModel to be used.
+        - name: get_model
+        in: Model
+        type: BaseModel
+        required: false
+        description: DataModel to be used.
     """
-    model: BaseModel = None
-    get_model: BaseModel = None
+    model: Type[BaseModel] = None
+    get_model: Type[BaseModel] = None
     # Signal for startup method for this ModelView
     on_startup: Optional[Callable] = None
     on_shutdown: Optional[Callable] = None
     model_kwargs: dict = {}
     name: str = "Model"
+    # Connection parameters
+    driver: str = 'pg'
+    dsn: str = None
+    credentials: dict = None
+    dbname: str = 'nav.model'
+    handler: ConnectionHandler
 
     def __init__(self, request, *args, **kwargs):
         self.__name__ = self.model.__name__
         self._session = None
-        driver = kwargs.pop('driver', 'pg')
-        dsn = kwargs.pop('dsn', None)
-        credentials = kwargs.pop('credentials', {})
-        dbname = kwargs.pop('dbname', 'nav.model')
         ## getting get Model:
         if not self.get_model:
             self.get_model = self.model
         super().__init__(request, *args, **kwargs)
-        # Database Connection Handler
-        self.handler = ConnectionHandler(
-            driver,
-            dsn=dsn,
-            dbname=dbname,
-            credentials=credentials,
-            model_kwargs=self.model_kwargs
-        )
 
     @classmethod
-    def configure(cls, app: WebApp, path: str = None) -> WebApp:
+    def configure(cls, app: WebApp, path: str = None, **kwargs) -> WebApp:
         """configure.
 
 
@@ -220,6 +221,25 @@ class AbstractModel(BaseView):
         )
         app.router.add_view(
             r"{url}{{meta:(:.*)?}}".format(url=url), cls
+        )
+        # Use kwargs to reconfigure the connection handler if needed
+        if 'driver' in kwargs:
+            cls.driver = kwargs['driver']
+        if 'dsn' in kwargs:
+            cls.dsn = kwargs['dsn']
+        if 'credentials' in kwargs:
+            cls.credentials = kwargs['credentials']
+        if 'dbname' in kwargs:
+            cls.dbname = kwargs['dbname']
+        if 'model_kwargs' in kwargs:
+            cls.model_kwargs = kwargs['model_kwargs']
+        # Database Connection Handler
+        cls.handler = ConnectionHandler(
+            cls.driver,
+            dsn=cls.dsn,
+            dbname=cls.dbname,
+            credentials=cls.credentials,
+            model_kwargs=cls.model_kwargs
         )
 
     async def validate_payload(self, data: Optional[Union[dict, list]] = None):

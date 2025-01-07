@@ -39,7 +39,7 @@ def model_url(
 ) -> list:
     _path = handler.path
     name = getattr(handler, 'name', name)
-    model = _path if _path else name
+    model = _path or name
     url = f"/api/{version}/{model}"
     return [
         path("", r"{}/{{id:.*}}".format(url), handler, name=f"{name}_{model}_id"),
@@ -72,11 +72,10 @@ class ConnectionHandler:
         return self
 
     async def __aenter__(self):
-        if self._default is True:
-            self._connection = await self._db.acquire()
-            return self._connection
-        else:
+        if self._default is not True:
             return await self._db.connection()
+        self._connection = await self._db.acquire()
+        return self._connection
 
     async def default_connection(self, request: web.Request):
         if self._dbname in request.app:
@@ -177,9 +176,18 @@ class AbstractModel(BaseView):
         if not self.get_model:
             self.get_model = self.model
         super().__init__(request, *args, **kwargs)
+        # Database Connection Handler
+        # backwards compatibility with old configuration method.
+        self.handler = ConnectionHandler(
+            driver=self.driver,
+            dsn=self.dsn,
+            dbname=self.dbname,
+            credentials=self.credentials,
+            model_kwargs=self.model_kwargs
+        )
 
     @classmethod
-    def configure(cls, app: WebApp, path: str = None, **kwargs) -> WebApp:
+    def configure(cls, app: WebApp = None, path: str = None, **kwargs) -> WebApp:
         """configure.
 
 
@@ -195,33 +203,30 @@ class AbstractModel(BaseView):
             app = app.get_app()
         elif isinstance(app, WebApp):
             app = app  # register the app into the Extension
-        else:
-            raise TypeError(
-                f"Invalid type for Application Setup: {app}:{type(app)}"
-            )
         # startup operations over extension backend
-        if callable(cls.on_startup):
-            app.on_startup.append(cls.on_startup)
-        if callable(cls.on_shutdown):
-            app.on_shutdown.append(cls.on_shutdown)
-        ### added routers:
-        try:
-            model_path = cls.path
-        except AttributeError:
-            model_path = None
-        if not model_path:
-            model_path = path
-        if not model_path:
-            raise ConfigError(
-                "Wrong Model Configuration: URI path must be provided."
+        if app:
+            if callable(cls.on_startup):
+                app.on_startup.append(cls.on_startup)
+            if callable(cls.on_shutdown):
+                app.on_shutdown.append(cls.on_shutdown)
+            ### added routers:
+            try:
+                model_path = cls.path
+            except AttributeError:
+                model_path = None
+            if not model_path:
+                model_path = path
+            if not model_path:
+                raise ConfigError(
+                    "Wrong Model Configuration: URI path must be provided."
+                )
+            url = f"{model_path}"
+            app.router.add_view(
+                r"{url}/{{id:.*}}".format(url=url), cls
             )
-        url = f"{model_path}"
-        app.router.add_view(
-            r"{url}/{{id:.*}}".format(url=url), cls
-        )
-        app.router.add_view(
-            r"{url}{{meta:(:.*)?}}".format(url=url), cls
-        )
+            app.router.add_view(
+                r"{url}{{meta:(:.*)?}}".format(url=url), cls
+            )
         # Use kwargs to reconfigure the connection handler if needed
         if 'driver' in kwargs:
             cls.driver = kwargs['driver']

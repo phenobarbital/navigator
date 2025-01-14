@@ -640,12 +640,9 @@ class ModelView(AbstractModel):
                     model.set(key, newval)
                     continue
                 try:
-                    newval = parse_type(col.type, val)
+                    newval = parse_type(col, col.type, val)
                 except ValueError:
-                    if col.type == str:
-                        newval = str(val)
-                    else:
-                        newval = val
+                    newval = str(val) if col.type == str else val
                 model.set(key, newval)
 
     async def _patch_data(self, *args, **kwargs) -> Any:
@@ -802,7 +799,7 @@ class ModelView(AbstractModel):
                             # Patching one Single Attribute:
                             if _attribute in obj.get_fields():
                                 col = obj.column(_attribute)
-                                newval = parse_type(col.type, data)
+                                newval = parse_type(col, col.type, data)
                                 obj.set(_attribute, newval)
                         result = await obj.update()
                     return await self._patch_response(result, status=202)

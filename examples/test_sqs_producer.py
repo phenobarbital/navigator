@@ -33,6 +33,7 @@ async def main():
         queue = await sqs.create_queue(queue_name)
         queue_url = queue.url
         print(f"Queue URL: {queue_url}")
+
         # # Publish a JSON Message
         # await sqs.publish_message({"key": "value"}, "MyTestQueue")
         # # Publish JSONPickle

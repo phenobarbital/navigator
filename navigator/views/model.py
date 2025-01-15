@@ -751,6 +751,7 @@ class ModelView(AbstractModel):
                         status=400
                     )
         try:
+            result = None
             async with await self.handler(request=self.request) as conn:
                 self.model.Meta.connection = conn
                 try:
@@ -790,8 +791,26 @@ class ModelView(AbstractModel):
                                     print(ex)
                             obj = await self.model.get(**objid)
                         else:
-                            args = {self.pk: objid}
-                            obj = await self.model.get(**args)
+                            try:
+                                args = {self.pk: objid}
+                                obj = await self.model.get(**args)
+                                if not obj:
+                                    raise NoDataFound(
+                                        f"{self.__name__}:{objid}"
+                                    )
+                            except (NoDataFound, DriverError) as ex:
+                                headers = {
+                                    "x-error": f"{self.__name__}:{objid} was not Found",
+                                    "x-message": str(ex)
+                                }
+                                self.error(
+                                    response={
+                                        "message": f"{self.__name__}:{objid} was not Found",
+                                        "error": str(ex)
+                                    },
+                                    headers=headers,
+                                    status=404
+                                )
                         # Updating Object:
                         if isinstance(data, dict):
                             await self._set_update(obj, data)
@@ -803,12 +822,24 @@ class ModelView(AbstractModel):
                                 obj.set(_attribute, newval)
                         result = await obj.update()
                     return await self._patch_response(result, status=202)
+                except ValidationError as ex:
+                    headers = {"x-error": str(ex)}
+                    self.error(
+                        response={
+                            "message": f"Validation Error: {self.__name__}",
+                            "error": str(ex.payload)
+                        },
+                        headers=headers,
+                        status=400
+                    )
                 except NoDataFound:
                     headers = {"x-error": f"{self.__name__} was not Found"}
                     self.no_content(headers=headers)
                 if not result:
                     headers = {"x-error": f"{self.__name__} was not Found"}
                     self.no_content(headers=headers)
+        except web.HTTPError:
+            raise
         except Exception as ex:
             self.logger.exception(ex, stack_info=True)
             error = {
@@ -947,6 +978,14 @@ class ModelView(AbstractModel):
                     await self._set_update(obj, data)
                     result = await obj.update()
                     status = 202
+                except ValidationError as err:
+                    return self.error(
+                        response={
+                            "message": f"Invalid data for {self.__name__}",
+                            "error": str(err)
+                        },
+                        status=400
+                    )
                 except NoDataFound:
                     # There is no data to update:
                     obj = self.model(**data)  # pylint: disable=E1102
@@ -1001,6 +1040,8 @@ class ModelView(AbstractModel):
                 "payload": ex.payload,
             }
             return self.error(response=error, status=400)
+        except web.HTTPError:
+            raise
         except (TypeError, AttributeError, ValueError) as ex:
             error = {
                 "error": f"Invalid payload for {self.__name__}",
@@ -1064,6 +1105,14 @@ class ModelView(AbstractModel):
                             await self._set_update(obj, entry)
                             r = await obj.update()
                             result.append(r)
+                        except ValidationError as exc:
+                            return self.error(
+                                response={
+                                    "message": f"Invalid data for {self.__name__}",
+                                    "error": str(exc.payload)
+                                },
+                                status=400
+                            )
                         except NoDataFound:
                             # Object doesn't exist, create it:
                             obj = self.model(**entry)  # pylint: disable=E1102
@@ -1150,6 +1199,14 @@ class ModelView(AbstractModel):
                             status=202,
                             fields=fields
                         )
+                    except ValidationError as exc:
+                        return self.error(
+                            response={
+                                "message": f"Invalid data for {self.__name__}",
+                                "error": str(exc.payload)
+                            },
+                            status=400
+                        )
                     except NoDataFound:
                         ### need to created:
                         try:
@@ -1200,6 +1257,8 @@ class ModelView(AbstractModel):
                             "payload": str(ex.payload),
                         }
                         return self.error(response=error, status=400)
+                    except web.HTTPError:
+                        raise
                     except Exception as ex:
                         return self.error(
                             response={
@@ -1372,6 +1431,12 @@ class ModelView(AbstractModel):
                             result = await self.model.get(**args)
                             data = await result.delete(_filter=args)
                     return await self._delete_response(data, status=202)
+                except ValidationError as exc:
+                    error = {
+                        "message": f"{self.__name__} Validation Error",
+                        "error": str(exc.payload)
+                    }
+                    return self.error(response=error, status=400)
                 except DriverError as exc:
                     error = {
                         "message": f"Error on {self.__name__}",
@@ -1398,9 +1463,12 @@ class ModelView(AbstractModel):
                             args = {
                                 self.pk: objid
                             }
-                            # Delete them this Client
+                            # Delete
                             try:
                                 result = await self.model.get(**args)
+                            except ValidationError as e:
+                                print(e.payload)
+                                continue
                             except NoDataFound:
                                 continue
                         try:
@@ -1431,8 +1499,32 @@ class ModelView(AbstractModel):
                                         self.pk: objid
                                     }
                                 # Delete them this Client
-                                result = await self.model.get(**args)
+                                try:
+                                    result = await self.model.get(**args)
+                                except NoDataFound:
+                                    return await self._delete_response(
+                                        {
+                                            "error": f"{self.__name__} Not Found"
+                                        },
+                                        status=404
+                                    )
+                                except ValidationError as ex:
+                                    return await self._delete_response(
+                                        {
+                                            "error": f"{self.__name__} Validation Error",
+                                            "message": str(ex.payload)
+                                        },
+                                        status=400
+                                    )
                                 data = await result.delete(_filter=objid)
+                            except ValidationError as ex:
+                                return await self._delete_response(
+                                    {
+                                        "error": f"{self.__name__} Validation Error",
+                                        "message": str(ex.payload)
+                                    },
+                                    status=400
+                                )
                             except DriverError as exc:
                                 return await self._delete_response(
                                     {
@@ -1453,6 +1545,14 @@ class ModelView(AbstractModel):
                             try:
                                 objid = data
                                 data = await self.model.remove(**data)
+                            except ValidationError as ex:
+                                return await self._delete_response(
+                                    {
+                                        "error": f"{self.__name__} Validation Error",
+                                        "message": str(ex.payload)
+                                    },
+                                    status=400
+                                )
                             except NoDataFound:
                                 return await self._delete_response(
                                     {

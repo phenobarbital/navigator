@@ -1,11 +1,19 @@
-from hubspot import HubSpot as HubSpot
+from hubspot import HubSpot
+from hubspot.crm.properties.exceptions import ApiException as PropertiesApiException, UnauthorizedException as PropertiesUnauthorizedException
+# Contacts
 from hubspot.crm.contacts import SimplePublicObjectInput as ContactSimplePublicObjectInput
+from hubspot.crm.contacts.exceptions import ApiException as ContactsApiException, UnauthorizedException as ContactsUnauthorizedException
+# Companies
 from hubspot.crm.companies import SimplePublicObjectInput as CompanySimplePublicObjectInput
+from hubspot.crm.companies.exceptions import ApiException as CompaniesApiException, UnauthorizedException as CompaniesUnauthorizedException
+# Leads
 from hubspot.crm.objects.leads import SimplePublicObjectInputForCreate as LeadSimplePublicObjectInputForCreate
 from hubspot.crm.objects.leads.exceptions import ApiException as LeadsApiException, UnauthorizedException as LeadsUnauthorizedException
-from hubspot.crm.contacts.exceptions import ApiException as ContactsApiException, UnauthorizedException as ContactsUnauthorizedException
-from hubspot.crm.companies.exceptions import ApiException as CompaniesApiException, UnauthorizedException as CompaniesUnauthorizedException
-from hubspot.crm.properties.exceptions import ApiException as PropertiesApiException, UnauthorizedException as PropertiesUnauthorizedException
+# Associations
+from hubspot.crm.associations.models.public_object_id import PublicObjectId
+from hubspot.crm.associations.models.public_association import PublicAssociation
+from hubspot.crm.associations.models.batch_input_public_association import BatchInputPublicAssociation
+from hubspot.crm.associations.exceptions import ApiException
 from .abstract import AbstractAction
 from navconfig import config
 from ..exceptions import ConfigError, FailedAuth 
@@ -115,7 +123,32 @@ class Hubspot(AbstractAction):
             raise FailedAuth(f"Hubspot: Unauthorized to list contact properties: {e.body}") from e
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact properties: {e.body}") from e
-    
+
+    async def update_contact_lifecyclestage(self, contact_id, lifecyclestage="lead"):
+        """
+        Update the lifecyclestage of a contact.
+
+        :param contact_id: The ID of the contact to update.
+        :param lifecyclestage: The new lifecyclestage value (default is "lead").
+        :return: The updated contact object.
+        """
+        try:
+            client = HubSpot(access_token=self.token)
+            # Definir las propiedades a actualizar
+            properties = {"lifecyclestage": lifecyclestage}
+            contact_update_input = ContactSimplePublicObjectInput(properties=properties)
+            
+            # Actualizar el contacto
+            response = client.crm.contacts.basic_api.update(
+                contact_id=contact_id,
+                simple_public_object_input=contact_update_input
+            )
+            return response.to_dict()
+        except ContactsUnauthorizedException as e:
+            raise FailedAuth(f"Hubspot: Unauthorized to update contact lifecyclestage: {e.body}") from e
+        except ContactsApiException as e:
+            raise ConfigError(f"Hubspot: Error updating contact lifecyclestage: {e.body}") from e
+
     async def get_contact_lifecyclestage(self):
         """
         List all contact lifecyclestages available in HubSpot.
@@ -134,6 +167,39 @@ class Hubspot(AbstractAction):
             raise FailedAuth(f"Hubspot: Unauthorized to list contact lifecyclestage: {e.body}") from e
         except PropertiesApiException as e:
             raise ConfigError(f"Hubspot: Error listing contact lifecyclestage: {e.body}") from e
+
+    async def create_association(self, contact_id, company_id):
+        """
+        Create an association between a contact and a company.
+
+        :param contact_id: The ID of the contact.
+        :param company_id: The ID of the company.
+        :param association_type: The type of association (e.g., 1).
+        :return: Response from the API.
+        """
+        try:
+            client = HubSpot(access_token=self.token)
+            # Create object of origin and destination
+            from_object = PublicObjectId(id=contact_id)
+            to_object = PublicObjectId(id=company_id)
+
+            # Create the association obbject
+            association = PublicAssociation(
+                _from=from_object,
+                to=to_object,
+                type=1
+            )
+            batch_input = BatchInputPublicAssociation(inputs=[association])
+
+            # Create the association
+            response = client.crm.associations.batch_api.create(
+                from_object_type="contacts",
+                to_object_type="companies",
+                batch_input_public_association=batch_input
+            )
+            return response.to_dict()
+        except ApiException as e:
+            raise ConfigError(f"Hubspot: Exception when creating association: {e}")
 
     async def get_companies(self):
         """

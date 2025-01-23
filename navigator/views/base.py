@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 from dataclasses import dataclass
 from urllib import parse
+import aiohttp
 from aiohttp import web
 from aiohttp.web_exceptions import (
     HTTPMethodNotAllowed,
@@ -16,19 +17,26 @@ from aiohttp.web_exceptions import (
 import orjson
 from orjson import JSONDecodeError
 import aiohttp_cors
+from datamodel.parsers.json import (
+    JSONContent,
+    json_encoder,
+    json_decoder
+)
 from datamodel.exceptions import ValidationError
 from navconfig.logging import logging, loglevel
 from navigator_session import get_session
 from ..exceptions import NavException, InvalidArgument
-from ..libs.json import JSONContent, json_encoder, json_decoder
 from ..responses import JSONResponse
 from ..applications.base import BaseApplication
 from ..types import WebApp
 from ..conf import CORS_MAX_AGE
 
-
+# Monkey-patching
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
+# monkey-patch the JSON encoder
+aiohttp.typedefs.DEFAULT_JSON_ENCODER = json_encoder
+aiohttp.typedefs.DEFAULT_JSON_DECODER = json_decoder
 
 
 class BaseHandler(ABC):
@@ -72,10 +80,7 @@ class BaseHandler(ABC):
                 status=403
             )
         try:
-            if 'session' in session:
-                return session['session'][idx]
-            else:
-                return session[idx]
+            return session['session'][idx] if 'session' in session else session[idx]
         except KeyError:
             self.error(reason="Unauthorized", status=403)
 

@@ -17,8 +17,8 @@ from aiohttp import BasicAuth
 from bs4 import BeautifulSoup as bs
 from lxml import html, etree
 from proxylists.proxies import FreeProxy
+from datamodel.parsers.json import JSONContent
 from asyncdb.utils.functions import cPrint
-from ..libs.json import JSONContent
 from ..exceptions import ConfigError
 from .abstract import AbstractAction
 
@@ -342,7 +342,7 @@ class RESTAction(AbstractAction):
                         result = filename
                 # getting the result, based on the Accept logic
                 elif self.file_buffer is True:
-                    data =  response.content
+                    data = response.content
                     buffer = BytesIO(data)
                     buffer.seek(0)
                     result = buffer

@@ -1,5 +1,5 @@
 from collections.abc import Iterable
-from typing import Optional, Union, Any, Awaitable, Callable
+from typing import Optional, Union, Any, Awaitable, Callable, Hashable
 import importlib
 import asyncio
 from aiohttp import web
@@ -73,7 +73,7 @@ class ModelView(AbstractModel):
     get_model: BaseModel = None
     model_name: str = None  # Override the current model with other.
     path: str = None
-    pk: Optional[Iterable] = None
+    pk: Union[Hashable, str] = None
     _required: list = []
     _primaries: list = []
     _hidden: list = []
@@ -204,7 +204,7 @@ class ModelView(AbstractModel):
             try:
                 # Run the coroutine in a new thread
                 asyncio.run_coroutine_threadsafe(
-                    self._get_callback(response, result),
+                    self._get_callback(response, result),  # pylint: disable=E1102
                     loop
                 )
             except Exception as ex:
@@ -512,7 +512,7 @@ class ModelView(AbstractModel):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                fn = getattr(self, f'_set_{name}', None)
+                fn = getattr(self, f'_post_{name}', None) or getattr(self, f'_set_{name}', None)
                 if not fn:
                     fn = getattr(self, f'_get_{name}', None)
                     if fn:
@@ -559,7 +559,7 @@ class ModelView(AbstractModel):
             try:
                 # Run the coroutine in a new thread
                 asyncio.run_coroutine_threadsafe(
-                    self._patch_callback(response, result),
+                    self._patch_callback(response, result),  # pylint: disable=E1102
                     loop
                 )
             except Exception as ex:
@@ -626,6 +626,7 @@ class ModelView(AbstractModel):
             return
 
     async def _set_update(self, model, data):
+        """ Set the value for a field in the model """
         for key, val in data.items():
             if key in model.get_fields():
                 col = model.column(key)
@@ -654,9 +655,7 @@ class ModelView(AbstractModel):
             for name, column in self.model.get_columns().items():
                 ### if a function with name _get_{column name} exists
                 ### then that function is called for getting the field value
-                fn = getattr(self, f'_set_{name}', None)
-                if not fn:
-                    fn = getattr(self, f'_patch_{name}', None)
+                fn = getattr(self, f'_patch_{name}', None) or getattr(self, f'_set_{name}', None)
                 if fn:
                     try:
                         val = value.get(name, None)
@@ -864,7 +863,7 @@ class ModelView(AbstractModel):
             try:
                 # Run the coroutine in a new thread
                 asyncio.run_coroutine_threadsafe(
-                    self._post_callback(response, result),
+                    self._post_callback(response, result),  # pylint: disable=E1102
                     loop
                 )
             except Exception as ex:
@@ -885,7 +884,7 @@ class ModelView(AbstractModel):
             try:
                 # Run the coroutine in a new thread
                 asyncio.run_coroutine_threadsafe(
-                    self._put_callback(response, result),
+                    self._put_callback(response, result),  # pylint: disable=E1102
                     loop
                 )
             except Exception as ex:

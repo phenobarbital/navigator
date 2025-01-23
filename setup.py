@@ -26,12 +26,6 @@ extensions = [
         language="c"
     ),
     Extension(
-        name='navigator.libs.json',
-        sources=['navigator/libs/json.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    ),
-    Extension(
         name='navigator.exceptions.exceptions',
         sources=['navigator/exceptions/exceptions.pyx'],
         extra_compile_args=COMPILE_ARGS,

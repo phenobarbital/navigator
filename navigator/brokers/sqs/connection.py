@@ -10,7 +10,7 @@ import aioboto3
 from datamodel import Model, BaseModel
 from navconfig import config
 from navconfig.logging import logging
-from navigator.libs.json import json_encoder, json_decoder
+from datamodel.parsers.json import json_encoder, json_decoder
 from navigator.exceptions import ValidationError
 from ..connection import BaseConnection
 from ..wrapper import BaseWrapper

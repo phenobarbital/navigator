@@ -9,7 +9,7 @@ from dataclasses import is_dataclass
 from redis import asyncio as aioredis
 from datamodel import Model, BaseModel
 from navconfig.logging import logging
-from navigator.libs.json import json_encoder, json_decoder
+from datamodel.parsers.json import json_encoder, json_decoder
 from navigator.exceptions import ValidationError
 from ..connection import BaseConnection
 from ..wrapper import BaseWrapper

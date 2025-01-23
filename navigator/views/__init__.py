@@ -3,7 +3,7 @@ Views.
 
 NAV aiohttp Class-Based Views.
 """
-from ..libs.json import json_encoder, json_decoder
+from datamodel.parsers.json import json_encoder, json_decoder
 from .base import BaseHandler, BaseView
 from .data import DataView
 from .model import ModelView, load_models

@@ -5,8 +5,8 @@ from functools import wraps
 import inspect
 from aiohttp import web
 from aiohttp.abc import AbstractView
+from datamodel.parsers.json import json_encoder, json_decoder
 from .parser import TemplateParser
-from ..libs.json import json_decoder
 
 
 F = TypeVar("F", bound=Callable[..., Any])

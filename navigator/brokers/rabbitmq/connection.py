@@ -8,7 +8,7 @@ from dataclasses import is_dataclass
 import aiormq
 from aiormq.abc import AbstractConnection, AbstractChannel
 from datamodel import BaseModel
-from navigator.libs.json import json_encoder, json_decoder
+from datamodel.parsers.json import json_encoder, json_decoder
 from navigator.exceptions import ValidationError
 from ...conf import rabbitmq_dsn
 from ..wrapper import BaseWrapper

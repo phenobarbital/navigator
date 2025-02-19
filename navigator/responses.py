@@ -12,7 +12,7 @@ from aiohttp.web_exceptions import (
     HTTPNoContent,
 )
 from aiohttp_sse import sse_response, EventSourceResponse
-from .libs.json import json_encoder
+from datamodel.parsers.json import json_encoder
 
 
 __all__ = (
@@ -38,9 +38,9 @@ def Response(
     if headers:
         response["headers"] = headers
     if content and isinstance(content, str) or text is not None:
-        response["text"] = content if content else text
+        response["text"] = content or text
     else:
-        response["body"] = content if content else body
+        response["body"] = content or body
     return web.Response(**response)
 
 

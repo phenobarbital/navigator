@@ -29,7 +29,7 @@ class Country(Model):
     country: str
 
 class Airport(Model):
-    iata: str = Column(primary_key=True, required=True, label='IATA Code')
+    iata: str = Column(primary_key=True, required=True, label='IATA Code', default='AEP')
     airport: str = Column(required=True, label="Airport Name")
     airport_type: AirportType = Column(
         required=True,
@@ -38,9 +38,15 @@ class Airport(Model):
         default=AirportType.CITY
     )
     city: str
-    country: str
+    country: str  # = Column(foreign_key=Country.country)
     created_by: int
     created_at: datetime = Column(default=datetime.now(), repr=False)
+
+    def __post_init__(self):
+        return super().__post_init__()
+
+    def geography(self):
+        return self.city, self.country
 
     class Meta:
         name: str = 'airports'
@@ -48,7 +54,7 @@ class Airport(Model):
         strict = True
 
 
-app = Application()
+app = Application(enable_jinja2=True)
 session = AuthHandler()
 session.setup(app)
 
@@ -61,6 +67,60 @@ class AirportHandler(ModelView):
     model: Model = Airport
     pk: Union[str, list] = ['iata']
     dsn: str = dsn
+
+    async def _pre_get(self, *args, **kwargs):
+        print(' REQUEST ', self.request)
+        app = self.request.app
+        session = self.request.get('session')
+        print('SESSION ', session)
+        print('APP ', app)
+        db = app['database']
+        async with await db.acquire() as conn:
+            query = "SELECT * FROM public.airports"
+            result, _ = await conn.query(query)
+            print(result)
+        template = app['template']
+        auth = app['auth']
+        return True
+
+    async def _get_data(self, queryparams, args):
+        data = await super()._get_data(queryparams, args)
+        async with await self.handler(request=self.request) as conn:
+            # Country.Meta.connection = conn
+            # country = await Country.get(country=data.country)
+            # print(country)
+            query = f"SELECT * FROM public.airports WHERE iata = '{queryparams.get('iata')}'"
+            result, _ = await conn.queryrow(query)
+            if result:
+                print(result)
+        print('DATA > ', data)
+        print('QS ', queryparams)
+        return data
+
+    async def _put_response(self, result, status = 200, fields = None):
+        return await super()._put_response(result, status, fields)
+
+    async def _get_callback(self, response: web.Response, result, *args, **kwargs):
+        await asyncio.sleep(3)
+        print('GET CALLBACK', result)
+        return response
+
+    async def _post_callback(self, response: web.Response, result, *args, **kwargs):
+        print('POST CALLBACK', result)
+        return response
+
+    async def _put_callback(self, response: web.Response, result, *args, **kwargs):
+        print('PUT CALLBACK', result)
+        return response
+
+    async def _patch_callback(self, response: web.Response, result, *args, **kwargs):
+        print('PATCH CALLBACK', result)
+        return response
+
+
+
+    def required_by_put(self, *args, **kwargs):
+        return True
 
     async def _set_created_by(self, value, column, **kwargs):
         return await self.get_userid(session=self._session)
@@ -133,7 +193,7 @@ async def start_example(db):
             },
         ]
         await Airport.create(data)
-    await db.release(conn)
+    # await db.release(conn)
 
 
 async def end_example(db):
@@ -166,6 +226,7 @@ if __name__ == "__main__":
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         pool = AsyncPool("pg", params=params, loop=loop, **kwargs)
+        app['database'] = pool
         loop.run_until_complete(
             start_example(pool)
         )

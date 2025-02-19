@@ -514,7 +514,10 @@ class AbstractModel(BaseView):
                 for _, field in self.model.get_columns().items():
                     key = field.name
                     _type = field.db_type()
-                    _t = JSON_TYPES[field.type]
+                    try:
+                        _t = JSON_TYPES[field.type]
+                    except KeyError:
+                        _t = str(field.db_type())
                     default = None
                     if field.default is not None:
                         default = f"{field.default!r}"

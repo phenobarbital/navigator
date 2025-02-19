@@ -34,6 +34,7 @@ from ..conf import CORS_MAX_AGE
 # Monkey-patching
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
+
 # monkey-patch the JSON encoder
 aiohttp.typedefs.DEFAULT_JSON_ENCODER = json_encoder
 aiohttp.typedefs.DEFAULT_JSON_DECODER = json_decoder

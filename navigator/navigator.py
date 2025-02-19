@@ -14,6 +14,7 @@ from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
+from datamodel.parsers.json import json_encoder
 
 try:
     from navconfig import config
@@ -43,7 +44,6 @@ from .template import TemplateParser
 
 # websocket resources
 from .resources import WebSocketHandler
-from .libs.json import json_encoder
 from .types import WebApp
 
 

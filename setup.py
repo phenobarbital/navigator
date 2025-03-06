@@ -139,7 +139,7 @@ setup(
         "aiohttp[speedups]>=3.10.0",
         "PySocks==1.7.1",
         "asn1crypto==1.4.0",
-        "jinja2==3.1.4",
+        "jinja2==3.1.6",
         "psycopg2-binary>=2.9.9",
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',

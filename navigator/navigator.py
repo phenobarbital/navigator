@@ -9,13 +9,12 @@ from importlib import import_module
 from collections.abc import Callable
 from dataclasses import dataclass
 from datamodel import BaseModel
+from datamodel.parsers.json import json_encoder
 from datamodel.exceptions import ValidationError
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
 import sockjs
-from datamodel.parsers.json import json_encoder
-
 try:
     from navconfig import config
     from navconfig.logging import logging
@@ -43,7 +42,7 @@ from .exceptions import NavException, ConfigError, InvalidArgument
 from .template import TemplateParser
 
 # websocket resources
-from .resources import WebSocketHandler
+from .services.ws import WebSocketHandler
 from .types import WebApp
 
 
@@ -158,7 +157,7 @@ class Application(BaseApplication):
         ## Return aiohttp Application.
         return app
 
-    def add_websockets(self) -> None:
+    def add_websockets(self, base_path: str = 'ws') -> None:
         """
         add_websockets.
         description: enable support for websockets in the main App
@@ -169,7 +168,8 @@ class Application(BaseApplication):
                 ":: Enabling WebSockets ::"
             )
         # websockets
-        app.router.add_view(r"/ws/{channel}", WebSocketHandler)
+        path = f"/{base_path}/"
+        app.router.add_view(f"{path}{{channel}}", WebSocketHandler)
 
     def add_routes(self, routes: list) -> None:
         """

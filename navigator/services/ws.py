@@ -1,15 +1,16 @@
+from typing import Dict, List, Any, Optional, Union, Set
+from collections.abc import Callable
 import asyncio
 import random
 import uuid
 import orjson
-from typing import Dict, List, Any, Optional, Union
-from collections.abc import Callable
 from navconfig.logging import logging, logger
 import aiohttp
 from aiohttp import WSMsgType, web
 from navigator_session import get_session
 from ..libs.json import json_encoder, json_decoder
-
+from ..types import WebApp
+from ..applications.base import BaseApplication
 
 async def register_closing_ws(self, app: web.Application):
     """
@@ -396,3 +397,392 @@ class WebSocketHandler(web.View):
         for ws in self.channels.get(channel, []):
             if ws is not exclude_ws and not ws.closed:
                 await ws.send_str(message)
+
+
+class WebSocketView(web.View):
+    """
+    WebSocket View that uses the WebSocketManager.
+    This provides a class-based approach for handling WebSockets.
+    """
+    async def get(self):
+        ws_manager = self.request.app['ws_manager']
+        return await ws_manager.handle_websocket(self.request)
+
+class WebSocketManager:
+    """
+    WebSocket Manager that handles multi-channel communication,
+    user management, and event callbacks.
+    """
+    _app_prefix: str = 'ws_manager'
+
+    def __init__(self, app: web.Application, route_prefix: str = '/websockets'):
+        if isinstance(app, BaseApplication):
+            self.app = app.get_app()
+        elif isinstance(app, WebApp):
+            self.app = app
+        self.logger = logging.getLogger('WebSocketManager')
+        self.route_prefix = route_prefix
+
+        # Channels and clients management
+        self.channels: Dict[str, List[web.WebSocketResponse]] = {}
+        self.clients: Dict[web.WebSocketResponse, Dict[str, Any]] = {}
+        self.usernames: Set[str] = set()
+        self.clients_lock = asyncio.Lock()
+
+        # Event callbacks
+        self.on_connect_callbacks: Dict[str, List[Callable]] = {}
+        self.on_message_callbacks: Dict[str, List[Callable]] = {}
+        self.on_disconnect_callbacks: Dict[str, List[Callable]] = {}
+        self.on_direct_message_callbacks: Dict[str, List[Callable]] = {}  # For direct messages
+
+        # Register shutdown handler
+        app.on_shutdown.append(self._on_shutdown)
+        # Register into app
+        self.app['ws_manager'] = self
+        # Set up routes
+        # Function-based approach
+        self.app.router.add_get(
+            f'{self.route_prefix}/{{channel}}',
+            self.handle_websocket
+        )
+        self.app.router.add_get(
+            f'{self.route_prefix}',
+            self.handle_websocket
+        )
+
+        self.logger.info(
+            ':: WebSocket Manager initialized ::'
+        )
+
+    async def _on_shutdown(self, app):
+        """Close all websockets when the application is shutting down."""
+        self.logger.info('Shutting down all WebSocket connections')
+        close_tasks = []
+
+        for _, websockets in self.channels.items():
+            close_tasks.extend(
+                ws.close(code=1001, message=b'Server shutdown')
+                for ws in websockets
+                if not ws.closed
+            )
+
+        if close_tasks:
+            await asyncio.gather(*close_tasks, return_exceptions=True)
+
+    def register_channel(self, channel_name: str):
+        """Register a new channel if it doesn't exist."""
+        if channel_name not in self.channels:
+            self.channels[channel_name] = []
+            self.on_connect_callbacks[channel_name] = []
+            self.on_message_callbacks[channel_name] = []
+            self.on_direct_message_callbacks[channel_name] = []
+            self.on_disconnect_callbacks[channel_name] = []
+
+    def register_connect_callback(self, channel: str, callback: Callable):
+        """Register a callback for client connection events."""
+        if channel not in self.on_connect_callbacks:
+            self.register_channel(channel)
+        self.on_connect_callbacks[channel].append(callback)
+
+    def register_message_callback(self, channel: str, callback: Callable):
+        """Register a callback for message events."""
+        if channel not in self.on_message_callbacks:
+            self.register_channel(channel)
+        self.on_message_callbacks[channel].append(callback)
+
+    def register_disconnect_callback(self, channel: str, callback: Callable):
+        """Register a callback for client disconnection events."""
+        if channel not in self.on_disconnect_callbacks:
+            self.register_channel(channel)
+        self.on_disconnect_callbacks[channel].append(callback)
+
+    def register_direct_message_callback(self, channel: str, callback: Callable):
+        """
+        Register a callback for direct message events.
+
+        Callback signature: async def callback(ws, sender_info, recipient, msg_content)
+        """
+        if channel not in self.on_direct_message_callbacks:
+            self.register_channel(channel)
+        self.on_direct_message_callbacks[channel].append(callback)
+
+    async def broadcast(self, channel: str, message: Union[str, dict], exclude_ws=None):
+        """Broadcast a message to all clients in a channel."""
+        if channel not in self.channels:
+            return
+
+        message_str = message if isinstance(message, str) else json_encoder(message)
+
+        for ws in self.channels[channel]:
+            if ws is not exclude_ws and not ws.closed:
+                await ws.send_str(message_str)
+
+    async def broadcast_to_users(self, channel: str, usernames: List[str], message: Union[str, dict]):
+        """Send a message to specific users in a channel."""
+        if channel not in self.channels:
+            return
+
+        message_str = message if isinstance(message, str) else json_encoder(message)
+
+        for ws in self.channels[channel]:
+            if not ws.closed and self.clients.get(ws, {}).get('username') in usernames:
+                await ws.send_str(message_str)
+
+    async def send_to_user(self, username: str, message: Union[str, dict], sender_info=None):
+        """
+        Send a direct message to a specific user across all channels.
+
+        Args:
+            username: The username of the recipient
+            message: The message to send
+            sender_info: Optional information about the sender
+
+        Returns:
+            tuple: (bool success, recipient_ws or None)
+        """
+        message_str = message if isinstance(message, str) else json_encoder(message)
+
+        for ws, client_info in self.clients.items():
+            if not ws.closed and client_info.get('username') == username:
+                await ws.send_str(message_str)
+                return True, ws
+        return False, None
+
+    async def get_channel_users(self, channel: str) -> List[str]:
+        """Get a list of usernames in a specific channel."""
+        if channel not in self.channels:
+            return []
+
+        return [
+            self.clients.get(ws, {}).get('username') for ws in self.channels[channel] if not ws.closed
+        ]
+
+    async def handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
+        """
+        Handle a WebSocket connection.
+        This is the main handler that processes WebSocket connections.
+        """
+        channel = request.match_info.get("channel", "default")
+        self.logger.debug(
+            f"WebSocket connection starting for channel: {channel}"
+        )
+
+        # Register the channel if it doesn't exist
+        if channel not in self.channels:
+            self.register_channel(channel)
+
+        # Create WebSocket
+        ws = web.WebSocketResponse()
+        await ws.prepare(request)
+
+        # Generate client info
+        client_id = str(uuid.uuid4())
+
+        # Get username from session or query params
+        try:
+            session = await get_session(request)
+        except Exception as e:
+            self.logger.error(f"Error getting session: {e}")
+            try:
+                session = await request.config_dict.get(
+                    'aiohttp_session', {}
+                ).get('get_session', lambda x: None)(request)
+            except TypeError:
+                self.logger.warning(
+                    f"Anonymous Connection: {e}"
+                )
+                session = None
+
+        # Check User Session:
+        if session and 'username' in session:
+            username = session['username']
+        else:
+            username = request.query.get(
+                'username', f'User{client_id[:5]}'
+            )
+
+        try:
+            # Ensure username is unique
+            async with self.clients_lock:
+                initial_username = username
+                suffix = 1
+                while username in self.usernames:
+                    username = f"{initial_username}_{suffix}"
+                    suffix += 1
+
+                # Store client information
+                client_info = {
+                    'id': client_id,
+                    'username': username,
+                    'channel': channel,
+                    'request': request,
+                    'ip': request.remote,
+                    'headers': dict(request.headers),
+                    'connected_at': asyncio.get_event_loop().time()
+                }
+
+                self.clients[ws] = client_info
+                self.usernames.add(username)
+
+            # Add WebSocket to the channel
+            self.channels[channel].append(ws)
+
+            # Notify the client of their username
+            await ws.send_str(json_encoder({
+                'type': 'system',
+                'event': 'connected',
+                'data': {
+                    'username': username,
+                    'channel': channel
+                }
+            }))
+
+            # Execute on_connect callbacks
+            for callback in self.on_connect_callbacks.get(channel, []):
+                try:
+                    await asyncio.create_task(callback(ws, channel, client_info))
+                except Exception as e:
+                    self.logger.error(f"Error in on_connect callback: {e}")
+
+            # Announce new user to channel
+            await self.broadcast(
+                channel,
+                {
+                    'type': 'system',
+                    'event': 'user_joined',
+                    'data': {
+                        'username': username,
+                        'channel': channel
+                    }
+                },
+                exclude_ws=ws
+            )
+
+            # Main message processing loop
+            async for msg in ws:
+                if msg.type == WSMsgType.TEXT:
+                    if msg.data == 'close':
+                        await ws.close()
+                        break
+
+                    try:
+                        # Try to parse as JSON first
+                        data = json_decoder(msg.data)
+                        msg_type = data.get('type', 'message')
+                        msg_content = data.get('content', {})
+                        target = data.get('target', None)  # For direct messages
+                    except orjson.JSONDecodeError:
+                        # Fallback to plain text
+                        msg_type = 'message'
+                        msg_content = msg.data
+                        target = None
+
+                    # Handle direct messages
+                    if msg_type == 'direct' and target:
+                        # Prepare the message
+                        direct_msg = {
+                            'type': 'direct',
+                            'from': username,
+                            'content': msg_content
+                        }
+
+                        # Send the message to the recipient
+                        success, recipient_ws = await self.send_to_user(
+                            target,
+                            direct_msg,
+                            sender_info=self.clients[ws]
+                        )
+
+                        if not success:
+                            await ws.send_str(json_encoder({
+                                'type': 'error',
+                                'message': f'User {target} not found or offline'
+                            }))
+                            continue
+
+                        # Execute direct message callbacks
+                        for callback in self.on_direct_message_callbacks.get(channel, []):
+                            try:
+                                # Pass ws, sender info, recipient username, and message content
+                                await asyncio.create_task(
+                                    callback(
+                                        ws,
+                                        self.clients[ws],
+                                        target,
+                                        msg_content,
+                                        recipient_ws
+                                    )
+                                )
+                            except Exception as e:
+                                self.logger.error(f"Error in on_direct_message callback: {e}")
+
+                        continue
+
+                    # Execute on_message callbacks
+                    handled = False
+                    for callback in self.on_message_callbacks.get(channel, []):
+                        try:
+                            result = await asyncio.create_task(
+                                callback(ws, channel, msg_type, msg_content, client_info)
+                            )
+                            if result is True:
+                                handled = True
+                                break
+                        except Exception as e:
+                            self.logger.error(f"Error in on_message callback: {e}")
+
+                    # If no callback handled it, broadcast to channel
+                    if not handled and msg_type == 'message':
+                        await self.broadcast(
+                            channel,
+                            {
+                                'type': 'message',
+                                'username': username,
+                                'content': msg_content
+                            }
+                        )
+
+                elif msg.type == WSMsgType.ERROR:
+                    self.logger.error(f'WebSocket connection closed with exception: {ws.exception()}')
+                    break
+
+        except Exception as e:
+            self.logger.exception(f"Error in WebSocket handler: {e}")
+
+        finally:
+            # Clean up on disconnect
+            if channel in self.channels and ws in self.channels[channel]:
+                self.channels[channel].remove(ws)
+
+            client_info = None
+            async with self.clients_lock:
+                if ws in self.clients:
+                    client_info = self.clients[ws]
+                    username = client_info['username']
+                    self.usernames.remove(username)
+                    del self.clients[ws]
+
+            # Execute on_disconnect callbacks
+            if client_info:
+                for callback in self.on_disconnect_callbacks.get(channel, []):
+                    try:
+                        await asyncio.create_task(
+                            callback(ws, channel, client_info)
+                        )
+                    except Exception as e:
+                        self.logger.error(f"Error in on_disconnect callback: {e}")
+
+                # Announce user left to channel
+                await self.broadcast(
+                    channel,
+                    {
+                        'type': 'system',
+                        'event': 'user_left',
+                        'data': {
+                            'username': username,
+                            'channel': channel
+                        }
+                    }
+                )
+
+        return ws

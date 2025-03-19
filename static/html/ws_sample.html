@@ -1,0 +1,610 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat Client</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            gap: 20px;
+        }
+        .panel {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            flex: 1;
+        }
+        .chat-container {
+            flex: 2;
+        }
+        .sidebar {
+            flex: 1;
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .user-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        .user-list li {
+            padding: 8px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .user-list li:hover {
+            background-color: #f0f0f0;
+        }
+        .user-list li.selected {
+            background-color: #e0f0ff;
+        }
+        .messages {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 10px;
+            background-color: #fafafa;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 8px 12px;
+            border-radius: 18px;
+            max-width: 75%;
+            position: relative;
+        }
+        .message.system {
+            background-color: #f0f0f0;
+            color: #666;
+            font-style: italic;
+            text-align: center;
+            max-width: 100%;
+            margin: 10px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .message.incoming {
+            background-color: #e1f5fe;
+            color: #0277bd;
+            align-self: flex-start;
+            border-top-left-radius: 4px;
+            margin-right: auto;
+        }
+        .message.outgoing {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            align-self: flex-end;
+            border-top-right-radius: 4px;
+            margin-left: auto;
+        }
+        .message.direct {
+            background-color: #fff8e1;
+            color: #ff8f00;
+        }
+        .message-sender {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        .message-content {
+            word-break: break-word;
+        }
+        .message-time {
+            font-size: 0.75em;
+            color: #888;
+            text-align: right;
+            margin-top: 2px;
+        }
+        .input-area {
+            display: flex;
+            gap: 10px;
+        }
+        input, button, select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        input {
+            flex: 1;
+        }
+        button {
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0b7dda;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        .message-type {
+            background-color: white;
+        }
+        .connection-info {
+            margin-bottom: 20px;
+        }
+        .badge {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        .badge.online {
+            background-color: #4CAF50;
+        }
+        .badge.offline {
+            background-color: #F44336;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .error {
+            background-color: #ffebee;
+            color: #c62828;
+        }
+        .success {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+        }
+        .username-area {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .username-input {
+            flex: 1;
+        }
+        .channels {
+            margin-bottom: 20px;
+        }
+        .direct-message {
+            margin-top: 15px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="panel chat-container">
+            <h2>WebSocket Chat</h2>
+
+            <div class="connection-info">
+                <div class="username-area">
+                    <input type="text" id="username" placeholder="Enter username" class="username-input">
+                </div>
+
+                <div class="channels">
+                    <select id="channel">
+                        <option value="default">Default</option>
+                        <option value="general">General</option>
+                        <option value="support">Support</option>
+                        <option value="random">Random</option>
+                    </select>
+                    <button id="connect-btn">Connect</button>
+                    <button id="disconnect-btn" disabled>Disconnect</button>
+                </div>
+
+                <div id="connection-status" class="status">Not connected</div>
+            </div>
+
+            <div id="messages" class="messages"></div>
+
+            <div class="input-area">
+                <select id="message-type" class="message-type">
+                    <option value="message">Public Message</option>
+                    <option value="direct">Direct Message</option>
+                    <option value="command">Command</option>
+                </select>
+                <input type="text" id="message" placeholder="Type a message..." disabled>
+                <button id="send-btn" disabled>Send</button>
+            </div>
+
+            <div id="direct-message-area" class="direct-message" style="display: none;">
+                <select id="recipient-select">
+                    <option value="">Select recipient...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="panel sidebar">
+            <h2>Connected Users</h2>
+            <ul id="user-list" class="user-list">
+                <li>No users connected</li>
+            </ul>
+
+            <h2>Commands</h2>
+            <ul>
+                <li><code>/list</code> - List all users</li>
+                <li><code>/help</code> - Show this help</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectBtn = document.getElementById('disconnect-btn');
+        const messageInput = document.getElementById('message');
+        const sendBtn = document.getElementById('send-btn');
+        const messagesContainer = document.getElementById('messages');
+        const userList = document.getElementById('user-list');
+        const connectionStatus = document.getElementById('connection-status');
+        const usernameInput = document.getElementById('username');
+        const channelSelect = document.getElementById('channel');
+        const messageTypeSelect = document.getElementById('message-type');
+        const directMessageArea = document.getElementById('direct-message-area');
+        const recipientSelect = document.getElementById('recipient-select');
+
+        // WebSocket connection
+        let socket = null;
+        let currentUsername = '';
+        let currentChannel = '';
+        let connectedUsers = [];
+
+        // Initialize random username
+        usernameInput.value = `User${Math.floor(Math.random() * 1000)}`;
+
+        // Update UI based on connection state
+        function updateConnectionUI(isConnected) {
+            connectBtn.disabled = isConnected;
+            disconnectBtn.disabled = !isConnected;
+            messageInput.disabled = !isConnected;
+            sendBtn.disabled = !isConnected;
+
+            if (isConnected) {
+                connectionStatus.textContent = `Connected as ${currentUsername} in channel "${currentChannel}"`;
+                connectionStatus.classList.add('success');
+                connectionStatus.classList.remove('error');
+            } else {
+                connectionStatus.textContent = 'Not connected';
+                connectionStatus.classList.remove('success');
+                connectionStatus.classList.remove('error');
+            }
+        }
+
+        // Handle message type selection
+        messageTypeSelect.addEventListener('change', function() {
+            if (this.value === 'direct') {
+                directMessageArea.style.display = 'block';
+            } else {
+                directMessageArea.style.display = 'none';
+            }
+        });
+
+        // Connect to WebSocket
+        connectBtn.addEventListener('click', function() {
+            const username = usernameInput.value.trim();
+            if (!username) {
+                alert('Please enter a username!');
+                return;
+            }
+
+            currentUsername = username;
+            currentChannel = channelSelect.value;
+
+            // Create WebSocket connection
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/websockets/${currentChannel}?username=${encodeURIComponent(username)}`;
+
+            try {
+                socket = new WebSocket(wsUrl);
+
+                socket.onopen = function() {
+                    updateConnectionUI(true);
+                    addMessage('System', `Connected to channel "${currentChannel}"`, 'system');
+                };
+
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                };
+
+                socket.onerror = function(error) {
+                    connectionStatus.textContent = 'Connection error: ' + error;
+                    connectionStatus.classList.add('error');
+                    connectionStatus.classList.remove('success');
+                };
+
+                socket.onclose = function() {
+                    updateConnectionUI(false);
+                    addMessage('System', 'Disconnected from server', 'system');
+
+                    // Clear user list
+                    userList.innerHTML = '<li>No users connected</li>';
+                    connectedUsers = [];
+                    recipientSelect.innerHTML = '<option value="">Select recipient...</option>';
+                };
+            } catch (error) {
+                connectionStatus.textContent = 'Failed to connect: ' + error.message;
+                connectionStatus.classList.add('error');
+                connectionStatus.classList.remove('success');
+            }
+        });
+
+        // Disconnect from WebSocket
+        disconnectBtn.addEventListener('click', function() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+        });
+
+        // Send message
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        function sendMessage() {
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                addMessage('System', 'Not connected to server', 'system error');
+                return;
+            }
+
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            // Handle commands
+            if (message.startsWith('/')) {
+                handleCommand(message);
+                messageInput.value = '';
+                return;
+            }
+
+            const messageType = messageTypeSelect.value;
+
+            if (messageType === 'direct') {
+                const recipientUsername = recipientSelect.value;
+                if (!recipientUsername) {
+                    alert('Please select a recipient!');
+                    return;
+                }
+
+                const msgObj = {
+                    type: 'direct',
+                    target: recipientUsername,
+                    content: message
+                };
+
+                socket.send(JSON.stringify(msgObj));
+                addMessage(currentUsername, message, 'outgoing direct', `(To: ${recipientUsername})`);
+            } else if (messageType === 'command') {
+                const cmdParts = message.split(' ');
+                const command = cmdParts[0];
+
+                const msgObj = {
+                    type: 'command',
+                    content: {
+                        cmd: command,
+                        args: cmdParts.slice(1)
+                    }
+                };
+
+                socket.send(JSON.stringify(msgObj));
+                addMessage(currentUsername, `Executed command: ${command}`, 'outgoing system');
+            } else {
+                // Regular message
+                const msgObj = {
+                    type: 'message',
+                    content: message
+                };
+
+                socket.send(JSON.stringify(msgObj));
+                addMessage(currentUsername, message, 'outgoing');
+            }
+
+            messageInput.value = '';
+        }
+
+        function handleCommand(cmd) {
+            const commandLower = cmd.toLowerCase();
+
+            if (commandLower === '/list' || commandLower === '/users') {
+                // List connected users
+                const userListStr = connectedUsers.length > 0
+                    ? connectedUsers.join(', ')
+                    : 'No other users connected';
+
+                addMessage('System', `Connected users: ${userListStr}`, 'system');
+            } else if (commandLower === '/help') {
+                // Show help
+                addMessage('System', 'Available commands: /list, /help', 'system');
+            } else {
+                // Send command to server
+                const msgObj = {
+                    type: 'command',
+                    content: {
+                        cmd: cmd.substring(1),
+                        args: []
+                    }
+                };
+
+                socket.send(JSON.stringify(msgObj));
+            }
+        }
+
+        function handleMessage(data) {
+            if (data.type === 'system') {
+                if (data.event === 'connected') {
+                    currentUsername = data.data.username;
+                    updateConnectionUI(true);
+
+                    // Request user list
+                    requestUserList();
+                } else if (data.event === 'user_joined') {
+                    addMessage('System', `${data.data.username} joined the channel`, 'system');
+                    updateUserList(data.data.username, true);
+                } else if (data.event === 'user_left') {
+                    addMessage('System', `${data.data.username} left the channel`, 'system');
+                    updateUserList(data.data.username, false);
+                } else {
+                    addMessage('System', data.data, 'system');
+                }
+            } else if (data.type === 'message') {
+                if (data.username !== currentUsername) {
+                    addMessage(data.username, data.content, 'incoming');
+                }
+            } else if (data.type === 'direct') {
+                addMessage(data.from, data.content, 'incoming direct', '(Direct Message)');
+            } else if (data.type === 'command_result') {
+                if (data.command === 'list_users') {
+                    updateConnectedUsers(data.data);
+                }
+            } else if (data.type === 'error') {
+                addMessage('System', data.message, 'system error');
+            }
+        }
+
+        function addMessage(sender, content, type, label = '') {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+
+            if (type !== 'system' && type !== 'system error') {
+                const senderSpan = document.createElement('span');
+                senderSpan.className = 'message-sender';
+                senderSpan.textContent = sender + ': ';
+                messageDiv.appendChild(senderSpan);
+            }
+
+            const contentSpan = document.createElement('span');
+            contentSpan.className = 'message-content';
+            contentSpan.textContent = content;
+            messageDiv.appendChild(contentSpan);
+
+            if (label) {
+                const labelSpan = document.createElement('span');
+                labelSpan.style.marginLeft = '5px';
+                labelSpan.style.fontSize = '0.8em';
+                labelSpan.style.color = '#888';
+                labelSpan.textContent = label;
+                messageDiv.appendChild(labelSpan);
+            }
+
+            const timeSpan = document.createElement('div');
+            timeSpan.className = 'message-time';
+            const now = new Date();
+            timeSpan.textContent = now.toLocaleTimeString();
+            messageDiv.appendChild(timeSpan);
+
+            messagesContainer.appendChild(messageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function requestUserList() {
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                const msgObj = {
+                    type: 'command',
+                    content: {
+                        cmd: 'list_users'
+                    }
+                };
+
+                socket.send(JSON.stringify(msgObj));
+            }
+        }
+
+        function updateConnectedUsers(users) {
+            connectedUsers = users;
+
+            // Update user list
+            userList.innerHTML = '';
+            recipientSelect.innerHTML = '<option value="">Select recipient...</option>';
+
+            if (users.length === 0) {
+                userList.innerHTML = '<li>No users connected</li>';
+                return;
+            }
+
+            users.forEach(username => {
+                if (username === currentUsername) return;
+
+                const li = document.createElement('li');
+
+                const badge = document.createElement('span');
+                badge.className = 'badge online';
+                li.appendChild(badge);
+
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = username;
+                li.appendChild(nameSpan);
+
+                const messageBtn = document.createElement('button');
+                messageBtn.textContent = 'Message';
+                messageBtn.style.fontSize = '0.8em';
+                messageBtn.style.padding = '3px 8px';
+                messageBtn.addEventListener('click', () => {
+                    messageTypeSelect.value = 'direct';
+                    directMessageArea.style.display = 'block';
+                    recipientSelect.value = username;
+                    messageInput.focus();
+                });
+                li.appendChild(messageBtn);
+
+                userList.appendChild(li);
+
+                // Add to recipient dropdown
+                const option = document.createElement('option');
+                option.value = username;
+                option.textContent = username;
+                recipientSelect.appendChild(option);
+            });
+        }
+
+        function updateUserList(username, joined) {
+            if (joined) {
+                if (!connectedUsers.includes(username)) {
+                    connectedUsers.push(username);
+                }
+            } else {
+                connectedUsers = connectedUsers.filter(u => u !== username);
+            }
+
+            updateConnectedUsers(connectedUsers);
+        }
+
+        // Check if already connected
+        window.addEventListener('load', function() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/websockets/default?username=test`;
+
+            const testSocket = new WebSocket(wsUrl);
+            testSocket.onopen = function() {
+                testSocket.close();
+                connectionStatus.textContent = 'Server is online. Click Connect to join a channel.';
+            };
+
+            testSocket.onerror = function() {
+                connectionStatus.textContent = 'Cannot reach WebSocket server. Check if server is running.';
+                connectionStatus.classList.add('error');
+            };
+        });
+    </script>
+</body>
+</html>

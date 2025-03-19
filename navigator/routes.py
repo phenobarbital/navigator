@@ -56,7 +56,8 @@ class path(object):
 
     Description:
         Django-like URL router configuration
-        Works exactly like Django's path method. It takes a URL pattern, a handler, and an optional name to create a new route in the application.
+        Works exactly like Django's path method. It takes a URL pattern, a handler,
+        and an optional name to create a new route in the application.
 
     Args:
         url (str): The URL pattern for the route.
@@ -101,10 +102,10 @@ def class_url(
     if not route:
         try:
             route = handler.path
-        except AttributeError:
-            raise Exception(
-                "Route or an Attribute *path* is required"
-            )
+        except AttributeError as e:
+            raise ValueError(
+                f"Route or an Attribute *path* is required: {e}"
+            ) from e
     name = handler.__name__.lower()
     if not prefix:
         prefix = ""
@@ -153,11 +154,11 @@ def class_urls(
         Exception: If neither `route` nor the handler's `path` attribute is provided.
     """  # noqa
     if not handlers:
-        raise Exception(
+        raise RuntimeError(
             "Handlers are required"
         )
     if not routes:
-        raise Exception(
+        raise RuntimeError(
             "Routes are required"
         )
     r = []

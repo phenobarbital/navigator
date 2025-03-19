@@ -4,7 +4,7 @@ import logging
 from typing import Optional
 from collections.abc import Callable
 from asyncdb import AsyncPool, AsyncDB
-from asyncdb.exceptions import ProviderError, DriverError
+from asyncdb.exceptions import ProviderError, DriverError, UninitializedError
 from .types import WebApp
 from .conf import (
     default_dsn,
@@ -33,7 +33,7 @@ class ConnectionHandler:
     ):
         self.driver = driver
         self.name = name
-        self.params = params if params else {}
+        self.params = self.params = params or {}
         self.kwargs = kwargs
         self._dsn = dsn if dsn is not None else default_dsn
         if init:
@@ -116,8 +116,14 @@ class ConnectionHandler:
             # any callable will be launch on connection startup.
             if callable(self._startup_):
                 await self._startup_(app, self.conn)
+        except UninitializedError as ex:
+            logging.error(
+                f"DB Error using {self.driver}: {ex}"
+            )
         except (ProviderError, DriverError) as ex:
-            raise RuntimeError(f"Error creating DB {self.driver}: {ex}") from ex
+            raise RuntimeError(
+                f"Error creating DB {self.driver}: {ex}"
+            ) from ex
 
     async def shutdown(self, app: WebApp) -> None:
         logging.debug(f"Closing DB connection on App: {app!r}")
@@ -147,10 +153,7 @@ class PostgresPool(ConnectionHandler):
         evt: asyncio.AbstractEventLoop = None,
         **kwargs,
     ):
-        if "statement_timeout" in kwargs:
-            self.statement_timeout = kwargs["statement_timeout"]
-        else:
-            self.statement_timeout = DB_STATEMENT_TIMEOUT
+        self.statement_timeout = kwargs.get("statement_timeout", DB_STATEMENT_TIMEOUT)
         kwargs = {
             "min_size": 2,
             "server_settings": {

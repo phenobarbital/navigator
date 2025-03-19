@@ -87,7 +87,7 @@ def JSONResponse(
 ) -> web.Response:
     """
     JSONResponse.
-     Sending responses using JSON.
+    Sending responses using JSON.
     """
     response = {
         "content_type": content_type,

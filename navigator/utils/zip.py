@@ -30,13 +30,12 @@ class InMemoryZip:
         compression: int = ZIP_DEFLATED,
         **kwargs
     ) -> ZipFile:
-        zf = ZipFile(
+        return ZipFile(
             handler,
             mode=mode,
             compression=compression,
             **kwargs
         )
-        return zf
 
     def append(self, filename_in_zip: str, file_contents: str):
         """Appends a file with name filename_in_zip and contents of

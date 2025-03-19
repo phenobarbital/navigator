@@ -7,10 +7,25 @@ from pathlib import Path
 import aiohttp
 from aiohttp import WSMsgType, web
 from navconfig import BASE_DIR
-from navconfig.logging import logging, Logger
+from navconfig.logging import logging, logger
 from navigator_session import get_session
 from .libs.json import json_encoder
 
+
+async def register_closing_ws(self, app: web.Application):
+    """
+    Register closing sockets on app shutdown.
+    """
+    sockets = app.get("sockets", [])
+    close_tasks = []
+    for socket in sockets:
+        ws = socket["ws"]
+        if not ws.closed:
+            logger.debug("Closing a websocket connection.")
+            close_tasks.append(ws.close())
+    # Wait for all websocket connections to close.
+    if close_tasks:
+        await asyncio.gather(*close_tasks)
 
 async def channel_handler(
     request: web.Request,
@@ -19,34 +34,30 @@ async def channel_handler(
     disconnect_callback: Callable = None
 ):
     """
-    ---
+    Handles a WebSocket connection for a given channel.
     """
     channel = request.match_info.get("channel", "navigator")
-    Logger.debug(
+    logger.debug(
         f"Websocket connection starting for channel {channel}"
     )
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    # socket = {"ws": ws, "conn": connection}
+
+    socket = {"ws": ws}
+    # Register the socket
     try:
-        socket = {"ws": ws}
-        try:
-            request.app["sockets"].append(socket)
-        except KeyError:
-            request.app["sockets"] = [socket]
-        if append_callback:
-            await append_callback(socket)
-        for ws in request.app["sockets"]:
-            await ws.send_str("Someone joined")
-        Logger.debug(
-            f"WS Channel :: {channel} :: connection ready"
-        )
-    except asyncio.CancelledError:
-        request.app["sockets"].remove(socket)
-        if disconnect_callback:
-            await disconnect_callback(socket)
-        for ws in request.app["sockets"]:
-            await ws.send_str("Someone disconnected.")
+        request.app["sockets"].append(socket)
+    except KeyError:
+        request.app["sockets"] = [socket]
+
+    if append_callback:
+        await append_callback(socket)
+
+    # Notify all connected clients
+    for client in request.app["sockets"]:
+        await client["ws"].send_str("Someone joined")
+    logger.debug(f"WS Channel :: {channel} :: connection ready")
+
     try:
         async for msg in ws:
             if msg.type == aiohttp.WSMsgType.TEXT:
@@ -56,10 +67,20 @@ async def channel_handler(
                     if receive_callback:
                         await receive_callback(socket, msg)
                     await ws.send_str(f"{msg.data}/answer")
+            elif msg.type == aiohttp.WSMsgType.ERROR:
+                logger.error(
+                    f"WS connection closed with exception {ws.exception()}"
+                )
+    except asyncio.CancelledError:
+        # Handle cancellation if needed
+        pass
     finally:
-        request.app["sockets"].remove(socket)
+        if socket in request.app["sockets"]:
+            request.app["sockets"].remove(socket)
         if disconnect_callback:
             await disconnect_callback(socket)
+        for client in request.app["sockets"]:
+            await client["ws"].send_str("Someone disconnected.")
     return ws
 
 

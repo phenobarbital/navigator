@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>WebSocket Test</title>
+  </head>
+  <body>
+    <h1>WebSocket Test</h1>
+    <p>Open the browser console to see log messages.</p>
+    <script>
+      // Change the channel if needed
+      const channel = "navigator";
+      const wsUrl = `ws://localhost:5000/ws_test/${channel}`;
+      const ws = new WebSocket(wsUrl);
+
+      ws.onopen = function() {
+        console.log("Connected to WebSocket at:", wsUrl);
+        // Send an initial message to the server
+        ws.send("Hello Server!");
+      };
+
+      ws.onmessage = function(event) {
+        console.log("Received from server:", event.data);
+      };
+
+      ws.onclose = function() {
+        console.log("WebSocket connection closed.");
+      };
+
+      ws.onerror = function(error) {
+        console.error("WebSocket error:", error);
+      };
+    </script>
+  </body>
+</html>

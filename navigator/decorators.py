@@ -57,7 +57,7 @@ async def validate_model(request: web.Request, model: Union[dataclass, BaseModel
         else:
             data = await request.post()
     elif request.method == "GET":
-        data = {key: val for (key, val) in request.query.items()}
+        data = dict(request.query.items())
     else:
         raise web.HTTPNotImplemented(
             reason=f"{request.method} Method not Implemented for Data Validation.",

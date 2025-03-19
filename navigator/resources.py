@@ -1,47 +1,65 @@
 #!/usr/bin/env python
 import asyncio
+from collections.abc import Callable
 import random
 import uuid
 from pathlib import Path
 import aiohttp
 from aiohttp import WSMsgType, web
 from navconfig import BASE_DIR
-from navconfig.logging import logging
+from navconfig.logging import logging, Logger
 from navigator_session import get_session
 from .libs.json import json_encoder
 
 
-async def channel_handler(request: web.Request):
+async def channel_handler(
+    request: web.Request,
+    append_callback: Callable = None,
+    receive_callback: Callable = None,
+    disconnect_callback: Callable = None
+):
+    """
+    ---
+    """
     channel = request.match_info.get("channel", "navigator")
-    logging.debug(f"Websocket connection starting for channel {channel}")
+    Logger.debug(
+        f"Websocket connection starting for channel {channel}"
+    )
     ws = web.WebSocketResponse()
     await ws.prepare(request)
-    # TODO: connection is not defined, I dont understand this code
     # socket = {"ws": ws, "conn": connection}
     try:
         socket = {"ws": ws}
         try:
             request.app["sockets"].append(socket)
         except KeyError:
-            request.app["sockets"] = []
-            request.app["sockets"].append(socket)
-        print(socket)
-        logging.debug(f"WS Channel :: {channel} :: connection ready")
+            request.app["sockets"] = [socket]
+        if append_callback:
+            await append_callback(socket)
+        for ws in request.app["sockets"]:
+            await ws.send_str("Someone joined")
+        Logger.debug(
+            f"WS Channel :: {channel} :: connection ready"
+        )
     except asyncio.CancelledError:
         request.app["sockets"].remove(socket)
+        if disconnect_callback:
+            await disconnect_callback(socket)
         for ws in request.app["sockets"]:
             await ws.send_str("Someone disconnected.")
     try:
         async for msg in ws:
-            print(msg)
             if msg.type == aiohttp.WSMsgType.TEXT:
-                print(msg.data)
                 if msg.data == "close":
                     await ws.close()
                 else:
-                    await ws.send_str(msg.data + "/answer")
+                    if receive_callback:
+                        await receive_callback(socket, msg)
+                    await ws.send_str(f"{msg.data}/answer")
     finally:
         request.app["sockets"].remove(socket)
+        if disconnect_callback:
+            await disconnect_callback(socket)
     return ws
 
 
@@ -82,7 +100,7 @@ async def home(request: web.Request):
         file_path = path
         if not file_path.exists():
             return web.HTTPNotFound(
-                "Template not found: navigator/templates/home.html"
+                reason="Template not found: navigator/templates/home.html"
             )
         return web.FileResponse(file_path)
     except Exception as e:  # pylint: disable=W0703

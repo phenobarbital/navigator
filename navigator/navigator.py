@@ -165,7 +165,9 @@ class Application(BaseApplication):
         """
         app = self.get_app()
         if self.debug:
-            logging.debug(":: Enabling WebSockets ::")
+            self.logger.debug(
+                ":: Enabling WebSockets ::"
+            )
         # websockets
         app.router.add_view(r"/ws/{channel}", WebSocketHandler)
 
@@ -530,11 +532,17 @@ class Application(BaseApplication):
                 )
             except RuntimeError:
                 # loop already running
+                try:
+                    loop = self._loop or asyncio.get_current_loop()
+                except RuntimeError:
+                    logging.error("No running event loop")
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
                 web.run_app(
                     app,
                     host=self.host,
                     port=self.port,
-                    loop=asyncio.get_running_loop(),
+                    loop=loop,
                     handle_signals=True,
                     access_log=enable_access_log
                 )

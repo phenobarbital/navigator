@@ -532,6 +532,7 @@ class ModelView(AbstractModel):
                             data=value,
                             *args, **kwargs
                         )
+
                     except NotSet:
                         return
         data = await self.json_data()
@@ -641,8 +642,11 @@ class ModelView(AbstractModel):
                     model.set(key, newval)
                     continue
                 try:
-                    newval = parse_type(col, col.type, val)
-                except ValueError:
+                    newval = val if col.is_typing else parse_type(col, col.type, val)
+                except (TypeError, ValueError) as e:
+                    self.logger.error(
+                        f"Error Parsing Value: {val} for {col}:{col.type}, error: {e}"
+                    )
                     newval = str(val) if col.type == str else val
                 model.set(key, newval)
 
@@ -817,7 +821,13 @@ class ModelView(AbstractModel):
                             # Patching one Single Attribute:
                             if _attribute in obj.get_fields():
                                 col = obj.column(_attribute)
-                                newval = parse_type(col, col.type, data)
+                                try:
+                                    newval = parse_type(col, col.type, data)
+                                except (TypeError, ValueError):
+                                    self.logger.warning(
+                                        f"Unable to parse using *parse_type*: {col}: {col.type}: {data}"
+                                    )
+                                    newval = data
                                 obj.set(_attribute, newval)
                         result = await obj.update()
                     return await self._patch_response(result, status=202)

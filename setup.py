@@ -144,7 +144,7 @@ setup(
         "aiosocks==0.2.6",
         'python-slugify==8.0.1',
         "proxylists>=0.12.4",
-        "httpx>=0.25.0,<=0.27.0",
+        "httpx>=0.25.0,<=0.28.0",
         "beautifulsoup4==4.12.3",
         "polyline==2.0.1",
         "cartopy==0.22.0",
@@ -161,16 +161,16 @@ setup(
         "aiormq==6.8.1",
         "Faker==22.2.0",
         "google-cloud-core==2.4.3",
-        "google-cloud-storage==3.1.0",
+        "google-cloud-storage<=3.1.0,>=2.19.0",
         "hubspot-api-client==10.0.0",
         'cloudpickle>=3.0.0',
         'jsonpickle>=4.0.0',
         'async-timeout==4.0.3',
         'msgpack==1.1.0',
         'aiormq==6.8.1',
-        'modin==0.32.0',
         'dask[complete]==2024.8.2',
-        'aioboto3==13.2.0'
+        'aioboto3==13.2.0',
+        'babel==2.17.0'
     ],
     extras_require={
         "locale": [

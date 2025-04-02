@@ -9,7 +9,8 @@ from .data import DataView
 from .model import ModelView, load_models
 from .mhandler import ModelHandler
 from .form import FormModel
-from .abstract import model_url
+from .abstract import model_url, NotSet
+
 
 DEFAULT_JSON_ENCODER = json_encoder
 DEFAULT_JSON_DECODER = json_decoder
@@ -22,5 +23,6 @@ __all__ = (
     'load_models',
     'ModelHandler',
     'FormModel',
-    'model_url'
+    'model_url',
+    'NotSet',
 )

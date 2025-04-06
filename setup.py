@@ -164,7 +164,6 @@ setup(
         "google-cloud-storage<=3.1.0,>=2.19.0",
         "hubspot-api-client==10.0.0",
         'cloudpickle>=3.0.0',
-        'jsonpickle>=4.0.0',
         'async-timeout==4.0.3',
         'msgpack==1.1.0',
         'aiormq==6.8.1',

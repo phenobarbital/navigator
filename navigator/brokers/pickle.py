@@ -61,8 +61,7 @@ class DataSerializer:
         """
         try:
             serialized_data = cloudpickle.dumps(data)
-            encoded_data = base64.b64encode(serialized_data).decode('utf-8')
-            return encoded_data
+            return base64.b64encode(serialized_data).decode('utf-8')
         except Exception as err:
             raise RuntimeError(err) from err
 

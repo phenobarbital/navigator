@@ -162,14 +162,13 @@ setup(
         "Faker==22.2.0",
         "google-cloud-core==2.4.3",
         "google-cloud-storage<=3.1.0,>=2.19.0",
-        "hubspot-api-client==10.0.0",
         'cloudpickle>=3.0.0',
         'async-timeout==4.0.3',
         'msgpack==1.1.0',
         'aiormq==6.8.1',
         'dask[complete]==2024.8.2',
         'aioboto3==13.2.0',
-        'babel==2.17.0'
+        'babel>=2.9.1,<=2.17.0',
     ],
     extras_require={
         "locale": [
@@ -183,7 +182,10 @@ setup(
         ],
         "gunicorn": [
             "gunicorn==23.0.0"
-        ]
+        ],
+        "hubspot": [
+            "hubspot-api-client==10.0.0"
+        ],
     },
     ext_modules=cythonize(extensions),
     tests_require=[

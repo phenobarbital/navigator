@@ -449,14 +449,17 @@ class AbstractModel(BaseView):
         response = self.model.schema(as_dict=True)
         columns = list(response["properties"].keys())
         size = len(str(response))
-        schema = self.model.Meta.schema if self.model.Meta.schema else 'public'
+        schema = self.model.Meta.schema or 'public'
+        _table = self.model.Meta.name or self.model.__name__
+        _endpoint = self.path or self.model.__name__.lower()
         headers = {
-            "Content-Length": size,
+            "Content-length": size,
             "X-Columns": f"{columns!r}",
-            "X-Model": self.model.__name__,
-            "X-Tablename": self.model.Meta.name,
+            "X-Model": str(self.model.__name__),
+            "X-Tablename": _table,
             "X-Schema": schema,
-            "X-Table": f"{schema}.{self.model.Meta.name}"
+            "X-Table": f"{schema}.{_table}",
+            "X-Endpoint": _endpoint,
         }
         return self.no_content(headers=headers)
 

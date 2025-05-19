@@ -93,15 +93,9 @@ class RESTAction(AbstractAction):
         return await FreeProxy().get_list()
 
     def build_url(self, url, queryparams: str = None, args: dict = None):
-        if isinstance(args, dict):
-            u = url.format(**args)
-        else:
-            u = url
+        u = url.format(**args) if isinstance(args, dict) else url
         if queryparams:
-            if '?' in u:
-                full_url = u + '&' + queryparams
-            else:
-                full_url = u + '?' + queryparams
+            full_url = f'{u}&{queryparams}' if '?' in u else f'{u}?{queryparams}'
         else:
             full_url = u
         self._logger.debug(
@@ -651,13 +645,6 @@ class RESTAction(AbstractAction):
         error = {}
         auth = None
         proxies = None
-        if self._proxies:
-            proxy = random.choice(self._proxies)
-            proxies = {
-                "http": proxy,
-                "https": proxy,
-                "ftp": proxy
-            }
         if self.credentials:
             if 'apikey' in self.auth:
                 self.headers['Authorization'] = f"{self.token_type} {self.auth['apikey']}"
@@ -695,8 +682,16 @@ class RESTAction(AbstractAction):
         }
         if auth is not None:
             args['auth'] = auth
-        if proxies:
-            args['proxies'] = proxies
+        if self._proxies:
+            if len(self._proxies) > 0:
+                proxy = random.choice(self._proxies)
+                args['mounts'] = {
+                    "http": httpx.HTTPTransport(proxy=proxy),
+                    "https": httpx.HTTPTransport(proxy=proxy),
+                    "ftp": httpx.HTTPTransport(proxy=proxy)
+                }
+            else:
+                args['proxy'] = self._proxies
         async with httpx.AsyncClient(**args) as client:
             try:
                 request_func = getattr(client, method.lower())

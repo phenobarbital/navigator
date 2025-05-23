@@ -5,6 +5,7 @@ Interface for interacting with Google Maps API.
 """
 import string
 import datetime
+from datetime import timezone
 import urllib.parse
 import requests
 import pytz
@@ -325,9 +326,9 @@ class Route(GoogleService):
                     "map_url": map_url,
                     "map": url_map
                 }
-                if add_overview is True:
+                if add_overview:
                     response['overview'] = decoded_polyline
-                if complete is True:
+                if complete:
                     response['response'] = result
                 return response
 
@@ -344,29 +345,30 @@ class Route(GoogleService):
             locations_list.append(position)
 
         base_url = 'https://maps.googleapis.com/maps/api/directions/json'
-        if payload.departure_time != 'now':
-            # we need to convert the departure time to a timestamp
-            # in seconds since the epoch
-            now = datetime.datetime.now(tz=pytz.timezone(TIMEZONE))
-            try:
-                departure = datetime.datetime.strptime(
-                    payload.departure_time, "%Y-%m-%d %H:%M:%S.%f%z"
+        if payload.departure_time is not None:
+            # verify departure_time has timezone:
+            if payload.departure_time.tzinfo is None:
+                payload.departure_time = payload.departure_time.replace(
+                    tzinfo=timezone.utc
                 )
-            except ValueError:
-                try:
-                    departure = datetime.datetime.strptime(
-                        payload.departure_time, '%Y-%m-%dT%H:%M'
-                    )
-                except ValueError:
-                    departure = datetime.datetime.now()
-            if departure < now:
+            else:
+                # if not, we need to convert it to UTC
+                payload.departure_time = payload.departure_time.astimezone(
+                    timezone.utc
+                )
+            # Google Maps API requires departure_time to be in seconds since the epoch
+            # if the departure time is in the past, we need to set it to tomorrow
+            now = datetime.datetime.now(tz=timezone.utc)
+            if payload.departure_time < now:
                 tomorrow = now + datetime.timedelta(days=1)
-                departure = departure.replace(
+                payload.departure_time = payload.departure_time.replace(
                     year=tomorrow.year,
                     month=tomorrow.month,
                     day=tomorrow.day
                 )
-            departure_time = int(departure.timestamp())
+            # we need to convert the departure time to a timestamp
+            # in seconds since the epoch
+            departure_time = int(payload.departure_time.timestamp())
         else:
             departure_time = 'now'
         origin = (

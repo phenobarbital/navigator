@@ -1,4 +1,5 @@
 from typing import Union
+from datetime import datetime
 from datamodel import BaseModel, Field
 
 
@@ -43,7 +44,7 @@ class TravelerSearch(BaseModel):
     locations: list = Field(required=False, default_factory=list)
     associate_oid: str = Field(required=False)
     open_map: bool = Field(required=False, default=False)
-    departure_time: str = Field(required=False, default="now")
+    departure_time: datetime = Field(required=False)
     travel_mode: str = Field(required=False, default="driving")
     units: str = Field(required=False, default="imperial")
     optimal: bool = Field(required=False, default=True)

@@ -162,6 +162,7 @@ class Route(GoogleService):
         payload,
         encoded_polyline,
         locations: list = None,
+        # Default colors for the gradient
         start_color: str = "0x0000FF",
         end_color: str = "0xFF0000"
     ):
@@ -173,39 +174,49 @@ class Route(GoogleService):
 
         # Origin marker (green)
         origin_marker = f"markers=color:green|label:O|{'{:.6f},{:.6f}'.format(*origin)}"
-        # Destination marker (same as origin in this case, so it may overlap)
+        # Destination marker (if are the same as origin, so it may overlap)
         dest_marker = f"markers=color:red|label:D|{'{:.6f},{:.6f}'.format(*destination)}"
 
         # Create waypoint markers
-        waypoint_markers = []
-        waypoint_markers.append(origin_marker)
-        waypoint_markers.append(dest_marker)
-
-        if locations:
-            waypoint_order = directions_result['routes'][0].get('waypoint_order', [])
-            waypoints = [locations[i] for i in waypoint_order]
+        waypoint_markers = [origin_marker, dest_marker]
+        # Use the passed locations parameter or fall back to payload.locations
+        if waypoint_locations := locations or payload.locations:
+            route_data = directions_result['routes'][0]
+            # Updated field name for new Routes API
+            waypoint_order = route_data.get(
+                'optimizedIntermediateWaypointIndex', []
+            ) or list(range(len(waypoint_locations)))
+            # Extract waypoint coordinates in the optimized order
+            waypoints = []
+            for i in waypoint_order:
+                if i < len(waypoint_locations):
+                    waypoint = waypoint_locations[i]
+                    coords = waypoint.get_coordinates()
+                    waypoints.append(coords)
             num_waypoints = len(waypoints)
-            try:
-                color_range = self.get_gradient_colors(
-                    num_waypoints,
-                    start_color,
-                    end_color
-                )
-            except ZeroDivisionError:
-                color_range = self.get_gradient_colors(
-                    10,
-                    start_color,
-                    end_color
-                )
-            alpha_lower = string.ascii_uppercase
-            for i, waypoint in enumerate(waypoints):
-                color = color_range[i]
-                label = alpha_lower[i]
-                lat = waypoint['latitude']
-                long = waypoint['longitude']
-                waypoint_markers.append(
-                    f"markers=color:{color}|size:mid|label:{label}|{lat},{long}"
-                )
+            if num_waypoints > 0:
+                try:
+                    color_range = self.get_gradient_colors(
+                        num_waypoints,
+                        start_color,
+                        end_color
+                    )
+                except ZeroDivisionError:
+                    color_range = self.get_gradient_colors(
+                        10,
+                        start_color,
+                        end_color
+                    )
+                alpha_upper = string.ascii_uppercase
+                for i, waypoint in enumerate(waypoints):
+                    if i < len(color_range) and i < len(alpha_upper):
+                        color = color_range[i]
+                        label = alpha_upper[i]
+                        lat = waypoint[0]
+                        lng = waypoint[1]
+                        waypoint_markers.append(
+                            f"markers=color:{color}|size:mid|label:{label}|{lat},{lng}"
+                        )
 
         # Combine all markers in one parameter
         markers_parameter = '&'.join(
@@ -223,7 +234,7 @@ class Route(GoogleService):
             "key": self._key_
         }
         query_string = urllib.parse.urlencode(params)
-        return base_url + "?" + query_string + "&" + markers_parameter
+        return f"{base_url}?{query_string}&{markers_parameter}"
 
     async def get_route(
         self,
@@ -287,7 +298,6 @@ class Route(GoogleService):
                     result,
                     payload,
                     encoded_polyline,
-                    locations=None
                 )
                 total_duration = 0
                 total_distance = 0
@@ -332,126 +342,192 @@ class Route(GoogleService):
                     response['response'] = result
                 return response
 
+    def _compute_departure(self, departure_time: datetime):
+        """Compute the departure time in seconds since the epoch."""
+        if departure_time.tzinfo is None:
+            departure_time = departure_time.replace(tzinfo=timezone.utc)
+        else:
+            # if not, we need to convert it to UTC
+            departure_time = departure_time.astimezone(timezone.utc)
+        return departure_time
+
     async def waypoint_route(
         self,
         payload: TravelerSearch,
         complete: bool = True,
         add_overview: bool = True
     ):
-        locations_list = []
-        locations = payload.locations
-        for store in locations:
-            position = (store['latitude'], store['longitude'])
-            locations_list.append(position)
-
-        base_url = 'https://maps.googleapis.com/maps/api/directions/json'
+        base_url = "https://routes.googleapis.com/directions/v2:computeRoutes"
+        departure_time = None
         if payload.departure_time is not None:
-            # verify departure_time has timezone:
-            if payload.departure_time.tzinfo is None:
-                payload.departure_time = payload.departure_time.replace(
-                    tzinfo=timezone.utc
-                )
-            else:
-                # if not, we need to convert it to UTC
-                payload.departure_time = payload.departure_time.astimezone(
-                    timezone.utc
-                )
             # Google Maps API requires departure_time to be in seconds since the epoch
             # if the departure time is in the past, we need to set it to tomorrow
             now = datetime.datetime.now(tz=timezone.utc)
-            if payload.departure_time < now:
+            departure_time = self._compute_departure(payload.departure_time)
+            # if the departure time is in the past, we need to set it to tomorrow
+            if departure_time < now:
+                # Traffic information is only available for future and current times
                 tomorrow = now + datetime.timedelta(days=1)
-                payload.departure_time = payload.departure_time.replace(
+                payload.departure_time = departure_time.replace(
                     year=tomorrow.year,
-                    month=tomorrow.month,
-                    day=tomorrow.day
+                    # month=tomorrow.month,
+                    # day=tomorrow.day
                 )
             # we need to convert the departure time to a timestamp
             # in seconds since the epoch
-            departure_time = int(payload.departure_time.timestamp())
-        else:
-            departure_time = 'now'
-        origin = (
-            payload.origin.latitude,
-            payload.origin.longitude
-        )
-        destination = (
-            payload.destination.latitude,
-            payload.destination.longitude
-        )
-        params = {
-            'origin': ",".join([str(x) for x in origin]),
-            'destination': ",".join([str(x) for x in destination]),
-            'key': self._key_,
-            'waypoints': '',
-            'mode': payload.travel_mode,
-            'departure_time': departure_time,
-            'units': payload.units
+            departure_time = departure_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        origin = payload.origin.get_location()
+        destination = payload.destination.get_location()
+        data = {
+            "origin": origin,
+            "destination": destination,
+            "travelMode": payload.travel_mode,
+            "routingPreference": payload.routing_preference or "TRAFFIC_AWARE",
+            "computeAlternativeRoutes": False,
+            "routeModifiers": {
+                "avoidTolls": False,
+                "avoidHighways": False,
+                "avoidFerries": False
+            },
+            "languageCode": "en-US",
+            "units": payload.units.upper()
         }
-        if payload.optimal is True:
-            params['waypoints'] = "optimize:true|"
-        params['waypoints'] += "|".join(
-            [",".join([str(x) for x in loc]) for loc in locations_list]
+        if data['routingPreference'] == 'TRAFFIC_AWARE_OPTIMAL':
+            data['trafficModel'] = payload.traffic_model.upper() or 'BEST_GUESS'
+
+        if departure_time is not None:
+            data['departureTime'] = {
+                "departureTime": departure_time
+            }
+        if payload.locations:
+            data['intermediates'] = [loc.get_location() for loc in payload.locations]
+            if payload.optimal is True:
+                data['optimizeWaypointOrder'] = True
+        # Logging the parameters before sending the request can be very helpful for debugging
+        self._logger.notice(
+            f"Google Directions API params: {data}"
         )
         timeout = aiohttp.ClientTimeout(total=60)
-        async with aiohttp.ClientSession(timeout=timeout) as session:
-            async with session.request('GET', base_url, params=params) as response:
-                if response.status == 200:
-                    result = await response.json()
-            if result['status'] == 'OK':
-                self._logger.debug('Google: Route Found')
+        result = {}
+        headers = {
+            "Content-Type": "application/json",
+            "X-Goog-Api-Key": self._key_,
+            "X-Goog-FieldMask": "routes.legs,routes.duration,routes.staticDuration,routes.distanceMeters,routes.polyline,routes.optimizedIntermediateWaypointIndex,routes.description,routes.warnings,routes.viewport,routes.travelAdvisory,routes.localizedValues"  # noqa: E501
+        }
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            async with session.request('POST', base_url, json=data) as response:
+                # check for errors:
+                if response.status != 200:
+                    error = await response.json()
+                    msg = error.get('error', {}).get('message', 'Unknown error')
+                    self._logger.error(
+                        f"Google Directions API request failed with status: {response.status}"
+                    )
+                    return {
+                        "error": f"Google Directions API request failed with status: {response.status}",
+                        "message": msg
+                    }
+                result = await response.json()
+            # The Routes API returns an empty JSON object {} for some error cases (e.g. UNKNOWN_ERROR)
+            # even with HTTP 200, so check for presence of 'routes'.
+            if not result or 'routes' not in result or not result['routes']:
+                self._logger.error(
+                    f"Google Routes API returned a 200 OK but no routes found or empty response: {result!r}"
+                )
+                return {
+                    "error": "No routes found in API response or empty response.",
+                    "message": "The API returned a successful status but no route data."
+                }
+            if result.get('routes'):
                 # Extracting route, duration, and distance information
                 route = result['routes'][0]
-                encoded_polyline = route['overview_polyline']['points']
-                decoded_polyline = polyline.decode(encoded_polyline)
+                # Get the encoded polyline from the new format
+                encoded_polyline = ""
+                decoded_polyline = None
+                if route.get('polyline') and route['polyline'].get('encodedPolyline'):
+                    encoded_polyline = route['polyline']['encodedPolyline']
+                    decoded_polyline = polyline.decode(encoded_polyline)
                 map_url = self.get_google_map(
-                    origin,
-                    destination,
+                    payload.origin.get_coordinates(),
+                    payload.destination.get_coordinates(),
                     result,
                     payload,
-                    encoded_polyline,
-                    locations=locations
+                    encoded_polyline
                 )
                 total_duration = 0
+                static_duration = 0
                 total_duration_min = 0
+                static_duration_min = 0
                 total_distance = 0
                 total_distance_miles = 0
                 # Duration in seconds
-                # Distance in meters
-                for leg in route['legs']:
-                    total_duration += leg['duration']['value']
-                    total_distance += leg['distance']['value']
-                # Convert duration to minutes
-                if total_duration > 0:
-                    total_duration_min = total_duration / 60
-                if total_distance > 0:
-                    # Convert distance to miles
-                    total_distance_miles = total_distance / 1609.34
+                # Distance in meters and extract route instructions:
                 bestroute = []
                 for i, leg in enumerate(route['legs']):
-                    step = leg['steps'][0]
-                    bestroute.append(
-                        f"Leg {i+1}: {step['html_instructions']} for {leg['distance']['text']}"
-                    )
+                    duration_str = route.get('duration', '0s')
+                    total_duration_seconds = int(duration_str.rstrip('s')) if duration_str else 0
+                    total_duration += total_duration_seconds
+                    # Static Duration (without traffic) for reference
+                    static_duration_str = route.get('staticDuration', '0s')
+                    static_duration += int(static_duration_str.rstrip('s'))
+                    # Distance:
+                    distance_meters = leg.get('distanceMeters', 0)
+                    total_distance += distance_meters
+                    if leg.get('steps') and len(leg['steps']) > 0:
+                        # Get the first step's navigation instruction
+                        first_step = leg['steps'][0]
+                        if 'navigationInstruction' in first_step:
+                            instruction = first_step['navigationInstruction'].get('instructions', '')
+                            # Get localized distance for this leg
+                            leg_distance = leg.get(
+                                'localizedValues', {}).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi")
+                            bestroute.append(f"Leg {i+1}: {instruction} for {leg_distance}")
+                        else:
+                            # Fallback if no navigation instruction
+                            leg_distance = leg.get(
+                                'localizedValues', {}).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi")
+                            bestroute.append(f"Leg {i+1}: Continue for {leg_distance}")
+                # Convert duration to minutes
+                total_duration_min = total_duration / 60 if total_duration > 0 else 0
+                static_duration_min = static_duration / 60 if static_duration > 0 else 0
+                # Convert distance to miles
+                total_distance_miles = total_distance / 1609.34 if total_distance > 0 else 0
+                # Generate Route Map if requested:
                 url_map = None
-                if decoded_polyline:
-                    if payload.open_map is True:
-                        url_map = self.plot_route(decoded_polyline)
-                # Extract the optimal order of stores:
-                waypoint_order = route['waypoint_order']
-                route = [locations[i]['store_id'] for i in waypoint_order]
+                if decoded_polyline and payload.open_map is True:
+                    url_map = self.plot_route(decoded_polyline)
+                # Extract the optimal order of waypoints if available
+                waypoint_order = route.get('optimizedIntermediateWaypointIndex', [])
+                # Create the route list based on waypoint order
+                locations = payload.locations or []
+                try:
+                    if waypoint_order:
+                        route = [locations[i]['store_id'] for i in waypoint_order]
+                    else:
+                        # If no optimization was requested, maintain original order
+                        route = [loc['store_id'] for loc in locations] if locations else []
+                except (AttributeError, KeyError):
+                    try:
+                        if waypoint_order:
+                            route = [locations[i]['location_name'] for i in waypoint_order]
+                        else:
+                            route = [loc['location_name'] for loc in locations] if locations else []
+                    except (AttributeError, KeyError):
+                        route = []
                 response = {
                     "route_legs": bestroute,
                     "route": route,  # The ordered list of store IDs
                     "duration": total_duration_min,
                     "distance": total_distance_miles,
+                    "static_duration": static_duration_min,
                     "total_duration": f"{total_duration_min:.2f} minutes",
                     "total_distance": f"{total_distance_miles:.2f} miles",
                     "map_url": map_url,
                     "map": url_map
                 }
-                if add_overview is True:
+                if add_overview:
                     response['overview'] = decoded_polyline
-                if complete is True:
+                if complete:
                     response['response'] = result
                 return response

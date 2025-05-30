@@ -397,9 +397,8 @@ class Route(GoogleService):
             data['trafficModel'] = payload.traffic_model.upper() or 'BEST_GUESS'
 
         if departure_time is not None:
-            data['departureTime'] = {
-                "departureTime": departure_time
-            }
+            data['departureTime'] = departure_time
+            
         if payload.locations:
             data['intermediates'] = [loc.get_location() for loc in payload.locations]
             if payload.optimal is True:

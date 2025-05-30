@@ -363,16 +363,19 @@ class Route(GoogleService):
             # Google Maps API requires departure_time to be in seconds since the epoch
             # if the departure time is in the past, we need to set it to tomorrow
             now = datetime.datetime.now(tz=timezone.utc)
+            tomorrow = now + datetime.timedelta(days=1)
             departure_time = self._compute_departure(payload.departure_time)
             # if the departure time is in the past, we need to set it to tomorrow
             if departure_time < now:
                 # Traffic information is only available for future and current times
-                tomorrow = now + datetime.timedelta(days=1)
-                payload.departure_time = departure_time.replace(
-                    year=tomorrow.year,
-                    # month=tomorrow.month,
-                    # day=tomorrow.day
-                )
+                # Try setting the year to the current year
+                adjusted_dt_utc = departure_time.replace(year=tomorrow.year)
+                # If it's still in the past
+                # (e.g., user_dt was Jan 1, 2024,
+                # now is May 30, 2025 -> adjusted_dt becomes Jan 1, 2025, which is still past)
+                if adjusted_dt_utc < now:
+                    adjusted_dt_utc = adjusted_dt_utc.replace(year=tomorrow.year + 1)
+                departure_time = adjusted_dt_utc
             # we need to convert the departure time to a timestamp
             # in seconds since the epoch
             departure_time = departure_time.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -398,7 +401,7 @@ class Route(GoogleService):
 
         if departure_time is not None:
             data['departureTime'] = departure_time
-            
+
         if payload.locations:
             data['intermediates'] = [loc.get_location() for loc in payload.locations]
             if payload.optimal is True:
@@ -480,12 +483,14 @@ class Route(GoogleService):
                             instruction = first_step['navigationInstruction'].get('instructions', '')
                             # Get localized distance for this leg
                             leg_distance = leg.get(
-                                'localizedValues', {}).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi")
+                                'localizedValues', {}
+                            ).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi") or f"{distance_meters/1609.34:.1f} mi"  # noqa: E501
                             bestroute.append(f"Leg {i+1}: {instruction} for {leg_distance}")
                         else:
                             # Fallback if no navigation instruction
                             leg_distance = leg.get(
-                                'localizedValues', {}).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi")
+                                'localizedValues', {}
+                            ).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi") or f"{distance_meters/1609.34:.1f} mi"  # noqa: E501
                             bestroute.append(f"Leg {i+1}: Continue for {leg_distance}")
                 # Convert duration to minutes
                 total_duration_min = total_duration / 60 if total_duration > 0 else 0

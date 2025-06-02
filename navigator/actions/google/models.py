@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Optional
 from datetime import datetime
 from datamodel import BaseModel, Field
 
@@ -10,6 +10,10 @@ class Location(BaseModel):
     address: str = Field(required=False, label="Address")
     place_id: str = Field(required=False)
     formatted_address: str = Field(required=False)
+    timestamp: Optional[datetime] = Field(
+        required=False,
+        description="Timestamp of the location data"
+    )
 
     class Meta:
         strict: bool = True

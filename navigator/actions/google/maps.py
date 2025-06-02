@@ -388,6 +388,7 @@ class Route(GoogleService):
             "travelMode": payload.travel_mode,
             "routingPreference": payload.routing_preference or "TRAFFIC_AWARE",
             "computeAlternativeRoutes": False,
+            "optimizeWaypointOrder": False,
             "routeModifiers": {
                 "avoidTolls": False,
                 "avoidHighways": False,
@@ -475,6 +476,7 @@ class Route(GoogleService):
                     static_duration += int(static_duration_str.rstrip('s'))
                     # Distance:
                     distance_meters = leg.get('distanceMeters', 0)
+                    distance_miles = distance_meters / 1609.34 if distance_meters else 0
                     total_distance += distance_meters
                     if leg.get('steps') and len(leg['steps']) > 0:
                         # Get the first step's navigation instruction
@@ -484,13 +486,13 @@ class Route(GoogleService):
                             # Get localized distance for this leg
                             leg_distance = leg.get(
                                 'localizedValues', {}
-                            ).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi") or f"{distance_meters/1609.34:.1f} mi"  # noqa: E501
+                            ).get('distance', {}).get('text', f"{distance_miles:.1f} mi")  # noqa: E501
                             bestroute.append(f"Leg {i+1}: {instruction} for {leg_distance}")
                         else:
                             # Fallback if no navigation instruction
                             leg_distance = leg.get(
                                 'localizedValues', {}
-                            ).get('distance', {}).get('text', f"{leg['distanceMeters']/1609.34:.1f} mi") or f"{distance_meters/1609.34:.1f} mi"  # noqa: E501
+                            ).get('distance', {}).get('text', f"{distance_miles:.1f} mi")  # noqa: E501
                             bestroute.append(f"Leg {i+1}: Continue for {leg_distance}")
                 # Convert duration to minutes
                 total_duration_min = total_duration / 60 if total_duration > 0 else 0

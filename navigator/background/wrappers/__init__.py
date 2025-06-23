@@ -57,6 +57,12 @@ class TaskWrapper:
             self.job_record: JobRecord = asyncio.run(
                 tracker.create_job(name=self._name)
             )
+        if not self.job_record:
+            # define an unique task_id if not provided
+            self.job_record = JobRecord(
+                task_id=uuid.uuid4(),
+                name=self._name
+            )
         self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')
 
     @property

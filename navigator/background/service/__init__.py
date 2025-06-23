@@ -60,7 +60,7 @@ class BackgroundService:
             )
         # Add the TaskWrapper to the queue
         await self.queue.put(tw)
-        return tw.task_uuid
+        return tw.job_record
 
     async def status(self, task_id: uuid.UUID) -> Optional[str]:
         """ Get the status of a job by its task ID.

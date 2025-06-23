@@ -46,6 +46,7 @@ class TaskWrapper:
     ):
         self.args = args
         self.kwargs = kwargs
+        self._name: str = kwargs.get('name', fn.__name__ if fn else 'unknown_task')
         self.fn = fn
         self.tracker = tracker
         self._callback_: Union[Callable, Awaitable] = kwargs.get('callback', None)
@@ -53,7 +54,9 @@ class TaskWrapper:
         # Create the Job Record at status "pending"
         self.job_record: JobRecord = None
         if self.tracker:
-            self.job_record: JobRecord = asyncio.run(tracker.create_job())
+            self.job_record: JobRecord = asyncio.run(
+                tracker.create_job(name=self._name)
+            )
         self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')
 
     @property
@@ -61,7 +64,7 @@ class TaskWrapper:
         return self.job_record.task_id
 
     def __repr__(self):
-        return f"<TaskWrapper function={self.fn.__name__}>"
+        return f"<TaskWrapper function={self._name}>"
 
     def add_callback(self, callback: Union[Callable, Awaitable]):
         """add_callback.
@@ -81,11 +84,11 @@ class TaskWrapper:
             if self.tracker:
                 await self.tracker.set_running(self.task_uuid)
             self.logger.debug(
-                f"executing {self.fn.__name__}  with args: {self.args} and kwargs: {self.kwargs!r}"
+                f"executing {self._name}  with args: {self.args} and kwargs: {self.kwargs!r}"
             )
         except Exception as e:
             self.logger.error(
-                f"Error setting task {self.fn.__name__} as running: {e}"
+                f"Error setting task {self._name} as running: {e}"
             )
             return {
                 "status": "failed",
@@ -95,7 +98,7 @@ class TaskWrapper:
             # Random delay between 0 and jitter to avoid "thundering herd" problem
             delay = random.uniform(0.1, self.jitter)
             self.logger.debug(
-                f"executing {self.fn.__name__} with Jitter: {delay} sec."
+                f"executing {self._name} with Jitter: {delay} sec."
             )
             # Delay the execution by jitter seconds
             await asyncio.sleep(delay)
@@ -121,7 +124,7 @@ class TaskWrapper:
                 await self.tracker.set_failed(self.task_uuid, "Cancelled")
         except Exception as e:
             self.logger.error(
-                f"Error executing TaskWrapper {self.fn.__name__}: {e}"
+                f"Error executing TaskWrapper {self._name}: {e}"
             )
             result = {
                 "status": "failed",

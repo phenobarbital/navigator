@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Union, Callable
 import uuid
 from aiohttp import web
 from ..queue import BackgroundQueue
@@ -22,7 +22,7 @@ class BackgroundService:
         # Create a new JobTracker if not provided
         self.tracker = tracker or JobTracker()
         # Register the queue and tracker in the application
-        app['service_queue'] = self.queue
+        app['background_service'] = self
         app['service_tracker'] = self.tracker
 
     # -----------------------------------------------------------
@@ -30,18 +30,35 @@ class BackgroundService:
     # -----------------------------------------------------------
     async def submit(
         self,
-        fn,
+        fn: Union[Callable, TaskWrapper],
         *args,
         jitter: float = 0.0,
         **kwargs
     ) -> uuid.UUID:
-        tw = TaskWrapper(
-            fn,
-            *args,
-            tracker=self.tracker,
-            jitter=jitter,
-            **kwargs
-        )
+        if not callable(fn):
+            raise ValueError(
+                "fn must be a callable function or TaskWrapper instance"
+            )
+        if isinstance(fn, TaskWrapper):
+            # If fn is already a TaskWrapper, use it directly
+            tw = fn
+        else:
+            # Otherwise, create a new TaskWrapper
+            tw = TaskWrapper(
+                fn,
+                *args,
+                tracker=self.tracker,
+                jitter=jitter,
+                **kwargs
+            )
+        if tw.tracker is None:
+            # If the TaskWrapper does not have a tracker, set it to the service's tracker
+            tw.tracker = self.tracker
+            # and create the job record:
+            tw.job_record = await self.tracker.create_job(
+                name=tw.fn.__name__
+            )
+        # Add the TaskWrapper to the queue
         await self.queue.put(tw)
         return tw.task_uuid
 

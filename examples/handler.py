@@ -1,13 +1,13 @@
 import asyncio
 from aiohttp import web
 from navigator import Application
-from navigator.background import BackgroundQueue
+from navigator.background import BackgroundQueue, TaskWrapper
 from app import Main
 
 
-async def blocking_code():
+async def blocking_code(*args, **kwargs):
     print('Starting blocking code')
-    await asyncio.sleep(5)
+    await asyncio.sleep(10)  # Simulate a blocking operation
     print('Finished blocking code')
 
 async def done_blocking(*args, **kwargs):
@@ -15,11 +15,23 @@ async def done_blocking(*args, **kwargs):
 
 async def handle(request):
     name = request.match_info.get('name', "Anonymous")
-    text = "Hello, " + name
+    text = f"Hello, {name}"
     queue = request.app['service_queue']
-    # future = asyncio.create_task(blocking_code())
-    await queue.put(blocking_code)
-    # queue.add_callback(done_blocking)
+    try:
+        task = TaskWrapper(
+            fn=blocking_code,
+            args=(name,),
+            kwargs={'text': text}
+        )
+        task.add_callback(done_blocking)
+        print('Adding task to queue:', task)
+        await queue.put(task)
+    except asyncio.QueueFull:
+        text = "Queue is full, please try again later."
+        print(text)
+    except Exception as e:
+        text = f"An error occurred: {str(e)}"
+        print(text)
     return web.Response(text=text)
 
 app = Application()

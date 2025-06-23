@@ -42,6 +42,8 @@ class TaskWrapper:
         tracker: JobTracker = None,
         jitter: float = 0.0,
         logger: Optional[logging.Logger] = None,
+        max_retries: int = 0,
+        retry_delay: float = 0.0,
         **kwargs
     ):
         self.args = args
@@ -64,6 +66,10 @@ class TaskWrapper:
                 name=self._name
             )
         self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')
+        # Retry information:
+        self.max_retries = max_retries
+        self.retries_done = 0
+        self.retry_delay = retry_delay
 
     @property
     def task_uuid(self) -> uuid.UUID:

@@ -2,8 +2,9 @@ from typing import Optional, Union, Callable
 import uuid
 from aiohttp import web
 from ..queue import BackgroundQueue
-from ..tracker import JobTracker, JobRecord
+from ..tracker import JobTracker, RedisJobTracker, JobRecord
 from ..wrappers import TaskWrapper
+from ...conf import CACHE_URL
 
 
 class BackgroundService:
@@ -16,11 +17,20 @@ class BackgroundService:
         app: web.Application,
         queue: Optional[BackgroundQueue] = None,
         tracker: Optional[JobTracker] = None,
+        tracker_type: str = 'memory',
         **kwargs
     ) -> None:
         self.queue = queue or BackgroundQueue(app, **kwargs)
         # Create a new JobTracker if not provided
-        self.tracker = tracker or JobTracker()
+        self.tracker = tracker
+        if not tracker:
+            if tracker_type == 'redis':
+                self.tracker = RedisJobTracker(
+                    url=kwargs.get('redis_url', CACHE_URL),
+                    prefix=kwargs.get('tracker_prefix', 'job:')
+                )
+            else:
+                self.tracker = JobTracker()
         # Register the queue and tracker in the application
         app['background_service'] = self
         app['service_tracker'] = self.tracker

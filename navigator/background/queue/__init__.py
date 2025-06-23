@@ -1,3 +1,4 @@
+import random
 from typing import (
     Union,
     Optional,
@@ -38,8 +39,8 @@ class BackgroundQueue:
 
     TODO:
     - Add Task Timeout
-    - Add Task Retry
-    - Added Wrapper Support
+    - Add Task Retry (done)
+    - Added Wrapper Support (done)
     """
     service_name: str = SERVICE_NAME
 
@@ -219,7 +220,6 @@ class BackgroundQueue:
         result = None
         try:
             loop = asyncio.get_running_loop()
-            # with ThreadPoolExecutor(max_workers=1) as executor:
             result = await loop.run_in_executor(
                 self.executor,
                 func,
@@ -281,11 +281,8 @@ class BackgroundQueue:
                             f"Invalid Function {func} in Queue"
                         )
                         continue
-            except Exception as e:  # Catch all exceptions
-                print('ERROR > ', e)
-                self.logger.error(
-                    f"Error executing task {func.__name__}: {e}"
-                )
+            except Exception as exc:  # Catch all exceptions
+                await self._handle_failure(task, exc)
                 continue
             finally:
                 if self._enable_profiling is True:
@@ -305,7 +302,7 @@ class BackgroundQueue:
                         Peak Memory Usage: {peak_memory / (1024 ** 2):.2f} MB
                     """)
                 except Exception as e:
-                    print('LOG ERROR > ', e)
+                    print('TASK LOG ERROR > ', e)
                 # Call your task completion callback (if any)
                 try:
                     await self._callback(task, result=result)
@@ -329,6 +326,41 @@ class BackgroundQueue:
                 self.process_queue()
             )
             self.consumers.append(task)
+
+    async def _requeue(self, task: TaskWrapper, exc: Exception) -> None:
+        """Internal: re-enqueues `task` after updating retry-counters."""
+        task.retries_done += 1
+        # optional exponential back-off
+        if task.retry_delay:
+            await asyncio.sleep(
+                random.uniform(0.8, 1.2) * task.retry_delay * task.retries_done
+            )
+
+        self.logger.warning(
+            f"Retry {task.retries_done}/{task.max_retries} for {task!r} "
+            f"after error: {exc}"
+        )
+        if hasattr(task, "tracker"):
+            # set status = "retrying"
+            await task.tracker.set_running(task.task_uuid)
+        await self.queue.put(task)
+
+    async def _handle_failure(
+        self,
+        task: Any,
+        exc: Exception
+    ) -> None:
+        """Central place that decides whether we retry or finally give up."""
+        if (
+            isinstance(task, TaskWrapper) and task.retries_done < task.max_retries
+        ):
+            await self._requeue(task, exc)
+        else:
+            self.logger.error(
+                f"Task {task!r} failed permanently after "
+                f"{getattr(task, 'retries_done', 0)} attempt(s)."
+            )
+            await self._callback(task, result=dict(status="failed", error=exc))
 
 
 class BackgroundTask:

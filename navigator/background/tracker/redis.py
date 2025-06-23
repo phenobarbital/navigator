@@ -21,11 +21,11 @@ class RedisJobTracker:
         self._url = url or CACHE_URL
         self._redis: redis.Redis = redis.from_url(
             self._url,
-            encoding=None,
+            encoding='utf-8',
             decode_responses=True
         )
-        self._encode: Encoder = json_encoder
-        self._decode: Encoder = json_decoder
+        self._encoder: Encoder = json_encoder
+        self._decoder: Encoder = self._decode_model
         self.prefix = prefix if prefix.endswith(":") else f"{prefix}:"
         self._lock = asyncio.Lock()
 
@@ -40,8 +40,8 @@ class RedisJobTracker:
         record = JobRecord(**kwargs)
         key = self._key(record.task_id)
         async with self._lock:
-            await self.r.set(key, self.encoder(record))
-            await self.r.sadd(self._set_key, record.task_id)
+            await self._redis.set(key, self._encoder(record))
+            await self._redis.sadd(self._set_key, record.task_id)
         return record
 
     async def _update(self, job_id: str, **patch) -> None:
@@ -51,14 +51,22 @@ class RedisJobTracker:
         """
         key = self._key(job_id)
         async with self._lock:
-            payload = await self.r.get(key)
+            payload = await self._redis.get(key)
             if payload is None:
                 raise KeyError(f"job {job_id} not found")
 
-            rec: JobRecord = self.decoder(payload)
+            rec: JobRecord = self._decoder(payload)
             for k, v in patch.items():
                 setattr(rec, k, v)
-            await self.r.set(key, self.encoder(rec))
+            await self._redis.set(key, self._encoder(rec))
+
+    def _decode_model(self, blob: str | bytes | None) -> JobRecord | None:
+        if blob is None:
+            return None
+        # first decode JSON → dict  (orjson.loads / json.loads / your helper)
+        data = json_decoder(blob)
+        # then turn it back into a JobRecord
+        return data if isinstance(data, JobRecord) else JobRecord(**data)
 
     # -----------------------------------------------------------------
     # state transitions ------------------------------------------------
@@ -67,14 +75,14 @@ class RedisJobTracker:
         await self._update(
             job_id,
             status="running",
-            started_at=time_now
+            started_at=time_now()
         )
 
     async def set_done(self, job_id: str, result: Any = None) -> None:
         await self._update(
             job_id,
             status="done",
-            finished_at=time_now,
+            finished_at=time_now(),
             result=result,
         )
 
@@ -82,7 +90,7 @@ class RedisJobTracker:
         await self._update(
             job_id,
             status="failed",
-            finished_at=time_now,
+            finished_at=time_now(),
             error=f"{type(exc).__name__}: {exc}",
         )
 
@@ -91,22 +99,22 @@ class RedisJobTracker:
     # -----------------------------------------------------------------
     async def status(self, job_id: str) -> Optional[JobRecord]:
         key = self._key(job_id)
-        payload = await self.r.get(key)
-        return None if payload is None else self.decoder(payload)
+        payload = await self._redis.get(key)
+        return None if payload is None else self._decoder(payload)
 
     async def list_jobs(self) -> Dict[str, JobRecord]:
-        ids: Sequence[bytes] = await self.r.smembers(self._set_key)
+        ids: Sequence[bytes] = await self._redis.smembers(self._set_key)
         if not ids:
             return {}
 
         # pipeline to fetch all keys in one round-trip
-        pipe = self.r.pipeline()
+        pipe = self._redis.pipeline()
         for id_ in ids:
             pipe.get(self._key(id_.decode()))
         raw_records = await pipe.execute()
 
         return {
-            id_.decode(): self.decoder(raw)
+            id_.decode(): self._decoder(raw)
             for id_, raw in zip(ids, raw_records)
             if raw is not None
         }
@@ -117,14 +125,14 @@ class RedisJobTracker:
     async def forget(self, job_id: str) -> None:
         """Remove a single job from Redis."""
         async with self._lock:
-            await self.r.delete(self._key(job_id))
-            await self.r.srem(self._set_key, job_id)
+            await self._redis.delete(self._key(job_id))
+            await self._redis.srem(self._set_key, job_id)
 
     async def flush(self) -> None:
         """Remove *all* jobs under this prefix — useful for tests/dev."""
         async with self._lock:
-            ids = await self.r.smembers(self._set_key)
+            ids = await self._redis.smembers(self._set_key)
             if ids:
                 keys = [self._key(id_.decode()) for id_ in ids]
-                await self.r.delete(*keys)
-            await self.r.delete(self._set_key)
+                await self._redis.delete(*keys)
+            await self._redis.delete(self._set_key)

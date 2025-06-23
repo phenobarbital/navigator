@@ -62,7 +62,7 @@ class TaskWrapper:
         if not self.job_record:
             # define an unique task_id if not provided
             self.job_record = JobRecord(
-                task_id=uuid.uuid4(),
+                task_id=str(uuid.uuid4().hex),
                 name=self._name
             )
         self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')

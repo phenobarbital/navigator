@@ -1,6 +1,7 @@
 from typing import Dict, Any, Optional
 import asyncio
 import uuid
+from datamodel.exceptions import ValidationError
 from .models import JobRecord, time_now
 
 
@@ -17,7 +18,12 @@ class JobTracker:
     # Public helpers
     # -----------------------------------------------------------
     async def create_job(self, **kwargs) -> JobRecord:
-        record = JobRecord(**kwargs)
+        try:
+            record = JobRecord(**kwargs)
+        except ValidationError as exc:
+            raise ValueError(
+                f"Invalid job record data: {exc}, payload: {exc.payload}"
+            ) from exc
         async with self._lock:
             self._jobs[record.task_id] = record
         return record

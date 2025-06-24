@@ -9,24 +9,41 @@ from ..tracker import JobTracker, JobRecord
 
 
 coroutine = Callable[[int], Coroutine[Any, Any, str]]
+OnCompleteFn = Callable[[Any, Optional[Exception]], Awaitable[None]]
 
 
-def coroutine_in_thread(coro: coroutine, callback: Optional[coroutine] = None):
+def coroutine_in_thread(
+    coro: coroutine,
+    callback: Optional[coroutine] = None,
+    on_complete: OnCompleteFn = None,
+) -> threading.Event:
     """Run a coroutine in a new thread with its own event loop."""
+    parent_loop = asyncio.get_running_loop()
     done_event = threading.Event()
 
-    def run():
+    def _runner():
         new_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(new_loop)
-        result = new_loop.run_until_complete(coro)
-        # if callback exists:
-        if callback:
-            new_loop.run_until_complete(callback(result))
-        new_loop.close()
-        done_event.set()  # Signal that the coroutine has completed
-    thread = threading.Thread(target=run, daemon=True)
-    thread.start()
+        result, exc = None, None
+        try:
+            result = new_loop.run_until_complete(coro)
+        except Exception as e:         # noqa: BLE001
+            exc = e
+        finally:
+            if callback:
+                new_loop.run_until_complete(
+                    callback(result, exc, loop=new_loop)
+                )
+            new_loop.close()
+            done_event.set()  # Signal that the coroutine has completed
+            if on_complete is None:
+                return
+            fut = asyncio.run_coroutine_threadsafe(
+                on_complete(result, exc), parent_loop
+            )
+            fut.result()  # Wait for the completion of the callback
 
+    threading.Thread(target=_runner, daemon=True).start()
     return done_event
 
 
@@ -115,16 +132,33 @@ class TaskWrapper:
             # Delay the execution by jitter seconds
             await asyncio.sleep(delay)
         try:
+            async def _finish(result: Any, exc: Exception):
+                """Callback to handle the completion of the coroutine."""
+                if exc:
+                    self.logger.error(
+                        f"TaskWrapper {self._name} failed with exception: {exc}"
+                    )
+                    result = {
+                        "status": "failed",
+                        "error": str(exc)
+                    }
+                    if self.tracker:
+                        await self.tracker.set_failed(self.task_uuid, exc)
+                else:
+                    self.logger.debug(
+                        f"TaskWrapper {self._name} completed successfully."
+                    )
+                    result = {
+                        "status": "done",
+                        "result": result
+                    }
+                    if self.tracker:
+                        await self.tracker.set_done(self.task_uuid, result)
+                return result
             with ThreadPoolExecutor(max_workers=1) as executor:
                 coro = self.fn(*self.args, **self.kwargs)
-                coroutine_in_thread(coro, self._callback_)
-                result = {
-                    "status": "done"
-                }
-                if self.tracker:
-                    # Set the job as done in the tracker
-                    await self.tracker.set_done(self.task_uuid, result)
-                return result
+                coroutine_in_thread(coro, self._callback_, on_complete=_finish)
+                return {"status": "running"}
         except asyncio.CancelledError:
             self.logger.warning(
                 f"TaskWrapper {self.fn.__name__} was cancelled."

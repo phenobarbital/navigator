@@ -44,6 +44,9 @@ class RedisJobTracker:
             await self._redis.sadd(self._set_key, record.task_id)
         return record
 
+    async def exists(self, job_id: str) -> bool:
+        return await self._redis.exists(self._key(job_id)) == 1
+
     async def _update(self, job_id: str, **patch) -> None:
         """
         Update a job record with the given patch.

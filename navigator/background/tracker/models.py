@@ -4,6 +4,9 @@ import time
 from datetime import datetime
 from datamodel import BaseModel, Field
 
+def gen_uuid() -> str:
+    """Generate a new UUID."""
+    return str(uuid.uuid4().hex)
 
 def time_now() -> int:
     """Get the current time in milliseconds."""
@@ -14,7 +17,7 @@ class JobRecord(BaseModel):
 
     Job Record for Background Task Execution.
     """
-    task_id: str = Field(default=str(uuid.uuid4().hex))
+    task_id: str = Field(default=gen_uuid)
     name: str = None
     status: str = 'pending'
     attributes: Dict[str, Any] = Field(default_factory=dict)

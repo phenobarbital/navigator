@@ -11,7 +11,7 @@ class JobTracker:
     Replace by a DB or Redis backend later.
     """
     def __init__(self) -> None:
-        self._jobs: Dict[uuid.UUID, JobRecord] = {}
+        self._jobs: Dict[str, JobRecord] = {}
         self._lock = asyncio.Lock()
 
     # -----------------------------------------------------------
@@ -28,30 +28,34 @@ class JobTracker:
             self._jobs[record.task_id] = record
         return record
 
-    async def set_running(self, job_id: uuid.UUID) -> None:
+    async def set_running(self, job_id: str) -> None:
         async with self._lock:
             rec = self._jobs[job_id]
             rec.status = "running"
             rec.started_at = time_now()
 
-    async def set_done(self, job_id: uuid.UUID, result: Any = None) -> None:
+    async def set_done(self, job_id: str, result: Any = None) -> None:
         async with self._lock:
             rec = self._jobs[job_id]
             rec.status = "done"
             rec.finished_at = time_now()
             rec.result = result
 
-    async def set_failed(self, job_id: uuid.UUID, exc: Exception) -> None:
+    async def set_failed(self, job_id: str, exc: Exception) -> None:
         async with self._lock:
             rec = self._jobs[job_id]
             rec.status = "failed"
             rec.finished_at = time_now()
             rec.error = f"{type(exc).__name__}: {exc}"
 
-    async def status(self, job_id: uuid.UUID) -> Optional[JobRecord]:
+    async def status(self, job_id: str) -> Optional[JobRecord]:
         async with self._lock:
             return self._jobs.get(job_id)
 
-    async def list_jobs(self) -> Dict[uuid.UUID, JobRecord]:
+    async def list_jobs(self) -> Dict[str, JobRecord]:
         async with self._lock:
             return dict(self._jobs)
+
+    async def exists(self, job_id: str) -> bool:
+        async with self._lock:
+            return job_id in self._jobs

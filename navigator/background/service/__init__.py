@@ -94,10 +94,15 @@ class BackgroundService:
         """
         if not task_id:
             return None
+        if isinstance(task_id, uuid.UUID):
+            task_id = str(task_id.hex)
         if isinstance(task_id, str):
-            task_id = uuid.UUID(task_id)
-        if not isinstance(task_id, uuid.UUID):
-            raise ValueError("task_id must be a UUID or a string representation of a UUID")
-        if task_id not in self.tracker._jobs:
+            task_id = uuid.UUID(task_id).hex
+        if not isinstance(task_id, str):
+            raise ValueError(
+                "task_id must be a UUID, a hex-string, or None"
+            )
+        if not await self.tracker.exists(task_id):
             return None
+
         return await self.tracker.status(task_id)

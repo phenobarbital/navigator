@@ -19,6 +19,7 @@ class JobRecord(BaseModel):
     """
     task_id: str = Field(default=gen_uuid)
     name: str = None
+    content: Optional[str] = None
     status: str = 'pending'
     attributes: Dict[str, Any] = Field(default_factory=dict)
     result: Optional[Any] = None

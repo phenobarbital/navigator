@@ -63,8 +63,6 @@ class TaskWrapper:
         retry_delay: float = 0.0,
         **kwargs
     ):
-        self.args = args
-        self.kwargs = kwargs
         self.fn = fn
         self.tracker = tracker
         self._name: str = kwargs.pop('name', fn.__name__ if fn else 'unknown_task')
@@ -77,16 +75,27 @@ class TaskWrapper:
             )
         self.jitter: float = jitter
         # Create the Job Record at status "pending"
+        # generate a list of arguments accepted by JobRecord:
+        job_args = {}
+        content = kwargs.pop('content', None)
+        for k, v in kwargs.items():
+            if not k.startswith('_'):
+                if k in JobRecord.__fields__:
+                    job_args[k] = v
         self.job_record: JobRecord = JobRecord(
             name=self._name,
+            content=content,
             status=job_status,
-            **kwargs
+            **job_args
         )
         self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')
         # Retry information:
         self.max_retries = max_retries
         self.retries_done = 0
         self.retry_delay = retry_delay
+        # Store the arguments and keyword arguments for the Function
+        self.args = args
+        self.kwargs = kwargs
 
     @property
     def task_uuid(self) -> uuid.UUID:

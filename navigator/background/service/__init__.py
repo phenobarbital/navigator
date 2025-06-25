@@ -66,7 +66,8 @@ class BackgroundService:
             tw.tracker = self.tracker
             # and create the job record:
             tw.job_record = await self.tracker.create_job(
-                name=tw.fn.__name__
+                job=tw.job_record,
+                name=tw.fn.__name__,
             )
         # Add the TaskWrapper to the queue
         await self.queue.put(tw)

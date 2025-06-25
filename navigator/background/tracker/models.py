@@ -34,4 +34,4 @@ class JobRecord(BaseModel):
         strict = True
 
     def __repr__(self):
-        return f"<JobRecord {self.name} ({self.id})>"
+        return f"<JobRecord {self.name} ({self.task_id})>"

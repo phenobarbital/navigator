@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Mapping
 import asyncio
 import uuid
 from datamodel.exceptions import ValidationError
@@ -17,16 +17,17 @@ class JobTracker:
     # -----------------------------------------------------------
     # Public helpers
     # -----------------------------------------------------------
-    async def create_job(self, **kwargs) -> JobRecord:
+    async def create_job(self, job: JobRecord, **kwargs) -> JobRecord:
         try:
-            record = JobRecord(**kwargs)
+            if not job:
+                job = JobRecord(**kwargs)
         except ValidationError as exc:
             raise ValueError(
                 f"Invalid job record data: {exc}, payload: {exc.payload}"
             ) from exc
         async with self._lock:
-            self._jobs[record.task_id] = record
-        return record
+            self._jobs[job.task_id] = job
+        return job
 
     async def set_running(self, job_id: str) -> None:
         async with self._lock:
@@ -59,3 +60,18 @@ class JobTracker:
     async def exists(self, job_id: str) -> bool:
         async with self._lock:
             return job_id in self._jobs
+
+    async def flush_jobs(self, attrs: Mapping[str, Any]) -> int:
+        async with self._lock:
+            if not attrs:
+                n = len(self._jobs)
+                self._jobs.clear()
+                return n
+
+            to_delete = [
+                jid for jid, rec in self._jobs.items()
+                if all(rec.attributes.get(k) == v for k, v in attrs.items())
+            ]
+            for jid in to_delete:
+                del self._jobs[jid]
+            return len(to_delete)

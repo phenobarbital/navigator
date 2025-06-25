@@ -8,6 +8,7 @@ from ...conf import CACHE_URL
 
 
 Encoder = Callable[[Any], bytes]
+MAX_TTL = 30 * 24 * 3600
 
 
 class RedisJobTracker:
@@ -17,7 +18,12 @@ class RedisJobTracker:
     key  <prefix>{task_id}
     and keeps a Set <prefix>__all   with the ids for quick listing.
     """
-    def __init__(self, url: str = None, prefix: str = 'job:') -> None:
+    def __init__(
+        self,
+        url: str = None,
+        prefix: str = 'job:',
+        ttl_seconds: int = 30 * 24 * 3600,  # 30 days
+    ) -> None:
         self._url = url or CACHE_URL
         self._redis: redis.Redis = redis.from_url(
             self._url,
@@ -28,6 +34,7 @@ class RedisJobTracker:
         self._decoder: Encoder = self._decode_model
         self.prefix = prefix if prefix.endswith(":") else f"{prefix}:"
         self._lock = asyncio.Lock()
+        self._ttl = min(ttl_seconds, MAX_TTL)
 
     def _key(self, task_id: str) -> str:
         return f"{self.prefix}{task_id}"
@@ -49,7 +56,9 @@ class RedisJobTracker:
             ) from exc
         key = self._key(job.task_id)
         async with self._lock:
-            await self._redis.set(key, self._encoder(job))
+            await self._redis.set(
+                key, self._encoder(job), ex=self._ttl
+            )
             await self._redis.sadd(self._set_key, job.task_id)
 
             # Create secondary index for attributes if provided
@@ -75,7 +84,9 @@ class RedisJobTracker:
             rec: JobRecord = self._decoder(payload)
             for k, v in patch.items():
                 setattr(rec, k, v)
-            await self._redis.set(key, self._encoder(rec))
+            await self._redis.set(
+                key, self._encoder(rec), keepttl=True
+            )  # keep the TTL
 
             # Update secondary index for attributes if they are part of the patch
             if 'attributes' in patch:
@@ -178,7 +189,11 @@ class RedisJobTracker:
             if payload:
                 rec: JobRecord = self._decoder(payload)
                 for k, v in rec.attributes.items():
-                    await self._redis.srem(self._attr_key(k, v), job_id)
+                    akey = self._attr_key(k, v)
+                    await self._redis.srem(akey, job_id)
+                    # set attr-set to expire in 24 h if now empty
+                    if await self._redis.scard(akey) == 0:
+                        await self._redis.expire(akey, 86400)
 
             await self._redis.delete(self._key(job_id))
             await self._redis.srem(self._set_key, job_id)

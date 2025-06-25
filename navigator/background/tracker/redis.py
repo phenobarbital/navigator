@@ -136,11 +136,11 @@ class RedisJobTracker:
         # pipeline to fetch all keys in one round-trip
         pipe = self._redis.pipeline()
         for id_ in ids:
-            pipe.get(self._key(id_.decode()))
+            pipe.get(self._key(id_))
         raw_records = await pipe.execute()
 
         return {
-            id_.decode(): self._decoder(raw)
+            id_: self._decoder(raw)
             for id_, raw in zip(ids, raw_records)
             if raw is not None
         }
@@ -188,6 +188,53 @@ class RedisJobTracker:
         async with self._lock:
             ids = await self._redis.smembers(self._set_key)
             if ids:
-                keys = [self._key(id_.decode()) for id_ in ids]
+                keys = [self._key(id_) for id_ in ids]
                 await self._redis.delete(*keys)
             await self._redis.delete(self._set_key)
+
+    async def flush_jobs(self, attrs: Mapping[str, Any]) -> int:
+        """
+        Delete every job whose JobRecord satisfies *all* key/value pairs
+        given in `attrs`.  If `attrs` is empty → behaves like flush().
+
+        Returns
+        -------
+        int – how many JobRecords were removed.
+        """
+        # ---------------------------------------------------------------
+        # 1) decide which job-ids are affected
+        # ---------------------------------------------------------------
+        if not attrs:
+            await self.flush()
+            return 0                                   # caller can ignore
+
+        set_keys = [self._attr_key(k, v) for k, v in attrs.items()]
+        ids = await self._redis.sinter(*set_keys)
+        if not ids:
+            return 0
+
+        # ---------------------------------------------------------------
+        # 2) fetch the JobRecords once (for removing *all* attr sets)
+        # ---------------------------------------------------------------
+        pipe = self._redis.pipeline()
+        for id_ in ids:
+            pipe.get(self._key(id_))
+        blobs = await pipe.execute()
+
+        # ---------------------------------------------------------------
+        # 3) build one big pipeline to delete everything atomically
+        # ---------------------------------------------------------------
+        pipe = self._redis.pipeline()
+        for id_, blob in zip(ids, blobs):
+            jid = id_ if isinstance(id_, str) else id_.decode()
+            pipe.delete(self._key(jid))          # JobRecord JSON
+            pipe.srem(self._set_key, jid)        # master set
+
+            # clean up every attribute index the record had
+            if blob:
+                rec: JobRecord = self._decoder(blob)
+                for k, v in rec.attributes.items():
+                    pipe.srem(self._attr_key(k, v), jid)
+
+        await pipe.execute()
+        return len(ids)

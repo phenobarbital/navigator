@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Mapping
 import asyncio
 import uuid
 from datamodel.exceptions import ValidationError
@@ -60,3 +60,18 @@ class JobTracker:
     async def exists(self, job_id: str) -> bool:
         async with self._lock:
             return job_id in self._jobs
+
+    async def flush_jobs(self, attrs: Mapping[str, Any]) -> int:
+        async with self._lock:
+            if not attrs:
+                n = len(self._jobs)
+                self._jobs.clear()
+                return n
+
+            to_delete = [
+                jid for jid, rec in self._jobs.items()
+                if all(rec.attributes.get(k) == v for k, v in attrs.items())
+            ]
+            for jid in to_delete:
+                del self._jobs[jid]
+            return len(to_delete)

@@ -17,16 +17,17 @@ class JobTracker:
     # -----------------------------------------------------------
     # Public helpers
     # -----------------------------------------------------------
-    async def create_job(self, **kwargs) -> JobRecord:
+    async def create_job(self, job: JobRecord, **kwargs) -> JobRecord:
         try:
-            record = JobRecord(**kwargs)
+            if not job:
+                job = JobRecord(**kwargs)
         except ValidationError as exc:
             raise ValueError(
                 f"Invalid job record data: {exc}, payload: {exc.payload}"
             ) from exc
         async with self._lock:
-            self._jobs[record.task_id] = record
-        return record
+            self._jobs[job.task_id] = job
+        return job
 
     async def set_running(self, job_id: str) -> None:
         async with self._lock:

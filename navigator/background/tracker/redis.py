@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Callable, Dict, Optional, Sequence, Union
+from typing import Any, Callable, Dict, Optional, Sequence, List, Mapping
 import asyncio
 import redis.asyncio as redis
 from ...libs.json import json_encoder, json_decoder  # pylint: disable=E0611 # noqa
@@ -36,13 +36,27 @@ class RedisJobTracker:
     def _set_key(self) -> str:
         return f"{self.prefix}__all"
 
-    async def create_job(self, **kwargs) -> JobRecord:
-        record = JobRecord(**kwargs)
-        key = self._key(record.task_id)
+    def _attr_key(self, key: str, value: Any) -> str:
+        return f"{self.prefix}attr:{key}:{value}"
+
+    async def create_job(self, job: JobRecord, **kwargs) -> JobRecord:
+        try:
+            if not job:
+                job = JobRecord(**kwargs)
+        except Exception as exc:  # pylint: disable=W0703
+            raise ValueError(
+                f"Invalid job record data: {exc}, payload: {exc.payload}"
+            ) from exc
+        key = self._key(job.task_id)
         async with self._lock:
-            await self._redis.set(key, self._encoder(record))
-            await self._redis.sadd(self._set_key, record.task_id)
-        return record
+            await self._redis.set(key, self._encoder(job))
+            await self._redis.sadd(self._set_key, job.task_id)
+
+            # Create secondary index for attributes if provided
+            if job.attributes:
+                for k, v in job.attributes.items():
+                    await self._redis.sadd(self._attr_key(k, v), job.task_id)
+        return job
 
     async def exists(self, job_id: str) -> bool:
         return await self._redis.exists(self._key(job_id)) == 1
@@ -62,6 +76,15 @@ class RedisJobTracker:
             for k, v in patch.items():
                 setattr(rec, k, v)
             await self._redis.set(key, self._encoder(rec))
+
+            # Update secondary index for attributes if they are part of the patch
+            if 'attributes' in patch:
+                # Remove old attributes from the index
+                for k, v in rec.attributes.items():
+                    await self._redis.srem(self._attr_key(k, v), job_id)
+                # Add new attributes to the index
+                for k, v in rec.attributes.items():
+                    await self._redis.sadd(self._attr_key(k, v), job_id)
 
     def _decode_model(self, blob: str | bytes | None) -> JobRecord | None:
         if blob is None:
@@ -122,12 +145,41 @@ class RedisJobTracker:
             if raw is not None
         }
 
+    async def find_jobs(self, attrs: Mapping[str, Any]) -> List[JobRecord]:
+        """
+        Return all jobs that match *every* key/value in `attrs`.
+        Example: await tracker.find_jobs({"user_id": 35, "priority": "high"})
+        """
+        if not attrs:
+            # same as list_jobs() but list, not dict
+            return list((await self.list_jobs()).values())
+
+        set_keys = [self._attr_key(k, v) for k, v in attrs.items()]
+        ids = await self._redis.sinter(*set_keys)
+        if not ids:
+            return []
+
+        pipe = self._redis.pipeline()
+        for id_ in ids:
+            pipe.get(self._key(id_))
+        blobs = await pipe.execute()
+
+        return [
+            self._decoder(b) for b in blobs
+            if b is not None
+        ]
+
     # -----------------------------------------------------------------
     # cleanup helpers (optional) --------------------------------------
     # -----------------------------------------------------------------
     async def forget(self, job_id: str) -> None:
-        """Remove a single job from Redis."""
         async with self._lock:
+            payload = await self._redis.get(self._key(job_id))
+            if payload:
+                rec: JobRecord = self._decoder(payload)
+                for k, v in rec.attributes.items():
+                    await self._redis.srem(self._attr_key(k, v), job_id)
+
             await self._redis.delete(self._key(job_id))
             await self._redis.srem(self._set_key, job_id)
 

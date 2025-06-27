@@ -3,9 +3,10 @@ S3FileManager.
 
 Exposing Files stored in AWS S3 asynchronously using aioboto3.
 """
-from typing import Union
+from typing import Union, List, Any, AsyncGenerator
 import os
 from pathlib import PurePath
+import contextlib
 from aiohttp import web
 import aioboto3
 from navconfig.logging import logging
@@ -13,14 +14,24 @@ from ...types import WebApp
 from ...conf import AWS_CREDENTIALS
 from ...applications.base import BaseApplication
 
+
+logging.getLogger(name='botocore').setLevel(logging.WARNING)
+
 class S3FileManager:
     """
     S3FileManager class.
 
     Exposing Files stored in AWS S3 as a static File Manager with asyncio support.
     """
+    manager_name: str = 's3file'
 
-    def __init__(self, bucket_name: str, route: str = '/data', aws_id: str = 'default', **kwargs):
+    def __init__(
+        self,
+        bucket_name: str = None,
+        route: str = '/data',
+        aws_id: str = 'default',
+        **kwargs
+    ):
         """
         Initialize the S3FileManager.
 
@@ -33,7 +44,7 @@ class S3FileManager:
         self.base_url = None
         self.bucket_name = bucket_name
 
-        credentials = AWS_CREDENTIALS.get(aws_id, 'default')
+        credentials = AWS_CREDENTIALS.get(aws_id, 'default') or kwargs.get('aws_credentials', None)
         if not credentials:
             raise ValueError(
                 "AWS credentials not found for the provided ID."
@@ -44,11 +55,15 @@ class S3FileManager:
             "aws_secret_access_key": credentials["aws_secret"],
             "region_name": credentials.get("region_name", "us-east-1"),
         }
+        if not bucket_name:
+            self.bucket_name = credentials.get("bucket_name", None)
 
         self.logger = logging.getLogger('storage.S3')
-        self.logger.info(f"Started S3FileManager for bucket: {bucket_name}")
+        self.logger.info(f"Started S3FileManager for bucket: {self.bucket_name}")
+        # Initialize the S3 Session:
+        self.session = aioboto3.Session(**self.aws_config)
 
-    async def list_files(self, prefix: str = None) -> list:
+    async def list_files(self, prefix: str = None) -> AsyncGenerator[Any, Any]:
         """
         List files in the bucket.
 
@@ -58,9 +73,12 @@ class S3FileManager:
         Returns:
             list: A list of object keys.
         """
-        async with aioboto3.client('s3', **self.aws_config) as s3_client:
+        async with self.session.client('s3') as s3_client:
             paginator = s3_client.get_paginator('list_objects_v2')
-            async for page in paginator.paginate(Bucket=self.bucket_name, Prefix=prefix):
+            async for page in paginator.paginate(
+                Bucket=self.bucket_name,
+                Prefix=prefix or ""
+            ):
                 for obj in page.get('Contents', []):
                     yield obj['Key']
 
@@ -75,7 +93,7 @@ class S3FileManager:
         Returns:
             str: The destination key.
         """
-        async with aioboto3.client('s3', **self.aws_config) as s3_client:
+        async with self.session.client('s3') as s3_client:
             await s3_client.upload_file(source_file_path, self.bucket_name, destination_key)
         return destination_key
 
@@ -96,7 +114,7 @@ class S3FileManager:
         Returns:
             str: The destination key.
         """
-        async with aioboto3.client('s3', **self.aws_config) as s3_client:
+        async with self.session.client('s3') as s3_client:
             await s3_client.put_object(
                 Bucket=self.bucket_name,
                 Key=destination_key,
@@ -112,7 +130,7 @@ class S3FileManager:
         Args:
             key (str): The key of the object to delete.
         """
-        async with aioboto3.client('s3', **self.aws_config) as s3_client:
+        async with self.session.client('s3') as s3_client:
             await s3_client.delete_object(Bucket=self.bucket_name, Key=key)
 
     async def generate_presigned_url(self, key: str, expiration: int = 3600) -> str:
@@ -126,7 +144,7 @@ class S3FileManager:
         Returns:
             str: The presigned URL.
         """
-        async with aioboto3.client('s3', **self.aws_config) as s3_client:
+        async with self.session.client('s3') as s3_client:
             url = await s3_client.generate_presigned_url(
                 'get_object',
                 Params={'Bucket': self.bucket_name, 'Key': key},
@@ -156,7 +174,7 @@ class S3FileManager:
             if keywords:
                 if isinstance(keywords, str):
                     keywords = [keywords]
-                if not all(keyword in file for keyword in keywords):
+                if any(keyword not in file for keyword in keywords):
                     continue
 
             if extension and not file.endswith(extension):
@@ -182,13 +200,11 @@ class S3FileManager:
             raise web.HTTPNotFound()
 
         # Sanitize the filename to prevent path traversal attacks
-        try:
+        with contextlib.suppress(ValueError):
             filename = PurePath(filename).relative_to('/')
-        except ValueError:
-            pass
 
         try:
-            async with aioboto3.client('s3', **self.aws_config) as s3_client:
+            async with self.session.client('s3') as s3_client:
                 response = await s3_client.get_object(Bucket=self.bucket_name, Key=str(filename))
                 data_stream = response['Body']
                 content_length = response['ContentLength']
@@ -234,6 +250,5 @@ class S3FileManager:
         self.route = route
         self.base_url = base_url
 
-        app["s3file"] = self
-
+        app[self.manager_name] = self
         app.router.add_get(route + "/{filepath:.*}", self.handle_file)

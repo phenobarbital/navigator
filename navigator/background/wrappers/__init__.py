@@ -76,18 +76,20 @@ class TaskWrapper:
         self.jitter: float = jitter
         # Create the Job Record at status "pending"
         # generate a list of arguments accepted by JobRecord:
+        content = kwargs.pop('content', None)
         job_args = {
             k: v for k, v in kwargs.items()
             if not k.startswith('_') and k in JobRecord.__fields__
         }
-        content = kwargs.pop('content', None)
         self.job_record: JobRecord = JobRecord(
             name=self._name,
             content=content,
             status=job_status,
             **job_args
         )
-        self.logger = logger or logging.getLogger('NAV.Queue.TaskWrapper')
+        self.logger = logger or logging.getLogger(
+            'NAV.Queue.TaskWrapper'
+        )
         # Retry information:
         self.max_retries = max_retries
         self.retries_done = 0
@@ -130,7 +132,7 @@ class TaskWrapper:
             await self._user_callback(
                 result,
                 exc,
-                loop,
+                loop=loop,
                 job_record=self.job_record,
                 task_id=self.job_record.task_id
             )

@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Any, Callable, Dict, Optional, Sequence, List, Mapping
 import asyncio
 import redis.asyncio as redis
+from datamodel.exceptions import ParserError
 from ...libs.json import json_encoder, json_decoder  # pylint: disable=E0611 # noqa
 from .models import JobRecord, time_now
 from ...conf import CACHE_URL
@@ -84,10 +85,15 @@ class RedisJobTracker:
             rec: JobRecord = self._decoder(payload)
             for k, v in patch.items():
                 setattr(rec, k, v)
-            await self._redis.set(
-                key, self._encoder(rec), keepttl=True
-            )  # keep the TTL
-
+            try:
+                await self._redis.set(
+                    key, self._encoder(rec), keepttl=True
+                )  # keep the TTL
+            except ParserError as exc:
+                # we cannot encode the result of JobRecord, so we raise an error
+                raise ValueError(
+                    f"Invalid job record data: {exc}, payload: {exc.payload}"
+                ) from exc
             # Update secondary index for attributes if they are part of the patch
             if 'attributes' in patch:
                 # Remove old attributes from the index

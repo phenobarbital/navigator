@@ -66,7 +66,7 @@ class TaskWrapper:
         self.fn = fn
         self.tracker = tracker
         self._name: str = kwargs.pop('name', fn.__name__ if fn else 'unknown_task')
-        self._callback_: Union[Callable, Awaitable] = kwargs.pop('callback', None)
+        self._user_callback: Union[Callable, Awaitable] = kwargs.pop('callback', None)
         job_status = kwargs.pop('status', 'pending')
         if job_status not in ['pending', 'running', 'done', 'failed']:
             raise ValueError(
@@ -76,12 +76,11 @@ class TaskWrapper:
         self.jitter: float = jitter
         # Create the Job Record at status "pending"
         # generate a list of arguments accepted by JobRecord:
-        job_args = {}
+        job_args = {
+            k: v for k, v in kwargs.items()
+            if not k.startswith('_') and k in JobRecord.__fields__
+        }
         content = kwargs.pop('content', None)
-        for k, v in kwargs.items():
-            if not k.startswith('_'):
-                if k in JobRecord.__fields__:
-                    job_args[k] = v
         self.job_record: JobRecord = JobRecord(
             name=self._name,
             content=content,
@@ -113,7 +112,28 @@ class TaskWrapper:
         - callback (Union[Callable, Awaitable]):
             Callback function to be called after the task is executed.
         """
-        self._callback_ = callback
+        self._user_callback = callback
+
+    async def _wrapped_callback(self, result, exc, loop):
+        """
+        Internal wrapper callback that injects JobRecord information
+        before calling the user's callback.
+
+        Args:
+        - result: The result of the task execution.
+        - exc: Exception raised during task execution, if any.
+        - loop: The event loop in which the task was executed.
+        """
+        if self._user_callback:
+            # Call user callback with additional JobRecord info
+            # New signature: callback(result, exc, loop, job_record, task_id)
+            await self._user_callback(
+                result,
+                exc,
+                loop,
+                job_record=self.job_record,
+                task_id=self.job_record.task_id
+            )
 
     async def __call__(self):
         result = None
@@ -166,7 +186,9 @@ class TaskWrapper:
                 return result
             with ThreadPoolExecutor(max_workers=1) as executor:
                 coro = self.fn(*self.args, **self.kwargs)
-                coroutine_in_thread(coro, self._callback_, on_complete=_finish)
+                # Use the wrapped callback instead of the user callback directly
+                callback_to_use = self._wrapped_callback if self._user_callback else None
+                coroutine_in_thread(coro, callback_to_use, on_complete=_finish)
                 return {"status": "running"}
         except asyncio.CancelledError:
             self.logger.warning(

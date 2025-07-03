@@ -76,11 +76,11 @@ class TaskWrapper:
         self.jitter: float = jitter
         # Create the Job Record at status "pending"
         # generate a list of arguments accepted by JobRecord:
-        job_args = {}
+        job_args = {
+            k: v for k, v in kwargs.items()
+            if not k.startswith('_') and k in JobRecord.__fields__
+        }
         content = kwargs.pop('content', None)
-        for k, v in kwargs.items():
-            if not k.startswith('_') and k in JobRecord.__fields__:
-                job_args[k] = v
         self.job_record: JobRecord = JobRecord(
             name=self._name,
             content=content,

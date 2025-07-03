@@ -181,6 +181,13 @@ class BackgroundQueue:
         with ThreadPoolExecutor(max_workers=1) as executor:
             try:
                 result = await task()
+            except asyncio.CancelledError:
+                self.logger.warning(
+                    f"TaskWrapper {task!r} was cancelled."
+                )
+                result = {
+                    "status": "cancelled"
+                }
             except Exception as e:
                 self.logger.exception(
                     f"Error executing TaskWrapper {task!r}: {e}",
@@ -190,6 +197,16 @@ class BackgroundQueue:
                     "status": "failed",
                     "error": e
                 }
+                # Handle the exception and return a failure result
+                # This could be customized based on your needs
+                try:
+                    if hasattr(task, "tracker"):
+                        # set status = "failed"
+                        await task.tracker.set_failed(task.task_uuid)
+                except Exception as e:
+                    self.logger.error(
+                        f"Error updating tracker for TaskWrapper {task!r}: {e}"
+                    )
         return result
 
     async def _execute_coroutine(self, coro: coroutine):
@@ -305,6 +322,7 @@ class BackgroundQueue:
                     print('TASK LOG ERROR > ', e)
                 # Call your task completion callback (if any)
                 try:
+                    print('RESULT > ', result)
                     await self._callback(task, result=result)
                 except Exception as e:
                     self.logger.error(

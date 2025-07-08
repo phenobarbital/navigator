@@ -27,6 +27,7 @@ cdef class BaseAppHandler:
     _middleware: list = []
     enable_static: bool = False
     staticdir: str = None
+    show_static_index: bool = False
 
     def __init__(
         self,
@@ -147,8 +148,8 @@ cdef class BaseAppHandler:
                 path=self.staticdir,
                 name='static',
                 append_version=True,
-                show_index=True,
-                follow_symlinks=True
+                show_index=self.show_static_index,
+                follow_symlinks=False
             )
 
     def add_routes(self, routes: list) -> None:

@@ -164,7 +164,7 @@ class LocaleSupport(BaseExtension):
 
     def format_number(self, number: Union[float, int]) -> str:
         """Format a number using the current locale settings."""
-        return pylocale.format_string("%d", number, grouping=True)
+        return pylocale.format_string("%g", number, grouping=True)
 
     def currency(self, number: Union[float, int], grouping: bool = True) -> str:
         """Format a currency value using the current locale settings."""

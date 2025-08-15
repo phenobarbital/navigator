@@ -191,7 +191,7 @@ class LocaleSupport(BaseExtension):
         ]
         if not locales:
             # If nothing matches the pattern, simply normalise the header string
-            locales = accept_language.replace('-', '_')
+            locales = [accept_language.replace('-', '_')]
         return locales
 
     def get_translator_for_request(self, lang: str = None) -> Callable[[str], str]:

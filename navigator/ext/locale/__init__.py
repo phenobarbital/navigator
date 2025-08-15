@@ -44,7 +44,7 @@ class LocaleSupport(BaseExtension):
         self.country = country
         self._locale: Callable = None
         self.locale_path = locale_path
-        self.translation: gettext.NullTranslations = None
+        self.translation: Optional[gettext.NullTranslations] = None
 
         # Ensure the locale_path is a Path object
         if isinstance(self.locale_path, str):

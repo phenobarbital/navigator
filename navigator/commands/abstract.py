@@ -54,8 +54,13 @@ class BaseCommand(ABC):
             action="store_true",
             help="Return the Traceback on CommandError",
         )
-        if not self.args:
-            self.args = [self.default_action]
+        # Handle default action when no action is provided or first arg is a flag
+        if not self.args or (self.args and self.args[0].startswith('-')):
+            # No args or first arg is a flag/option, insert default action
+            self.args.insert(0, self.default_action)
+        elif not hasattr(self, self.args[0]):
+            # First arg is not a method on this class, insert default action
+            self.args.insert(0, self.default_action)
         # get action:
         self.action: str = self.args.pop(0)
         self.parse_arguments(self.parser)

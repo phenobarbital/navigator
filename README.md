@@ -36,14 +36,13 @@ pip install navigator-api[uvloop,locale]
 
 ```bash
 # Create a new Navigator project
-nav new myproject
-cd myproject
+nav init
 
 # Create an application
-nav startapp myapp
+nav app create myapp
 
 # Run the development server
-nav run
+nav run --debug --reload
 ```
 
 ### Hello Navigator
@@ -265,17 +264,13 @@ Navigator includes powerful CLI tools for development:
 
 ```bash
 # Project management
-nav new myproject              # Create new project
-nav startapp myapp            # Create new application
+nav init                        # Create new project
+nav app create myapp            # Create new application
 
 # Development
 nav run                       # Start development server
 nav shell                     # Interactive shell
-nav migrate                   # Run database migrations
 
-# Code generation
-nav generate model User       # Generate model boilerplate
-nav generate view UserView    # Generate view boilerplate
 ```
 
 ## 📦 Available Extensions
@@ -294,9 +289,6 @@ navigator-api[memcache]       # Memcached support
 
 # Production deployment
 navigator-api[gunicorn]       # Gunicorn WSGI server
-
-# Integration
-navigator-api[hubspot]        # HubSpot API integration
 
 # All features
 navigator-api[all]            # Install all optional dependencies

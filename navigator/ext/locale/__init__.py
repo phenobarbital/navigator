@@ -52,37 +52,47 @@ class LocaleSupport(BaseExtension):
 
         super(LocaleSupport, self).__init__(app_name=app_name, **kwargs)
 
-        self.domain = domain
-        if not domain:
-            self.domain = self.name
+        # Set the domain for translations
+        self.domain = domain or self.name
 
         if language is None:
             # Default language from configuration
-            self.language = config.get(
-                "language", section=self.locale_section, fallback="en"
-            )
+            try:
+                self.language = config.get(
+                    "language", section=self.locale_section, fallback="en"
+                )
+            except Exception:
+                self.language = "en"
 
         if localization is None:
             # Default localization from configuration
-            self.localization = [
-                config.get(
-                    "localization", section=self.locale_section, fallback="en_US"
+            try:
+                default_loc = config.get(
+                    "localization",
+                    section=self.locale_section,
+                    fallback="en_US"
                 )
-            ]
+                self.localization = [default_loc]
+            except Exception:
+                self.localization = ["en_US"]
         elif isinstance(self.localization, str):
             # Convert a single value into a list
             self.localization = [self.localization]
 
         # Normalise any localisation codes with hyphens to underscores
-        for loc in list(self.localization):
-            if '-' in loc and '_' not in loc:
-                self.localization.append(loc.replace('-', '_'))
+        if self.localization:
+            for loc in list(self.localization):
+                if '-' in loc and '_' not in loc:
+                    self.localization.append(loc.replace('-', '_'))
 
         if country is None:
             # Default country from configuration
-            self.country = config.get(
-                "country", section=self.locale_section, fallback="US"
-            )
+            try:
+                self.country = config.get(
+                    "country", section=self.locale_section, fallback="US"
+                )
+            except Exception:
+                self.country = "US"
 
         if self.locale_path is None:
             # Default locale directory
@@ -95,40 +105,65 @@ class LocaleSupport(BaseExtension):
         translation for the first localisation in the list.
         """
         try:
+            self.logger.debug("LocaleSupport: Starting setup...")
+
             # Set the locale to the system default (does not change between requests)
             try:
                 pylocale.setlocale(pylocale.LC_ALL, '')
+                self.logger.debug("LocaleSupport: System locale set successfully")
             except pylocale.Error as e:
-                raise ConfigError(
-                    f"Locale: Unsupported default locale '', {e}"
-                ) from e
-
-            logging.debug(":: Locale: Using system default locale")
+                self.logger.warning(
+                    f"LocaleSupport: Could not set system locale: {e}"
+                )
+                # Continue anyway - this is not critical
 
             # Create a Babel Locale object for the configured language and country
             try:
                 self._locale = Locale(self.language, self.country)
-            except UnknownLocaleError:
-                # If the specified locale is unknown, fall back to the first localisation
-                self._locale = Locale.parse(self.localization[0])
+                self.logger.debug(f"LocaleSupport: Created locale {self.language}_{self.country}")
+            except UnknownLocaleError as e:
+                _loc = self.localization[0] if self.localization else 'en_US'
+                self.logger.warning(
+                    f"LocaleSupport: Unknown locale {self.language}_{self.country}, falling back to {_loc}"
+                )
+                try:
+                    self._locale = Locale.parse(self.localization[0])
+                except Exception as parse_err:
+                    self.logger.warning(f"LocaleSupport: Could not parse fallback locale: {parse_err}")
+                    self._locale = Locale('en', 'US')  # Ultimate fallback
 
             # Load a fallback translation for the first localisation
             try:
-                self.translation = gettext.translation(
-                    domain=self.domain,
-                    localedir=self.locale_path,
-                    languages=[self.localization[0]],
-                    fallback=True
-                )
-            except Exception:
+                if self.locale_path and self.locale_path.exists():
+                    self.translation = gettext.translation(
+                        domain=self.domain,
+                        localedir=str(self.locale_path),
+                        languages=[self.localization[0]] if self.localization else ['en'],
+                        fallback=True
+                    )
+                    self.logger.debug(
+                        f"LocaleSupport: Loaded translation for {self.localization[0] if self.localization else 'en'}")
+                else:
+                    self.logger.warning(
+                        f"LocaleSupport: Locale path {self.locale_path} does not exist, using NullTranslations"
+                    )
+                    self.translation = gettext.NullTranslations()
+            except Exception as trans_err:
+                self.logger.warning(f"LocaleSupport: Could not load translations: {trans_err}")
                 # If translation files are not found, use a NullTranslations instance
                 self.translation = gettext.NullTranslations()
 
-        except Exception as err:
-            raise ConfigError(f"NAV: Error loading Babel module: {err}") from err
+            self.logger.debug(
+                "LocaleSupport: Setup completed successfully"
+            )
 
-        # Call parent setup
-        super(LocaleSupport, self).setup(app)
+        except Exception as err:
+            self.logger.error(
+                f"LocaleSupport: Critical error during setup: {err}"
+            )
+            # Don't raise the error - just log it and continue with minimal functionality
+            self.translation = gettext.NullTranslations()
+            self._locale = Locale('en', 'US')
 
     async def on_startup(self, app: WebApp) -> None:
         """Install fallback gettext translations into Jinja2 if present.
@@ -138,61 +173,103 @@ class LocaleSupport(BaseExtension):
         translator is supplied.
         """
         try:
-            if "template" in app.extensions.keys():
-                tmpl = app["template"]
-                # Install fallback translations into the environment
-                tmpl.environment.install_gettext_translations(
-                    self.translation, newstyle=True
-                )
-        except AttributeError:
-            pass
-        except Exception as ex:
-            raise RuntimeError(
-                f"Locale: Error installing Jinja2 support for gettext: {ex}"
-            ) from ex
+            self.logger.debug("LocaleSupport: Starting on_startup...")
 
-        # Call the parent startup handler if needed
-        await super(LocaleSupport, self).on_startup(app)
+            if hasattr(app, 'extensions') and "template" in app.extensions.keys():
+                tmpl = app["template"]
+                if hasattr(tmpl, 'environment') and hasattr(
+                    tmpl.environment, 'install_gettext_translations'
+                ):
+                    # Install fallback translations into the environment
+                    tmpl.environment.install_gettext_translations(
+                        self.translation, newstyle=True
+                    )
+                    self.logger.debug(
+                        "LocaleSupport: Installed gettext translations into Jinja2"
+                    )
+                else:
+                    self.logger.debug(
+                        "LocaleSupport: Template environment does not support gettext"
+                    )
+            else:
+                self.logger.debug(
+                    "LocaleSupport: No template extension found"
+                )
+
+        except AttributeError as attr_err:
+            self.logger.warning(
+                f"LocaleSupport: Template attribute error: {attr_err}"
+            )
+        except Exception as ex:
+            self.logger.error(
+                f"LocaleSupport: Error installing Jinja2 support for gettext: {ex}"
+            )
+            # Don't raise - just log and continue
+
+        # Call the parent startup handler if needed - wrap in try/catch
+        try:
+            await super(LocaleSupport, self).on_startup(app)
+        except Exception as parent_err:
+            self.logger.warning(
+                f"LocaleSupport: Error at on_startup: {parent_err}"
+            )
+            # Don't re-raise
 
     def trans(self) -> Callable[[str], str]:
         """Return the gettext function for the fallback translation."""
-        return self.translation.gettext
+        return self.translation.gettext if self.translation else (lambda x: x)
 
     def current_locale(self):
         """Return the current system locale."""
-        return pylocale.getlocale(pylocale.LC_ALL)
+        try:
+            return pylocale.getlocale(pylocale.LC_ALL)
+        except Exception:
+            return ('en_US', 'UTF-8')  # Safe fallback
 
     def format_number(self, number: Union[float, int]) -> str:
         """Format a number using the current locale settings."""
-        return pylocale.format_string("%g", number, grouping=True)
+        try:
+            return pylocale.format_string("%g", number, grouping=True)
+        except Exception:
+            return str(number)  # Fallback to simple string conversion
 
     def currency(self, number: Union[float, int], grouping: bool = True) -> str:
         """Format a currency value using the current locale settings."""
-        return pylocale.currency(number, grouping=grouping)
+        try:
+            return pylocale.currency(number, grouping=grouping)
+        except Exception:
+            return f"${number:.2f}"  # Simple fallback
 
     def current_i18n(self) -> Callable[[str], str]:
         """Alias for trans() for backward compatibility."""
-        return self.translation.gettext
+        return self.trans()
 
     def parse_accept_language(self, accept_language: str):
         """Parse the Accept-Language header into a list of locales.
 
         The header is sorted by the quality factor (q parameter).
         """
-        # Find all matches
-        locales = locale_finder.findall(accept_language)
-        # Sort by q value (quality), highest first
-        sorted_locales = sorted(
-            locales, key=lambda x: float(x[1]) if x[1] else 1.0, reverse=True
-        )
-        # Convert hyphens to underscores
-        locales = [
-            loc.replace('-', '_') for loc, _ in sorted_locales if loc is not None
-        ]
-        if not locales:
-            # If nothing matches the pattern, simply normalise the header string
-            locales = [accept_language.replace('-', '_')]
-        return locales
+        if not accept_language:
+            return [self.localization[0] if self.localization else 'en']
+
+        try:
+            # Find all matches
+            locales = locale_finder.findall(accept_language)
+            # Sort by q value (quality), highest first
+            sorted_locales = sorted(
+                locales, key=lambda x: float(x[1]) if x[1] else 1.0, reverse=True
+            )
+            # Convert hyphens to underscores
+            locales = [
+                loc.replace('-', '_') for loc, _ in sorted_locales if loc is not None
+            ]
+            if not locales:
+                # If nothing matches the pattern, simply normalise the header string
+                locales = [accept_language.replace('-', '_')]
+            return locales
+        except Exception:
+            # Fallback if parsing fails
+            return [self.localization[0] if self.localization else 'en']
 
     def get_translator_for_request(self, lang: str = None) -> Callable[[str], str]:
         """Return a gettext function for a particular request.
@@ -201,39 +278,47 @@ class LocaleSupport(BaseExtension):
         the appropriate translation. If no translation is found, use the
         fallback translator.
         """
-        selected_locales = None
-
-        if lang:
-            langs = self.parse_accept_language(lang)
-            # If parse returns a list, use the first entry; otherwise use it directly
-            if not langs:
-                selected_locales = [self.localization[0]]
-            elif isinstance(langs, list):
-                selected_locales = [langs[0]]
-            else:
-                selected_locales = [langs]
-        else:
-            selected_locales = [self.localization[0]]
-
-        # Manual fixes for Chinese locales used by gettext/Babel
-        if selected_locales[0] == 'zh_CN':
-            selected_locales[0] = 'zh_Hans_CN'
-        elif selected_locales[0] == 'zh_TW':
-            selected_locales[0] = 'zh_Hant_TW'
-
         try:
-            trans = support.Translations.load(
-                self.locale_path,
-                domain=self.domain,
-                locales=selected_locales,
-                fallback=True
-            )
-            return trans.gettext
-        except Exception as ex:
-            logging.warning(
-                f"There is no domain file for {self.domain} or locale directory is missing: {ex}"
-            )
-            return self.translation.gettext
+            selected_locales = None
+
+            if lang:
+                langs = self.parse_accept_language(lang)
+                # If parse returns a list, use the first entry; otherwise use it directly
+                if not langs:
+                    selected_locales = [self.localization[0] if self.localization else 'en']
+                elif isinstance(langs, list):
+                    selected_locales = [langs[0]]
+                else:
+                    selected_locales = [langs]
+            else:
+                selected_locales = [self.localization[0] if self.localization else 'en']
+
+            # Manual fixes for Chinese locales used by gettext/Babel
+            if selected_locales[0] == 'zh_CN':
+                selected_locales[0] = 'zh_Hans_CN'
+            elif selected_locales[0] == 'zh_TW':
+                selected_locales[0] = 'zh_Hant_TW'
+
+            try:
+                if self.locale_path and self.locale_path.exists():
+                    trans = support.Translations.load(
+                        str(self.locale_path),
+                        domain=self.domain,
+                        locales=selected_locales,
+                        fallback=True
+                    )
+                    return trans.gettext
+                else:
+                    return self.translation.gettext if self.translation else lambda x: x
+            except Exception as ex:
+                self.logger.warning(
+                    f"LocaleSupport: Could not load domain file for {self.domain}: {ex}"
+                )
+                return self.translation.gettext if self.translation else lambda x: x
+
+        except Exception as err:
+            self.logger.error(f"LocaleSupport: Error in get_translator_for_request: {err}")
+            return lambda x: x  # Ultimate fallback
 
     def translator(
         self,

@@ -67,6 +67,7 @@ dependencies = [
     "sockjs>=0.11.0",
     "aiohttp-sse>=2.2.0",
     "asyncdb[uvloop,default,boto3]>=2.8.0",
+    "pyarrow>=17.0.0,<21.0.0",
     "navconfig[default]>=1.7.10",
     "alt-aiohttp-cors>=0.7.2",
     "brotli>=1.1.0",

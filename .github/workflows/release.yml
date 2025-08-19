@@ -29,14 +29,21 @@ jobs:
           python-versions: 'cp39-cp39 cp310-cp310 cp311-cp311 cp312-cp312'
           build-requirements: 'uv setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0'
           system-packages: 'libmemcached-devel openssl-devel zlib-devel postgresql-devel'
-          pre-build-command: 'uv sync --extra build --no-dev'
+          pre-build-command: |
+            # Force PyArrow and deltalake to use pre-built wheels to avoid build issues
+            uv pip install --only-binary=pyarrow,deltalake pyarrow deltalake
+            uv sync --extra build --no-dev
           package-path: '.'
+          pip-wheel-args: '--only-binary=pyarrow,deltalake'
 
       - name: Build wheels on Windows
         if: matrix.os == 'windows-latest'
         run: |
           # Install build dependencies
           uv sync --extra build --no-dev
+
+          # Pre-install PyArrow and deltalake from pre-built wheels
+          uv pip install --only-binary=pyarrow,deltalake pyarrow deltalake
 
           # Install cibuildwheel with uv
           uv tool install cibuildwheel
@@ -49,9 +56,11 @@ jobs:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_ARCHS_WINDOWS: "AMD64"
           # Install build dependencies in the wheel building environment
-          CIBW_BEFORE_BUILD: "pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0"
+          CIBW_BEFORE_BUILD: "pip install --only-binary=pyarrow,deltalake pyarrow deltalake && pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0"
           # Build Cython extensions
           CIBW_BUILD_VERBOSITY: 1
+          # Force using binary wheels for PyArrow
+          CIBW_ENVIRONMENT: "PIP_ONLY_BINARY=pyarrow,deltalake"
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
@@ -74,6 +83,9 @@ jobs:
 
       - name: Build source distribution
         run: |
+          # Install PyArrow and deltalake from pre-built wheels to avoid build issues
+          uv pip install --only-binary=pyarrow,deltalake pyarrow deltalake
+
           # Install build dependencies
           uv sync --extra build --no-dev
 

@@ -3194,6 +3194,7 @@ dependencies = [
     { name = "psutil" },
     { name = "psycopg2-binary" },
     { name = "pysocks" },
+    { name = "python-datamodel" },
     { name = "python-slugify" },
     { name = "sockjs" },
     { name = "watchdog" },
@@ -3238,6 +3239,10 @@ locale = [
 ]
 memcache = [
     { name = "aiomcache" },
+]
+production = [
+    { name = "gunicorn" },
+    { name = "uvloop" },
 ]
 test = [
     { name = "aioresponses" },
@@ -3302,6 +3307,7 @@ requires-dist = [
     { name = "google-cloud-core", specifier = ">=2.4.0,<=2.4.3" },
     { name = "google-cloud-storage", specifier = ">=2.19.0,<=3.1.0" },
     { name = "gunicorn", marker = "extra == 'gunicorn'", specifier = ">=23.0.0" },
+    { name = "gunicorn", marker = "extra == 'production'", specifier = ">=23.0.0" },
     { name = "httpx", specifier = ">=0.25.0,<=0.28.1" },
     { name = "isort", marker = "extra == 'dev'", specifier = ">=5.12.0" },
     { name = "jinja2", specifier = ">=3.1.6" },
@@ -3328,16 +3334,18 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.21.0" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=2.5.0" },
     { name = "pytest-xdist", marker = "extra == 'test'", specifier = ">=2.5.0" },
+    { name = "python-datamodel", specifier = ">=0.10.17" },
     { name = "python-slugify", specifier = ">=8.0.1" },
     { name = "setuptools", marker = "extra == 'build'", specifier = ">=74.0.0" },
     { name = "sockjs", specifier = ">=0.11.0" },
     { name = "sphinx", marker = "extra == 'docs'", specifier = ">=6.0.0" },
     { name = "sphinx-rtd-theme", marker = "extra == 'docs'", specifier = ">=1.2.0" },
+    { name = "uvloop", marker = "extra == 'production'", specifier = ">=0.21.0" },
     { name = "uvloop", marker = "extra == 'uvloop'", specifier = ">=0.21.0" },
     { name = "watchdog", specifier = ">=6.0.0" },
     { name = "wheel", marker = "extra == 'build'", specifier = ">=0.44.0" },
 ]
-provides-extras = ["locale", "memcache", "uvloop", "gunicorn", "dev", "build", "test", "docs", "all"]
+provides-extras = ["locale", "memcache", "uvloop", "gunicorn", "production", "dev", "build", "test", "docs", "all"]
 
 [package.metadata.requires-dev]
 dev = [

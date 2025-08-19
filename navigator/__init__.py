@@ -20,17 +20,37 @@ TODO:
 https://github.com/phenobarbital/navigator
 
 """
-from .utils.uv import install_uvloop
+from .version import (
+    __title__,
+    __description__,
+    __version__,
+    __author__,
+    __author_email__,
+    __copyright__,
+    __license__
+)
 try:
     from .navigator import Application
     from .responses import Response
-except FileExistsError:
+    from .utils.uv import install_uvloop
+    install_uvloop()
+except ImportError:
+    # uvloop is not installed, continue without it
     pass
-from .version import __title__, __description__, __version__, __author__
 
-install_uvloop()
+def version():
+    """version.
+    Returns:
+        str: current version of Navigator flowtask.
+    """
+    return __version__
 
 __all__ = (
     "Application",
     "Response",
+    "version",
+    "__title__",
+    "__description__",
+    "__version__",
+    "__author__",
 )

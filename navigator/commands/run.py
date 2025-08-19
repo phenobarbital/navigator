@@ -4,15 +4,13 @@ Starts Navigator applications similar to 'python run.py'.
 """
 import os
 import sys
-import asyncio
 import subprocess
 from pathlib import Path
+import resource
 from navconfig.logging import logging
 from navconfig import config
 from . import BaseCommand
 
-
-logging.getLogger('watchdog').setLevel(logging.WARNING)
 logger = logging.getLogger("navigator.command")
 
 
@@ -20,7 +18,7 @@ class RunCommand(BaseCommand):
     """Start Navigator application server."""
 
     help = "Start the Navigator application server."
-    _version: str = "1.0.1"
+    _version: str = "1.0.0"
     default_action: str = "start"  # Default action for 'nav run'
 
     def parse_arguments(self, parser):
@@ -65,6 +63,41 @@ class RunCommand(BaseCommand):
             "--no-access-log",
             action="store_true",
             help="Disable access logging"
+        )
+        parser.add_argument(
+            "--worker-class",
+            type=str,
+            choices=["sync", "gevent", "uvloop", "uvloop-worker"],
+            default="uvloop",
+            help="Gunicorn worker class (default: uvloop for best performance)"
+        )
+        parser.add_argument(
+            "--preload",
+            action="store_true",
+            help="Enable preloading of the application"
+        )
+        parser.add_argument(
+            "--log-level",
+            type=str,
+            choices=["debug", "info", "warning", "error", "critical"],
+            default="info",
+            help="Logging level for Gunicorn"
+        )
+        parser.add_argument(
+            "--max-requests",
+            type=int,
+            help="Maximum number of requests per worker"
+        )
+        parser.add_argument(
+            "--timeout",
+            type=int,
+            default=360,
+            help="Worker timeout in seconds"
+        )
+        parser.add_argument(
+            "--ulimit",
+            type=int,
+            help="Set ulimit -Sn (max open files) before starting"
         )
 
     def start(self, options, **kwargs):
@@ -135,9 +168,7 @@ class RunCommand(BaseCommand):
 
             elif options.workers > 1:
                 # Use gunicorn for production with multiple workers
-                self.write(
-                    f"* Starting with {options.workers} workers (production mode)"
-                )
+                self.write(f"* Starting with {options.workers} workers (production mode)")
 
                 # Check if gunicorn is available
                 try:
@@ -152,25 +183,65 @@ class RunCommand(BaseCommand):
                     output = "Failed: Gunicorn not found."
                     return output
 
+                # Set ulimit if specified
+                if options.ulimit:
+                    try:
+                        resource.setrlimit(resource.RLIMIT_NOFILE, (options.ulimit, options.ulimit))
+                        self.write(f"* Set ulimit -Sn {options.ulimit}")
+                    except Exception as err:
+                        self.write(f":: Warning: Could not set ulimit: {err}", level="WARN")
+
                 host = options.host or env_vars.get('APP_HOST', 'localhost')
                 port = options.port or env_vars.get('APP_PORT', '5000')
+
+                # Determine worker class
+                worker_class_map = {
+                    "sync": "sync",
+                    "gevent": "gevent",
+                    "uvloop": "aiohttp.worker.GunicornUVLoopWebWorker",
+                    "uvloop-worker": "aiohttp.GunicornUVLoopWebWorker"
+                }
+                worker_class = worker_class_map.get(options.worker_class, worker_class_map["uvloop"])
 
                 gunicorn_cmd = [
                     "gunicorn",
                     "nav:navigator",
                     f"--workers={options.workers}",
                     f"--bind={host}:{port}",
-                    "--worker-class=aiohttp.GunicornWebWorker"
+                    f"--worker-class={worker_class}",
+                    f"--timeout={options.timeout}",
+                    f"--log-level={options.log_level}"
                 ]
 
-                if path.joinpath("gunicorn_config.py").exists():
+                # Add optional parameters
+                if options.preload:
+                    gunicorn_cmd.append("--preload")
+                    self.write("* Enabling preload")
+
+                if options.max_requests:
+                    gunicorn_cmd.extend([f"--max-requests={options.max_requests}"])
+                    self.write(f"* Max requests per worker: {options.max_requests}")
+
+                # Check for gunicorn config file
+                gunicorn_config_path = path.joinpath("gunicorn_config.py")
+                if gunicorn_config_path.exists():
                     gunicorn_cmd.extend(["-c", "gunicorn_config.py"])
                     self.write("* Using gunicorn_config.py")
+                    self.write("  Note: Config file settings may override command line options", level="INFO")
 
                 if options.debug:
+                    self.write(f"* Worker class: {worker_class}")
                     self.write(f"* Gunicorn command: {' '.join(gunicorn_cmd)}")
 
-                subprocess.run(gunicorn_cmd, cwd=path, env=env_vars)
+                # Execute with proper environment and ulimit
+                if options.ulimit:
+                    # Use shell to set ulimit before executing
+                    shell_cmd = f"ulimit -Sn {options.ulimit} && exec {' '.join(gunicorn_cmd)}"
+                    if options.debug:
+                        self.write(f"* Shell command: {shell_cmd}")
+                    subprocess.run(shell_cmd, shell=True, cwd=path, env=env_vars)
+                else:
+                    subprocess.run(gunicorn_cmd, cwd=path, env=env_vars)
 
             else:
                 # Single process mode
@@ -331,6 +402,83 @@ class RunCommand(BaseCommand):
             output = "No Navigator processes found running."
 
         return output
+
+    def production(self, options, **kwargs):
+        """Start Navigator in production mode with optimized settings."""
+        path = Path(kwargs["project_path"]).resolve()
+
+        self.write(":: Starting Navigator in production mode", level="INFO")
+
+        # Check if gunicorn config exists
+        gunicorn_config_path = path.joinpath("gunicorn_config.py")
+        if not gunicorn_config_path.exists():
+            self.write(":: Warning: No gunicorn_config.py found", level="WARN")
+            self.write(":: Consider creating one for production settings", level="INFO")
+
+        # Set production defaults
+        if not options.workers or options.workers == 1:
+            import multiprocessing
+            options.workers = multiprocessing.cpu_count()
+            self.write(f"* Auto-detected workers: {options.workers}")
+
+        # Set production-optimized defaults
+        production_args = type('Args', (), {
+            'host': options.host,
+            'port': options.port,
+            'ssl': options.ssl,
+            'no_ssl': options.no_ssl,
+            'access_log': options.access_log,
+            'no_access_log': options.no_access_log if options.no_access_log else True,  # Disable by default in prod
+            'debug': False,  # Never debug in production
+            'reload': False,  # Never reload in production
+            'workers': options.workers,
+            'worker_class': 'uvloop',  # Always use uvloop in production
+            'preload': True,  # Always preload in production
+            'log_level': options.log_level if hasattr(options, 'log_level') else 'info',
+            'max_requests': options.max_requests if hasattr(options, 'max_requests') else 300,
+            'timeout': options.timeout if hasattr(options, 'timeout') else 360,
+            'ulimit': options.ulimit if hasattr(options, 'ulimit') else 32766,  # Set high ulimit
+        })()
+
+        self.write("* Production optimizations enabled:")
+        self.write("  - Workers: {production_args.workers}")
+        self.write("  - Worker class: GunicornUVLoopWebWorker")
+        self.write("  - Preload: enabled")
+        self.write("  - Ulimit: {production_args.ulimit}")
+        self.write("  - Max requests: {production_args.max_requests}")
+
+        return self.start(production_args, **kwargs)
+
+    def gunicorn(self, options, **kwargs):
+        """Start using your exact gunicorn configuration."""
+        path = Path(kwargs["project_path"]).resolve()
+
+        self.write(":: Starting with your custom gunicorn configuration", level="INFO")
+
+        # Check if gunicorn config exists
+        gunicorn_config_path = path.joinpath("gunicorn_config.py")
+        if not gunicorn_config_path.exists():
+            self.write(":: Error: gunicorn_config.py not found", level="ERROR")
+            return "Failed: gunicorn_config.py not found"
+
+        # Replicate your exact command
+        shell_cmd = "ulimit -Sn 32766 && exec uv run gunicorn nav:navigator -c gunicorn_config.py -k aiohttp.GunicornUVLoopWebWorker --log-level debug --preload"
+
+        if options.debug:
+            self.write(f"* Executing: {shell_cmd}")
+
+        self.write("* Setting ulimit -Sn 32766")
+        self.write("* Using aiohttp.GunicornUVLoopWebWorker")
+        self.write("* Preload enabled")
+        self.write("* Log level: debug")
+
+        try:
+            subprocess.run(shell_cmd, shell=True, cwd=path)
+        except Exception as err:
+            self.write(f":: Error: {err}", level="ERROR")
+            return f"Failed: {err}"
+
+        return "Gunicorn started successfully"
 
     def configure(self):
         """Configure the command (override to avoid template parser setup)."""

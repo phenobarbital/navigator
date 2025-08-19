@@ -517,7 +517,7 @@ class Application(BaseApplication):
             Args:
                 signame: Name of the received signal.
             """
-            if hasattr(self, '_shutdown_in_progress') and self._shutdown_in_progress:
+            if hasattr(self, '_shutdown_in_progress') and self._shutdown_in_progress:  # pylint: disable=E0203 # noqa
                 self.logger.warning(
                     f"Received {signame} but shutdown already in progress"
                 )

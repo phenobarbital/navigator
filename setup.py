@@ -1,207 +1,195 @@
 #!/usr/bin/env python
-"""Navigator
+"""Navigator setup.py
     Web Framework based on aiohttp, with batteries included.
+    Optimized for uv package manager.
+
 See:
-https://github.com/phenobarbital/navigator/tree/master
+https://github.com/phenobarbital/navigator
 """
 import ast
+import os
 from os import path
 from setuptools import find_packages, setup, Extension
-from Cython.Build import cythonize
 
-
-COMPILE_ARGS = ["-O2"]
-
-extensions = [
-    Extension(
-        name='navigator.utils.types',
-        sources=['navigator/utils/types.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c"
-    ),
-    Extension(
-        name='navigator.utils.functions',
-        sources=['navigator/utils/functions.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c"
-    ),
-    Extension(
-        name='navigator.exceptions.exceptions',
-        sources=['navigator/exceptions/exceptions.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c"
-    ),
-    Extension(
-        name='navigator.types',
-        sources=['navigator/types.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    ),
-    Extension(
-        name='navigator.applications.base',
-        sources=['navigator/applications/base.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    ),
-    Extension(
-        name='navigator.handlers.base',
-        sources=['navigator/handlers/base.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    )
-]
+# Try to import Cython
+try:
+    from Cython.Build import cythonize
+    USE_CYTHON = True
+except ImportError:
+    USE_CYTHON = False
+    print("Cython not found. Installing without Cython extensions.")
 
 
 def get_path(filename):
-    """get_path.
-    Get relative path for a file.
-    """
+    """Get relative path for a file."""
     return path.join(path.dirname(path.abspath(__file__)), filename)
 
 
+def get_version():
+    """Get version from __init__.py"""
+    try:
+        with open(get_path("navigator/__init__.py"), "r", encoding="utf-8") as f:
+            content = f.read()
+            version_match = ast.parse(content)
+            for node in ast.walk(version_match):
+                if isinstance(node, ast.Assign):
+                    for target in node.targets:
+                        if isinstance(target, ast.Name) and target.id == "__version__":
+                            return ast.literal_eval(node.value)
+    except Exception:
+        pass
+    return "6.0.0"  # fallback version
+
+
 def readme():
-    """readme.
-    Get the content of README file.
-    Returns:
-        str: string of README file.
-    """
-    with open(get_path('README.md'), encoding='utf-8') as file:
-        return file.read()
+    """Get the content of README file."""
+    try:
+        with open(get_path("README.md"), "r", encoding="utf-8") as f:
+            return f.read()
+    except Exception:
+        return "Navigator: A batteries-included Web Framework based on aiohttp"
 
-version = get_path('navigator/version.py')
-with open(version, 'r', encoding='utf-8') as meta:
-    # exec(meta.read())
-    t = compile(meta.read(), version, 'exec', ast.PyCF_ONLY_AST)
-    for node in (n for n in t.body if isinstance(n, ast.Assign)):
-        if len(node.targets) == 1:
-            name = node.targets[0]
-            if isinstance(name, ast.Name) and name.id in (
-                '__version__',
-                '__title__',
-                '__description__',
-                '__author__',
-                '__license__', '__author_email__'
-            ):
-                v = node.value
-                if name.id == '__version__':
-                    __version__ = v.s
-                if name.id == '__title__':
-                    __title__ = v.s
-                if name.id == '__description__':
-                    __description__ = v.s
-                if name.id == '__license__':
-                    __license__ = v.s
-                if name.id == '__author__':
-                    __author__ = v.s
-                if name.id == '__author_email__':
-                    __author_email__ = v.s
 
-setup(
-    name=__title__,
-    version=__version__,
-    python_requires=">=3.9.16",
-    url="https://github.com/phenobarbital/navigator",
-    description=__description__,
-    platforms=['POSIX'],
-    long_description=readme(),
-    long_description_content_type="text/markdown",
-    classifiers=[
-        "Development Status :: 4 - Beta",
-        "Intended Audience :: Developers",
-        "Intended Audience :: Information Technology",
-        "Intended Audience :: System Administrators",
-        "Topic :: Software Development :: Build Tools",
-        "Topic :: Software Development :: Libraries :: Application Frameworks",
-        "Topic :: Software Development :: Libraries :: Python Modules",
-        "Topic :: Software Development :: Libraries",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
-        "Programming Language :: Python :: 3.10",
-        "Programming Language :: Python :: 3.11",
-        "Programming Language :: Python :: 3.12",
-    ],
-    author=__author__,
-    author_email=__author_email__,
-    packages=find_packages(exclude=('tests', 'docs', )),
-    package_data={"navigator": ["py.typed"]},
-    include_package_data=True,
-    zip_safe=False,
-    license=__license__,
-    license_files='LICENSE',
-    setup_requires=[
-        'setuptools==74.0.0',
-        'Cython==3.0.11',
-        'wheel==0.44.0'
-    ],
-    install_requires=[
-        "Cython==3.0.11",
-        "asyncio==3.4.3",
-        "aiohttp[speedups]>=3.10.0",
-        "PySocks==1.7.1",
-        "asn1crypto==1.4.0",
-        "jinja2==3.1.6",
-        "psycopg2-binary>=2.9.9",
-        "aiosocks==0.2.6",
-        'python-slugify==8.0.1',
-        "proxylists>=0.12.4",
-        "httpx>=0.25.0,<=0.28.1",
-        "beautifulsoup4==4.12.3",
-        "polyline==2.0.1",
-        "cartopy==0.22.0",
-        "matplotlib>=3.8.3",
-        "sockjs==0.11.0",
-        "aiohttp-sse==2.2.0",
-        "asyncdb[uvloop,default,boto3]>=2.8.0",
-        "navconfig[default]>=1.7.10",
-        "alt-aiohttp-cors==0.7.2",
-        "brotli==1.1.0",
-        "brotlicffi==1.1.0.0",
-        "aiofile==3.9.0",
-        "psutil==6.0.0",
-        "aiormq==6.8.1",
-        "Faker==22.2.0",
-        "google-cloud-core<=2.4.3,>=2.4.0",
-        "google-cloud-storage<=3.1.0,>=2.19.0",
-        'cloudpickle>=3.0.0',
-        'async-timeout==4.0.3',
-        'msgpack==1.1.0',
-        'aiormq==6.8.1',
-        'dask[complete]==2024.8.2',
-        'babel>=2.9.1,<=2.17.0',
-    ],
-    extras_require={
-        "locale": [
-            "Babel==2.9.1",
+# Compiler arguments for optimization
+COMPILE_ARGS = ["-O2"]
+
+# Define Cython extensions
+extensions = []
+
+if USE_CYTHON:
+    extensions = [
+        Extension(
+            name='navigator.utils.types',
+            sources=['navigator/utils/types.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c"
+        ),
+        Extension(
+            name='navigator.utils.functions',
+            sources=['navigator/utils/functions.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c"
+        ),
+        Extension(
+            name='navigator.exceptions.exceptions',
+            sources=['navigator/exceptions/exceptions.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c"
+        ),
+        Extension(
+            name='navigator.types',
+            sources=['navigator/types.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c++"
+        ),
+        Extension(
+            name='navigator.applications.base',
+            sources=['navigator/applications/base.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c++"
+        ),
+        Extension(
+            name='navigator.handlers.base',
+            sources=['navigator/handlers/base.pyx'],
+            extra_compile_args=COMPILE_ARGS,
+            language="c++"
+        )
+    ]
+
+# Read project metadata from pyproject.toml if available
+project_metadata = {}
+try:
+    import tomllib
+    with open(get_path("pyproject.toml"), "rb") as f:
+        pyproject_data = tomllib.load(f)
+        project_metadata = pyproject_data.get("project", {})
+except (ImportError, FileNotFoundError):
+    # Fallback metadata if pyproject.toml is not available
+    project_metadata = {
+        "name": "navigator-api",
+        "description": "Navigator: a batteries-included Web Framework based on aiohttp",
+        "authors": [{"name": "Jesus Lara G.", "email": "jesuslarag@gmail.com"}],
+        "license": {"text": "BSD-3-Clause"},
+        "requires-python": ">=3.9",
+        "classifiers": [
+            "Development Status :: 4 - Beta",
+            "Environment :: Web Environment",
+            "Framework :: AsyncIO",
+            "Intended Audience :: Developers",
+            "Intended Audience :: System Administrators",
+            "Operating System :: OS Independent",
+            "Programming Language :: Python :: 3",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
+            "Programming Language :: Python :: 3.12",
+            "Programming Language :: Python :: 3.13",
+            "License :: OSI Approved :: BSD License",
         ],
-        "memcache": [
-            "aiomcache==0.8.2",
-        ],
-        "uvloop": [
-            "uvloop==0.21.0",
-        ],
-        "gunicorn": [
-            "gunicorn==23.0.0"
-        ],
-        "hubspot": [
-            "hubspot-api-client==10.0.0"
-        ],
+    }
+
+# Extract metadata
+name = project_metadata.get("name", "navigator-api")
+description = project_metadata.get("description", "Navigator: a batteries-included Web Framework based on aiohttp")
+authors = project_metadata.get("authors", [{"name": "Jesus Lara G.", "email": "jesuslarag@gmail.com"}])
+license_info = project_metadata.get("license", {"text": "BSD-3-Clause"})
+requires_python = project_metadata.get("requires-python", ">=3.10")
+classifiers = project_metadata.get("classifiers", [])
+
+# Convert authors format
+author_name = authors[0]["name"] if authors else "Jesus Lara G."
+author_email = authors[0]["email"] if authors else "jesuslarag@gmail.com"
+
+# Setup configuration
+setup_kwargs = {
+    "name": name,
+    "version": get_version(),
+    "description": description,
+    "long_description": readme(),
+    "long_description_content_type": "text/markdown",
+    "author": author_name,
+    "author_email": author_email,
+    "url": "https://github.com/phenobarbital/navigator",
+    "license": license_info.get("text", "BSD-3-Clause"),
+    "python_requires": requires_python,
+    "classifiers": classifiers,
+    "packages": find_packages(exclude=('tests', 'docs', )),
+    "package_data": {
+        "navigator": [
+            "py.typed",
+            "templates/**/*",
+            "static/**/*",
+            "commands/templates/**/*"
+        ]
     },
-    ext_modules=cythonize(extensions),
-    tests_require=[
-        'pytest>=5.4.0',
-        'coverage',
-        'pytest-asyncio',
-        'pytest-xdist',
-        'pytest-assume'
-    ],
-    entry_points={
+    "include_package_data": True,
+    "zip_safe": False,
+    "entry_points": {
         'console_scripts': [
             'nav = navigator.commands:main',
         ]
     },
-    project_urls={
-        'Source': 'https://github.com/phenobarbital/navigator',
+    "project_urls": {
+        'Homepage': 'https://github.com/phenobarbital/navigator',
+        'Documentation': 'https://navigator-api.readthedocs.io',
+        'Repository': 'https://github.com/phenobarbital/navigator.git',
+        'Bug Tracker': 'https://github.com/phenobarbital/navigator/issues',
         'Funding': 'https://paypal.me/phenobarbital',
-        'Say Thanks!': 'https://saythanks.io/to/phenobarbital',
     },
-)
+}
+
+# Add Cython extensions if available
+if USE_CYTHON and extensions:
+    setup_kwargs["ext_modules"] = cythonize(
+        extensions,
+        compiler_directives={
+            'language_level': '3',
+            'embedsignature': True,
+            'boundscheck': False,
+            'wraparound': False,
+        }
+    )
+
+# For development, we might want to install dependencies from pyproject.toml
+# But for building wheels, we rely on the build system to handle this
+if __name__ == "__main__":
+    setup(**setup_kwargs)

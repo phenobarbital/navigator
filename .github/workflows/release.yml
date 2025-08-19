@@ -1,4 +1,4 @@
-name: Python package build and publish
+name: Navigator package build and publish with uv
 
 on:
   release:
@@ -9,34 +9,49 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          version: "latest"
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install twine
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
 
-      - name: Build wheels on Ubuntu
+      - name: Build wheels on Ubuntu (manylinux)
         if: matrix.os == 'ubuntu-latest'
-        uses: RalfG/python-wheels-manylinux-build@v0.5.0-manylinux2014_x86_64
+        uses: RalfG/python-wheels-manylinux-build@v0.7.1-manylinux2014_x86_64
         with:
           python-versions: 'cp39-cp39 cp310-cp310 cp311-cp311 cp312-cp312'
-          build-requirements: 'cython numpy'
+          build-requirements: 'uv setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0'
+          system-packages: 'libmemcached-devel openssl-devel zlib-devel postgresql-devel'
+          pre-build-command: 'uv sync --extra build --no-dev'
+          package-path: '.'
 
       - name: Build wheels on Windows
         if: matrix.os == 'windows-latest'
         run: |
-          pip install cibuildwheel
-          cibuildwheel --output-dir dist
-          # You may need to adjust the above command based on your package's specific requirements
+          # Install build dependencies
+          uv sync --extra build --no-dev
+
+          # Install cibuildwheel with uv
+          uv tool install cibuildwheel
+
+          # Build wheels
+          uv tool run cibuildwheel --output-dir dist
+        env:
+          # Configure cibuildwheel
+          CIBW_SKIP: "pp* *-musllinux*"  # Skip PyPy and musl builds
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          # Install build dependencies in the wheel building environment
+          CIBW_BEFORE_BUILD: "pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0"
+          # Build Cython extensions
+          CIBW_BUILD_VERBOSITY: 1
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
@@ -44,55 +59,208 @@ jobs:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/*.whl
 
-  deploy:
-    needs: build
+  build-source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4.1.7
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          path: dist
+          version: "latest"
 
-      - name: Move wheel files to 'dist' directory
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Build source distribution
         run: |
-          find dist -name '*.whl' -exec mv {} dist \;
+          # Install build dependencies
+          uv sync --extra build --no-dev
+
+          # Build source distribution
+          uv build --sdist
+
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-dist
+          path: dist/*.tar.gz
+
+  deploy:
+    needs: [build, build-source]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/navigator-api
+    permissions:
+      id-token: write  # For trusted publishing to PyPI
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+
+      - name: Organize distribution files
+        run: |
+          mkdir -p dist
+
+          # Move all wheel files to dist directory
+          find dist-artifacts -name '*.whl' -exec mv {} dist/ \;
+
+          # Move source distribution to dist directory
+          find dist-artifacts -name '*.tar.gz' -exec mv {} dist/ \;
 
       - name: Check for wheel types
         id: check_wheels
         run: |
           echo "Checking for wheel types..."
+
+          # Check for manylinux wheels
           if ls dist/*-manylinux*.whl 1> /dev/null 2>&1; then
-            echo "Found manylinux wheels."
+            echo "Found manylinux wheels:"
+            ls -la dist/*-manylinux*.whl
             echo "HAS_MANYLINUX_WHEELS=true" >> $GITHUB_ENV
-          fi
-          if ls dist/*-win_*.whl 1> /dev/null 2>&1; then
-            echo "Found Windows wheels."
-            echo "HAS_WINDOWS_WHEELS=true" >> $GITHUB_ENV
+          else
+            echo "No manylinux wheels found."
+            echo "HAS_MANYLINUX_WHEELS=false" >> $GITHUB_ENV
           fi
 
-      - name: List files in dist
-        run: ls -l dist
+          # Check for Windows wheels
+          if ls dist/*-win_*.whl 1> /dev/null 2>&1; then
+            echo "Found Windows wheels:"
+            ls -la dist/*-win_*.whl
+            echo "HAS_WINDOWS_WHEELS=true" >> $GITHUB_ENV
+          else
+            echo "No Windows wheels found."
+            echo "HAS_WINDOWS_WHEELS=false" >> $GITHUB_ENV
+          fi
+
+          # Check for source distribution
+          if ls dist/*.tar.gz 1> /dev/null 2>&1; then
+            echo "Found source distribution:"
+            ls -la dist/*.tar.gz
+            echo "HAS_SOURCE_DIST=true" >> $GITHUB_ENV
+          else
+            echo "No source distribution found."
+            echo "HAS_SOURCE_DIST=false" >> $GITHUB_ENV
+          fi
+
+      - name: List all distribution files
+        run: |
+          echo "All files in dist directory:"
+          ls -la dist/
+          echo ""
+          echo "File count: $(ls -1 dist/ | wc -l)"
+
+      - name: Publish manylinux wheels to PyPI
+        if: env.HAS_MANYLINUX_WHEELS == 'true'
+        run: |
+          uv tool install twine
+          uv tool run twine upload dist/*-manylinux*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
+      - name: Publish Windows wheels to PyPI
+        if: env.HAS_WINDOWS_WHEELS == 'true'
+        run: |
+          uv tool install twine
+          uv tool run twine upload dist/*-win_*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
+      - name: Publish source distribution to PyPI
+        if: env.HAS_SOURCE_DIST == 'true'
+        run: |
+          uv tool install twine
+          uv tool run twine upload dist/*.tar.gz --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
+  # Optional: Test installation job
+  test-install:
+    needs: deploy
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Wait for PyPI propagation
+        run: sleep 120
+
+      - name: Test installation from PyPI
+        run: |
+          # Create a temporary environment and test installation
+          uv venv test-env
+          source test-env/bin/activate || test-env\Scripts\activate
+
+          # Install from PyPI
+          uv pip install navigator-api
+
+          # Test basic import
+          python -c "import navigator; print(f'Navigator {navigator.__version__} installed successfully')"
+          python -c "from navigator import Application; print('Navigator Application imported successfully')"
+
+          # Test optional dependencies
+          uv pip install navigator-api[uvloop,locale]
+          python -c "import uvloop; print('uvloop support available')"
+
+          # Test CLI tool
+          nav --help
+        continue-on-error: true  # Don't fail the release if tests fail
+
+  # Additional job for testing with different aiohttp versions
+  test-compatibility:
+    needs: deploy
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        aiohttp-version: ["3.12.15"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
         with:
-          python-version: '3.x'
+          version: "latest"
 
-      - name: Install twine
-        run: pip install twine
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
 
-      - name: Publish manylinux wheels to Production PyPI
-        if: env.HAS_MANYLINUX_WHEELS == 'true'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
-        run: twine upload dist/*-manylinux*.whl
+      - name: Wait for PyPI propagation
+        run: sleep 120
 
-      - name: Publish Windows wheels to Production PyPI
-        if: env.HAS_WINDOWS_WHEELS == 'true'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
-        run: twine upload dist/*-win_*.whl
+      - name: Test with aiohttp ${{ matrix.aiohttp-version }}
+        run: |
+          uv venv test-env
+          source test-env/bin/activate
+
+          # Install specific aiohttp version
+          uv pip install aiohttp==${{ matrix.aiohttp-version }}
+          uv pip install navigator-api
+
+          # Test basic functionality
+          python -c "
+          import asyncio
+          from navigator import Application
+          from aiohttp import web
+
+          async def hello(request):
+              return web.Response(text='Hello World')
+
+          async def test():
+              app = Application()
+              app.router.add_get('/', hello)
+              return app.setup()
+
+          asyncio.run(test())
+          print('Navigator works with aiohttp ${{ matrix.aiohttp-version }}')
+          "
+        continue-on-error: true

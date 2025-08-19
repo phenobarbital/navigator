@@ -1,6 +1,7 @@
 [build-system]
 requires = [
     "setuptools>=74.0.0",
+    "setuptools_scm[toml]>=6.0",
     "Cython>=3.0.11",
     "wheel>=0.44.0",
 ]
@@ -81,6 +82,10 @@ dependencies = [
     "msgpack>=1.1.0",
     "dask[complete]>=2024.8.2",
     "babel>=2.9.1,<=2.17.0",
+    "watchdog>=6.0.0",
+    "navigator-session>=0.6.5",
+    "navigator-auth>=0.15.8",
+    "python-datamodel>=0.10.17",
 ]
 dynamic = ["version"]
 
@@ -98,6 +103,12 @@ uvloop = [
 gunicorn = [
     "gunicorn>=23.0.0"
 ]
+
+production = [
+    "uvloop>=0.21.0",
+    "gunicorn>=23.0.0"
+]
+
 
 # Development dependencies
 dev = [
@@ -163,6 +174,12 @@ zip-safe = false
 
 [tool.setuptools.package-data]
 navigator = ["py.typed", "templates/**/*", "static/**/*"]
+
+[tool.setuptools_scm]
+write_to = "navigator/_version.py"
+
+[tool.setuptools.dynamic]
+version = {attr = "navigator.__version__"}
 
 # pytest configuration
 [tool.pytest.ini_options]

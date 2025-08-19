@@ -5,7 +5,21 @@ The main goal of Navigator is to provide data sources to Navigator-Next (FrontEn
 
 ## Quickstart ##
 
-(TODO for installation using pip)
+* Create an environment using uv:
+```
+uv venv --python 3.11 .venv
+```
+
+* activate the virtualenv:
+```
+source .venv/bin/activate
+```
+
+* install navigator:
+```
+uv pip install navigator-api
+```
+
 
 ## Dependencies ##
 
@@ -23,9 +37,9 @@ The main goal of Navigator is to provide data sources to Navigator-Next (FrontEn
 
 ### Requirements ###
 
-* Python >= 3.8
+* Python >= 3.10
 * asyncio (https://pypi.python.org/pypi/asyncio/)
-* aiohttp >= 3.8.0
+* aiohttp >= 3.12.0
 
 ### Contribution guidelines ###
 

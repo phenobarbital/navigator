@@ -8,6 +8,13 @@ Most important (about pull request):
 
 The next part of the text is just a formality. But formally the right part.
 
+## Development Setup
+
+1. Install uv: `curl -LsSf https://astral.sh/uv/install.sh | sh`
+2. Clone the repository: `git clone https://github.com/phenobarbital/navigator.git`
+3. Set up development environment: `make develop`
+4. Run tests: `make test`
+
 ## Code of Conduct
 
 This project is intended to be a safe, welcoming space for collaboration.

@@ -1,59 +1,305 @@
 [build-system]
 requires = [
-  'setuptools==74.0.0',
-  'Cython==3.0.11',
-  'wheel==0.44.0',
-  'toml >= 0.10.2',
-  'flit'
+    "setuptools>=74.0.0",
+    "Cython>=3.0.11",
+    "wheel>=0.44.0",
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.flit.metadata]
-module = "navigator"
-author = "Jesus Lara G."
-author-email = "jesuslarag@gmail.com"
-home-page = "https://github.com/phenobarbital/navigator"
-requires-python = ">=3.9.16"
-description-file = "README.md"
-license = "LICENSE"
-keywords = "framework, asyncio, uvloop, aiohttp, navigator"
-classifiers=[
-  "Development Status :: 4 - Beta",
-  "Environment :: Web Environment",
-  "Framework :: AsyncIO",
-  "Intended Audience :: Developers",
-  "Intended Audience :: System Administrators",
-  "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.8",
-  "Programming Language :: Python :: 3.9",
-  "Programming Language :: Python :: 3.10",
-  "Programming Language :: Python :: 3.11",
-  "Programming Language :: Python :: 3.12",
-  "Programming Language :: Python",
-  "Typing :: Typed",
-  "Topic :: Software Development :: Libraries :: Application Frameworks",
-  "Topic :: Software Development :: Libraries :: Python Modules",
-  "Topic :: Software Development :: Build Tools",
-  "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
-  "Topic :: Internet :: WWW/HTTP",
-  "License :: OSI Approved :: BSD License",
+[project]
+name = "navigator-api"
+authors = [
+    { name = "Jesus Lara G.", email = "jesuslarag@gmail.com" }
+]
+maintainers = [
+    { name = "Jesus Lara G.", email = "jesuslarag@gmail.com" }
+]
+description = "Navigator: a batteries-included Web Framework based on aiohttp"
+readme = "README.md"
+license = { text = "BSD-3-Clause" }
+keywords = [
+    "framework",
+    "asyncio",
+    "uvloop",
+    "aiohttp",
+    "navigator",
+    "web",
+    "async"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Web Environment",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Typing :: Typed",
+    "Topic :: Software Development :: Libraries :: Application Frameworks",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+    "Topic :: Internet :: WWW/HTTP",
+    "License :: OSI Approved :: BSD License",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "Cython>=3.0.11",
+    "aiohttp[speedups]>=3.10.0",
+    "PySocks>=1.7.1",
+    "asn1crypto>=1.4.0",
+    "jinja2>=3.1.6",
+    "psycopg2-binary>=2.9.9",
+    "aiosocks>=0.2.6",
+    "python-slugify>=8.0.1",
+    "proxylists>=0.12.4",
+    "httpx>=0.25.0,<=0.28.1",
+    "beautifulsoup4>=4.12.3",
+    "polyline>=2.0.1",
+    "cartopy>=0.22.0",
+    "matplotlib>=3.8.3",
+    "sockjs>=0.11.0",
+    "aiohttp-sse>=2.2.0",
+    "asyncdb[uvloop,default,boto3]>=2.8.0",
+    "navconfig[default]>=1.7.10",
+    "alt-aiohttp-cors>=0.7.2",
+    "brotli>=1.1.0",
+    "brotlicffi>=1.1.0.0",
+    "aiofile>=3.9.0",
+    "psutil>=6.0.0",
+    "aiormq>=6.8.1",
+    "Faker>=22.2.0",
+    "google-cloud-core>=2.4.0,<=2.4.3",
+    "google-cloud-storage>=2.19.0,<=3.1.0",
+    "cloudpickle>=3.0.0",
+    "async-timeout>=4.0.3",
+    "msgpack>=1.1.0",
+    "dask[complete]>=2024.8.2",
+    "babel>=2.9.1,<=2.17.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# Core optional dependencies
+locale = [
+    "Babel>=2.9.1,<=2.17.0",
+]
+memcache = [
+    "aiomcache>=0.8.2",
+]
+uvloop = [
+    "uvloop>=0.21.0",
+]
+gunicorn = [
+    "gunicorn>=23.0.0"
 ]
 
+# Development dependencies
+dev = [
+    "pytest>=5.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-xdist>=2.5.0",
+    "pytest-assume>=2.4.0",
+    "coverage>=6.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pylint>=2.17.0",
+    "pre-commit>=3.0.0",
+]
 
+# Build dependencies (for Cython compilation)
+build = [
+    "setuptools>=74.0.0",
+    "Cython>=3.0.11",
+    "wheel>=0.44.0",
+    "build>=0.10.0",
+]
+
+# Testing with different versions
+test = [
+    "pytest>=5.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-xdist>=2.5.0",
+    "pytest-assume>=2.4.0",
+    "coverage>=6.0",
+    "aioresponses>=0.7.4",
+    "asynctest>=0.13.0",
+]
+
+# Documentation
+docs = [
+    "sphinx>=6.0.0",
+    "sphinx-rtd-theme>=1.2.0",
+    "myst-parser>=1.0.0",
+]
+
+# All optional dependencies
+all = [
+    "navigator-api[locale,memcache,uvloop,gunicorn]"
+]
+
+[project.urls]
+Homepage = "https://github.com/phenobarbital/navigator"
+Documentation = "https://navigator-api.readthedocs.io"
+Repository = "https://github.com/phenobarbital/navigator.git"
+"Bug Tracker" = "https://github.com/phenobarbital/navigator/issues"
+Changelog = "https://github.com/phenobarbital/navigator/blob/main/CHANGELOG.md"
+Funding = "https://paypal.me/phenobarbital"
+
+[project.scripts]
+nav = "navigator.commands:main"
+
+# Setuptools configuration for Cython extensions
+[tool.setuptools]
+packages = ["navigator"]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.package-data]
+navigator = ["py.typed", "templates/**/*", "static/**/*"]
+
+# pytest configuration
 [tool.pytest.ini_options]
+minversion = "6.0"
 addopts = [
-  "--strict-config",
-  "--strict-markers",
+    "--strict-config",
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+]
+testpaths = [
+    "tests",
+]
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
+asyncio_mode = "auto"
+filterwarnings = [
+    "error",
+    "ignore:The loop argument is deprecated since Python 3\\.8, and scheduled for removal in Python 3\\.10:DeprecationWarning:asyncio",
+    "ignore:There is no current event loop:DeprecationWarning",
 ]
 
+# Black configuration
+[tool.black]
+line-length = 88
+target-version = ["py310", "py311", "py312", "py313"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+# isort configuration
 [tool.isort]
+profile = "black"
 multi_line_output = 3
 include_trailing_comma = true
 force_grid_wrap = 0
 line_length = 88
-profile = "black"
+known_first_party = ["navigator"]
+known_third_party = [
+    "aiohttp",
+    "asyncio",
+    "uvloop",
+    "jinja2",
+    "asyncdb",
+    "navconfig",
+    "datamodel",
+]
 
-filterwarnings = [
-    "error",
-    'ignore:The loop argument is deprecated since Python 3\.8, and scheduled for removal in Python 3\.10:DeprecationWarning:asyncio',
+# mypy configuration
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "sockjs.*",
+    "cartopy.*",
+    "matplotlib.*",
+    "proxylists.*",
+    "polyline.*",
+    "beautifulsoup4.*",
+    "psycopg2.*",
+    "aiormq.*",
+    "dask.*",
+    "cloudpickle.*",
+]
+ignore_missing_imports = true
+
+# pylint configuration
+[tool.pylint.messages_control]
+disable = [
+    "missing-docstring",
+    "invalid-name",
+    "line-too-long",
+]
+
+[tool.pylint.format]
+max-line-length = 88
+
+# coverage configuration
+[tool.coverage.run]
+source = ["navigator"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "setup.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+]
+
+# uv configuration
+[tool.uv]
+dev-dependencies = [
+    "pytest>=5.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-xdist>=2.5.0",
+    "pytest-assume>=2.4.0",
+    "coverage>=6.0",
+    "mypy>=1.0.0",
+    "black>=23.0.0",
+    "isort>=5.12.0",
+    "pylint>=2.17.0",
+    "pre-commit>=3.0.0",
+    "setuptools>=74.0.0",
+    "Cython>=3.0.11",
+    "wheel>=0.44.0",
+    "build>=0.10.0",
 ]

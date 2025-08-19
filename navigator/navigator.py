@@ -1,12 +1,14 @@
+import contextlib
+from pathlib import Path
+from typing import Any, Union, Optional
+from collections.abc import Callable
 import ssl
 import asyncio
 import signal
 import inspect
 from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Union
 from importlib import import_module
-from collections.abc import Callable
 from dataclasses import dataclass
 from datamodel import BaseModel
 from datamodel.parsers.json import json_encoder
@@ -85,7 +87,9 @@ class Application(BaseApplication):
         self.enable_jinja2 = enable_jinja2
         self.template_dirs = template_dirs
         from navigator.conf import Context  # pylint: disable=C0415
-
+        self._runner: Optional[web.AppRunner] = None
+        self._sites: list = []
+        self._shutdown_timeout = 30.0
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -268,7 +272,7 @@ class Application(BaseApplication):
         app = self.get_app()
 
         def _decorator(func):
-            if allow_anonymous is True:
+            if allow_anonymous:
                 # add this route to the exclude list:
                 self.auth_excluded(route)
             r = app.router.add_get(route, func)
@@ -289,7 +293,7 @@ class Application(BaseApplication):
 
     def post(self, route: str, allow_anonymous: bool = False):
         def _decorator(func):
-            if allow_anonymous is True:
+            if allow_anonymous:
                 # add this route to the exclude list:
                 self.auth_excluded(route)
             self.get_app().router.add_post(route, func)
@@ -324,10 +328,7 @@ class Application(BaseApplication):
         def _template(func):
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
-                if asyncio.iscoroutinefunction(func):
-                    coro = func
-                else:
-                    coro = asyncio.coroutine(func)
+                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
                 ## getting data:
                 try:
                     context = await coro(*args)
@@ -340,10 +341,7 @@ class Application(BaseApplication):
                     return context
 
                 # Supports class based views see web.View
-                if isinstance(args[0], AbstractView):
-                    request = args[0].request
-                else:
-                    request = args[-1]
+                request = args[0].request if isinstance(args[0], AbstractView) else args[-1]
                 try:
                     tmpl = request.app["template"]  # template system
                 except KeyError as e:
@@ -383,10 +381,7 @@ class Application(BaseApplication):
             async def _wrap(*args: Any) -> web.StreamResponse:
                 ## building arguments:
                 # Supports class based views see web.View
-                if isinstance(args[0], AbstractView):
-                    request = args[0].request
-                else:
-                    request = args[-1]
+                request = args[0].request if isinstance(args[0], AbstractView) else args[-1]
                 sig = inspect.signature(func)
                 new_args = {}
                 for a, val in sig.parameters.items():
@@ -401,10 +396,7 @@ class Application(BaseApplication):
                             new_args["errors"] = errors
                         else:
                             new_args[a] = val
-                if asyncio.iscoroutinefunction(func):
-                    coro = func
-                else:
-                    coro = asyncio.coroutine(func)
+                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
                 try:
                     context = await coro(**new_args)
                     return context
@@ -426,7 +418,7 @@ class Application(BaseApplication):
             # getting data from POST
             data = await request.json()
         elif request.method == "GET":
-            data = {key: val for (key, val) in request.query.items()}
+            data = dict(request.query.items())
         else:
             raise web.HTTPNotImplemented(
                 reason=f"{request.method} Method not Implemented for Data Validation.",
@@ -471,87 +463,500 @@ class Application(BaseApplication):
         app = self.get_app()
         sockjs.add_endpoint(app, handler, name=name, prefix=route)
 
-    def run(self):
-        """run.
-        Starting App.
+    def _generate_ssl_context(self) -> Optional[ssl.SSLContext]:
+        """Generate SSL context from configuration.
+
+        Returns:
+            ssl.SSLContext: Configured SSL context or None if SSL disabled.
         """
-        ### getting configuration (on runtime)
-        from navigator import conf  # pylint: disable=C0415
-        # getting the resource App
-        app = self.setup_app()
-        enable_access_log = conf.ENABLE_ACCESS_LOG
-        if enable_access_log is False:
-            enable_access_log = None
-        if self.debug:
-            cPrint(" :: Running in DEBUG mode :: ", level="DEBUG")
-            logging.debug(" :: Running in DEBUG mode :: ")
-        if self.use_ssl:
-            logging.debug(" :: Running in SSL mode :: ")
-            ca_file = conf.CA_FILE
+        if not self.use_ssl:
+            return None
+
+        try:
+            from navigator import conf  # pylint: disable=C0415
+
+            self.logger.debug("Configuring SSL context")
+
+            ca_file = getattr(conf, 'CA_FILE', None)
             if ca_file:
                 ssl_context = ssl.create_default_context(
-                    ssl.Purpose.CLIENT_AUTH, cafile=ca_file
+                    ssl.Purpose.CLIENT_AUTH,
+                    cafile=ca_file
                 )
             else:
-                # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLSv1_2)
                 ssl_context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
-            ### getting Certificates:
-            ssl_cert = conf.SSL_CERT
-            ssl_key = conf.SSL_KEY
+
+            # Load certificates
+            ssl_cert = getattr(conf, 'SSL_CERT', None)
+            ssl_key = getattr(conf, 'SSL_KEY', None)
+
+            if not ssl_cert or not ssl_key:
+                raise ValueError("SSL_CERT and SSL_KEY must be configured for SSL mode")
+
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             ssl_context.set_ciphers(FORCED_CIPHERS)
+
+            self.logger.info(f"SSL enabled with cert: {ssl_cert}")
+            return ssl_context
+
+        except Exception as err:
+            self.logger.exception("Failed to configure SSL context: %s", err)
+            raise
+
+    def _setup_signal_handlers(self) -> None:
+        """Setup signal handlers for graceful shutdown."""
+        if not hasattr(signal, 'SIGTERM'):
+            # Windows doesn't have all signals
+            return
+
+        def signal_handler(signame):
+            """Handle received OS signals and initiate graceful shutdown.
+
+            This function logs the received signal and schedules the application's graceful shutdown.
+
+            Args:
+                signame: Name of the received signal.
+            """
+            if hasattr(self, '_shutdown_in_progress') and self._shutdown_in_progress:
+                self.logger.warning(
+                    f"Received {signame} but shutdown already in progress"
+                )
+                return
+            self.logger.info(f"Received {signame}, initiating graceful shutdown...")
+            self._shutdown_in_progress = True
+            # Trigger the shutdown event if it exists
+            if hasattr(self, '_shutdown_event') and self._shutdown_event:
+                self._shutdown_event.set()
+
+        try:
+            loop = asyncio.get_running_loop()
+            for sig in [signal.SIGTERM, signal.SIGINT]:
+                loop.add_signal_handler(
+                    sig,
+                    lambda s=sig: signal_handler(s.name)
+                )
+        except RuntimeError:
+            # Signal handling not available on this platform or no running loop
+            self.logger.warning("Signal handling not available")
+
+    async def _graceful_shutdown(self) -> None:
+        """Perform graceful shutdown of the application."""
+        self.logger.info("Starting graceful shutdown...")
+
+        try:
+            # Cleanup the runner
+            if self._runner:
+                await self._runner.cleanup()
+            self._sites.clear()
+            self._runner = None
+
+        except Exception as err:
+            self.logger.exception(
+                "Error during graceful shutdown: %s", err
+            )
+        finally:
+            self._runner = None
+            self.logger.info(
+                "Navigator Shutdown completed"
+            )
+
+    async def _run_tcp(
+        self,
+        app: web.Application,
+        host: str = None,
+        port: int = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        handle_signals: bool = False,
+        **kwargs
+    ) -> None:
+        """Run application with TCP transport.
+
+        Args:
+            app: aiohttp Application instance
+            host: Host to bind to
+            port: Port to bind to
+            ssl_context: SSL context for HTTPS
+            **kwargs: Additional arguments for TCPSite
+        """
+        host = host or self.host
+        port = port or self.port
+
+        try:
+            runner_kwargs = {
+                'handle_signals': handle_signals,
+                'keepalive_timeout': kwargs.get('keepalive_timeout', 30),
+                'client_timeout': kwargs.get('client_timeout', 60),
+                'max_request_size': kwargs.get('max_request_size', 1024**2),
+            }
+            # Only add these if they're explicitly provided (not None)
+            if 'access_log_class' in kwargs and kwargs['access_log_class'] is not None:
+                runner_kwargs['access_log_class'] = kwargs['access_log_class']
+
+            if 'access_log' in kwargs:
+                runner_kwargs['access_log'] = kwargs['access_log']
+
+            if 'access_log_format' in kwargs and kwargs['access_log_format'] is not None:
+                runner_kwargs['access_log_format'] = kwargs['access_log_format']
+
+            # Create and setup runner
+            self._runner = web.AppRunner(app, **runner_kwargs)
+            await self._runner.setup()
+
+            # Create TCP site
+            site = web.TCPSite(
+                self._runner,
+                host=host,
+                port=port,
+                ssl_context=ssl_context,
+                backlog=kwargs.get('backlog', 128),
+                reuse_address=kwargs.get('reuse_address', True),
+                reuse_port=kwargs.get('reuse_port', False),
+            )
+
+            await site.start()
+            self._sites.append(site)
+
+            protocol = "https" if ssl_context else "http"
+            self.logger.notice(
+                f":: Navigator started on {protocol}://{host}:{port}"
+            )
+
+            if self.debug:
+                self.logger.debug("Running in DEBUG mode")
+
+        except OSError as err:
+            if err.errno == 98:  # Address already in use
+                self.logger.error(f"Port {port} is already in use")
+            else:
+                self.logger.error(f"Failed to bind to {host}:{port} - {err}")
+            raise
+        except Exception as err:
+            self.logger.exception("Failed to start TCP server: %s", err)
+            raise
+
+    async def _run_unix(
+        self,
+        app: web.Application,
+        path: Union[str, Path],
+        **kwargs
+    ) -> None:
+        """Run application with Unix domain socket transport.
+
+        Args:
+            app: aiohttp Application instance
+            path: Unix socket path
+            **kwargs: Additional arguments for UnixSite
+        """
+        try:
+            # Ensure path is a Path object
+            if isinstance(path, str):
+                path = Path(path)
+
+            # Remove existing socket file if it exists
+            if path.exists():
+                path.unlink()
+                self.logger.debug(f"Removed existing socket: {path}")
+
+            # Create and setup runner
+            self._runner = web.AppRunner(
+                app,
+                handle_signals=False,
+                access_log=kwargs.get('access_log'),
+                keepalive_timeout=kwargs.get('keepalive_timeout', 30),
+            )
+            await self._runner.setup()
+
+            # Create Unix site
+            site = web.UnixSite(
+                self._runner,
+                path=str(path),
+                **kwargs
+            )
+
+            await site.start()
+            self._sites.append(site)
+
+            self.logger.info(f"Navigator started on unix socket: {path}")
+
+        except Exception as err:
+            self.logger.exception("Failed to start Unix socket server: %s", err)
+            raise
+
+    async def _run_http(self, **kwargs) -> None:
+        """Run HTTP server (legacy compatibility method)."""
+        from navigator import conf  # pylint: disable=C0415
+
+        # Get configuration
+        enable_access_log = getattr(conf, 'ENABLE_ACCESS_LOG', True)
+        if enable_access_log is False:
+            enable_access_log = None
+
+        # Generate SSL context
+        ssl_context = self._generate_ssl_context()
+
+        # Get the application
+        app = self.setup_app()
+
+        # Configure access logging
+        kwargs.setdefault('access_log', enable_access_log)
+
+        # Choose transport method
+        if self.path:
+            await self._run_unix(app, self.path, **kwargs)
+        else:
+            await self._run_tcp(app, ssl_context=ssl_context, **kwargs)
+
+    async def start_server(
+        self,
+        host: str = None,
+        port: int = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        unix_path: Union[str, Path] = None,
+        **kwargs
+    ) -> None:
+        """Start the Navigator server with modern AppRunner pattern.
+
+        Args:
+            host: Host to bind to (overrides instance default)
+            port: Port to bind to (overrides instance default)
+            ssl_context: SSL context for HTTPS
+            unix_path: Unix socket path (if provided, TCP is ignored)
+            **kwargs: Additional server configuration
+        """
+        try:
+            # Setup signal handlers
+            self._setup_signal_handlers()
+
+            # Get the application
+            app = self.setup_app()
+
+            if unix_path:
+                await self._run_unix(app, unix_path, **kwargs)
+            else:
+                await self._run_tcp(
+                    app,
+                    host=host,
+                    port=port,
+                    ssl_context=ssl_context,
+                    **kwargs
+                )
+
+            # Keep running until shutdown
             try:
+                shutdown_event = asyncio.Event()
+                self._shutdown_event = shutdown_event
+                await shutdown_event.wait()
+            except asyncio.CancelledError:
+                self.logger.info("Server shutdown requested")
+
+        except Exception as err:
+            self.logger.exception("Server startup failed: %s", err)
+            raise
+        finally:
+            await self._graceful_shutdown()
+
+    def run(
+        self,
+        host: str = None,
+        port: int = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        unix_path: Union[str, Path] = None,
+        **kwargs
+    ) -> None:
+        """Run the Navigator application.
+
+        This method provides both legacy compatibility and modern features.
+
+        Args:
+            host: Host to bind to
+            port: Port to bind to
+            ssl_context: SSL context (if None, will be generated from config if use_ssl=True)
+            unix_path: Unix socket path
+            **kwargs: Additional server configuration
+        """
+        try:
+            # If no event loop is running, create one and run the server
+            with contextlib.suppress(RuntimeError):
+                loop = asyncio.get_running_loop()
+                self.logger.warning("Event loop already running, creating task")
+                # If we're already in an event loop, just create a task
+                return asyncio.create_task(
+                    self.start_server(host, port, ssl_context, unix_path, **kwargs)
+                )
+
+            # Use the configured event loop if available
+            if self._loop:
+                asyncio.set_event_loop(self._loop)
+                loop = self._loop
+            else:
+                try:
+                    loop = asyncio.get_event_loop()
+                except RuntimeError:
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+
+            # For compatibility with existing code that might expect web.run_app behavior
+            if kwargs.get('use_legacy_runner', False):
+                self._run_legacy(**kwargs)
+                return
+
+            # Modern async server startup
+            try:
+                loop.run_until_complete(
+                    self.start_server(host, port, ssl_context, unix_path, **kwargs)
+                )
+            except KeyboardInterrupt:
+                self.logger.info(
+                    "Received KeyboardInterrupt, shutting down..."
+                )
+            finally:
+                # Ensure cleanup happens
+                if not getattr(self, '_shutdown_in_progress', False):
+                    loop.run_until_complete(self._graceful_shutdown())
+
+                if not loop.is_closed():
+                    pending = asyncio.all_tasks(loop)
+                    for task in pending:
+                        task.cancel()
+                    loop.run_until_complete(
+                        asyncio.gather(*pending, return_exceptions=True)
+                    )
+                    loop.close()
+
+        except Exception as err:
+            self.logger.exception("Application startup failed: %s", err)
+            raise
+
+    def _run_legacy(self, **kwargs) -> None:
+        """Legacy run method using web.run_app (for backward compatibility).
+
+        This method maintains compatibility with the old Navigator behavior.
+        """
+        self.logger.warning(
+            "Using legacy runner (web.run_app). Consider upgrading to modern AppRunner pattern."
+        )
+
+        try:
+            from navigator import conf  # pylint: disable=C0415
+
+            # Get configuration
+            enable_access_log = getattr(conf, 'ENABLE_ACCESS_LOG', True)
+            if enable_access_log is False:
+                enable_access_log = None
+
+            # Get the application
+            app = self.setup_app()
+
+            if self.debug:
+                self.logger.debug("Running in DEBUG mode")
+
+            # SSL configuration
+            if self.use_ssl:
+                self.logger.debug("Running in SSL mode")
+                ssl_context = self._generate_ssl_context()
+
                 web.run_app(
                     app,
                     host=self.host,
                     port=self.port,
                     ssl_context=ssl_context,
                     handle_signals=True,
-                    access_log=enable_access_log
+                    access_log=enable_access_log,
+                    **kwargs
                 )
-            except Exception as err:
-                logging.exception(err, stack_info=True)
-                raise
-        elif self.path:
-            web.run_app(
-                app,
-                path=self.path,
-                loop=self._loop,
-                handle_signals=True,
-                access_log=enable_access_log
-            )
-        else:
-            try:
+            elif self.path:
+                # Unix socket
+                web.run_app(
+                    app,
+                    path=self.path,
+                    loop=self._loop,
+                    handle_signals=True,
+                    access_log=enable_access_log,
+                    **kwargs
+                )
+            else:
+                # Regular HTTP
                 web.run_app(
                     app,
                     host=self.host,
                     port=self.port,
                     loop=self._loop,
                     handle_signals=True,
-                    access_log=enable_access_log
-                )
-            except RuntimeError:
-                # loop already running
-                try:
-                    loop = self._loop or asyncio.get_current_loop()
-                except RuntimeError:
-                    logging.error("No running event loop")
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                web.run_app(
-                    app,
-                    host=self.host,
-                    port=self.port,
-                    loop=loop,
-                    handle_signals=True,
-                    access_log=enable_access_log
+                    access_log=enable_access_log,
+                    **kwargs
                 )
 
+        except Exception as err:
+            self.logger.exception(
+                "Legacy runner failed with: %s", err
+            )
+            raise
 
-async def app_runner(
-    app: web.Application, host: str, port: int, ssl_context: ssl.SSLContext
-):
-    runner = web.AppRunner(app)
+
+# Utilities functions for direct AppRunner usage
+async def create_app_runner(
+    app: web.Application,
+    **runner_kwargs
+) -> web.AppRunner:
+    """Create and setup an AppRunner instance.
+
+    Args:
+        app: aiohttp Application
+        **runner_kwargs: Arguments for AppRunner
+
+    Returns:
+        web.AppRunner: Configured and setup AppRunner
+    """
+    runner = web.AppRunner(app, **runner_kwargs)
     await runner.setup()
-    site = web.TCPSite(runner, host=host, port=port, ssl_context=ssl_context)
+    return runner
+
+
+async def create_tcp_site(
+    runner: web.AppRunner,
+    host: str = 'localhost',
+    port: int = 8080,
+    ssl_context: Optional[ssl.SSLContext] = None,
+    **site_kwargs
+) -> web.TCPSite:
+    """Create and start a TCPSite.
+
+    Args:
+        runner: AppRunner instance
+        host: Host to bind to
+        port: Port to bind to
+        ssl_context: SSL context for HTTPS
+        **site_kwargs: Arguments for TCPSite
+
+    Returns:
+        web.TCPSite: Started TCPSite
+    """
+    site = web.TCPSite(
+        runner,
+        host=host,
+        port=port,
+        ssl_context=ssl_context,
+        **site_kwargs
+    )
     await site.start()
+    return site
+
+
+async def create_unix_site(
+    runner: web.AppRunner,
+    path: Union[str, Path],
+    **site_kwargs
+) -> web.UnixSite:
+    """Create and start a UnixSite.
+
+    Args:
+        runner: AppRunner instance
+        path: Unix socket path
+        **site_kwargs: Arguments for UnixSite
+
+    Returns:
+        web.UnixSite: Started UnixSite
+    """
+    site = web.UnixSite(runner, path=str(path), **site_kwargs)
+    await site.start()
+    return site

@@ -4,6 +4,9 @@ requires = [
     "setuptools_scm[toml]>=6.0",
     "Cython==3.0.11",
     "wheel>=0.44.0",
+    "python-datamodel>=0.10.17",
+    "navconfig>=1.9.2",
+    "aiohttp>=3.10.0",
 ]
 build-backend = "setuptools.build_meta"
 
@@ -130,6 +133,9 @@ build = [
     "Cython==3.0.11",
     "wheel>=0.44.0",
     "build>=0.10.0",
+    "python-datamodel>=0.10.17",
+    "navconfig>=1.9.2",
+    "setuptools_scm[toml]>=6.0",
 ]
 
 # Testing with different versions
@@ -172,17 +178,8 @@ packages = ["navigator"]
 include-package-data = true
 zip-safe = false
 
-[tool.setuptools.package-data]
-navigator = ["py.typed", "templates/**/*", "static/**/*"]
-
-[tool.setuptools.packages.find]
-exclude = ["contrib", "bin", "settings", "examples", "tests", "plugins"]
-
 [tool.setuptools_scm]
 write_to = "navigator/_version.py"
-
-[tool.setuptools.dynamic]
-version = {attr = "navigator.__version__"}
 
 # pytest configuration
 [tool.pytest.ini_options]

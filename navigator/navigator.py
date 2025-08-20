@@ -10,24 +10,25 @@ from functools import wraps
 from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 from dataclasses import dataclass
-from datamodel import BaseModel
 from datamodel.parsers.json import json_encoder
 from datamodel.exceptions import ValidationError
 from aiohttp import web
 from aiohttp.abc import AbstractView
 from aiohttp.web_exceptions import HTTPError
-import sockjs
+try:
+    import sockjs
+except ImportError:
+    sockjs = None
 try:
     from navconfig import config
     from navconfig.logging import logging
-except FileExistsError as exc:
+except FileExistsError:
     # NavConfig is not Installed:
-    raise ImportError(
-        (
-            "NavConfig is not installed, please install it."
-            " pip install navconfig[default]."
-        )
-    ) from exc
+    import logging
+    logging.exception(
+        "NavConfig is not installed, please install it. "
+        "pip install navconfig[default]."
+    )
 
 try:
     from navigator_auth.conf import exclude_list
@@ -363,7 +364,7 @@ class Application(BaseApplication):
 
         return _template
 
-    def validate(self, model: Union[dataclass, BaseModel], **kwargs) -> web.Response:
+    def validate(self, model: Union[dataclass, Any], **kwargs) -> web.Response:
         """validate.
         Description: Validate Request input using a dataclass or Datamodel.
         Args:
@@ -412,7 +413,7 @@ class Application(BaseApplication):
         return _validation
 
     async def _validate_model(
-        self, request: web.Request, model: Union[dataclass, BaseModel]
+        self, request: web.Request, model: Union[dataclass, Any]
     ) -> dict:
         if request.method in ("POST", "PUT", "PATCH"):
             # getting data from POST

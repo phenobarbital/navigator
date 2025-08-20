@@ -9,7 +9,6 @@ from aiohttp.abc import AbstractView
 import aiohttp_cors
 from aiohttp_cors import setup as cors_setup, ResourceOptions
 from pathlib import Path
-from navconfig import Kardex, config, DEBUG, BASE_DIR
 from ..functions import cPrint
 from ..types import WebApp
 from ..utils.functions import get_logger
@@ -28,6 +27,7 @@ cdef class BaseAppHandler:
     enable_static: bool = False
     staticdir: str = None
     show_static_index: bool = False
+    config: Callable = None
 
     def __init__(
         self,
@@ -36,8 +36,12 @@ cdef class BaseAppHandler:
         evt: asyncio.AbstractEventLoop = None
     ) -> None:
 
+        """__init__."""
+        from navconfig import config, DEBUG
         # App:
         self.app: WebApp = None
+        # Config Environment:
+        self.config: dict = config
         # App Name
         if not app_name:
             self._name = type(self).__name__
@@ -76,7 +80,7 @@ cdef class BaseAppHandler:
         app.router.add_route("GET", "/", home, name="home")
         app["name"] = self._name
         # configure Config:
-        self._set_config(app, config)
+        self._set_config(app, self.config)
         if 'extensions' not in app:
             app.extensions = {} # empty directory of extensions
         # CORS
@@ -94,7 +98,7 @@ cdef class BaseAppHandler:
         )
         return app
 
-    def _set_config(self, app: WebApp, conf: Kardex, key_name: str = 'config') -> None:
+    def _set_config(self, app: WebApp, conf: Callable, key_name: str = 'config') -> None:
         """Set application configuration.
 
         Set application configuration in the application context.
@@ -103,6 +107,7 @@ cdef class BaseAppHandler:
             app (WebApp): Application instance.
             config (Callable): Instance of Navconfig.
         """
+        from navconfig import Kardex
         if not isinstance(conf, Kardex):
             raise NavException(
                 "Configuration must be an instance of Navconfig"
@@ -113,7 +118,7 @@ cdef class BaseAppHandler:
         config_key = web.AppKey(key_name, Kardex)
         app[config_key] = conf
         # also add as an attribute
-        setattr(app, key_name, config)
+        setattr(app, key_name, self.config)
 
     def setup_cors(self) -> None:
         # CORS:

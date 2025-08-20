@@ -25,7 +25,7 @@ migrations/
 migrations/*
 apps/troc/migrations/
 apps/troc/migrations/__init__.py
-
+navigator/_version.py
 # Distribution / packaging
 .Python
 env/

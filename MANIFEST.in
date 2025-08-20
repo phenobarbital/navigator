@@ -1,9 +1,12 @@
 include LICENSE
 include LICENSE-APACHE
 include README.md
+include commands
 global-include *.typed
 recursive-include navigator/templates *
 recursive-include navigator/static *
+recursive-include navigator *.pxd *.pyx
+global-exclude *.pyc
 # Exclude directories
 prune videos
 prune examples
@@ -13,7 +16,8 @@ prune etc
 prune env
 prune resources
 prune dist
+prune plugins
 
-# Optionally, you can also specify any other unwanted directories
+# unwanted directories
 prune tests
 prune *.egg-info

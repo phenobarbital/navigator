@@ -2,12 +2,47 @@ include LICENSE
 include LICENSE-APACHE
 include README.md
 include commands
+
+# Nav Submodules
+graft navigator/actions
+graft navigator/commands
+graft navigator/background
+graft navigator/brokers
+graft navigator/applications
+graft navigator/exceptions
+graft navigator/templates
+graft navigator/handlers
+graft navigator/ext
+graft navigator/libs
+graft navigator/middlewares
+graft navigator/static
+graft navigator/services
+graft navigator/template
+graft navigator/utils
+graft navigator/views
+
+# Include specific file types globally
 global-include *.typed
+global-include *.pyx
+global-include *.pxd
+global-include *.py
+global-include *.md
+
 recursive-include navigator/templates *
 recursive-include navigator/static *
 recursive-include navigator *.pxd *.pyx
+
+ Include template files specifically
+recursive-include navigator/commands/templates *
+
+# Exclude unwanted files and directories
 global-exclude *.pyc
-# Exclude directories
+global-exclude *.pyo
+global-exclude *.orig
+global-exclude *.rej
+global-exclude __pycache__
+
+# Exclude directories (use prune for directories)
 prune videos
 prune examples
 prune docs
@@ -17,7 +52,6 @@ prune env
 prune resources
 prune dist
 prune plugins
-
-# unwanted directories
 prune tests
+prune .git*
 prune *.egg-info

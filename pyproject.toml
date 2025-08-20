@@ -175,6 +175,9 @@ zip-safe = false
 [tool.setuptools.package-data]
 navigator = ["py.typed", "templates/**/*", "static/**/*"]
 
+[tool.setuptools.packages.find]
+exclude = ["contrib", "bin", "settings", "examples", "tests", "plugins"]
+
 [tool.setuptools_scm]
 write_to = "navigator/_version.py"
 

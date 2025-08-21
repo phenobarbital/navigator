@@ -300,6 +300,8 @@ class BaseHandler(ABC):
             )
             return None
 
+    json = get_json
+
     async def body(self, request: web.Request = None) -> str:
         body = None
         if not request:

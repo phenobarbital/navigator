@@ -51,6 +51,7 @@ from .types import WebApp
 
 from .applications.base import BaseApplication
 from .applications.startup import ApplicationInstaller
+from .routes import path
 
 
 FORCED_CIPHERS = (
@@ -173,8 +174,8 @@ class Application(BaseApplication):
                 ":: Enabling WebSockets ::"
             )
         # websockets
-        path = f"/{base_path}/"
-        app.router.add_view(f"{path}{{channel}}", WebSocketHandler)
+        _path = f"/{base_path}/"
+        app.router.add_view(f"{_path}{{channel}}", WebSocketHandler)
 
     def add_routes(self, routes: list) -> None:
         """
@@ -183,6 +184,9 @@ class Application(BaseApplication):
         """
         # TODO: avoid to add same route different times
         try:
+            if isinstance(routes[0], path):
+                # If routes is a list of path objects, convert then to aiohttp routes:
+                routes = [route.to_aiohttp() for route in routes if isinstance(route, path)]
             self.handler.add_routes(routes)
         except Exception as ex:
             raise NavException(f"Error adding routes: {ex}") from ex
@@ -638,7 +642,7 @@ class Application(BaseApplication):
     async def _run_unix(
         self,
         app: web.Application,
-        path: Union[str, Path],
+        unix_path: Union[str, Path],
         **kwargs
     ) -> None:
         """Run application with Unix domain socket transport.
@@ -649,14 +653,14 @@ class Application(BaseApplication):
             **kwargs: Additional arguments for UnixSite
         """
         try:
-            # Ensure path is a Path object
-            if isinstance(path, str):
-                path = Path(path)
+            # Ensure unix_path is a Path object
+            if isinstance(unix_path, str):
+                unix_path = Path(unix_path)
 
             # Remove existing socket file if it exists
-            if path.exists():
-                path.unlink()
-                self.logger.debug(f"Removed existing socket: {path}")
+            if unix_path.exists():
+                unix_path.unlink()
+                self.logger.debug(f"Removed existing socket: {unix_path}")
 
             # Create and setup runner
             self._runner = web.AppRunner(

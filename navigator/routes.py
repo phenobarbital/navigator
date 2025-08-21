@@ -51,7 +51,7 @@ def get_resource(
     return rq
 
 
-class path(object):
+class path:
     """path.
 
     Description:
@@ -78,6 +78,22 @@ class path(object):
         self.url = url
         self.handler = handler
         self.name = name
+
+    def to_aiohttp(self) -> web.RouteDef:
+        """
+        Convert the path object to an aiohttp RouteDef.
+
+        Returns:
+            web.RouteDef: The aiohttp route definition.
+        """
+        return web.RouteDef(
+            method=self.method,
+            path=self.url,
+            handler=self.handler,
+            kwargs={
+                'name': self.name
+            }
+        )
 
 
 def class_url(

@@ -17,7 +17,7 @@ from ...extensions import BaseExtension
 from ...exceptions import ConfigError
 
 # Regular expression to parse the Accept-Language HTTP header
-locale_finder = re.compile(r'([a-zA-Z]{2,3}(?:[_-][a-zA-Z]{2})?)(?:;q=(\d\.\d))?')
+_lang_re = re.compile(r'(?P<tag>[A-Za-z]{1,8}(?:[-_][A-Za-z0-9]{1,8})*)(?:\s*;\s*q=(?P<q>0(?:\.\d+)?|1(?:\.0+)?))?')
 
 class LocaleSupport(BaseExtension):
     """LocaleSupport.
@@ -164,6 +164,8 @@ class LocaleSupport(BaseExtension):
             # Don't raise the error - just log it and continue with minimal functionality
             self.translation = gettext.NullTranslations()
             self._locale = Locale('en', 'US')
+        ## calling parent Setup:
+        super(LocaleSupport, self).setup(app)
 
     async def on_startup(self, app: WebApp) -> None:
         """Install fallback gettext translations into Jinja2 if present.
@@ -244,90 +246,55 @@ class LocaleSupport(BaseExtension):
         """Alias for trans() for backward compatibility."""
         return self.trans()
 
-    def parse_accept_language(self, accept_language: str):
-        """Parse the Accept-Language header into a list of locales.
-
-        The header is sorted by the quality factor (q parameter).
-        """
-        if not accept_language:
+    def parse_accept_language(self, header: str):
+        if not header:
             return [self.localization[0] if self.localization else 'en']
-
-        try:
-            # Find all matches
-            locales = locale_finder.findall(accept_language)
-            # Sort by q value (quality), highest first
-            sorted_locales = sorted(
-                locales, key=lambda x: float(x[1]) if x[1] else 1.0, reverse=True
-            )
-            # Convert hyphens to underscores
-            locales = [
-                loc.replace('-', '_') for loc, _ in sorted_locales if loc is not None
-            ]
-            if not locales:
-                # If nothing matches the pattern, simply normalise the header string
-                locales = [accept_language.replace('-', '_')]
-            return locales
-        except Exception:
-            # Fallback if parsing fails
+        items = []
+        for m in _lang_re.finditer(header):
+            tag = m.group('tag').replace('-', '_')
+            q = float(m.group('q')) if m.group('q') else 1.0
+            items.append((tag, q))
+        if not items:
             return [self.localization[0] if self.localization else 'en']
+        items.sort(key=lambda x: x[1], reverse=True)
+        seen = set(); ordered = []
+        for t, _ in items:
+            if t not in seen:
+                seen.add(t); ordered.append(t)
+        return ordered
 
-    def get_translator_for_request(self, lang: str = None) -> Callable[[str], str]:
-        """Return a gettext function for a particular request.
-
-        Determine the best language from the Accept-Language header and load
-        the appropriate translation. If no translation is found, use the
-        fallback translator.
-        """
+    def get_translator_for_request(self, lang: str = None):
         try:
-            selected_locales = None
-
             if lang:
-                langs = self.parse_accept_language(lang)
-                # If parse returns a list, use the first entry; otherwise use it directly
-                if not langs:
-                    selected_locales = [self.localization[0] if self.localization else 'en']
-                elif isinstance(langs, list):
-                    selected_locales = [langs[0]]
-                else:
-                    selected_locales = [langs]
+                requested = self.parse_accept_language(lang)
             else:
-                selected_locales = [self.localization[0] if self.localization else 'en']
+                requested = list(self.localization) if self.localization else ['en']
 
-            # Manual fixes for Chinese locales used by gettext/Babel
-            if selected_locales[0] == 'zh_CN':
-                selected_locales[0] = 'zh_Hans_CN'
-            elif selected_locales[0] == 'zh_TW':
-                selected_locales[0] = 'zh_Hant_TW'
+            # Normalize Chinese
+            requested = [('zh_Hans_CN' if l == 'zh_CN' else 'zh_Hant_TW' if l == 'zh_TW' else l)
+                        for l in requested]
 
-            try:
-                if self.locale_path and self.locale_path.exists():
-                    trans = support.Translations.load(
-                        str(self.locale_path),
-                        domain=self.domain,
-                        locales=selected_locales,
-                        fallback=True
-                    )
-                    return trans.gettext
-                else:
-                    return self.translation.gettext if self.translation else lambda x: x
-            except Exception as ex:
-                self.logger.warning(
-                    f"LocaleSupport: Could not load domain file for {self.domain}: {ex}"
+            if self.locale_path and self.locale_path.exists():
+                trans = support.Translations.load(
+                    str(self.locale_path),
+                    domain=self.domain,
+                    locales=requested,
+                    fallback=True
                 )
-                return self.translation.gettext if self.translation else lambda x: x
-
+                return trans.gettext
+            return self.translation.gettext if self.translation else (lambda x: x)
         except Exception as err:
             self.logger.error(f"LocaleSupport: Error in get_translator_for_request: {err}")
-            return lambda x: x  # Ultimate fallback
+            return (lambda x: x)
 
-    def translator(
-        self,
-        domain: Union[str, None] = None,
-        locale: Union[Locale, None] = None,
-        lang: str = None
-    ) -> Callable[[str], str]:
-        """Return a gettext function for the given language.
-
-        This is a backwards-compatible wrapper around get_translator_for_request().
-        """
+    def translator(self, domain: Union[str, None] = None, locale=None, lang: str = None):
+        if domain and domain != self.domain:
+            def _for_domain(s: str):
+                trans = support.Translations.load(
+                    str(self.locale_path), domain=domain,
+                    locales=self.parse_accept_language(lang) if lang else self.localization or ['en'],
+                    fallback=True
+                )
+                return trans.gettext(s)
+            return _for_domain
         return self.get_translator_for_request(lang)

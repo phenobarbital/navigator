@@ -477,30 +477,95 @@ class AbstractModel(BaseView):
                 locale = None
             if BABEL_INSTALLED is True and locale:
                 try:
-                    lang = self.request.headers.get(
-                        'Accept-Language',
-                        locale.current_locale()
-                    )
-                    if isinstance(lang, tuple):
-                        lang = lang[0]
-                    try:
-                        trans = locale.translator(lang=lang)
-                    except babel.core.UnknownLocaleError as exc:
-                        trans = locale.translator(lang='en_US')
-                        self.logger.warning(
-                            f"Unable to load Language, defaulting to en_US, {exc}"
-                        )
-                    # returning JSON schema of Model:
-                    response = self.get_model.schema(as_dict=True, locale=trans)
-                    self.logger.info(
-                        f"Model {self.get_model} translated to {lang}"
-                    )
+                    # make language chain languages candidates
+                    hdr = self.request.query.get('lang') or self.request.headers.get('Accept-Language')
+
+                    def parse_accept_language(header: str):
+                        if not header:
+                            return []
+                        import re
+                        rx = re.compile(r'([A-Za-z]{1,8}(?:[-_][A-Za-z0-9]{1,8})*)(?:\s*;\s*q=(0(?:\.\d+)?|1(?:\.0+)?))?')
+                        items = []
+                        for m in rx.finditer(header):
+                            tag = m.group(1).replace('-', '_')
+                            q = float(m.group(2)) if m.group(2) else 1.0
+                            items.append((tag, q))
+                        items.sort(key=lambda x: x[1], reverse=True)
+                        seen = set(); ordered = []
+                        for t, _ in items:
+                            if t not in seen:
+                                seen.add(t); ordered.append(t)
+                        return ordered
+
+                    candidates = parse_accept_language(hdr) if hdr else []
+                    # add app fallback and defaults comucommons
+                    configured = getattr(locale, "localization", None) or []
+                    if isinstance(configured, str):
+                        configured = [configured]
+                    candidates += [c.replace('-', '_') for c in configured]
+                    candidates += ['en_US', 'en', 'es_ES', 'es']
+
+                    # normalize
+                    norm = []
+                    seen = set()
+                    for code in candidates:
+                        if not code:
+                            continue
+                        code = code.replace('-', '_')
+                        for cand in (code, code.split('_')[0]):
+                            if cand and cand not in seen:
+                                seen.add(cand); norm.append(cand)
+
+                    import gettext
+                    from babel import support
+
+                    trans_fn = None
+                    last_err = None
+
+                    for code in norm:
+                        try:
+                            # First Babel
+                            t = support.Translations.load(
+                                dirname=str(locale.locale_path),
+                                domain=locale.domain,
+                                locales=[code]
+                            )
+                            trans_fn = t.gettext
+                            self.logger.debug(f"i18n: using Babel catalog {code}")
+                            break
+                        except Exception as e_babel:
+                            last_err = e_babel
+                            # them gettext with fallback=True
+                            try:
+                                g = gettext.translation(
+                                    locale.domain,
+                                    localedir=str(locale.locale_path),
+                                    languages=[code],
+                                    fallback=True
+                                )
+                                trans_fn = g.gettext
+                                self.logger.debug(f"i18n: using gettext catalog {code}")
+                                break
+                            except Exception as e_gettext:
+                                last_err = e_gettext
+                                continue
+
+                    if trans_fn is None:
+                        self.logger.warning(f"i18n: without available catalog. last error: {last_err!r}")
+                        trans_fn = (lambda s: s)  # neutro
+                    # Break cache
+                    if hasattr(self.model, '__computed_schema__'):
+                        try:
+                            delattr(self.model, '__computed_schema__')
+                        except Exception:
+                            setattr(self.model, '__computed_schema__', None)
+                    # Get JSON schema translated
+                    response = self.model.schema(as_dict=True, locale=trans_fn)
+                    self.logger.info(f"Model {self.model.modelName} translate with locales {norm!r}")
                     return self.json_response(response)
 
                 except Exception as exc:
-                    self.logger.warning(
-                        str(exc)
-                    )
+                    self.logger.warning(f"i18n: {exc}")
             else:
                 # returning JSON schema of Model:
                 response = self.model.schema(as_dict=True)

@@ -497,9 +497,9 @@ class AbstractModel(BaseView):
                         except Exception:
                             setattr(self.model, '__computed_schema__', None)
                     # Get JSON schema translated
-                    response = self.get_model.schema(as_dict=True, locale=trans)
+                    response = self.model.schema(as_dict=True, locale=trans)
                     self.logger.info(
-                        f"Model {self.get_model.modelName} translated to {lang}"
+                        f"Model {self.model.modelName} translated to {lang}"
                     )
                     return self.json_response(response)
 

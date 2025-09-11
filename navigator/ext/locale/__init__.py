@@ -45,6 +45,7 @@ class LocaleSupport(BaseExtension):
         self._locale: Callable = None
         self.locale_path = locale_path
         self.translation: Optional[gettext.NullTranslations] = None
+        self._trans_cache: dict = {}
 
         # Ensure the locale_path is a Path object
         if isinstance(self.locale_path, str):
@@ -135,12 +136,21 @@ class LocaleSupport(BaseExtension):
             # Load a fallback translation for the first localisation
             try:
                 if self.locale_path and self.locale_path.exists():
-                    self.translation = gettext.translation(
-                        domain=self.domain,
-                        localedir=str(self.locale_path),
-                        languages=[self.localization[0]] if self.localization else ['en'],
-                        fallback=True
-                    )
+                    self._trans_cache[self.domain] = {}
+                    for locale in self.localization:
+                        self._trans_cache[self.domain][locale] = gettext.translation(
+                            domain=self.domain,
+                            localedir=str(self.locale_path),
+                            languages=[locale],
+                            fallback=True
+                        )
+                        self.logger.debug(
+                            f"LocaleSupport: Loaded {locale} for domain {self.domain}")
+                    if any(loc == requested[0] for loc in self.localization):
+                        key = requested[0]
+                    else:
+                        key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{requested[0]}_")), 'en')
+                    self.translation = self._trans_cache[self.domain][key]
                     self.logger.debug(
                         f"LocaleSupport: Loaded translation for {self.localization[0] if self.localization else 'en'}")
                 else:
@@ -273,13 +283,11 @@ class LocaleSupport(BaseExtension):
             # Normalize Chinese
             requested = [('zh_Hans_CN' if l == 'zh_CN' else 'zh_Hant_TW' if l == 'zh_TW' else l)
                         for l in requested]
-            if self.locale_path and self.locale_path.exists():
-                trans = support.Translations.load(
-                    str(self.locale_path),
-                    domain=self.domain,
-                    locales=[requested[0]] if any(loc == requested[0] or loc.startswith(f"{requested[0]}_") for loc in self.localization) else ['en']
-                )
-                return trans.gettext
+            if any(loc == requested[0] for loc in self.localization):
+                key = requested[0]
+            else:
+                key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{requested[0]}_")), 'en')
+            self.translation = self._trans_cache[self.domain][key]
             return self.translation.gettext if self.translation else (lambda x: x)
         except Exception as err:
             self.logger.error(f"LocaleSupport: Error in get_translator_for_request: {err}")

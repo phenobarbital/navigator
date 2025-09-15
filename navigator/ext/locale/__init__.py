@@ -137,6 +137,7 @@ class LocaleSupport(BaseExtension):
             try:
                 if self.locale_path and self.locale_path.exists():
                     self._trans_cache[self.domain] = {}
+                    print('LOCALES', self.localization)
                     for locale in self.localization:
                         self._trans_cache[self.domain][locale] = gettext.translation(
                             domain=self.domain,
@@ -146,13 +147,13 @@ class LocaleSupport(BaseExtension):
                         )
                         self.logger.debug(
                             f"LocaleSupport: Loaded {locale} for domain {self.domain}")
-                    if any(loc == requested[0] for loc in self.localization):
-                        key = requested[0]
+                    if any(loc == self._locale for loc in self.localization):
+                        key = self._locale
                     else:
-                        key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{requested[0]}_")), 'en')
+                        key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{self._locale}_")), 'en_US')
                     self.translation = self._trans_cache[self.domain][key]
                     self.logger.debug(
-                        f"LocaleSupport: Loaded translation for {self.localization[0] if self.localization else 'en'}")
+                        f"LocaleSupport: Loaded translation for {self._locale if self.localization else 'en_US'}")
                 else:
                     self.logger.warning(
                         f"LocaleSupport: Locale path {self.locale_path} does not exist, using NullTranslations"
@@ -258,14 +259,14 @@ class LocaleSupport(BaseExtension):
 
     def parse_accept_language(self, header: str):
         if not header:
-            return [self.localization[0] if self.localization else 'en']
+            return [self.localization[0] if self.localization else 'en_US']
         items = []
         for m in _lang_re.finditer(header):
             tag = m.group('tag').replace('-', '_')
             q = float(m.group('q')) if m.group('q') else 1.0
             items.append((tag, q))
         if not items:
-            return [self.localization[0] if self.localization else 'en']
+            return [self.localization[0] if self.localization else 'en_US']
         items.sort(key=lambda x: x[1], reverse=True)
         seen = set(); ordered = []
         for t, _ in items:
@@ -278,7 +279,7 @@ class LocaleSupport(BaseExtension):
             if lang:
                 requested = self.parse_accept_language(lang)
             else:
-                requested = list(self.localization) if self.localization else ['en']
+                requested = list(self.localization) if self.localization else ['en_US']
 
             # Normalize Chinese
             requested = [('zh_Hans_CN' if l == 'zh_CN' else 'zh_Hant_TW' if l == 'zh_TW' else l)
@@ -286,7 +287,7 @@ class LocaleSupport(BaseExtension):
             if any(loc == requested[0] for loc in self.localization):
                 key = requested[0]
             else:
-                key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{requested[0]}_")), 'en')
+                key = next((k for k, v in self._trans_cache[self.domain].items() if k.startswith(f"{requested[0]}_")), 'en_US')
             self.translation = self._trans_cache[self.domain][key]
             return self.translation.gettext if self.translation else (lambda x: x)
         except Exception as err:
@@ -298,7 +299,7 @@ class LocaleSupport(BaseExtension):
             def _for_domain(s: str):
                 trans = support.Translations.load(
                     str(self.locale_path), domain=domain,
-                    locales=self.parse_accept_language(lang) if lang else self.localization or ['en'],
+                    locales=self.parse_accept_language(lang) if lang else self.localization or ['en_US'],
                     fallback=True
                 )
                 return trans.gettext(s)

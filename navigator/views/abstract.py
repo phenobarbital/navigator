@@ -490,10 +490,16 @@ class AbstractModel(BaseView):
                         self.logger.warning(
                             f"Unable to load Language, defaulting to en_US, {exc}"
                         )
-                    # returning JSON schema of Model:
-                    response = self.get_model.schema(as_dict=True, locale=trans)
+                    # Break cache
+                    if hasattr(self.model, '__computed_schema__'):
+                        try:
+                            delattr(self.model, '__computed_schema__')
+                        except Exception:
+                            setattr(self.model, '__computed_schema__', None)
+                    # Get JSON schema translated
+                    response = self.model.schema(as_dict=True, locale=trans)
                     self.logger.info(
-                        f"Model {self.get_model} translated to {lang}"
+                        f"Model {self.model.modelName} translated to {lang}"
                     )
                     return self.json_response(response)
 

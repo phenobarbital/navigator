@@ -1,6 +1,6 @@
 import asyncio
 import datetime
-from typing import Any, Optional, Union, Tuple, List
+from typing import Any, Dict, Optional, Union, Tuple, List
 from collections.abc import Callable
 from abc import ABC
 import tempfile
@@ -471,16 +471,21 @@ class BaseHandler(ABC):
         form_key: Optional[str] = None,
         ext: str = '.csv',
         preserve_filenames: bool = True
-    ) -> Tuple[List[dict], dict]:
+    ) -> Tuple[Dict[str, List[dict]], dict]:
         """handle_upload.
 
         Description: Handle File Uploads.
 
         Args:
             request (Optional[web.Request], optional): Request Handler. Defaults to None.
+            form_key (Optional[str], optional): Filter by specific form field name.
+            ext (str): Default extension if none provided.
+            preserve_filenames (bool): Whether to preserve original filenames.
 
         Returns:
-            dict: File Uploaded (tempfile).
+            Tuple[Dict[str, List[dict]], dict]:
+                - Dictionary of uploaded files grouped by field name
+                - Dictionary of form fields
         """
         if not request:
             request = self.request
@@ -492,8 +497,10 @@ class BaseHandler(ABC):
                 text='Invalid Content-Type. Use multipart/form-data',
                 content_type='application/json'
             )
+
         form_data = {}
-        uploaded_files_info = []
+        uploaded_files_by_field = {}  # Changed: group by field name
+
         try:
             reader = await request.multipart()
         except KeyError:
@@ -502,8 +509,11 @@ class BaseHandler(ABC):
         # Process each part of the multipart request
         async for part in reader:
             if part.filename:
-                if form_key and part.name != form_key:
+                field_name = part.name  # Get the form field name
+
+                if form_key and field_name != form_key:
                     continue
+
                 # Create a temporary file for each uploaded file
                 file_ext = Path(part.filename).suffix or ext
                 if preserve_filenames:
@@ -516,6 +526,7 @@ class BaseHandler(ABC):
                         suffix=file_ext
                     ) as temp_file:
                         temp_file_path = Path(temp_file.name)
+
                 # Write the file content
                 with temp_file_path.open("wb") as f:
                     while True:
@@ -523,20 +534,28 @@ class BaseHandler(ABC):
                         if not chunk:
                             break
                         f.write(chunk)
+
                 # Get Content-Type header
                 mime_type = part.headers.get('Content-Type', '')
-                # Collect file info
-                uploaded_files_info.append({
+
+                # Collect file info grouped by field name
+                file_info = {
                     'file_path': temp_file_path,
                     'file_name': part.filename,
                     'mime_type': mime_type
-                })
+                }
+
+                # Add to the corresponding field list
+                if field_name not in uploaded_files_by_field:
+                    uploaded_files_by_field[field_name] = []
+                uploaded_files_by_field[field_name].append(file_info)
             else:
                 # If it's a form field, add it to the dictionary
                 form_field_name = part.name
                 form_field_value = await part.text()
                 form_data[form_field_name] = form_field_value
-        return uploaded_files_info, form_data
+
+        return uploaded_files_by_field, form_data
 
     async def delete_uploaded_files(self, file_paths: list):
         """delete_uploaded_files.

@@ -82,9 +82,10 @@ class ConnectionHandler:
                 return
         except (TypeError, KeyError):
             pass
-        if "database" in app or self._register in app:
+        if self._register in app:
             # there is already a connection enabled to this Class:
             logging.debug(f"There is already a connection enabled on {app!r}")
+            self.conn = app[self._register]
             # any callable will be launch on connection startup.
             if callable(self._startup_):
                 await self._startup_(app, self.conn)

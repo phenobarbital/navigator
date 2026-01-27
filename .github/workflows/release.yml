@@ -94,7 +94,7 @@ jobs:
         uses: pypa/cibuildwheel@v2.21.3
         env:
           CIBW_BUILD: cp${{ matrix.pyver }}-macosx_*
-          PIP_CONSTRAINT: /dev/null
+          CIBW_ENVIRONMENT_MACOS: "PIP_CONSTRAINT=/dev/null"
           CIBW_BEFORE_BUILD: >
             python -m pip install --upgrade pip &&
             pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0 &&

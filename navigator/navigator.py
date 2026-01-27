@@ -622,7 +622,7 @@ class Application(BaseApplication):
             self._sites.append(site)
 
             protocol = "https" if ssl_context else "http"
-            self.logger.notice(
+            self.logger.info(
                 f":: Navigator started on {protocol}://{host}:{port}"
             )
 

@@ -4,7 +4,7 @@ requires = [
     "setuptools_scm[toml]>=6.0",
     "Cython==3.0.11",
     "wheel>=0.44.0",
-    "python-datamodel>=0.10.17",
+    "python-datamodel>=0.10.19",
     "navconfig>=1.9.2",
     "aiohttp>=3.10.0",
 ]
@@ -88,7 +88,7 @@ dependencies = [
     "watchdog>=6.0.0",
     "navigator-session>=0.6.5",
     "navigator-auth>=0.15.8",
-    "python-datamodel>=0.10.17",
+    "python-datamodel>=0.10.19",
 ]
 dynamic = ["version"]
 
@@ -133,7 +133,7 @@ build = [
     "Cython==3.0.11",
     "wheel>=0.44.0",
     "build>=0.10.0",
-    "python-datamodel>=0.10.17",
+    "python-datamodel>=0.10.19",
     "navconfig>=1.9.2",
     "setuptools_scm[toml]>=6.0",
 ]

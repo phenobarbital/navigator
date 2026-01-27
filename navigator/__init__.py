@@ -29,8 +29,12 @@ from .version import (
     __copyright__,
     __license__
 )
-from .navigator import Application
-from .responses import Response
+try:
+    from .navigator import Application
+    from .responses import Response
+except (ImportError, Exception):
+    Application = None
+    Response = None
 try:
     from .utils.uv import install_uvloop
     install_uvloop()

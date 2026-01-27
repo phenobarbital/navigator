@@ -19,21 +19,18 @@ try:
     import sockjs
 except ImportError:
     sockjs = None
-try:
-    from navconfig.logging import logging
-except FileExistsError:
-    # NavConfig is not Installed:
-    import logging
-    logging.exception(
-        "NavConfig is not installed, please install it. "
-        "pip install navconfig[default]."
-    )
 
+import logging
+
+
+# Global Placeholder for Auth
+AUTH_INSTALLED = False
 try:
-    from navigator_auth.conf import exclude_list
+    import navigator_auth
     AUTH_INSTALLED = True
-except ImportError:
-    AUTH_INSTALLED = False
+except (ImportError, Exception):
+    pass
+
 
 from .exceptions.handlers import nav_exception_handler, shutdown
 from .handlers import BaseAppHandler
@@ -265,9 +262,12 @@ class Application(BaseApplication):
     def router(self):
         return self.get_app().router
 
-    def auth_excluded(self, route: str):
         if AUTH_INSTALLED:
-            exclude_list.append(route)
+            try:
+                from navigator_auth.conf import exclude_list
+                exclude_list.append(route)
+            except ImportError:
+                pass
 
     def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()

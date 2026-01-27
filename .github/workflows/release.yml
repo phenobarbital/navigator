@@ -36,19 +36,7 @@ jobs:
             python-version: "3.12"
             pyver: "312"
             platform: windows
-          # macOS builds
-          - os: macos-latest
-            python-version: "3.10"
-            pyver: "310"
-            platform: macos
-          - os: macos-latest
-            python-version: "3.11"
-            pyver: "311"
-            platform: macos
-          - os: macos-latest
-            python-version: "3.12"
-            pyver: "312"
-            platform: macos
+
 
     steps:
       - uses: actions/checkout@v4
@@ -89,18 +77,7 @@ jobs:
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
 
-      - name: Build wheels for macOS
-        if: matrix.platform == 'macos'
-        uses: pypa/cibuildwheel@v2.21.3
-        env:
-          CIBW_BUILD: cp${{ matrix.pyver }}-macosx_*
-          CIBW_ENVIRONMENT_MACOS: "PIP_CONSTRAINT=/dev/null"
-          CIBW_BEFORE_BUILD: >
-            python -m pip install --upgrade pip &&
-            pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0 &&
-            brew install postgresql openssl zlib || true
-          CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
+
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
@@ -158,12 +135,12 @@ jobs:
 
       - name: Organize artifacts by platform
         run: |
-          mkdir -p dist/linux dist/windows dist/macos dist/source
+          mkdir -p dist/linux dist/windows dist/source
 
           # Move artifacts to platform-specific directories
           find dist-artifacts -name '*-manylinux*.whl' -exec mv {} dist/linux/ \;
           find dist-artifacts -name '*-win*.whl' -exec mv {} dist/windows/ \;
-          find dist-artifacts -name '*-macosx*.whl' -exec mv {} dist/macos/ \;
+
           find dist-artifacts -name '*.tar.gz' -exec mv {} dist/source/ \;
 
           echo "=== Linux wheels (manylinux) ==="
@@ -172,8 +149,7 @@ jobs:
           echo "=== Windows wheels ==="
           ls -la dist/windows/ || echo "No Windows wheels found"
 
-          echo "=== macOS wheels ==="
-          ls -la dist/macos/ || echo "No macOS wheels found"
+
 
           echo "=== Source distribution ==="
           ls -la dist/source/ || echo "No source distribution found"
@@ -190,11 +166,7 @@ jobs:
           echo "Uploading Windows wheels..."
           uv tool run twine upload dist/windows/*-win*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
 
-      - name: Upload macOS wheels
-        if: hashFiles('dist/macos/*.whl') != ''
-        run: |
-          echo "Uploading macOS wheels..."
-          uv tool run twine upload dist/macos/*-macosx*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
 
       - name: Upload source distribution
         if: hashFiles('dist/source/*.tar.gz') != ''
@@ -207,7 +179,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        os: [ubuntu-latest, windows-latest]
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
@@ -290,7 +262,7 @@ jobs:
       - name: Test Results Summary
         run: |
           echo "## 🎉 Release Testing Complete"
-          echo "✅ Package successfully built for Linux, Windows, and macOS"
+          echo "✅ Package successfully built for Linux and Windows"
           echo "✅ Package uploaded to PyPI"
           echo "✅ Installation and import tests completed"
           echo ""

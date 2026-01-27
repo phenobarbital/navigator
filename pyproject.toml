@@ -66,7 +66,7 @@ dependencies = [
     "matplotlib>=3.8.3",
     "sockjs>=0.11.0",
     "aiohttp-sse>=2.2.0",
-    "asyncdb[uvloop,default,boto3]>=2.8.0",
+    "asyncdb[uvloop,default,boto3]>=2.13.1",
     "pyarrow>=17.0.0,<21.0.0",
     "navconfig[default]>=1.7.10",
     "aiohttp-cors==0.8.1",
@@ -130,8 +130,6 @@ build = [
     "Cython==3.0.11",
     "wheel>=0.44.0",
     "build>=0.10.0",
-    "python-datamodel>=0.10.19",
-    "navconfig>=1.9.2",
     "setuptools_scm[toml]>=6.0",
 ]
 
@@ -174,6 +172,11 @@ nav = "navigator.commands:main"
 packages = ["navigator"]
 include-package-data = true
 zip-safe = false
+
+[tool.uv]
+override-dependencies = [
+    "redis==5.2.1",
+]
 
 [tool.setuptools_scm]
 write_to = "navigator/_version.py"

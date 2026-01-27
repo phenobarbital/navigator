@@ -20,7 +20,6 @@ try:
 except ImportError:
     sockjs = None
 try:
-    from navconfig import config
     from navconfig.logging import logging
 except FileExistsError:
     # NavConfig is not Installed:
@@ -38,17 +37,12 @@ except ImportError:
 
 from .exceptions.handlers import nav_exception_handler, shutdown
 from .handlers import BaseAppHandler
-from .functions import cPrint
 from .exceptions import NavException, ConfigError, InvalidArgument
-
 # Template Extension.
 from .template import TemplateParser
-
 # websocket resources
 from .services.ws import WebSocketHandler
 from .types import WebApp
-
-
 from .applications.base import BaseApplication
 from .applications.startup import ApplicationInstaller
 from .routes import path
@@ -78,6 +72,7 @@ class Application(BaseApplication):
         template_dirs: list = None,
         **kwargs,
     ) -> None:
+        from navconfig import config  # pylint: disable=C0415
         super(Application, self).__init__(
             handler=handler,
             title=title,
@@ -123,6 +118,7 @@ class Application(BaseApplication):
             self.handler: BaseAppHandler = handler(Context, evt=self._loop)
 
     def setup_app(self) -> WebApp:
+        from navconfig import config  # pylint: disable=C0415
         app = self.handler.app
         if self.enable_jinja2 is True:
             try:

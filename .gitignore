@@ -166,3 +166,5 @@ nav.py
 test_*.py
 navigator_dev.code-workspace
 navigator.code-workspace
+pyproject.toml
+uv.lock

@@ -3,7 +3,7 @@
 #
 import asyncio
 from typing import Optional
-from navconfig import config, DEBUG
+from navconfig import DEBUG
 from navconfig.logging import logging, loglevel
 from ..types import WebApp
 from ..conf import (

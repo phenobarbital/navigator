@@ -219,14 +219,7 @@ class LocaleSupport(BaseExtension):
             )
             # Don't raise - just log and continue
 
-        # Call the parent startup handler if needed - wrap in try/catch
-        try:
-            await super(LocaleSupport, self).on_startup(app)
-        except Exception as parent_err:
-            self.logger.warning(
-                f"LocaleSupport: Error at on_startup: {parent_err}"
-            )
-            # Don't re-raise
+
 
     def trans(self) -> Callable[[str], str]:
         """Return the gettext function for the fallback translation."""

@@ -1,12 +1,8 @@
 [build-system]
-requires = [
     "setuptools>=67.6.1",
     "setuptools_scm[toml]>=6.0",
     "Cython==3.0.11",
     "wheel>=0.44.0",
-    "python-datamodel>=0.10.19",
-    "navconfig>=1.9.2",
-    "aiohttp>=3.10.0",
 ]
 build-backend = "setuptools.build_meta"
 

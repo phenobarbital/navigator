@@ -23,19 +23,7 @@ jobs:
             python-version: "3.12"
             pyver: "312"
             platform: linux
-          # Windows builds
-          - os: windows-latest
-            python-version: "3.10"
-            pyver: "310"
-            platform: windows
-          - os: windows-latest
-            python-version: "3.11"
-            pyver: "311"
-            platform: windows
-          - os: windows-latest
-            python-version: "3.12"
-            pyver: "312"
-            platform: windows
+
 
 
     steps:
@@ -67,15 +55,7 @@ jobs:
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
 
-      - name: Build wheels for Windows
-        if: matrix.platform == 'windows'
-        uses: pypa/cibuildwheel@v2.21.3
-        env:
-          CIBW_BUILD: cp${{ matrix.pyver }}-win_amd64
-          CIBW_BEFORE_BUILD: >
-            pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0
-          CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
+
 
 
 
@@ -135,19 +115,18 @@ jobs:
 
       - name: Organize artifacts by platform
         run: |
-          mkdir -p dist/linux dist/windows dist/source
+          mkdir -p dist/linux dist/source
 
           # Move artifacts to platform-specific directories
           find dist-artifacts -name '*-manylinux*.whl' -exec mv {} dist/linux/ \;
-          find dist-artifacts -name '*-win*.whl' -exec mv {} dist/windows/ \;
+
 
           find dist-artifacts -name '*.tar.gz' -exec mv {} dist/source/ \;
 
           echo "=== Linux wheels (manylinux) ==="
           ls -la dist/linux/ || echo "No Linux wheels found"
 
-          echo "=== Windows wheels ==="
-          ls -la dist/windows/ || echo "No Windows wheels found"
+
 
 
 
@@ -160,11 +139,7 @@ jobs:
           echo "Uploading Linux manylinux wheels..."
           uv tool run twine upload dist/linux/*-manylinux*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
 
-      - name: Upload Windows wheels
-        if: hashFiles('dist/windows/*.whl') != ''
-        run: |
-          echo "Uploading Windows wheels..."
-          uv tool run twine upload dist/windows/*-win*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
 
 
 
@@ -179,7 +154,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
@@ -262,7 +237,7 @@ jobs:
       - name: Test Results Summary
         run: |
           echo "## 🎉 Release Testing Complete"
-          echo "✅ Package successfully built for Linux and Windows"
+          echo "✅ Package successfully built for Linux"
           echo "✅ Package uploaded to PyPI"
           echo "✅ Installation and import tests completed"
           echo ""

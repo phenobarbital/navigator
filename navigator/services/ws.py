@@ -294,7 +294,9 @@ class WebSocketChannelManager:
         return ws
 
 
-class WebSocketHandler(web.View):
+from ..views.base import BaseView
+
+class WebSocketHandler(BaseView):
     """WebSocketHandler.
 
     WebSocketHandler is a class that handles websocket connections.

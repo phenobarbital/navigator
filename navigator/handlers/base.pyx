@@ -128,7 +128,7 @@ cdef class BaseAppHandler:
                     if inspect.isclass(route.handler) and issubclass(
                         route.handler, AbstractView
                     ):
-                        self.cors.add(route, webview=True)
+                        self.cors.add(route)
                     else:
                         self.cors.add(route)
             except (TypeError, ValueError, RuntimeError) as exc:
@@ -173,7 +173,7 @@ cdef class BaseAppHandler:
     def add_view(self, route: str, view: Callable) -> None:
         self.app.router.add_view(route, view)
         try:
-            self.cors.add(route, webview=True)
+            self.cors.add(route)
         except RuntimeError as ex:
             pass
 

@@ -816,12 +816,20 @@ class Application(BaseApplication):
                     loop.run_until_complete(self._graceful_shutdown())
 
                 if not loop.is_closed():
-                    pending = asyncio.all_tasks(loop)
+                    pending = [
+                        t for t in asyncio.all_tasks(loop)
+                        if not t.done()
+                    ]
                     for task in pending:
                         task.cancel()
-                    loop.run_until_complete(
-                        asyncio.gather(*pending, return_exceptions=True)
-                    )
+                    if pending:
+                        try:
+                            loop.run_until_complete(
+                                asyncio.gather(*pending, return_exceptions=True)
+                            )
+                        except (ValueError, RuntimeError):
+                            # Tasks may belong to a different loop after shutdown
+                            pass
                     loop.close()
 
         except Exception as err:

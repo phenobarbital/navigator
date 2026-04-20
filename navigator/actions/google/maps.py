@@ -2,6 +2,11 @@
 Google Maps API.
 
 Interface for interacting with Google Maps API.
+
+Heavy mapping dependencies (``polyline``, ``matplotlib``, ``cartopy``) have
+moved to the ``navigator-api[google]`` extra. They are imported lazily at
+first use via the ``_import_*`` helpers below, which raise a clear,
+actionable :class:`ImportError` when the extra is not installed.
 """
 import string
 import datetime
@@ -9,17 +14,55 @@ from datetime import timezone
 import urllib.parse
 import requests
 import pytz
-import polyline
 import aiohttp
-import matplotlib.pyplot as plt
-import matplotlib.colors as mcolors
-import cartopy.crs as ccrs
-import cartopy.io.img_tiles as cimgt
 from ...conf import BASE_DIR, TIMEZONE
 from .models import (
     TravelerSearch
 )
 from .libs import GoogleService
+
+
+_EXTRA_HINT = (
+    "Install the Google extras with: pip install 'navigator-api[google]'"
+)
+
+
+def _import_polyline():
+    """Return :mod:`polyline` (lazy) or raise a helpful ImportError."""
+    try:
+        import polyline  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"polyline is required for Google Maps route decoding. "
+            f"{_EXTRA_HINT}"
+        ) from exc
+    return polyline
+
+
+def _import_matplotlib():
+    """Return (``pyplot``, ``colors``) modules lazily."""
+    try:
+        import matplotlib.pyplot as plt  # type: ignore[import-not-found]
+        import matplotlib.colors as mcolors  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"matplotlib is required for plotting Google Maps routes. "
+            f"{_EXTRA_HINT}"
+        ) from exc
+    return plt, mcolors
+
+
+def _import_cartopy():
+    """Return (``crs``, ``img_tiles``) modules lazily."""
+    try:
+        import cartopy.crs as ccrs  # type: ignore[import-not-found]
+        import cartopy.io.img_tiles as cimgt  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"cartopy is required for rendering Google Maps backgrounds. "
+            f"{_EXTRA_HINT}"
+        ) from exc
+    return ccrs, cimgt
 
 class LocationError(Exception):
     pass
@@ -98,6 +141,8 @@ class Route(GoogleService):
     Offers methods for plotting routes and generating static maps.
     """
     def plot_route(self, decoded_polyline):
+        plt, _mcolors = _import_matplotlib()
+        ccrs, cimgt = _import_cartopy()
         # Generate a unique filename with timestamp
         timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         output_file = BASE_DIR.joinpath(
@@ -138,6 +183,7 @@ class Route(GoogleService):
     ):
         """Generating a list of gradient colors.
         """
+        _plt, mcolors = _import_matplotlib()
         start_color = start_color.replace('0x', '#')
         end_color = end_color.replace('0x', '#')
         start_rgb = mcolors.hex2color(start_color)
@@ -290,6 +336,7 @@ class Route(GoogleService):
             if result['status'] == 'OK':
                 # Extracting route, duration, and distance information
                 route = result['routes'][0]
+                polyline = _import_polyline()
                 encoded_polyline = route['overview_polyline']['points']
                 decoded_polyline = polyline.decode(encoded_polyline)
                 map_url = self.get_google_map(

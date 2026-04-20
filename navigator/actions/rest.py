@@ -13,14 +13,50 @@ from requests.exceptions import HTTPError
 import httpx
 import aiohttp
 from aiohttp import BasicAuth
-# processing the response:
-from bs4 import BeautifulSoup as bs
 from lxml import html, etree
-from proxylists.proxies import FreeProxy
 from datamodel.parsers.json import JSONContent
 from asyncdb.utils.functions import cPrint
 from ..exceptions import ConfigError
 from .abstract import AbstractAction
+
+
+# ---------------------------------------------------------------------------
+# Lazy-imported scraping dependencies.
+#
+# ``beautifulsoup4`` and ``proxylists`` moved from the base install to the
+# ``navigator-api[scraping]`` extra in spec FEAT-001 / TASK-004. They are
+# still used heavily inside ``RESTAction`` methods, so we bind them
+# on-demand via these helpers instead of at module import time.
+# ---------------------------------------------------------------------------
+
+_SCRAPING_HINT = (
+    "Install the scraping extras with: "
+    "pip install 'navigator-api[scraping]'"
+)
+
+
+def _import_beautifulsoup():
+    """Return ``BeautifulSoup`` class (lazy import)."""
+    try:
+        from bs4 import BeautifulSoup  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"beautifulsoup4 is required for HTML parsing in "
+            f"RESTAction. {_SCRAPING_HINT}"
+        ) from exc
+    return BeautifulSoup
+
+
+def _import_freeproxy():
+    """Return ``FreeProxy`` class (lazy import)."""
+    try:
+        from proxylists.proxies import FreeProxy  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"proxylists is required for proxy listing in "
+            f"RESTAction. {_SCRAPING_HINT}"
+        ) from exc
+    return FreeProxy
 
 
 class RESTAction(AbstractAction):
@@ -90,6 +126,7 @@ class RESTAction(AbstractAction):
         """
         Asynchronously retrieves a list of free proxies.
         """
+        FreeProxy = _import_freeproxy()
         return await FreeProxy().get_list()
 
     def build_url(self, url, queryparams: str = None, args: dict = None):
@@ -230,10 +267,17 @@ class RESTAction(AbstractAction):
                 if error:
                     if isinstance(error, BaseException):
                         raise error
-                    elif isinstance(error, bs):
+                    # ``error`` may be a BeautifulSoup instance when the
+                    # response was parsed as HTML. Import lazily so
+                    # environments without the scraping extras still
+                    # reach this branch.
+                    try:
+                        BeautifulSoup = _import_beautifulsoup()
+                    except ImportError:
+                        BeautifulSoup = ()  # disables isinstance() cleanly
+                    if isinstance(error, BeautifulSoup):
                         return (result, error)
-                    else:
-                        raise ConfigError(str(error))
+                    raise ConfigError(str(error))
                 ## saving last execution parameters:
                 self._last_execution = {
                     "url": self.url,
@@ -350,7 +394,7 @@ class RESTAction(AbstractAction):
                         # html parser for lxml
                         self._parser = html.fromstring(response.text)
                         # Returning a BeautifulSoup parser
-                        self._bs = bs(response.text, 'html.parser')
+                        self._bs = _import_beautifulsoup()(response.text, 'html.parser')
                         result = self._bs
                     except (AttributeError, ValueError) as e:
                         error = e
@@ -368,13 +412,13 @@ class RESTAction(AbstractAction):
                         self._logger.error(e)
                         # is not an json, try first with beautiful soup:
                         try:
-                            self._bs = bs(response.text, 'html.parser')
+                            self._bs = _import_beautifulsoup()(response.text, 'html.parser')
                             result = self._bs
                         except (AttributeError, ValueError) as ex:
                             error = ex
                 else:
                     try:
-                        self._bs = bs(response.text, 'html.parser')
+                        self._bs = _import_beautifulsoup()(response.text, 'html.parser')
                     except (AttributeError, ValueError) as ex:
                         error = ex
                     result = response.text
@@ -594,7 +638,7 @@ class RESTAction(AbstractAction):
                     # html parser for lxml
                     self._parser = html.fromstring(result)
                     # BeautifulSoup parser
-                    self._bs = bs(await response.text(), 'html.parser')
+                    self._bs = _import_beautifulsoup()(await response.text(), 'html.parser')
                     result = self._bs
                 except Exception as e:
                     error = e
@@ -613,7 +657,7 @@ class RESTAction(AbstractAction):
                     )
                     # is not an json, try first with beautiful soup:
                     try:
-                        self._bs = bs(await response.text(), 'html.parser')
+                        self._bs = _import_beautifulsoup()(await response.text(), 'html.parser')
                         result = self._bs
                     except Exception:
                         error = e

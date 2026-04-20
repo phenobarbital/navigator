@@ -2,6 +2,14 @@
 GCSFileManager.
 
 Exposing Files stored in Google Cloud Storage as static File Manager.
+
+The ``google-cloud-*`` and ``google-auth`` libraries moved from the base
+install to the ``navigator-api[google]`` extra in spec FEAT-001 /
+TASK-004, so they are imported lazily inside ``GCSFileManager.__init__``.
+Importing this module without the extras installed is safe — the
+``ImportError`` is only raised when a user actually constructs a
+``GCSFileManager`` instance, with a message that points them at the
+right pip extra.
 """
 from typing import Union, Any
 import os
@@ -9,12 +17,32 @@ from datetime import datetime, timedelta, timezone
 from pathlib import PurePath
 from urllib.parse import quote, urljoin
 from aiohttp import web
-import google.auth
-from google.cloud import storage
-from google.oauth2 import service_account
 from navconfig.logging import logging
 from ...types import WebApp
 from ...applications.base import BaseApplication
+
+
+_GCS_HINT = (
+    "Install the Google extras with: pip install 'navigator-api[google]'"
+)
+
+
+def _import_google_cloud():
+    """Return (``google.auth``, ``storage``, ``service_account``) lazily.
+
+    Raises :class:`ImportError` with a clear remediation hint if the
+    ``navigator-api[google]`` extras are not installed.
+    """
+    try:
+        import google.auth  # type: ignore[import-not-found]
+        from google.cloud import storage  # type: ignore[import-not-found]
+        from google.oauth2 import service_account  # type: ignore[import-not-found]
+    except ImportError as exc:
+        raise ImportError(
+            f"google-cloud-storage / google-auth are required by "
+            f"GCSFileManager. {_GCS_HINT}"
+        ) from exc
+    return google.auth, storage, service_account
 
 
 class GCSFileManager:
@@ -38,6 +66,7 @@ class GCSFileManager:
             credentials (google.auth.credentials.Credentials, optional):
             The credentials to use.
         """
+        google_auth, storage, service_account = _import_google_cloud()
         self.app = None
         self.route = route
         self.base_url = None
@@ -60,7 +89,7 @@ class GCSFileManager:
                 credentials
             )
         else:
-            self.credentials, self.project = google.auth.default(
+            self.credentials, self.project = google_auth.default(
                 scopes=['https://www.googleapis.com/auth/cloud-platform']
             )
         if self.scopes:

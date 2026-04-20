@@ -50,25 +50,19 @@ classifiers = [
     "License :: OSI Approved :: BSD License",
 ]
 requires-python = ">=3.10"
+# Base dependencies — only what navigator-api itself imports unconditionally.
+# Heavy / optional integrations live in the extras below. See spec FEAT-001 §4
+# for the full rationale.
 dependencies = [
     "Cython>=3.0.11",
-    "aiohttp[speedups]>=3.10.0",
-    "PySocks>=1.7.1",
+    "aiohttp[speedups]>=3.13.0",
     "asn1crypto>=1.4.0",
     "jinja2>=3.1.6",
-    "psycopg2-binary>=2.9.9",
-    "aiosocks>=0.2.6",
     "python-slugify>=8.0.1",
-    "proxylists>=0.12.4",
     "httpx>=0.25.0,<=0.28.1",
-    "beautifulsoup4>=4.12.3",
-    "polyline>=2.0.1",
-    "cartopy>=0.22.0",
-    "matplotlib>=3.8.3",
     "sockjs>=0.11.0",
     "aiohttp-sse>=2.2.0",
     "asyncdb[uvloop,default,boto3]>=2.13.1",
-    "pyarrow>=17.0.0,<21.0.0",
     "navconfig[default]>=1.7.10",
     "aiohttp-cors==0.8.1",
     "brotli>=1.1.0",
@@ -76,9 +70,6 @@ dependencies = [
     "aiofile>=3.9.0",
     "psutil>=6.0.0",
     "aiormq>=6.8.1",
-    "Faker>=22.2.0",
-    "google-cloud-core>=2.4.0,<=2.4.3",
-    "google-cloud-storage>=2.19.0,<=3.1.0",
     "cloudpickle>=3.0.0",
     "async-timeout>=4.0.3",
     "msgpack>=1.1.0",
@@ -108,6 +99,31 @@ gunicorn = [
 production = [
     "uvloop>=0.21.0",
     "gunicorn>=23.0.0"
+]
+
+# Heavy Google integrations: Maps drawing (cartopy/matplotlib), polyline
+# decoding, and GCS client libraries. Consumed by
+# navigator.actions.google.* and navigator.utils.file.gcs via lazy imports.
+google = [
+    "cartopy>=0.22.0",
+    "matplotlib>=3.8.3",
+    "polyline>=2.0.1",
+    "google-cloud-core>=2.4.0,<=2.4.3",
+    "google-cloud-storage>=2.19.0,<=3.1.0",
+]
+
+# HTTP scraping support — BeautifulSoup, proxy helpers, and SOCKS transport.
+# Consumed by navigator.actions.rest (lazy-imported).
+scraping = [
+    "beautifulsoup4>=4.12.3",
+    "proxylists>=0.12.4",
+    "PySocks>=1.7.1",
+    "aiosocks>=0.2.6",
+]
+
+# Test-data generators (distinct from [test] which pulls pytest/coverage).
+testing = [
+    "Faker>=22.2.0",
 ]
 
 
@@ -155,7 +171,7 @@ docs = [
 
 # All optional dependencies
 all = [
-    "navigator-api[locale,memcache,uvloop,gunicorn]"
+    "navigator-api[locale,memcache,uvloop,gunicorn,google,scraping,testing]"
 ]
 
 [project.urls]

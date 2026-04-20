@@ -248,7 +248,7 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": [
@@ -262,7 +262,8 @@
       "parallelism_notes": "Depends on all managers existing.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-016-factory.md"
+      "file": "sdd/tasks/completed/TASK-016-factory.md",
+      "completed_at": "2026-04-20T01:05:00Z"
     },
     {
       "id": "TASK-017",

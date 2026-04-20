@@ -71,4 +71,4 @@ When you pick up this task:
 ---
 
 ## Completion Note
-*(Agent fills this in when done)*
+FileManagerFactory created with create(type, **kwargs). Supports local/temp (eager) and s3/gcs (lazy via importlib). Raises ValueError for unknown types. All 4 manager types supported.

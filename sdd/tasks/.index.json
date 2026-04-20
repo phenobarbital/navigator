@@ -464,7 +464,7 @@
       "feature_id": "FEAT-004",
       "feature": "new-backgroundqueue-tasker",
       "spec": "sdd/specs/new-backgroundqueue-tasker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": ["TASK-024", "TASK-025"],
@@ -472,7 +472,9 @@
       "parallelism_notes": "Depends on TaskWrapper remote mode from TASK-025.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T22:00:00Z",
-      "file": "sdd/tasks/active/TASK-026-service-integration.md"
+      "completed_at": "2026-04-21T00:05:00Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-026-service-integration.md"
     },
     {
       "id": "TASK-027",

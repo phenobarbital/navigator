@@ -194,4 +194,21 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+Modified `navigator/background/service/__init__.py`:
+
+- `BackgroundService.submit()` now pops `remote_mode` (default `"run"`),
+  `worker_list` (default `None`), and `remote_timeout` (default `5`)
+  from `**kwargs` right after the existing `execution_mode` extraction.
+- The extracted values are forwarded explicitly to the new
+  `TaskWrapper(..., remote_mode=..., worker_list=..., remote_timeout=...)`
+  keyword arguments (added by TASK-025).
+- Docstring updated to document the three new optional kwargs.
+- The spec suggested caching a shared `QWorkerTasker` on the service;
+  TASK-026 explicitly states "Prefer the simpler approach" — letting
+  TaskWrapper lazy-create its own `QWorkerTasker` — and that's what we
+  did. QClient opens connections per-call, so there is no persistent
+  resource to share.
+- Behaviour for existing `same_loop` / `thread` modes is unchanged —
+  all 7 tests in `tests/test_background_service.py` still pass.
+
+**Verified at commit:** `b8be659`

@@ -99,7 +99,7 @@
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": [
@@ -109,7 +109,8 @@
       "parallelism_notes": "Must know which Cython modules survived TASK-002 before creating stubs.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-006-cython-stubs.md"
+      "completed_at": "2026-04-20T17:39:50Z",
+      "file": "sdd/tasks/completed/TASK-006-cython-stubs.md"
     },
     {
       "id": "TASK-007",

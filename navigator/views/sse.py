@@ -49,7 +49,10 @@ class SSEView(BaseView):
     application under the ``'sse_manager'`` key.
     """
 
-    logger = logging.getLogger("navigator.SSEView")
+    # Use the module-qualified name to match the rest of the codebase
+    # (``logging.getLogger(__name__)``) — makes log filtering by logger
+    # name predictable (``navigator.views.sse``).
+    logger = logging.getLogger(__name__)
 
     # ------------------------------------------------------------------
     # SSEManager access (mirrors SSEMixin.sse_manager at line 49-57
@@ -195,10 +198,24 @@ class SSEView(BaseView):
         Subclasses can override this to integrate with JWT, OAuth2, or
         other identity schemes.
         """
+        # ``BaseHandler.session()`` wraps session-backend errors (e.g.
+        # ``RuntimeError: Missing Configuration of Session Storage``) in
+        # an ``HTTPInternalServerError`` via ``self.critical()``. We
+        # downgrade those to anonymous access so environments without
+        # ``navigator-session`` still serve the SSE endpoint.
+        #
+        # Deliberately *not* catching every ``HTTPException``: 401 / 403
+        # raised by auth middlewares must propagate to the client.
         try:
             session = await self.session()
-        except Exception as exc:  # pragma: no cover — auth layer noise
-            self.logger.debug("SSEView session lookup failed: %s", exc)
+        except (LookupError, RuntimeError, ConnectionError) as exc:
+            self.logger.warning("SSEView session lookup failed: %s", exc)
+            session = None
+        except web.HTTPInternalServerError as exc:
+            self.logger.warning(
+                "SSEView session backend misconfigured, serving anonymously: %s",
+                exc.reason,
+            )
             session = None
 
         if session and "user_id" in session:

@@ -24,7 +24,6 @@ from ..conf import (
     APP_PORT,
     EMAIL_CONTACT,
     USE_SSL,
-    Context,  # noqa: F401 — re-exported for backward compat
 )
 from ..handlers.base import BaseAppHandler
 from ..types import WebApp

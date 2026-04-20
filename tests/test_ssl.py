@@ -18,6 +18,7 @@ never hit the network or touch files that must be committed.
 """
 from __future__ import annotations
 
+import socket
 import ssl
 import types
 from pathlib import Path
@@ -26,6 +27,19 @@ import pytest
 from aiohttp import ClientSession, TCPConnector, web
 
 from navigator import navigator as nav_mod
+
+
+def _pick_free_port() -> int:
+    """Return an OS-assigned free TCP port on 127.0.0.1.
+
+    Avoids reaching into ``TCPSite._server`` (private attribute that can
+    churn across aiohttp releases) and works the same on every platform.
+    A narrow race window exists between close and the server binding, but
+    it is negligible for local test runs.
+    """
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return sock.getsockname()[1]
 
 
 # ---------------------------------------------------------------------------
@@ -174,18 +188,16 @@ class TestHTTPSServer:
 
         app.router.add_get("/ping", _ping)
 
+        port = _pick_free_port()
         runner = web.AppRunner(app, handle_signals=False)
         await runner.setup()
         site = web.TCPSite(
             runner,
             host="127.0.0.1",
-            port=0,  # let the OS choose a free port
+            port=port,
             ssl_context=server_ssl_ctx,
         )
         await site.start()
-
-        # Retrieve the bound port from the TCPSite's server.
-        port = site._server.sockets[0].getsockname()[1]  # type: ignore[attr-defined]
 
         try:
             connector = TCPConnector(ssl=client_ssl_ctx)
@@ -211,16 +223,16 @@ class TestHTTPSServer:
 
         app.router.add_post("/echo", _echo)
 
+        port = _pick_free_port()
         runner = web.AppRunner(app, handle_signals=False)
         await runner.setup()
         site = web.TCPSite(
             runner,
             host="127.0.0.1",
-            port=0,
+            port=port,
             ssl_context=server_ssl_ctx,
         )
         await site.start()
-        port = site._server.sockets[0].getsockname()[1]  # type: ignore[attr-defined]
 
         try:
             connector = TCPConnector(ssl=client_ssl_ctx)

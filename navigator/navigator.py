@@ -262,12 +262,21 @@ class Application(BaseApplication):
     def router(self):
         return self.get_app().router
 
-        if AUTH_INSTALLED:
-            try:
-                from navigator_auth.conf import exclude_list
-                exclude_list.append(route)
-            except ImportError:
-                pass
+    def auth_excluded(self, route: str) -> None:
+        """Mark *route* as exempt from ``navigator_auth`` enforcement.
+
+        Safe no-op if ``navigator_auth`` is not installed — the exclusion
+        registry only exists when the optional auth package is present.
+        """
+        if not AUTH_INSTALLED:
+            return
+        try:
+            from navigator_auth.conf import exclude_list  # pylint: disable=C0415
+            exclude_list.append(route)
+        except ImportError:
+            # auth package present at import time but missing exclude_list —
+            # treat as "no registry available".
+            pass
 
     def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()
@@ -329,7 +338,13 @@ class Application(BaseApplication):
         def _template(func):
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
-                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
+                # ``asyncio.coroutine`` was removed in Python 3.11; wrap the
+                # sync callable in a coroutine function by hand instead.
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    async def coro(*a, **kw):  # type: ignore[no-redef]
+                        return func(*a, **kw)
                 ## getting data:
                 try:
                     context = await coro(*args)
@@ -376,8 +391,6 @@ class Application(BaseApplication):
         """
 
         def _validation(func, **kwargs):
-            print(func, **kwargs)
-
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
                 ## building arguments:
@@ -397,7 +410,13 @@ class Application(BaseApplication):
                             new_args["errors"] = errors
                         else:
                             new_args[a] = val
-                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
+                # ``asyncio.coroutine`` was removed in Python 3.11; wrap
+                # sync callables in a coroutine function explicitly.
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    async def coro(*a, **kw):  # type: ignore[no-redef]
+                        return func(*a, **kw)
                 try:
                     context = await coro(**new_args)
                     return context
@@ -497,7 +516,7 @@ class Application(BaseApplication):
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             ssl_context.set_ciphers(FORCED_CIPHERS)
 
-            self.logger.info(f"SSL enabled with cert: {ssl_cert}")
+            self.logger.info("SSL enabled with cert: %s", ssl_cert)
             return ssl_context
 
         except Exception as err:
@@ -667,17 +686,23 @@ class Application(BaseApplication):
             )
             await self._runner.setup()
 
-            # Create Unix site
+            # Create Unix site — only forward kwargs that ``UnixSite``
+            # actually accepts. Everything else (``access_log``,
+            # ``keepalive_timeout``, etc.) belongs to ``AppRunner`` and was
+            # already consumed above; leaking them here raises
+            # ``TypeError: unexpected keyword argument``.
             site = web.UnixSite(
                 self._runner,
                 path=str(unix_path),
-                **kwargs
+                shutdown_timeout=kwargs.get('shutdown_timeout', 60.0),
+                ssl_context=kwargs.get('ssl_context'),
+                backlog=kwargs.get('backlog', 128),
             )
 
             await site.start()
             self._sites.append(site)
 
-            self.logger.info(f"Navigator started on unix socket: {unix_path}")
+            self.logger.info("Navigator started on unix socket: %s", unix_path)
 
         except Exception as err:
             self.logger.exception("Failed to start Unix socket server: %s", err)

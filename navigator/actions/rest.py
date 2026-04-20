@@ -269,13 +269,17 @@ class RESTAction(AbstractAction):
                         raise error
                     # ``error`` may be a BeautifulSoup instance when the
                     # response was parsed as HTML. Import lazily so
-                    # environments without the scraping extras still
-                    # reach this branch.
+                    # environments without the scraping extras still reach
+                    # this branch. If the extras are missing we simply
+                    # cannot have a BeautifulSoup instance here, so fall
+                    # through to the generic ConfigError.
                     try:
                         BeautifulSoup = _import_beautifulsoup()
                     except ImportError:
-                        BeautifulSoup = ()  # disables isinstance() cleanly
-                    if isinstance(error, BeautifulSoup):
+                        BeautifulSoup = None
+                    if BeautifulSoup is not None and isinstance(
+                        error, BeautifulSoup
+                    ):
                         return (result, error)
                     raise ConfigError(str(error))
                 ## saving last execution parameters:

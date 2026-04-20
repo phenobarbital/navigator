@@ -120,4 +120,4 @@ When you pick up this task:
 ---
 
 ## Completion Note
-*(Agent fills this in when done)*
+FileServingExtension created extending BaseExtension. setup() registers GET route. handle_file() streams from any FileManagerInterface. Range requests (HTTP 206) supported. Caching headers, path sanitization, 404 for missing files. manager_name enables per-manager app context keys.

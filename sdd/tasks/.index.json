@@ -7,7 +7,7 @@
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": [],
@@ -15,33 +15,37 @@
       "parallelism_notes": "No shared files. Runs first to inform TASK-002. Independent of all other tasks.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-001-cython-benchmarks.md"
+      "completed_at": "2026-04-20T13:09:16Z",
+      "file": "sdd/tasks/completed/TASK-001-cython-benchmarks.md"
     },
     {
       "id": "TASK-002",
       "slug": "cython-cleanup",
-      "title": "Cython Cleanup — Convert Exceptions and Remove Dead Cython Code",
+      "title": "Cython Cleanup \u2014 Convert Exceptions and Remove Dead Cython Code",
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
-      "depends_on": ["TASK-001"],
+      "depends_on": [
+        "TASK-001"
+      ],
       "parallel": false,
       "parallelism_notes": "Depends on TASK-001 benchmark results to decide which modules to convert. Touches exceptions/, utils/, handlers/, applications/, setup.py.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-002-cython-cleanup.md"
+      "completed_at": "2026-04-20T13:58:26Z",
+      "file": "sdd/tasks/completed/TASK-002-cython-cleanup.md"
     },
     {
       "id": "TASK-003",
       "slug": "apprunner-modernization",
-      "title": "AppRunner Modernization — Fix Bug and Remove Legacy Runner",
+      "title": "AppRunner Modernization \u2014 Fix Bug and Remove Legacy Runner",
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": [],
@@ -49,16 +53,17 @@
       "parallelism_notes": "Only modifies navigator/navigator.py. No overlap with other tasks' files.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-003-apprunner-modernization.md"
+      "completed_at": "2026-04-20T14:01:30Z",
+      "file": "sdd/tasks/completed/TASK-003-apprunner-modernization.md"
     },
     {
       "id": "TASK-004",
       "slug": "dependency-cleanup",
-      "title": "Dependency Cleanup — Extras, Removals, and aiohttp Bump",
+      "title": "Dependency Cleanup \u2014 Extras, Removals, and aiohttp Bump",
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": [],
@@ -66,16 +71,17 @@
       "parallelism_notes": "Modifies pyproject.toml and actions/google/maps.py. No overlap with Cython tasks or navigator.py.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-004-dependency-cleanup.md"
+      "completed_at": "2026-04-20T14:25:41Z",
+      "file": "sdd/tasks/completed/TASK-004-dependency-cleanup.md"
     },
     {
       "id": "TASK-005",
       "slug": "sse-view",
-      "title": "SSE View — Class-Based View for Server-Sent Events",
+      "title": "SSE View \u2014 Class-Based View for Server-Sent Events",
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "M",
       "depends_on": [],
@@ -83,24 +89,28 @@
       "parallelism_notes": "Creates new file navigator/views/sse.py and modifies __init__.py. No overlap with other tasks.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-005-sse-view.md"
+      "completed_at": "2026-04-20T14:33:49Z",
+      "file": "sdd/tasks/completed/TASK-005-sse-view.md"
     },
     {
       "id": "TASK-006",
       "slug": "cython-stubs",
-      "title": "Cython Interface Stubs — .pxd and .pyi for Remaining Modules",
+      "title": "Cython Interface Stubs \u2014 .pxd and .pyi for Remaining Modules",
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
-      "depends_on": ["TASK-002"],
+      "depends_on": [
+        "TASK-002"
+      ],
       "parallel": false,
       "parallelism_notes": "Must know which Cython modules survived TASK-002 before creating stubs.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-006-cython-stubs.md"
+      "completed_at": "2026-04-20T17:39:50Z",
+      "file": "sdd/tasks/completed/TASK-006-cython-stubs.md"
     },
     {
       "id": "TASK-007",
@@ -126,15 +136,16 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": [],
       "parallel": false,
-      "parallelism_notes": "Foundation task — all other FEAT-002 tasks depend on this.",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-010-abstract-interface.md"
+      "parallelism_notes": "Foundation task \u2014 all other FEAT-002 tasks depend on this.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-010-abstract-interface.md",
+      "completed_at": "2026-04-20T00:10:00Z"
     },
     {
       "id": "TASK-011",
@@ -143,15 +154,18 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "M",
-      "depends_on": ["TASK-010"],
+      "depends_on": [
+        "TASK-010"
+      ],
       "parallel": true,
       "parallelism_notes": "Independent of other managers. Only depends on TASK-010 (ABC).",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-011-local-file-manager.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-011-local-file-manager.md",
+      "completed_at": "2026-04-20T00:20:00Z"
     },
     {
       "id": "TASK-012",
@@ -160,15 +174,18 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "M",
-      "depends_on": ["TASK-010"],
+      "depends_on": [
+        "TASK-010"
+      ],
       "parallel": true,
       "parallelism_notes": "Independent of other managers. Only depends on TASK-010 (ABC).",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-012-temp-file-manager.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-012-temp-file-manager.md",
+      "completed_at": "2026-04-20T00:30:00Z"
     },
     {
       "id": "TASK-013",
@@ -177,15 +194,18 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "L",
-      "depends_on": ["TASK-010"],
+      "depends_on": [
+        "TASK-010"
+      ],
       "parallel": true,
       "parallelism_notes": "Independent of other managers. Only depends on TASK-010 (ABC).",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-013-s3-file-manager.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-013-s3-file-manager.md",
+      "completed_at": "2026-04-20T00:40:00Z"
     },
     {
       "id": "TASK-014",
@@ -194,15 +214,18 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "L",
-      "depends_on": ["TASK-010"],
+      "depends_on": [
+        "TASK-010"
+      ],
       "parallel": true,
       "parallelism_notes": "Independent of other managers. Only depends on TASK-010 (ABC).",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-014-gcs-file-manager.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-014-gcs-file-manager.md",
+      "completed_at": "2026-04-20T00:50:00Z"
     },
     {
       "id": "TASK-015",
@@ -211,15 +234,18 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "M",
-      "depends_on": ["TASK-010"],
+      "depends_on": [
+        "TASK-010"
+      ],
       "parallel": true,
       "parallelism_notes": "Programs against ABC interface, not concrete classes. Can develop alongside managers.",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-015-web-serving-layer.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-015-web-serving-layer.md",
+      "completed_at": "2026-04-20T01:00:00Z"
     },
     {
       "id": "TASK-016",
@@ -228,15 +254,22 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
-      "depends_on": ["TASK-010", "TASK-011", "TASK-012", "TASK-013", "TASK-014"],
+      "depends_on": [
+        "TASK-010",
+        "TASK-011",
+        "TASK-012",
+        "TASK-013",
+        "TASK-014"
+      ],
       "parallel": false,
       "parallelism_notes": "Depends on all managers existing.",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-016-factory.md"
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-016-factory.md",
+      "completed_at": "2026-04-20T01:05:00Z"
     },
     {
       "id": "TASK-017",
@@ -245,15 +278,24 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "M",
-      "depends_on": ["TASK-010", "TASK-011", "TASK-012", "TASK-013", "TASK-014", "TASK-015", "TASK-016"],
+      "depends_on": [
+        "TASK-010",
+        "TASK-011",
+        "TASK-012",
+        "TASK-013",
+        "TASK-014",
+        "TASK-015",
+        "TASK-016"
+      ],
       "parallel": false,
-      "parallelism_notes": "Integration task — depends on all modules. Modifies every manager + __init__.py.",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-017-package-init.md"
+      "parallelism_notes": "Integration task \u2014 depends on all modules. Modifies every manager + __init__.py.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "file": "sdd/tasks/completed/TASK-017-package-init.md",
+      "completed_at": "2026-04-20T01:15:00Z"
     },
     {
       "id": "TASK-018",
@@ -262,15 +304,120 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "pending",
+      "status": "done",
       "priority": "high",
       "effort": "L",
-      "depends_on": ["TASK-010", "TASK-011", "TASK-012", "TASK-013", "TASK-014", "TASK-015", "TASK-016", "TASK-017"],
+      "depends_on": [
+        "TASK-010",
+        "TASK-011",
+        "TASK-012",
+        "TASK-013",
+        "TASK-014",
+        "TASK-015",
+        "TASK-016",
+        "TASK-017"
+      ],
       "parallel": false,
-      "parallelism_notes": "Final task — tests all modules.",
-      "assigned_to": null,
-      "started_at": null,
-      "file": "sdd/tasks/active/TASK-018-tests.md"
+      "parallelism_notes": "Final task \u2014 tests all modules.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T00:00:00Z",
+      "completed_at": "2026-04-20T16:02:00Z",
+      "file": "sdd/tasks/completed/TASK-018-tests.md"
+    },
+    {
+      "id": "TASK-019",
+      "slug": "taskwrapper-dual-execution",
+      "title": "TaskWrapper Dual Execution Mode (same_loop / thread)",
+      "feature_id": "FEAT-003",
+      "feature": "backgroundservice-eventloop-error",
+      "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "M",
+      "depends_on": [],
+      "parallel": false,
+      "parallelism_notes": "Foundation task — all other FEAT-003 tasks depend on this.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T18:00:00Z",
+      "completed_at": "2026-04-20T21:22:17Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-019-taskwrapper-dual-execution.md"
+    },
+    {
+      "id": "TASK-020",
+      "slug": "service-submit-passthrough",
+      "title": "BackgroundService submit() execution_mode Passthrough",
+      "feature_id": "FEAT-003",
+      "feature": "backgroundservice-eventloop-error",
+      "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "S",
+      "depends_on": ["TASK-019"],
+      "parallel": false,
+      "parallelism_notes": "Depends on TASK-019 adding execution_mode to TaskWrapper.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T18:00:00Z",
+      "completed_at": "2026-04-20T21:22:17Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-020-service-submit-passthrough.md"
+    },
+    {
+      "id": "TASK-021",
+      "slug": "queue-cleanup",
+      "title": "BackgroundQueue — Remove Unused ThreadPoolExecutor",
+      "feature_id": "FEAT-003",
+      "feature": "backgroundservice-eventloop-error",
+      "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
+      "status": "done",
+      "priority": "medium",
+      "effort": "S",
+      "depends_on": ["TASK-019"],
+      "parallel": true,
+      "parallelism_notes": "Only removes dead code in queue/__init__.py. Can run in parallel with TASK-020 after TASK-019 lands.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T18:00:00Z",
+      "completed_at": "2026-04-20T21:22:17Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-021-queue-cleanup.md"
+    },
+    {
+      "id": "TASK-022",
+      "slug": "basehandler-loop-fix",
+      "title": "BaseHandler — Replace Deprecated get_event_loop() with Lazy Property",
+      "feature_id": "FEAT-003",
+      "feature": "backgroundservice-eventloop-error",
+      "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
+      "status": "done",
+      "priority": "medium",
+      "effort": "S",
+      "depends_on": [],
+      "parallel": true,
+      "parallelism_notes": "Independent of Modules 1-3. Modifies only views/base.py — no overlap with wrappers/ or service/.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T18:00:00Z",
+      "completed_at": "2026-04-20T21:22:17Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-022-basehandler-loop-fix.md"
+    },
+    {
+      "id": "TASK-023",
+      "slug": "eventloop-tests",
+      "title": "Event Loop Fix Tests",
+      "feature_id": "FEAT-003",
+      "feature": "backgroundservice-eventloop-error",
+      "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "M",
+      "depends_on": ["TASK-019", "TASK-020", "TASK-021", "TASK-022"],
+      "parallel": false,
+      "parallelism_notes": "Final task — tests all modules. Must run after all implementation tasks.",
+      "assigned_to": "sdd-worker",
+      "started_at": "2026-04-20T18:00:00Z",
+      "completed_at": "2026-04-20T21:22:17Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-023-eventloop-tests.md"
     }
   ]
 }

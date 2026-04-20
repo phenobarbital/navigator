@@ -176,37 +176,42 @@ class BackgroundQueue:
 
     # Task Execution:
     async def _execute_taskwrapper(self, task: TaskWrapper):
-        """Execute the a task as a TaskWrapper."""
+        """Execute the a task as a TaskWrapper.
+
+        In ``same_loop`` mode the TaskWrapper returns ``{"status": "done", ...}``
+        or ``{"status": "failed", ...}`` after awaiting the coroutine.
+        In ``thread`` mode it returns ``{"status": "running"}`` immediately
+        (completion happens asynchronously via the thread callback).
+        """
         result = None
-        with ThreadPoolExecutor(max_workers=1) as executor:
+        try:
+            result = await task()
+        except asyncio.CancelledError:
+            self.logger.warning(
+                f"TaskWrapper {task!r} was cancelled."
+            )
+            result = {
+                "status": "cancelled"
+            }
+        except Exception as e:
+            self.logger.exception(
+                f"Error executing TaskWrapper {task!r}: {e}",
+                exc_info=True
+            )
+            result = {
+                "status": "failed",
+                "error": e
+            }
+            # Handle the exception and return a failure result
+            # This could be customized based on your needs
             try:
-                result = await task()
-            except asyncio.CancelledError:
-                self.logger.warning(
-                    f"TaskWrapper {task!r} was cancelled."
-                )
-                result = {
-                    "status": "cancelled"
-                }
+                if hasattr(task, "tracker"):
+                    # set status = "failed"
+                    await task.tracker.set_failed(task.task_uuid)
             except Exception as e:
-                self.logger.exception(
-                    f"Error executing TaskWrapper {task!r}: {e}",
-                    exc_info=True
+                self.logger.error(
+                    f"Error updating tracker for TaskWrapper {task!r}: {e}"
                 )
-                result = {
-                    "status": "failed",
-                    "error": e
-                }
-                # Handle the exception and return a failure result
-                # This could be customized based on your needs
-                try:
-                    if hasattr(task, "tracker"):
-                        # set status = "failed"
-                        await task.tracker.set_failed(task.task_uuid)
-                except Exception as e:
-                    self.logger.error(
-                        f"Error updating tracker for TaskWrapper {task!r}: {e}"
-                    )
         return result
 
     async def _execute_coroutine(self, coro: coroutine):

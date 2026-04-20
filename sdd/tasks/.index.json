@@ -188,7 +188,7 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
       "depends_on": [
@@ -198,7 +198,8 @@
       "parallelism_notes": "Independent of other managers. Only depends on TASK-010 (ABC).",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-013-s3-file-manager.md"
+      "file": "sdd/tasks/completed/TASK-013-s3-file-manager.md",
+      "completed_at": "2026-04-20T00:40:00Z"
     },
     {
       "id": "TASK-014",

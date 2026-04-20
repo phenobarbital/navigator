@@ -3,7 +3,7 @@
 **Feature ID**: FEAT-004
 **Date**: 2026-04-20
 **Author**: Jesus Lara
-**Status**: draft
+**Status**: approved
 **Target version**: next
 
 ---
@@ -434,11 +434,11 @@ class QueueWrapper:                               # line 10
 - [x] **Q1**: Should `remote_mode` default to `"run"` (wait for result) or
   `"queue"` (fire-and-forget)? **Decision: default to `"run"`** since it's the
   safest mode (caller gets confirmation of success/failure).
-- [ ] **Q2**: Should we add an optional polling mechanism for `queue`/`publish`
+- [x] **Q2**: Should we add an optional polling mechanism for `queue`/`publish`
   modes using `QClient.info()` to check worker state? This would add complexity
-  but provide some observability. — *Owner: Jesus*
-- [ ] **Q3**: Should `QWorkerTasker` support specifying a particular worker
-  (by host:port) for a task, or always use round-robin? — *Owner: Jesus*
+  but provide some observability. — *Owner: Jesus*: publish with info.
+- [x] **Q3**: Should `QWorkerTasker` support specifying a particular worker
+  (by host:port) for a task, or always use round-robin? — *Owner: Jesus*: QClient uses discovery + round-robin, but also QClient support to import from qworker.conf the variable WORKERS_LIST that, if exists, can be passed to the QClient initialization `QClient(worker_list=WORKER_LIST)`
 
 ---
 

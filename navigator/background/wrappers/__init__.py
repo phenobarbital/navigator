@@ -11,7 +11,7 @@ from ..tracker import JobTracker, JobRecord
 coroutine = Callable[[int], Coroutine[Any, Any, str]]
 OnCompleteFn = Callable[[Any, Optional[Exception]], Awaitable[None]]
 
-VALID_EXECUTION_MODES = ("same_loop", "thread")
+VALID_EXECUTION_MODES = ("same_loop", "thread", "remote")
 
 
 def coroutine_in_thread(
@@ -57,16 +57,25 @@ class TaskWrapper:
     Args:
         fn: The callable or coroutine to execute.
         *args: Positional arguments to pass to fn.
-        execution_mode: How to execute the task. Either ``"same_loop"``
-            (default) to schedule on the running event loop via
-            ``asyncio.create_task()``, or ``"thread"`` to run in a
-            dedicated thread with its own event loop via
-            ``coroutine_in_thread()``.
+        execution_mode: How to execute the task. One of:
+            - ``"same_loop"`` (default): schedule on the running event loop
+              via ``asyncio.create_task()``.
+            - ``"thread"``: run in a dedicated thread with its own event loop
+              via ``coroutine_in_thread()``.
+            - ``"remote"``: dispatch to a remote qworker pool via
+              :class:`~navigator.background.taskers.qworker.QWorkerTasker`.
         tracker: Optional JobTracker to update status.
         jitter: Maximum jitter delay in seconds before execution.
         logger: Optional logger instance.
         max_retries: Maximum number of retries on failure.
         retry_delay: Base delay between retries in seconds.
+        remote_mode: Only used when ``execution_mode == "remote"``. One of
+            ``"run"`` (wait for result), ``"queue"`` (fire-and-forget via
+            TCP), or ``"publish"`` (fire-and-forget via Redis Streams).
+        worker_list: Only used when ``execution_mode == "remote"``. Optional
+            list of ``(host, port)`` tuples identifying the qworker pool.
+        remote_timeout: Only used when ``execution_mode == "remote"``. TCP
+            timeout (seconds) passed to ``QClient``.
         **kwargs: Additional keyword arguments passed to fn.
     """
     def __init__(
@@ -98,6 +107,13 @@ class TaskWrapper:
                 "Must be one of: 'pending', 'running', 'done', 'failed'."
             )
         self.jitter: float = jitter
+        # Remote execution params (only used when execution_mode == "remote").
+        # Popped BEFORE building job_args so they are not leaked into the
+        # JobRecord or forwarded to fn().
+        self.remote_mode: str = kwargs.pop('remote_mode', 'run')
+        self.worker_list = kwargs.pop('worker_list', None)
+        self.remote_timeout: int = kwargs.pop('remote_timeout', 5)
+        self._tasker = None  # lazy-created QWorkerTasker (see __call__)
         # Create the Job Record at status "pending"
         # generate a list of arguments accepted by JobRecord:
         content = kwargs.pop('content', None)
@@ -168,11 +184,17 @@ class TaskWrapper:
         If execution_mode == "same_loop": creates an asyncio.Task on the
         running loop, awaits it, and returns the result directly.
 
+        If execution_mode == "remote": dispatches to a remote qworker pool
+        via :class:`QWorkerTasker`. For ``remote_mode="run"`` it waits for
+        and returns the remote result; for ``queue`` / ``publish`` it
+        returns the QClient acknowledgement immediately.
+
         If execution_mode == "thread": delegates to coroutine_in_thread()
         (existing fire-and-forget behavior), returns {"status": "running"}.
 
         Returns:
-            dict with "status" key: "done", "failed", "cancelled", or "running".
+            dict with "status" key: "done", "queued_remote", "failed",
+            "cancelled", or "running".
         """
         result = None
         # Tell tracker we're starting
@@ -231,6 +253,66 @@ class TaskWrapper:
                     )
                 if self.tracker:
                     await self.tracker.set_failed(self.task_uuid, exc)
+                return {"status": "failed", "error": str(exc)}
+        elif self.execution_mode == "remote":
+            # remote mode — dispatch to a qworker pool via QWorkerTasker.
+            # The QWorkerTasker itself handles tracker transitions for the
+            # dispatch phase (it was already set to "running" above, so we
+            # pass tracker=None here to avoid double-transitions). However,
+            # we still let QWorkerTasker manage the done / queued_remote /
+            # failed transitions since those depend on remote_mode.
+            try:
+                if self._tasker is None:
+                    # Lazy import so TaskWrapper remains importable without
+                    # the [qworker] optional extra installed.
+                    from ..taskers.qworker import QWorkerTasker
+                    self._tasker = QWorkerTasker(
+                        worker_list=self.worker_list,
+                        timeout=self.remote_timeout,
+                        default_mode=self.remote_mode,
+                    )
+                response = await self._tasker.dispatch(
+                    self.fn,
+                    *self.args,
+                    remote_mode=self.remote_mode,
+                    tracker=self.tracker,
+                    task_uuid=self.task_uuid,
+                    **self.kwargs,
+                )
+                self.logger.debug(
+                    f"TaskWrapper {self._name} remote dispatch ({self.remote_mode}) completed."
+                )
+                if self._user_callback:
+                    await self._wrapped_callback(
+                        response, None, loop=asyncio.get_running_loop()
+                    )
+                if self.remote_mode == "run":
+                    return {"status": "done", "result": response}
+                # queue / publish — fire-and-forget; QClient returned an ack.
+                return {"status": "queued_remote", "result": response}
+            except asyncio.CancelledError:
+                self.logger.warning(
+                    f"TaskWrapper {self._name} (remote) was cancelled."
+                )
+                if self.tracker:
+                    await self.tracker.set_failed(self.task_uuid, "Cancelled")
+                return {"status": "cancelled"}
+            except Exception as exc:
+                self.logger.error(
+                    f"TaskWrapper {self._name} (remote) failed with exception: {exc}"
+                )
+                if self._user_callback:
+                    await self._wrapped_callback(
+                        None, exc, loop=asyncio.get_running_loop()
+                    )
+                # QWorkerTasker already set the tracker to failed; but in case
+                # the failure happened before dispatch (e.g. ImportError), make
+                # sure the tracker is updated here too.
+                if self.tracker:
+                    try:
+                        await self.tracker.set_failed(self.task_uuid, exc)
+                    except Exception:  # noqa: BLE001
+                        pass
                 return {"status": "failed", "error": str(exc)}
         else:
             # thread mode — run in a dedicated thread with its own event loop.

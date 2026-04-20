@@ -368,9 +368,9 @@ from datamodel.typedefs.singleton import Singleton  # re-exported in navigator/u
 
 ## Open Questions
 
-- [ ] Should `navigator/types.pyx` URL class remain Cython long-term, or plan a `yarl.URL` migration as a follow-up feature? — *Owner: Jesus Lara*
-- [ ] Is `sockjs>=0.11.0` still needed? Only imported conditionally in `navigator.py:19`. — *Owner: Jesus Lara*
-- [ ] Should `aiohttp-sse` be vendored or forked given no new releases in 2 years (last release 2024)? Or is it stable enough as-is? — *Owner: Jesus Lara*
-- [ ] What is the `redis==5.2.1` override-dependency in `[tool.uv]` for? Is this still needed with the latest navigator-session? — *Owner: Jesus Lara*
-- [ ] Should the new `SSEView` replace `SSEEventView` or coexist alongside it? — *Owner: Jesus Lara*
-- [ ] `navigator/actions/google/maps.py` does top-level imports of `cartopy` and `matplotlib` — these need to become lazy imports when moved to extras. Confirm no startup-time side effects. — *Owner: Jesus Lara*
+- [x] Should `navigator/types.pyx` URL class remain Cython long-term, or plan a `yarl.URL` migration as a follow-up feature? — *Owner: Jesus Lara*: remains untouched
+- [x] Is `sockjs>=0.11.0` still needed? Only imported conditionally in `navigator.py:19`. — *Owner: Jesus Lara*: still needed.
+- [x] Should `aiohttp-sse` be vendored or forked given no new releases in 2 years (last release 2024)? Or is it stable enough as-is? — *Owner: Jesus Lara*: I think is stable enough
+- [x] What is the `redis==5.2.1` override-dependency in `[tool.uv]` for? Is this still needed with the latest navigator-session? — *Owner: Jesus Lara*: is not needed.
+- [x] Should the new `SSEView` replace `SSEEventView` or coexist alongside it? — *Owner: Jesus Lara*: coexist.
+- [x] `navigator/actions/google/maps.py` does top-level imports of `cartopy` and `matplotlib` — these need to become lazy imports when moved to extras. Confirm no startup-time side effects. — *Owner: Jesus Lara*: lazy-imported 

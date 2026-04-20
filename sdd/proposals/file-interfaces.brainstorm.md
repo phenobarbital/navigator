@@ -452,8 +452,21 @@ from navconfig.logging import logging  # used by GCS and S3 managers
 
 ## Open Questions
 
-- [ ] Should `find_files()` be added to `FileManagerInterface` or remain a manager-specific method? It exists in Navigator's GCS and S3 but not in AI-Parrot's interface. — *Owner: Jesus*
-- [ ] Should GCS folder operations (`create_folder`, `remove_folder`, `rename_folder`, `rename_file`) be part of the interface or GCS-specific extensions? — *Owner: Jesus*
-- [ ] What is the exact structure of `AWS_CREDENTIALS` in `navigator.conf`? It's imported in `s3.py` but not defined in `conf.py` — likely comes from `navconfig`. Need to verify the dict structure. — *Owner: Jesus*
-- [ ] Should `FileServingExtension` extend `BaseExtension`, or be a standalone utility class? BaseExtension provides `setup(app)` + signal registration, which fits well. — *Owner: Jesus*
-- [ ] When AI-Parrot switches to `from navigator.utils.file import ...`, should we keep `parrot/interfaces/file/` as a re-export shim or remove it entirely? — *Owner: Jesus*
+- [x] Should `find_files()` be added to `FileManagerInterface` or remain a manager-specific method? It exists in Navigator's GCS and S3 but not in AI-Parrot's interface. — *Owner: Jesus*: added to FileManagerInterface then added also in Local and Temp file managers.
+- [x]] Should GCS folder operations (`create_folder`, `remove_folder`, `rename_folder`, `rename_file`) be part of the interface or GCS-specific extensions? — *Owner: Jesus*: be part of the interface
+- [x] What is the exact structure of `AWS_CREDENTIALS` in `navigator.conf`? It's imported in `s3.py` but not defined in `conf.py` — likely comes from `navconfig`. Need to verify the dict structure. — *Owner: Jesus*: is a dictionary with keys: ```AWS_CREDENTIALS = {
+    "default": {
+        "use_credentials": config.get("aws_credentials", fallback=False),
+        "aws_key": aws_key,
+        "aws_secret": aws_secret,
+        "region_name": aws_region,
+        "bucket_name": aws_bucket,
+    },
+    "monitoring": {
+        "use_credentials": config.get("aws_monitor_credentials", fallback=True),
+        "aws_key": AWS_ACCESS_KEY,
+        "aws_secret": AWS_SECRET_KEY,
+        "region_name": AWS_REGION_NAME,
+    },```
+- [x] Should `FileServingExtension` extend `BaseExtension`, or be a standalone utility class? BaseExtension provides `setup(app)` + signal registration, which fits well. — *Owner: Jesus*: extend BaseExtension.
+- [x] When AI-Parrot switches to `from navigator.utils.file import ...`, should we keep `parrot/interfaces/file/` as a re-export shim or remove it entirely? — *Owner: Jesus*: should be keep as a re-export shim.

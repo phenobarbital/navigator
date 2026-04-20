@@ -3,7 +3,7 @@
 **Feature ID**: FEAT-001
 **Date**: 2026-04-20
 **Author**: Jesus Lara / Claude
-**Status**: draft
+**Status**: approved
 **Target version**: next minor
 
 ---
@@ -487,12 +487,12 @@ class AppHandler(BaseAppHandler):  # line 21
 
 ## 8. Open Questions
 
-- [ ] Should `navigator/types.pyx` URL class remain Cython long-term, or plan a `yarl.URL` migration as a follow-up? -- *Owner: Jesus Lara*
-- [ ] Is `sockjs>=0.11.0` still needed? Only imported conditionally in `navigator.py:19`. -- *Owner: Jesus Lara*
-- [ ] Should `aiohttp-sse` be vendored/forked given no new releases since 2024? -- *Owner: Jesus Lara*
-- [ ] Is the `redis==5.2.1` override-dependency in `[tool.uv]` still needed? -- *Owner: Jesus Lara*
-- [ ] Should the new `SSEView` replace `SSEEventView` or coexist? -- *Owner: Jesus Lara*
-- [ ] `navigator/actions/google/maps.py` does top-level imports of `cartopy`/`matplotlib` -- confirm no startup-time side effects from lazy import conversion. -- *Owner: Jesus Lara*
+- [x] Should `navigator/types.pyx` URL class remain Cython long-term, or plan a `yarl.URL` migration as a follow-up? -- *Owner: Jesus Lara*: remains
+- [ ] Is `sockjs>=0.11.0` still needed? Only imported conditionally in `navigator.py:19`. -- *Owner: Jesus Lara*: still needed
+- [ ] Should `aiohttp-sse` be vendored/forked given no new releases since 2024? -- *Owner: Jesus Lara*: leave it as-is
+- [ ] Is the `redis==5.2.1` override-dependency in `[tool.uv]` still needed? -- *Owner: Jesus Lara*: not needed
+- [ ] Should the new `SSEView` replace `SSEEventView` or coexist? -- *Owner: Jesus Lara*: coexist
+- [ ] `navigator/actions/google/maps.py` does top-level imports of `cartopy`/`matplotlib` -- confirm no startup-time side effects from lazy import conversion. -- *Owner: Jesus Lara*: do a lazy-import of modules
 
 ---
 

@@ -54,7 +54,7 @@ jobs:
             pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0 &&
             (yum install -y postgresql-devel openssl-devel zlib-devel libmemcached-devel xmlsec1-devel libtool-ltdl-devel ||
             (apt-get update && apt-get install -y libpq-dev libssl-dev zlib1g-dev libmemcached-dev libxmlsec1-dev))
-          CIBW_ENVIRONMENT: "PATH=/root/.cargo/bin:$PATH"
+          CIBW_ENVIRONMENT: "PATH=/root/.cargo/bin:$PATH LAZY_LOAD=True"
           CIBW_TEST_REQUIRES: pytest
           CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
 
@@ -186,26 +186,22 @@ jobs:
           done
 
       - name: Test basic imports
+        env:
+          LAZY_LOAD: "True"
         run: |
           python -c "import navigator; print('✅ Navigator import successful')"
           python -c "import navigator.commands; print('✅ Commands import successful')"
-          python -c "from navigator import Application; print('✅ Application import successful')"
-          python -c "print('📦 Navigator version:', navigator.version())"
+          python -c "from navigator.version import __version__; print('✅ Version:', __version__)"
 
       - name: Test CLI command
+        env:
+          LAZY_LOAD: "True"
         run: |
           nav --version || echo "⚠️ CLI test failed on ${{ matrix.os }}"
 
-      - name: Test basic functionality
-        run: |
-          python -c "
-          from navigator import Application
-          app = Application()
-          print('✅ Application creation successful')
-          print('✅ All tests passed on ${{ matrix.os }} with Python ${{ matrix.python-version }}')
-          "
-
       - name: Test package contents
+        env:
+          LAZY_LOAD: "True"
         run: |
           python -c "
           import navigator

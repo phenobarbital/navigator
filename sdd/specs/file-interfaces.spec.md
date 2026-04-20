@@ -1,9 +1,9 @@
 # Feature Specification: File Manager Interfaces Modernization
 
-**Feature ID**: FEAT-001
+**Feature ID**: FEAT-002
 **Date**: 2026-04-20
 **Author**: Jesus Lara
-**Status**: draft
+**Status**: approved
 **Target version**: next
 
 ---
@@ -507,19 +507,32 @@ No new dependencies required.
 - **Cross-feature dependencies**: None. No in-flight specs touch `navigator/utils/file/`.
 - **Recommended worktree creation**:
   ```bash
-  git worktree add -b feat-001-file-interfaces \
-    .claude/worktrees/feat-001-file-interfaces HEAD
+  git worktree add -b feat-002-file-interfaces \
+    .claude/worktrees/feat-002-file-interfaces HEAD
   ```
 
 ---
 
 ## 8. Open Questions
 
-- [ ] Should `find_files()` be added to `FileManagerInterface` as an abstract method, or as a concrete method with a default filtering implementation? — *Owner: Jesus*
-- [ ] Should GCS folder operations (`create_folder`, `remove_folder`, `rename_folder`, `rename_file`) be part of `FileManagerInterface` or remain GCS-specific methods? — *Owner: Jesus*
-- [ ] Exact structure of `AWS_CREDENTIALS` in `navigator.conf` — it's imported in s3.py but defined in navconfig, not in conf.py directly. Need to verify dict shape. — *Owner: Jesus*
-- [ ] Should `FileServingExtension` extend `BaseExtension` or be a standalone class? BaseExtension provides `setup(app)` + signal registration. — *Owner: Jesus*
-- [ ] When AI-Parrot switches to `from navigator.utils.file import ...`, should `parrot/interfaces/file/` become a re-export shim or be removed? (Out of scope for this spec, but affects planning.) — *Owner: Jesus*
+- [ ] Should `find_files()` be added to `FileManagerInterface` as an abstract method, or as a concrete method with a default filtering implementation? — *Owner: Jesus*: added
+- [ ] Should GCS folder operations (`create_folder`, `remove_folder`, `rename_folder`, `rename_file`) be part of `FileManagerInterface` or remain GCS-specific methods? — *Owner: Jesus*: be part of FileManagerInterface
+- [ ] Exact structure of `AWS_CREDENTIALS` in `navigator.conf` — it's imported in s3.py but defined in navconfig, not in conf.py directly. Need to verify dict shape. — *Owner: Jesus*: is a dictionary: AWS_CREDENTIALS = {
+    "default": {
+        "use_credentials": config.get("aws_credentials", fallback=False),
+        "aws_key": aws_key,
+        "aws_secret": aws_secret,
+        "region_name": aws_region,
+        "bucket_name": aws_bucket,
+    },
+    "monitoring": {
+        "use_credentials": config.get("aws_monitor_credentials", fallback=True),
+        "aws_key": AWS_ACCESS_KEY,
+        "aws_secret": AWS_SECRET_KEY,
+        "region_name": AWS_REGION_NAME,
+    },
+- [ ] Should `FileServingExtension` extend `BaseExtension` or be a standalone class? BaseExtension provides `setup(app)` + signal registration. — *Owner: Jesus*: extend BaseExtension.
+- [ ] When AI-Parrot switches to `from navigator.utils.file import ...`, should `parrot/interfaces/file/` become a re-export shim or be removed? (Out of scope for this spec, but affects planning.) — *Owner: Jesus*: re-export shim
 
 ---
 

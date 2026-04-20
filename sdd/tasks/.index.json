@@ -350,7 +350,7 @@
       "feature_id": "FEAT-003",
       "feature": "backgroundservice-eventloop-error",
       "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": ["TASK-019"],
@@ -358,7 +358,8 @@
       "parallelism_notes": "Depends on TASK-019 adding execution_mode to TaskWrapper.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T18:00:00Z",
-      "file": "sdd/tasks/active/TASK-020-service-submit-passthrough.md"
+      "completed_at": "2026-04-20T18:15:00Z",
+      "file": "sdd/tasks/completed/TASK-020-service-submit-passthrough.md"
     },
     {
       "id": "TASK-021",

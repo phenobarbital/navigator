@@ -14,10 +14,15 @@ from typing import Optional
 
 from aiohttp import web
 
-from ...applications.base import BaseApplication
 from ...extensions import BaseExtension
 from ...types import WebApp
 from .abstract import FileManagerInterface
+
+# Lazy import to avoid Cython compilation requirement at import time.
+# BaseApplication is only needed inside setup().
+def _get_base_application():
+    from ...applications.base import BaseApplication
+    return BaseApplication
 
 
 class FileServingExtension(BaseExtension):
@@ -80,6 +85,7 @@ class FileServingExtension(BaseExtension):
             The configured app.
         """
         # Resolve BaseApplication → raw aiohttp.Application
+        BaseApplication = _get_base_application()
         if isinstance(app, BaseApplication):
             raw_app = app.get_app()
         else:

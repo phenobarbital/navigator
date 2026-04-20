@@ -18,7 +18,14 @@ import aioboto3
 from botocore.exceptions import ClientError
 from navconfig.logging import logging
 
-from ...conf import AWS_CREDENTIALS
+from ... import conf as _nav_conf
+
+# AWS_CREDENTIALS may not be defined in every environment (e.g. testing).
+# Use getattr so that test suites can patch this module-level variable directly
+# via patch.object(navigator.utils.file.s3, "AWS_CREDENTIALS", ...) without
+# requiring the production settings file to be present.
+AWS_CREDENTIALS: dict = getattr(_nav_conf, "AWS_CREDENTIALS", {})
+
 from .abstract import FileManagerInterface, FileMetadata
 
 

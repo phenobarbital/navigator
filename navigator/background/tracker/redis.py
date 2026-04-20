@@ -3,12 +3,14 @@ from typing import Any, Callable, Dict, Optional, Sequence, List, Mapping
 import asyncio
 import redis.asyncio as redis
 from datamodel.exceptions import ParserError
+from navconfig.logging import logging
 from ...libs.json import json_encoder, json_decoder  # pylint: disable=E0611 # noqa
 from .models import JobRecord, time_now
 from ...conf import CACHE_URL
 
 
 Encoder = Callable[[Any], bytes]
+DEFAULT_TTL = 24 * 3600
 MAX_TTL = 30 * 24 * 3600
 
 
@@ -23,7 +25,8 @@ class RedisJobTracker:
         self,
         url: str = None,
         prefix: str = 'job:',
-        ttl_seconds: int = 30 * 24 * 3600,  # 30 days
+        ttl_seconds: int = DEFAULT_TTL,
+        reap_interval: int = 300,
     ) -> None:
         self._url = url or CACHE_URL
         self._redis: redis.Redis = redis.from_url(
@@ -36,6 +39,9 @@ class RedisJobTracker:
         self.prefix = prefix if prefix.endswith(":") else f"{prefix}:"
         self._lock = asyncio.Lock()
         self._ttl = min(ttl_seconds, MAX_TTL)
+        self._reap_interval = reap_interval
+        self._reaper_task: Optional[asyncio.Task] = None
+        self.logger = logging.getLogger('NAV.RedisJobTracker')
 
     def _key(self, task_id: str) -> str:
         return f"{self.prefix}{task_id}"
@@ -71,7 +77,7 @@ class RedisJobTracker:
     async def exists(self, job_id: str) -> bool:
         return await self._redis.exists(self._key(job_id)) == 1
 
-    async def _update(self, job_id: str, **patch) -> None:
+    async def _update(self, job_id: str, reset_ttl: bool = False, **patch) -> None:
         """
         Update a job record with the given patch.
         This method retrieves the job record, applies the patch, and saves it back.
@@ -86,9 +92,14 @@ class RedisJobTracker:
             for k, v in patch.items():
                 setattr(rec, k, v)
             try:
-                await self._redis.set(
-                    key, self._encoder(rec), keepttl=True
-                )  # keep the TTL
+                if reset_ttl:
+                    await self._redis.set(
+                        key, self._encoder(rec), ex=self._ttl
+                    )
+                else:
+                    await self._redis.set(
+                        key, self._encoder(rec), keepttl=True
+                    )
             except ParserError as exc:
                 # we cannot encode the result of JobRecord, so we raise an error
                 raise ValueError(
@@ -124,6 +135,7 @@ class RedisJobTracker:
     async def set_done(self, job_id: str, result: Any = None) -> None:
         await self._update(
             job_id,
+            reset_ttl=True,
             status="done",
             finished_at=time_now(),
             result=result,
@@ -132,6 +144,7 @@ class RedisJobTracker:
     async def set_failed(self, job_id: str, exc: Exception) -> None:
         await self._update(
             job_id,
+            reset_ttl=True,
             status="failed",
             finished_at=time_now(),
             error=f"{type(exc).__name__}: {exc}",
@@ -185,6 +198,77 @@ class RedisJobTracker:
             self._decoder(b) for b in blobs
             if b is not None
         ]
+
+    # -----------------------------------------------------------------
+    # lifecycle --------------------------------------------------------
+    # -----------------------------------------------------------------
+    async def start(self) -> None:
+        if self._reaper_task is None:
+            self._reaper_task = asyncio.create_task(self._reap_loop())
+            self.logger.info(
+                f'RedisJobTracker reaper started '
+                f'(TTL={self._ttl}s, interval={self._reap_interval}s)'
+            )
+
+    async def stop(self) -> None:
+        if self._reaper_task is not None:
+            self._reaper_task.cancel()
+            try:
+                await self._reaper_task
+            except asyncio.CancelledError:
+                pass
+            self._reaper_task = None
+            self.logger.info('RedisJobTracker reaper stopped')
+
+    async def _reap_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self._reap_interval)
+            removed = await self._reap_stale_sets()
+            if removed:
+                self.logger.debug(
+                    f'Reaped {removed} stale job ID(s) from index sets'
+                )
+
+    async def _reap_stale_sets(self) -> int:
+        """Remove IDs from __all and attribute indexes whose keys expired."""
+        ids = await self._redis.smembers(self._set_key)
+        if not ids:
+            return 0
+
+        id_list = list(ids)
+        pipe = self._redis.pipeline()
+        for id_ in id_list:
+            pipe.exists(self._key(id_))
+        results = await pipe.execute()
+
+        stale = [id_ for id_, exists in zip(id_list, results) if not exists]
+        if not stale:
+            return 0
+
+        stale_set = set(stale)
+
+        pipe = self._redis.pipeline()
+        for id_ in stale:
+            pipe.srem(self._set_key, id_)
+        await pipe.execute()
+
+        cursor = 0
+        attr_pattern = f"{self.prefix}attr:*"
+        while True:
+            cursor, keys = await self._redis.scan(
+                cursor, match=attr_pattern, count=100
+            )
+            for key in keys:
+                members = await self._redis.smembers(key)
+                to_remove = [m for m in members if m in stale_set]
+                if to_remove:
+                    await self._redis.srem(key, *to_remove)
+                if await self._redis.scard(key) == 0:
+                    await self._redis.delete(key)
+            if cursor == 0:
+                break
+
+        return len(stale)
 
     # -----------------------------------------------------------------
     # cleanup helpers (optional) --------------------------------------

@@ -34,6 +34,16 @@ class BackgroundService:
         # Register the queue and tracker in the application
         app['background_service'] = self
         app['service_tracker'] = self.tracker
+        app.on_startup.append(self._start_tracker)
+        app.on_cleanup.append(self._stop_tracker)
+
+    async def _start_tracker(self, app: web.Application) -> None:
+        if hasattr(self.tracker, 'start'):
+            await self.tracker.start()
+
+    async def _stop_tracker(self, app: web.Application) -> None:
+        if hasattr(self.tracker, 'stop'):
+            await self.tracker.stop()
 
     # -----------------------------------------------------------
     # API-style helpers your web-handlers can call
@@ -82,13 +92,11 @@ class BackgroundService:
                 **kwargs
             )
         if tw.tracker is None:
-            # If the TaskWrapper does not have a tracker, set it to the service's tracker
             tw.tracker = self.tracker
-            # and create the job record:
-            tw.job_record = await self.tracker.create_job(
-                job=tw.job_record,
-                name=tw.fn.__name__,
-            )
+        tw.job_record = await self.tracker.create_job(
+            job=tw.job_record,
+            name=tw.fn.__name__,
+        )
         # Add the TaskWrapper to the queue
         await self.queue.put(tw)
         return tw.job_record

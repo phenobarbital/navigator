@@ -445,7 +445,7 @@
       "feature_id": "FEAT-004",
       "feature": "new-backgroundqueue-tasker",
       "spec": "sdd/specs/new-backgroundqueue-tasker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": ["TASK-024"],
@@ -453,7 +453,9 @@
       "parallelism_notes": "Imports QWorkerTasker from TASK-024. Must run after foundation.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T22:00:00Z",
-      "file": "sdd/tasks/active/TASK-025-taskwrapper-remote-mode.md"
+      "completed_at": "2026-04-21T00:00:00Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-025-taskwrapper-remote-mode.md"
     },
     {
       "id": "TASK-026",

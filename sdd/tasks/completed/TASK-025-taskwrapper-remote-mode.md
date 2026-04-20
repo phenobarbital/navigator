@@ -213,4 +213,27 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+Modified `navigator/background/wrappers/__init__.py`:
+
+- `VALID_EXECUTION_MODES` is now `("same_loop", "thread", "remote")`.
+- `TaskWrapper.__init__()` pops `remote_mode` (default `"run"`),
+  `worker_list` (default `None`), and `remote_timeout` (default `5`) from
+  kwargs before they leak into the `JobRecord` or into `self.kwargs`
+  (which are forwarded to the remote function).
+- `self._tasker` is initialised to `None` and lazily created on first
+  remote invocation inside `__call__()`.
+- A new `elif self.execution_mode == "remote":` branch was inserted between
+  the `same_loop` and `thread` blocks. It:
+  - lazy-imports `QWorkerTasker` so `TaskWrapper` stays importable without
+    the `[qworker]` extra;
+  - calls `await self._tasker.dispatch(self.fn, *self.args,
+    remote_mode=self.remote_mode, tracker=self.tracker,
+    task_uuid=self.task_uuid, **self.kwargs)`;
+  - returns `{"status": "done", "result": ...}` for `run` mode, and
+    `{"status": "queued_remote", "result": ...}` for `queue` / `publish`;
+  - handles `CancelledError` and generic `Exception` with tracker updates
+    and structured return values.
+- Existing `same_loop` and `thread` paths are untouched — all 7 tests in
+  `tests/test_background_service.py` still pass.
+
+**Verified at commit:** `f84376e`

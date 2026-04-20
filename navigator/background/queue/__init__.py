@@ -30,6 +30,7 @@ coroutine = Callable[[int], Coroutine[Any, Any, str]]
 P = ParamSpec("P")
 
 SERVICE_NAME: str = 'service_queue'
+SERVICE_KEY: web.AppKey["BackgroundQueue"] = web.AppKey(SERVICE_NAME)
 
 
 class BackgroundQueue:
@@ -72,9 +73,10 @@ class BackgroundQueue:
             f'Callback Queue: {self._callback!r}'
         )
         self.service_name: str = kwargs.get('service_name', SERVICE_NAME)
+        self.service_key: web.AppKey = kwargs.get('service_key', SERVICE_KEY)
         ## Register the Queue Manager to the Application
         # Add Manager to main Application:
-        self.app[self.service_name] = self
+        self.app[self.service_key] = self
         self.app.on_startup.append(self.on_startup)
         self.app.on_cleanup.append(self.on_cleanup)
         # resource usage:

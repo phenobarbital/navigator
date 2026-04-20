@@ -131,8 +131,8 @@ class TestBackgroundServiceSubmit:
 
     async def test_list_multiple_jobs(self, bg_client):
         client, _service = bg_client
-        await client.post("/tasks?duration=60")
-        await client.post("/tasks?duration=60")
+        await client.post("/tasks?duration=3")
+        await client.post("/tasks?duration=3")
         await asyncio.sleep(0.5)
 
         resp = await client.get("/tasks")
@@ -169,11 +169,13 @@ class TestJobTrackerTTLCleanup:
         """Running jobs must survive the reaper regardless of elapsed time."""
         client, service = bg_client_short_ttl
 
-        resp = await client.post("/tasks?duration=60")
+        # Duration must be > sleep below so the task is still running,
+        # but short enough to finish within the queue's 5 s cleanup timeout.
+        resp = await client.post("/tasks?duration=8")
         data = await resp.json()
         task_id = data["task_id"]
 
-        # Wait well past TTL + several reap cycles.
+        # Wait well past TTL (2 s) + several reap cycles (1 s each).
         await asyncio.sleep(5)
 
         resp = await client.get(f"/tasks/{task_id}")

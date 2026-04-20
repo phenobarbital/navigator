@@ -6,6 +6,9 @@ from ..tracker import JobTracker, RedisJobTracker, JobRecord
 from ..wrappers import TaskWrapper
 from ...conf import CACHE_URL
 
+BACKGROUND_SERVICE_KEY: web.AppKey["BackgroundService"] = web.AppKey("background_service")
+SERVICE_TRACKER_KEY: web.AppKey[JobTracker] = web.AppKey("service_tracker")
+
 
 class BackgroundService:
     """
@@ -32,8 +35,8 @@ class BackgroundService:
             else:
                 self.tracker = JobTracker()
         # Register the queue and tracker in the application
-        app['background_service'] = self
-        app['service_tracker'] = self.tracker
+        app[BACKGROUND_SERVICE_KEY] = self
+        app[SERVICE_TRACKER_KEY] = self.tracker
         app.on_startup.append(self._start_tracker)
         app.on_cleanup.append(self._stop_tracker)
 

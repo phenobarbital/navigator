@@ -25,7 +25,7 @@
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
       "depends_on": [
@@ -35,7 +35,8 @@
       "parallelism_notes": "Depends on TASK-001 benchmark results to decide which modules to convert. Touches exceptions/, utils/, handlers/, applications/, setup.py.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-002-cython-cleanup.md"
+      "completed_at": "2026-04-20T13:58:26Z",
+      "file": "sdd/tasks/completed/TASK-002-cython-cleanup.md"
     },
     {
       "id": "TASK-003",

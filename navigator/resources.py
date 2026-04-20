@@ -1,12 +1,7 @@
 #!/usr/bin/env python
-import asyncio
-import random
-import uuid
 from pathlib import Path
-from aiohttp import WSMsgType, web
+from aiohttp import web
 from navconfig import BASE_DIR
-from navconfig.logging import logging, logger
-from navigator_session import get_session
 from .libs.json import json_encoder
 
 

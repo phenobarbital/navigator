@@ -468,11 +468,11 @@ class Route(GoogleService):
                 # Distance in meters and extract route instructions:
                 bestroute = []
                 for i, leg in enumerate(route['legs']):
-                    duration_str = route.get('duration', '0s')
+                    duration_str = leg.get('duration', '0s')
                     total_duration_seconds = int(duration_str.rstrip('s')) if duration_str else 0
                     total_duration += total_duration_seconds
                     # Static Duration (without traffic) for reference
-                    static_duration_str = route.get('staticDuration', '0s')
+                    static_duration_str = leg.get('staticDuration', '0s')
                     static_duration += int(static_duration_str.rstrip('s'))
                     # Distance:
                     distance_meters = leg.get('distanceMeters', 0)

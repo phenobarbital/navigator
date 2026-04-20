@@ -3,7 +3,7 @@ from aiohttp import web
 from navigator import Application
 from navigator.background import BackgroundQueue, TaskWrapper
 from app import Main
-
+import logging
 
 async def blocking_code(*args, **kwargs):
     print('Starting blocking code')
@@ -30,8 +30,8 @@ async def handle(request):
         text = "Queue is full, please try again later."
         print(text)
     except Exception as e:
-        text = f"An error occurred: {str(e)}"
-        print(text)
+        logging.exception("Exception occurred while handling request")
+        text = "An internal error has occurred."
     return web.Response(text=text)
 
 app = Application()
@@ -46,6 +46,7 @@ app.add_routes([web.get('/', handle),
                 web.get('/{name}', handle)])
 
 
+    logging.basicConfig(level=logging.INFO)
 if __name__ == '__main__':
     try:
         app.run()

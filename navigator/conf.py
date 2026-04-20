@@ -3,6 +3,7 @@ import sys
 import base64
 import orjson
 from cryptography import fernet
+from pathlib import Path
 # Import Config Class
 from navconfig import BASE_DIR, config, DEBUG, SETTINGS_DIR
 from navconfig.logging import logging
@@ -249,6 +250,12 @@ ZAMMAD_DEFAULT_CUSTOMER = config.get('ZAMMAD_DEFAULT_CUSTOMER')
 ZAMMAD_DEFAULT_CATALOG = config.get('ZAMMAD_DEFAULT_CATALOG')
 ZAMMAD_ORGANIZATION = config.get('ZAMMAD_ORGANIZATION')
 ZAMMAD_DEFAULT_ROLE = config.get('ZAMMAD_DEFAULT_ROLE', 'Customer')
+
+# AI Models Cache Configuration
+HUGGINGFACE_EMBEDDING_CACHE_DIR = config.get(
+    'HUGGINGFACE_EMBEDDING_CACHE_DIR',
+    fallback=Path.home().joinpath('.cache', 'huggingface', 'embeddings')
+)
 
 # get configuration settings (user can override settings).
 logging.debug(

@@ -25,7 +25,7 @@ migrations/
 migrations/*
 apps/troc/migrations/
 apps/troc/migrations/__init__.py
-
+navigator/_version.py
 # Distribution / packaging
 .Python
 env/
@@ -164,3 +164,7 @@ app.py
 run.py
 nav.py
 test_*.py
+navigator_dev.code-workspace
+navigator.code-workspace
+pyproject.toml
+uv.lock

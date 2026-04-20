@@ -378,7 +378,7 @@ class AbstractModel(BaseView):
         async def _wrap(self, *args, **kwargs):
             ## get User Session:
             await self.session()
-            if self._session:
+            if self._session and self.request.get("authenticated", False):
                 self._userid = await self.get_userid(self._session)
             # TODO: Checking User Permissions:
             ## Calling post-authorization Model:
@@ -401,6 +401,10 @@ class AbstractModel(BaseView):
                 exception=err
             )
         if not self._session:
+            # If the request was not marked as authenticated by middleware
+            # (e.g., excluded endpoint), allow anonymous access.
+            if not self.request.get("authenticated", False):
+                return None
             # TODO: add support for service tokens
             if hasattr(self.model.Meta, 'allowed_methods'):
                 if self.request.method in self.model.Meta.allowed_methods:
@@ -490,10 +494,16 @@ class AbstractModel(BaseView):
                         self.logger.warning(
                             f"Unable to load Language, defaulting to en_US, {exc}"
                         )
-                    # returning JSON schema of Model:
-                    response = self.get_model.schema(as_dict=True, locale=trans)
+                    # Break cache
+                    if hasattr(self.model, '__computed_schema__'):
+                        try:
+                            delattr(self.model, '__computed_schema__')
+                        except Exception:
+                            setattr(self.model, '__computed_schema__', None)
+                    # Get JSON schema translated
+                    response = self.model.schema(as_dict=True, locale=trans)
                     self.logger.info(
-                        f"Model {self.get_model} translated to {lang}"
+                        f"Model {self.model.modelName} translated to {lang}"
                     )
                     return self.json_response(response)
 

@@ -107,7 +107,7 @@ class ModelView(AbstractModel):
         async def _wrap(self, *args, **kwargs):
             ## get User Session:
             await self.session()
-            if self._session:
+            if self._session and self.request.get("authenticated", False):
                 self._userid = await self.get_userid(self._session)
             # TODO: Checking User Permissions:
             ## Calling post-authorization Model:

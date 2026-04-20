@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from navconfig.logging import logging
 import aiofiles
 
@@ -8,14 +9,12 @@ def read_file(path, filename):
 
 
 def create_dir(dir, name, py_package: bool = False):
-    try:
+    with contextlib.suppress(FileExistsError):
         path = dir.joinpath(name)
         path.mkdir(parents=True, exist_ok=True)
-        if py_package is True:
+        if py_package:
             # create a __init__ file
             save_file(path, "__init__.py", content="#!/usr/bin/env python3")
-    except FileExistsError as exc:
-        pass
 
 
 def delete_file(dir, name):
@@ -29,18 +28,30 @@ def delete_file(dir, name):
 
 
 def save_file(dir, filename, content):
-    loop = asyncio.get_event_loop()
+    try:
+        loop = asyncio.get_event_loop()
+        _new = False
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        _new = True
 
     async def main(filename, content):
         try:
             path = dir.joinpath(filename)
             async with aiofiles.open(path, "w+") as afp:
                 await afp.write(content)
-                await afp.fsync()
             return True
         except Exception as err:
             print(err)
             logging.error(err)
             return False
-
-    return loop.run_until_complete(main(filename, content))
+    try:
+        return loop.run_until_complete(main(filename, content))
+    except Exception as err:
+        print(err)
+        logging.error(err)
+        return False
+    finally:
+        if _new:
+            loop.close()

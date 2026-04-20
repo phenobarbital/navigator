@@ -196,7 +196,7 @@ class AppConfig(AppHandler):
                             route.url, route.handler, name=route.name
                         )
                     else:
-                        raise Exception(
+                        raise ValueError(
                             f"Unsupported Method for Route {route.method}, program: {self._name_}"
                         )
             elif inspect.isclass(route.handler):

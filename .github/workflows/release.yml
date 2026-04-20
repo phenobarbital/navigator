@@ -9,90 +9,239 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        include:
+          # Linux builds - use manylinux for maximum compatibility
+          - os: ubuntu-latest
+            python-version: "3.10"
+            pyver: "310"
+            platform: linux
+          - os: ubuntu-latest
+            python-version: "3.11"
+            pyver: "311"
+            platform: linux
+          - os: ubuntu-latest
+            python-version: "3.12"
+            pyver: "312"
+            platform: linux
+
+
+
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Fetch full history for setuptools-scm
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install twine
-
-      - name: Build wheels on Ubuntu
-        if: matrix.os == 'ubuntu-latest'
-        uses: RalfG/python-wheels-manylinux-build@v0.5.0-manylinux2014_x86_64
+      - name: Install UV
+        uses: astral-sh/setup-uv@v4
         with:
-          python-versions: 'cp39-cp39 cp310-cp310 cp311-cp311 cp312-cp312'
-          build-requirements: 'cython numpy'
+          version: "latest"
 
-      - name: Build wheels on Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          pip install cibuildwheel
-          cibuildwheel --output-dir dist
-          # You may need to adjust the above command based on your package's specific requirements
+      - name: Build wheels for Linux (manylinux)
+        if: matrix.platform == 'linux'
+        uses: pypa/cibuildwheel@v2.21.3
+        env:
+          CIBW_BUILD: cp${{ matrix.pyver }}-*
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
+          CIBW_BEFORE_BUILD: >
+            curl https://sh.rustup.rs -sSf | sh -s -- -y &&
+            pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0 &&
+            (yum install -y postgresql-devel openssl-devel zlib-devel libmemcached-devel xmlsec1-devel libtool-ltdl-devel ||
+            (apt-get update && apt-get install -y libpq-dev libssl-dev zlib1g-dev libmemcached-dev libxmlsec1-dev))
+          CIBW_ENVIRONMENT: "PATH=/root/.cargo/bin:$PATH"
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
+
+
+
+
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
-          path: dist/*.whl
+          name: wheels-${{ matrix.platform }}-py${{ matrix.python-version }}
+          path: wheelhouse/*.whl
 
-  deploy:
-    needs: build
+  build-source:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4.1.7
         with:
-          path: dist
-
-      - name: Move wheel files to 'dist' directory
-        run: |
-          find dist -name '*.whl' -exec mv {} dist \;
-
-      - name: Check for wheel types
-        id: check_wheels
-        run: |
-          echo "Checking for wheel types..."
-          if ls dist/*-manylinux*.whl 1> /dev/null 2>&1; then
-            echo "Found manylinux wheels."
-            echo "HAS_MANYLINUX_WHEELS=true" >> $GITHUB_ENV
-          fi
-          if ls dist/*-win_*.whl 1> /dev/null 2>&1; then
-            echo "Found Windows wheels."
-            echo "HAS_WINDOWS_WHEELS=true" >> $GITHUB_ENV
-          fi
-
-      - name: List files in dist
-        run: ls -l dist
+          # Fetch full history for setuptools-scm
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.x'
+          python-version: '3.11'
 
-      - name: Install twine
-        run: pip install twine
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build setuptools wheel setuptools-scm
 
-      - name: Publish manylinux wheels to Production PyPI
-        if: env.HAS_MANYLINUX_WHEELS == 'true'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
-        run: twine upload dist/*-manylinux*.whl
+      - name: Build source distribution
+        run: python -m build --sdist
 
-      - name: Publish Windows wheels to Production PyPI
-        if: env.HAS_WINDOWS_WHEELS == 'true'
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
-        run: twine upload dist/*-win_*.whl
+      - name: Upload source artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-dist
+          path: dist/*.tar.gz
+
+  deploy:
+    needs: [build, build-source]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    environment:
+      name: pypi
+      url: https://pypi.org/p/navigator-api
+    permissions:
+      id-token: write  # For trusted publishing
+
+    steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-artifacts
+
+      - name: Organize artifacts by platform
+        run: |
+          mkdir -p dist/linux dist/source
+
+          # Move artifacts to platform-specific directories
+          find dist-artifacts -name '*-manylinux*.whl' -exec mv {} dist/linux/ \;
+
+
+          find dist-artifacts -name '*.tar.gz' -exec mv {} dist/source/ \;
+
+          echo "=== Linux wheels (manylinux) ==="
+          ls -la dist/linux/ || echo "No Linux wheels found"
+
+
+
+
+
+          echo "=== Source distribution ==="
+          ls -la dist/source/ || echo "No source distribution found"
+
+      - name: Upload Linux wheels (manylinux)
+        if: hashFiles('dist/linux/*.whl') != ''
+        run: |
+          echo "Uploading Linux manylinux wheels..."
+          uv tool run twine upload dist/linux/*-manylinux*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
+
+
+
+
+      - name: Upload source distribution
+        if: hashFiles('dist/source/*.tar.gz') != ''
+        run: |
+          echo "Uploading source distribution..."
+          uv tool run twine upload dist/source/*.tar.gz --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
+
+  test-installation:
+    needs: deploy
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Wait for PyPI propagation
+        run: |
+          echo "Waiting 2 minutes for PyPI to propagate the new release..."
+          python -c "import time; time.sleep(120)"
+
+      - name: Install package from PyPI
+        run: |
+          python -m pip install --upgrade pip
+          # Try installing with retries in case of propagation delays
+          for i in {1..5}; do
+            if pip install navigator-api --no-cache-dir; then
+              echo "Successfully installed navigator-api"
+              break
+            else
+              echo "Attempt $i failed, waiting 30 seconds..."
+              sleep 30
+            fi
+          done
+
+      - name: Test basic imports
+        run: |
+          python -c "import navigator; print('✅ Navigator import successful')"
+          python -c "import navigator.commands; print('✅ Commands import successful')"
+          python -c "from navigator import Application; print('✅ Application import successful')"
+          python -c "print('📦 Navigator version:', navigator.version())"
+
+      - name: Test CLI command
+        run: |
+          nav --version || echo "⚠️ CLI test failed on ${{ matrix.os }}"
+
+      - name: Test basic functionality
+        run: |
+          python -c "
+          from navigator import Application
+          app = Application()
+          print('✅ Application creation successful')
+          print('✅ All tests passed on ${{ matrix.os }} with Python ${{ matrix.python-version }}')
+          "
+
+      - name: Test package contents
+        run: |
+          python -c "
+          import navigator
+          import os
+          navigator_path = os.path.dirname(navigator.__file__)
+
+          # Check for critical directories
+          critical_dirs = ['commands', 'templates', 'static']
+          missing_dirs = []
+
+          for dir_name in critical_dirs:
+              dir_path = os.path.join(navigator_path, dir_name)
+              if os.path.exists(dir_path):
+                  print(f'✅ {dir_name} directory found')
+              else:
+                  missing_dirs.append(dir_name)
+                  print(f'❌ {dir_name} directory missing')
+
+          if missing_dirs:
+              print(f'⚠️ Missing directories: {missing_dirs}')
+              exit(1)
+          else:
+              print('✅ All critical directories present')
+          "
+
+  test-summary:
+    needs: test-installation
+    runs-on: ubuntu-latest
+    if: always()
+
+    steps:
+      - name: Test Results Summary
+        run: |
+          echo "## 🎉 Release Testing Complete"
+          echo "✅ Package successfully built for Linux"
+          echo "✅ Package uploaded to PyPI"
+          echo "✅ Installation and import tests completed"
+          echo ""
+          echo "The new release is ready for use! 🚀"

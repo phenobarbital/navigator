@@ -9,6 +9,7 @@ from argparse import SUPPRESS, ArgumentParser
 from concurrent.futures import ThreadPoolExecutor
 from importlib import import_module
 import traceback
+import aiofiles
 from asyncdb import AsyncDB
 from ..applications.startup import ApplicationInstaller
 # Template Extension.
@@ -28,12 +29,15 @@ class BaseCommand(ABC):
     help: str = "Base Help Command"
     epilog: str = ""
     _version: str = "0.1"
+    default_action: str = "run"  # Default action when no action is provided
 
     def __init__(self, args):
         self.args: list = args
+        command_name = self.__class__.__name__.lower().replace('command', '')
         self.parser: Callable = ArgumentParser(
+            prog=f"nav {command_name}",
             description=self.help,
-            epilog=self.epilog if self.epilog else self.help,
+            epilog=self.epilog or self.help,
             add_help=False,
         )
         self.parser.add_argument(
@@ -50,11 +54,25 @@ class BaseCommand(ABC):
             action="store_true",
             help="Return the Traceback on CommandError",
         )
+        # Handle default action when no action is provided or first arg is a flag
+        if not self.args or (self.args and self.args[0].startswith('-')):
+            # No args or first arg is a flag/option, insert default action
+            self.args.insert(0, self.default_action)
+        elif not hasattr(self, self.args[0]):
+            # First arg is not a method on this class, insert default action
+            self.args.insert(0, self.default_action)
         # get action:
         self.action: str = self.args.pop(0)
         self.parse_arguments(self.parser)
         ## making Command configuration
         self.configure()
+        self.logger = logging.getLogger("navigator.command")
+        try:
+            self.loop = asyncio.get_event_loop()
+        except RuntimeError:
+            # if no loop is running, create a new one
+            self.loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(self.loop)
 
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}>"
@@ -105,6 +123,34 @@ class BaseCommand(ABC):
             timeout=600,
             **kwargs,
         )
+
+    def _create_dir(self, directory, name, touch_init: bool = False):
+        """Create directory and optionally add __init__.py file."""
+        try:
+            path = directory.joinpath(name)
+            path.mkdir(parents=True, exist_ok=True)
+            if touch_init:
+                # create a __init__ file
+                self._save_file(
+                    path,
+                    "__init__.py",
+                    content="#!/usr/bin/env python3"
+                )
+        except FileExistsError as exc:
+            logging.warning(f"{exc}")
+
+    def _save_file(self, directory, filename, content=""):
+        """Save file content asynchronously."""
+        async def main(filename, content):
+            try:
+                path = directory.joinpath(filename)
+                async with aiofiles.open(path, "w+") as afp:
+                    await afp.write(content)
+                return True
+            except Exception as exc:
+                self.logger.error(exc)
+                return False
+        return self.loop.run_until_complete(main(filename, content))
 
     def run_coro_in_thread(self, coroutine):
         """Create a new event loop and run the coroutine."""
@@ -181,8 +227,7 @@ def get_command(command: str, clsname: str, pathname: str = None):
             classpath = f"commands.{command}"
             pkg = command
         module = import_module(classpath, package=pkg)
-        cls = getattr(module, clsname)
-        return cls
+        return getattr(module, clsname)
     except ImportError as ex:
         # last resort: direct commands on source
         raise CommandNotFound(

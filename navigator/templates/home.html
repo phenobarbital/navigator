@@ -1,30 +1,713 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Navigator API - Async Web Framework</title>
+    <meta name="description" content="Navigator: A batteries-included async web framework built on aiohttp with enterprise-grade features">
+    <meta name="author" content="Navigator API">
 
-  <title>Navigator API</title>
-  <meta name="description" content="Navigator API">
-  <meta name="author" content="Navigator API">
-  <link rel="stylesheet" href="static/css/styles.css?v=1.0">
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #8b5cf6;
+            --accent-color: #f59e0b;
+            --success-color: #10b981;
+            --background-dark: #0f172a;
+            --background-light: #1e293b;
+            --surface: #334155;
+            --text-primary: #f8fafc;
+            --text-secondary: #cbd5e1;
+            --text-muted: #94a3b8;
+            --border-color: #475569;
+            --glow-color: rgba(99, 102, 241, 0.5);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(45deg, var(--background-dark), var(--background-light));
+        }
+
+        .background-animation::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background:
+                radial-gradient(circle at 20% 50%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            33% { transform: translateY(-20px) rotate(1deg); }
+            66% { transform: translateY(10px) rotate(-1deg); }
+        }
+
+        /* Header */
+        .header {
+            padding: 2rem 0;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        .nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 4rem;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Hero Section */
+        .hero {
+            text-align: center;
+            padding: 4rem 0 6rem;
+        }
+
+        .hero-title {
+            font-size: clamp(3rem, 8vw, 6rem);
+            font-weight: 800;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--primary-color), var(--secondary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 20px var(--glow-color)); }
+            to { filter: drop-shadow(0 0 40px var(--glow-color)); }
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 4rem;
+        }
+
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* Code showcase */
+        .code-showcase {
+            background: var(--background-light);
+            border-radius: 16px;
+            padding: 2rem;
+            margin: 3rem auto;
+            max-width: 800px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-showcase::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--primary-color), transparent);
+        }
+
+        .code-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .code-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .code-dot:nth-child(1) { background: #ff5f57; }
+        .code-dot:nth-child(2) { background: #ffbd2e; }
+        .code-dot:nth-child(3) { background: #28ca42; }
+
+        .code-content {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .code-comment { color: var(--text-muted); }
+        .code-keyword { color: var(--primary-color); }
+        .code-string { color: var(--success-color); }
+        .code-function { color: var(--accent-color); }
+
+        /* Features Grid */
+        .features {
+            padding: 6rem 0;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 3rem;
+            background: linear-gradient(135deg, var(--text-primary), var(--primary-color));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--background-light);
+            border-radius: 16px;
+            padding: 2rem;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Tech Stack */
+        .tech-stack {
+            padding: 4rem 0;
+            text-align: center;
+        }
+
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .tech-item {
+            padding: 1.5rem;
+            background: var(--background-light);
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .tech-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.2);
+        }
+
+        .tech-logo {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .tech-name {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Footer */
+        .footer {
+            padding: 3rem 0;
+            text-align: center;
+            border-top: 1px solid var(--border-color);
+            margin-top: 4rem;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 1rem;
+            }
+
+            .nav {
+                flex-direction: column;
+                gap: 1rem;
+                margin-bottom: 2rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .code-showcase {
+                margin: 2rem 1rem;
+                padding: 1rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .tech-grid {
+                grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+                gap: 1rem;
+            }
+        }
+
+        /* Interactive elements */
+        .interactive-demo {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.3);
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .interactive-demo:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.4);
+        }
+    </style>
 </head>
-
 <body>
-  <script src="static/js/scripts.js"></script>
-  <h1>Welcome to Navigator</h1>
-  <p>This is Navigator, a "batteries-included" Framework, a comprehensive collection of asyncio-based libraries to easily create any python project in minutes!
-  </p>
-  <p>
-    Navigator is based on python >= 3.9, Asyncio and other fantastic asynchronous technologies like:
-    <ul>
-      <li> Aiohttp </li>
-      <li> Python 3.9 </li>
-      <li> Asyncio+uvloop </li>
-      <li> asyncpg </li>
-      <li> SockJS </li>
-    </ul>
-    And many others, designed with "functional-first" philosofy, is an async "micro-django" with many tools for easy deploy and development async applications.
+    <div class="background-animation"></div>
+
+    <header class="header">
+        <div class="container">
+            <nav class="nav">
+                <div class="logo">⚡ Navigator</div>
+                <ul class="nav-links">
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#docs">Docs</a></li>
+                    <li><a href="#github">GitHub</a></li>
+                    <li><a href="#examples">Examples</a></li>
+                </ul>
+            </nav>
+
+            <div class="hero">
+                <h1 class="hero-title">Navigator</h1>
+                <p class="hero-subtitle">
+                    A batteries-included async web framework built on aiohttp.
+                    Create powerful, scalable web applications with enterprise-grade features out of the box.
+                </p>
+
+                <div class="cta-buttons">
+                    <a href="#install" class="btn btn-primary">
+                        🚀 Get Started
+                    </a>
+                    <a href="#docs" class="btn btn-secondary">
+                        📖 Documentation
+                    </a>
+                </div>
+
+                <div class="code-showcase">
+                    <div class="code-header">
+                        <div class="code-dot"></div>
+                        <div class="code-dot"></div>
+                        <div class="code-dot"></div>
+                        <span style="margin-left: 1rem; color: var(--text-muted); font-size: 0.8rem;">app.py</span>
+                    </div>
+                    <div class="code-content">
+<span class="code-comment"># Create a Navigator app in seconds</span>
+<span class="code-keyword">from</span> navigator <span class="code-keyword">import</span> Application
+<span class="code-keyword">from</span> aiohttp <span class="code-keyword">import</span> web
+
+<span class="code-keyword">async def</span> <span class="code-function">hello</span>(request):
+    <span class="code-keyword">return</span> web.Response(text=<span class="code-string">"Hello Navigator!"</span>)
+
+<span class="code-comment"># Initialize with batteries included</span>
+app = <span class="code-function">Application</span>(enable_jinja2=<span class="code-keyword">True</span>)
+app.router.add_get(<span class="code-string">'/'</span>, hello)
+app.add_websockets()  <span class="code-comment"># WebSocket support</span>
+
+<span class="code-keyword">if</span> __name__ == <span class="code-string">'__main__'</span>:
+    app.run()
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <section class="features" id="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose Navigator?</h2>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Lightning Fast</h3>
+                    <p class="feature-description">
+                        Built on aiohttp and asyncio with uvloop for maximum performance.
+                        Handle thousands of concurrent connections with ease.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔋</div>
+                    <h3 class="feature-title">Batteries Included</h3>
+                    <p class="feature-description">
+                        Authentication, WebSockets, templates, database connections,
+                        and more - everything you need is ready out of the box.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🏗️</div>
+                    <h3 class="feature-title">Django-like Apps</h3>
+                    <p class="feature-description">
+                        Organize your code with Django-style applications.
+                        Create modular, reusable components with AppConfig.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3 class="feature-title">Sub-Domains</h3>
+                    <p class="feature-description">
+                        Multi-tenant architecture with sub-domain support.
+                        Perfect for SaaS applications and enterprise deployments.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3 class="feature-title">Central Config</h3>
+                    <p class="feature-description">
+                        Unified configuration management with INI files,
+                        environment variables, and secrets - one source of truth.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🔌</div>
+                    <h3 class="feature-title">Auto-Connections</h3>
+                    <p class="feature-description">
+                        Automatic database connections with AsyncDB.
+                        PostgreSQL, MySQL, Redis, and more - all configured automatically.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="tech-stack" id="tech">
+        <div class="container">
+            <h2 class="section-title">Built on Modern Technologies</h2>
+
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="tech-logo">🐍</div>
+                    <div class="tech-name">Python 3.10+</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">🔄</div>
+                    <div class="tech-name">asyncio</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">🌐</div>
+                    <div class="tech-name">aiohttp</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">⚡</div>
+                    <div class="tech-name">uvloop</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">🗄️</div>
+                    <div class="tech-name">PostgreSQL</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">📝</div>
+                    <div class="tech-name">Jinja2</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">🔌</div>
+                    <div class="tech-name">WebSockets</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-logo">🚀</div>
+                    <div class="tech-name">SockJS</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-links">
+                <a href="#documentation">Documentation</a>
+                <a href="#github">GitHub</a>
+                <a href="#examples">Examples</a>
+                <a href="#community">Community</a>
+                <a href="#support">Support</a>
+            </div>
+            <p style="color: var(--text-muted);">
+                Navigator Framework - Built with ❤️ for the async web
+            </p>
+        </div>
+    </footer>
+
+    <div class="interactive-demo" onclick="window.open('#demo', '_blank')">
+        <span style="font-size: 1.5rem;">🚀</span>
+    </div>
+
+    <script>
+        // Add some interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Smooth scrolling for navigation links
+            const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const target = document.querySelector(this.getAttribute('href'));
+                    if (target) {
+                        target.scrollIntoView({
+                            behavior: 'smooth',
+                            block: 'start'
+                        });
+                    }
+                });
+            });
+
+            // Add scroll animation to feature cards
+            const observerOptions = {
+                threshold: 0.1,
+                rootMargin: '0px 0px -50px 0px'
+            };
+
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = '1';
+                        entry.target.style.transform = 'translateY(0)';
+                    }
+                });
+            }, observerOptions);
+
+            // Initially hide feature cards
+            const featureCards = document.querySelectorAll('.feature-card');
+            featureCards.forEach((card, index) => {
+                card.style.opacity = '0';
+                card.style.transform = 'translateY(30px)';
+                card.style.transition = `opacity 0.6s ease ${index * 0.1}s, transform 0.6s ease ${index * 0.1}s`;
+                observer.observe(card);
+            });
+
+            // Add typing effect to hero title
+            const heroTitle = document.querySelector('.hero-title');
+            const originalText = heroTitle.textContent;
+            heroTitle.textContent = '';
+
+            let i = 0;
+            const typeWriter = setInterval(() => {
+                heroTitle.textContent += originalText.charAt(i);
+                i++;
+                if (i >= originalText.length) {
+                    clearInterval(typeWriter);
+                }
+            }, 100);
+
+            // Add click analytics to CTA buttons
+            const ctaButtons = document.querySelectorAll('.btn');
+            ctaButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Add a subtle animation on click
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 150);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

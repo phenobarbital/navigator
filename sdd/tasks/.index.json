@@ -332,7 +332,7 @@
       "feature_id": "FEAT-003",
       "feature": "backgroundservice-eventloop-error",
       "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": [],
@@ -340,7 +340,8 @@
       "parallelism_notes": "Foundation task — all other FEAT-003 tasks depend on this.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T18:00:00Z",
-      "file": "sdd/tasks/active/TASK-019-taskwrapper-dual-execution.md"
+      "completed_at": "2026-04-20T18:10:00Z",
+      "file": "sdd/tasks/completed/TASK-019-taskwrapper-dual-execution.md"
     },
     {
       "id": "TASK-020",

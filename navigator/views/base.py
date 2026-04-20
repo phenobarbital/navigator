@@ -48,10 +48,33 @@ class BaseHandler(ABC):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._config = None
-        self._loop: asyncio.AbstractEventLoop = asyncio.get_event_loop()
+        # Lazy event-loop backing field — do NOT use asyncio.get_event_loop()
+        # here because that is deprecated in Python 3.10+ and may return a
+        # stale loop when the handler is instantiated before the loop starts.
+        self.__loop: Optional[asyncio.AbstractEventLoop] = None
         self._json: Callable = JSONContent()
         self.logger: logging.Logger = None
         self.post_init(self, *args, **kwargs)
+
+    @property
+    def _loop(self) -> Optional[asyncio.AbstractEventLoop]:
+        """Return the running event loop, or the stored fallback.
+
+        When called from an async context (i.e. inside a coroutine) this
+        returns ``asyncio.get_running_loop()``, which is always the correct
+        loop.  When called outside of an async context (e.g. during startup
+        before the loop is running) it returns the stored fallback value
+        (initially ``None``).
+        """
+        try:
+            return asyncio.get_running_loop()
+        except RuntimeError:
+            return self.__loop
+
+    @_loop.setter
+    def _loop(self, value: asyncio.AbstractEventLoop) -> None:
+        """Allow ``self._loop = some_loop`` assignments from subclasses."""
+        self.__loop = value
 
     def post_init(self, *args, **kwargs):
         self.logger = logging.getLogger(self._logger_name)

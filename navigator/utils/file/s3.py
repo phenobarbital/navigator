@@ -556,3 +556,45 @@ class S3FileManager(FileManagerInterface):
                             continue
                     results.append(self._make_metadata(key, obj))
         return results
+
+    # ------------------------------------------------------------------ #
+    # Backward-compatible web-serving helpers                             #
+    # ------------------------------------------------------------------ #
+
+    def setup(self, app, route: str = "/data", base_url: str = None):
+        """Set up web-serving for this manager (backward compat).
+
+        Delegates to FileServingExtension.
+
+        Args:
+            app: aiohttp Application or BaseApplication.
+            route: URL prefix (default ``"/data"``).
+            base_url: Ignored (kept for signature compat).
+
+        Returns:
+            The configured app.
+        """
+        from .web import FileServingExtension
+
+        ext = FileServingExtension(
+            manager=self,
+            route=route,
+            manager_name=self.manager_name,
+        )
+        return ext.setup(app)
+
+    async def handle_file(self, request):
+        """Handle a file request (backward compat).
+
+        Delegates to FileServingExtension.
+
+        Args:
+            request: aiohttp Request.
+
+        Returns:
+            StreamResponse.
+        """
+        from .web import FileServingExtension
+
+        ext = FileServingExtension(manager=self, manager_name=self.manager_name)
+        return await ext.handle_file(request)

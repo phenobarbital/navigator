@@ -2,17 +2,68 @@ from typing import Dict, Any, Optional, Mapping
 import asyncio
 import uuid
 from datamodel.exceptions import ValidationError
+from navconfig.logging import logging
 from .models import JobRecord, time_now
+
+
+DEFAULT_TTL = 24 * 3600
 
 
 class JobTracker:
     """
-    A very small, coroutine-safe in-memory job store.
-    Replace by a DB or Redis backend later.
+    Coroutine-safe in-memory job store with TTL-based
+    cleanup of completed and failed jobs.
     """
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        ttl_seconds: int = DEFAULT_TTL,
+        reap_interval: int = 300,
+    ) -> None:
         self._jobs: Dict[str, JobRecord] = {}
         self._lock = asyncio.Lock()
+        self._ttl = ttl_seconds
+        self._reap_interval = reap_interval
+        self._reaper_task: Optional[asyncio.Task] = None
+        self.logger = logging.getLogger('NAV.JobTracker')
+
+    # -----------------------------------------------------------
+    # Lifecycle
+    # -----------------------------------------------------------
+    async def start(self) -> None:
+        if self._reaper_task is None:
+            self._reaper_task = asyncio.create_task(self._reap_loop())
+            self.logger.info(
+                f'JobTracker reaper started (TTL={self._ttl}s, interval={self._reap_interval}s)'
+            )
+
+    async def stop(self) -> None:
+        if self._reaper_task is not None:
+            self._reaper_task.cancel()
+            try:
+                await self._reaper_task
+            except asyncio.CancelledError:
+                pass
+            self._reaper_task = None
+            self.logger.info('JobTracker reaper stopped')
+
+    async def _reap_loop(self) -> None:
+        while True:
+            await asyncio.sleep(self._reap_interval)
+            removed = await self._reap_expired()
+            if removed:
+                self.logger.debug(f'Reaped {removed} expired job(s)')
+
+    async def _reap_expired(self) -> int:
+        now = time_now()
+        ttl_ms = self._ttl * 1000
+        async with self._lock:
+            expired = [
+                jid for jid, rec in self._jobs.items()
+                if rec.finished_at is not None and (now - rec.finished_at) > ttl_ms
+            ]
+            for jid in expired:
+                del self._jobs[jid]
+            return len(expired)
 
     # -----------------------------------------------------------
     # Public helpers

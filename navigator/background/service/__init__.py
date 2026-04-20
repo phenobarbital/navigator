@@ -6,6 +6,9 @@ from ..tracker import JobTracker, RedisJobTracker, JobRecord
 from ..wrappers import TaskWrapper
 from ...conf import CACHE_URL
 
+BACKGROUND_SERVICE_KEY: web.AppKey["BackgroundService"] = web.AppKey("background_service")
+SERVICE_TRACKER_KEY: web.AppKey[JobTracker] = web.AppKey("service_tracker")
+
 
 class BackgroundService:
     """
@@ -32,8 +35,18 @@ class BackgroundService:
             else:
                 self.tracker = JobTracker()
         # Register the queue and tracker in the application
-        app['background_service'] = self
-        app['service_tracker'] = self.tracker
+        app[BACKGROUND_SERVICE_KEY] = self
+        app[SERVICE_TRACKER_KEY] = self.tracker
+        app.on_startup.append(self._start_tracker)
+        app.on_cleanup.append(self._stop_tracker)
+
+    async def _start_tracker(self, app: web.Application) -> None:
+        if hasattr(self.tracker, 'start'):
+            await self.tracker.start()
+
+    async def _stop_tracker(self, app: web.Application) -> None:
+        if hasattr(self.tracker, 'stop'):
+            await self.tracker.stop()
 
     # -----------------------------------------------------------
     # API-style helpers your web-handlers can call
@@ -45,30 +58,67 @@ class BackgroundService:
         jitter: float = 0.0,
         **kwargs
     ) -> uuid.UUID:
+        """Submit a task for background execution.
+
+        Args:
+            fn: A callable, coroutine function, or existing TaskWrapper.
+            *args: Positional arguments forwarded to fn.
+            jitter: Maximum jitter delay in seconds (default 0.0).
+            execution_mode: ``"same_loop"`` (default), ``"thread"`` or
+                ``"remote"``. Forwarded to TaskWrapper if fn is not
+                already a TaskWrapper.
+            remote_mode: Only used when ``execution_mode == "remote"``.
+                One of ``"run"`` (wait for result), ``"queue"``
+                (fire-and-forget via TCP), or ``"publish"``
+                (fire-and-forget via Redis Streams). Default ``"run"``.
+            worker_list: Only used when ``execution_mode == "remote"``.
+                Optional list of ``(host, port)`` tuples identifying the
+                qworker pool. ``None`` falls back to QClient's own
+                discovery / Redis resolution.
+            remote_timeout: Only used when ``execution_mode == "remote"``.
+                TCP timeout (seconds) passed to ``QClient``. Default ``5``.
+            **kwargs: Additional keyword arguments forwarded to fn (and
+                recognised TaskWrapper params such as ``name``, ``callback``).
+
+        Returns:
+            The JobRecord for the submitted task.
+        """
         if not callable(fn):
             raise ValueError(
                 "fn must be a callable function or TaskWrapper instance"
             )
+        # Extract execution_mode (and remote-related kwargs) before forwarding
+        # to TaskWrapper so they are not passed twice (as explicit params AND
+        # in **kwargs).
+        execution_mode = kwargs.pop('execution_mode', 'same_loop')
+        remote_mode = kwargs.pop('remote_mode', 'run')
+        worker_list = kwargs.pop('worker_list', None)
+        remote_timeout = kwargs.pop('remote_timeout', 5)
+
         if isinstance(fn, TaskWrapper):
-            # If fn is already a TaskWrapper, use it directly
+            # If fn is already a TaskWrapper, use it directly.
+            # Do NOT override its execution_mode — caller already set it.
             tw = fn
         else:
-            # Otherwise, create a new TaskWrapper
+            # Otherwise, create a new TaskWrapper forwarding execution_mode
+            # and remote dispatch params.
             tw = TaskWrapper(
                 fn,
                 *args,
+                execution_mode=execution_mode,
                 tracker=self.tracker,
                 jitter=jitter,
+                remote_mode=remote_mode,
+                worker_list=worker_list,
+                remote_timeout=remote_timeout,
                 **kwargs
             )
         if tw.tracker is None:
-            # If the TaskWrapper does not have a tracker, set it to the service's tracker
             tw.tracker = self.tracker
-            # and create the job record:
-            tw.job_record = await self.tracker.create_job(
-                job=tw.job_record,
-                name=tw.fn.__name__,
-            )
+        tw.job_record = await self.tracker.create_job(
+            job=tw.job_record,
+            name=tw.fn.__name__,
+        )
         # Add the TaskWrapper to the queue
         await self.queue.put(tw)
         return tw.job_record

@@ -32,7 +32,14 @@ from .version import (
 try:
     from .navigator import Application
     from .responses import Response
-except (ImportError, Exception):
+except ImportError as _imp_err:  # pragma: no cover — optional deps missing
+    # Only swallow genuine import failures (e.g. optional extras not
+    # installed). A bare ``except Exception`` previously hid real bugs
+    # inside ``navigator.py`` by silently setting ``Application = None``.
+    import logging as _logging
+    _logging.getLogger(__name__).warning(
+        "navigator.Application unavailable: %s", _imp_err
+    )
     Application = None
     Response = None
 try:

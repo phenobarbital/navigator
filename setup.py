@@ -11,23 +11,25 @@ from Cython.Build import cythonize
 
 COMPILE_ARGS = ["-O2"]
 
-# Define Cython extensions
+# Define Cython extensions.
+#
+# Spec FEAT-001 / TASK-002 — the following extensions were removed because
+# TASK-001 benchmarks showed no measurable speed-up vs pure Python:
+#
+#   - ``navigator.exceptions.exceptions``  (converted to exceptions.py)
+#   - ``navigator.utils.functions``        (converted to functions.py; the
+#                                           shadowed Cython ``SafeDict`` was
+#                                           dead code).
+#   - ``navigator.handlers.base``          (−31 % vs pure Python → base.py)
+#   - ``navigator.applications.base``      (follow-up of the cimport chain)
+#
+# Only modules where Cython provided a clear benefit remain:
+#   - ``navigator.utils.types``  (Singleton: +62 % vs datamodel reference)
+#   - ``navigator.types``        (URL class with cdef attributes)
 extensions = [
     Extension(
         name='navigator.utils.types',
         sources=['navigator/utils/types.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c"
-    ),
-    Extension(
-        name='navigator.utils.functions',
-        sources=['navigator/utils/functions.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c"
-    ),
-    Extension(
-        name='navigator.exceptions.exceptions',
-        sources=['navigator/exceptions/exceptions.pyx'],
         extra_compile_args=COMPILE_ARGS,
         language="c"
     ),
@@ -37,18 +39,6 @@ extensions = [
         extra_compile_args=COMPILE_ARGS,
         language="c++"
     ),
-    Extension(
-        name='navigator.applications.base',
-        sources=['navigator/applications/base.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    ),
-    Extension(
-        name='navigator.handlers.base',
-        sources=['navigator/handlers/base.pyx'],
-        extra_compile_args=COMPILE_ARGS,
-        language="c++"
-    )
 ]
 
 # Setup only handles Cython extensions

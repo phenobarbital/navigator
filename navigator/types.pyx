@@ -23,17 +23,12 @@ HTTPRoute = Tuple[
 ]
 
 ## URL definition
+#
+# NOTE: attribute declarations (``cdef str value``, ...) moved to
+# ``navigator/types.pxd`` as part of FEAT-001 / TASK-006. Cython forbids
+# declaring them in both files, and the ``.pxd`` now carries the
+# canonical interface for ``cimport`` consumers.
 cdef class URL:
-    cdef str value
-    cdef str scheme
-    cdef str path
-    cdef str host
-    cdef str port
-    cdef str netloc
-    cdef str query
-    cdef str fragment
-    cdef dict params
-    cdef bool is_absolute
 
     def __cinit__(self):
         self.is_absolute = False

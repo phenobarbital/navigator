@@ -1,0 +1,20 @@
+{
+  "generated_at": "2026-04-20T12:31:02Z",
+  "python_version": "3.11.14 (main, Dec  9 2025, 19:02:23) [Clang 21.1.4 ]",
+  "summary": {
+    "BaseAppHandler": {
+      "cython_mean_s": 5.6749678735279475e-05,
+      "python_mean_s": 3.898201993413064e-05,
+      "speedup_percent": -31.308827110774896,
+      "passes_10pct_threshold": false,
+      "recommendation": "convert_to_python"
+    },
+    "Singleton": {
+      "cython_mean_s": 1.8578412499430444e-07,
+      "datamodel_mean_s": 3.0146882410066884e-07,
+      "speedup_percent": 62.26834456922028,
+      "passes_10pct_threshold": true,
+      "recommendation": "keep_cython"
+    }
+  }
+}

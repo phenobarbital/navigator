@@ -167,6 +167,10 @@ app.py
 run.py
 nav.py
 test_*.py
+# Re-include pytest files that live under tests/ — these are part of the
+# project test suite and must be tracked (spec FEAT-001 / TASK-002).
+!tests/**/test_*.py
+!tests/**/conftest.py
 navigator_dev.code-workspace
 navigator.code-workspace
 pyproject.toml

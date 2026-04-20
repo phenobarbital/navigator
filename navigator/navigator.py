@@ -262,12 +262,21 @@ class Application(BaseApplication):
     def router(self):
         return self.get_app().router
 
-        if AUTH_INSTALLED:
-            try:
-                from navigator_auth.conf import exclude_list
-                exclude_list.append(route)
-            except ImportError:
-                pass
+    def auth_excluded(self, route: str) -> None:
+        """Mark *route* as exempt from ``navigator_auth`` enforcement.
+
+        Safe no-op if ``navigator_auth`` is not installed — the exclusion
+        registry only exists when the optional auth package is present.
+        """
+        if not AUTH_INSTALLED:
+            return
+        try:
+            from navigator_auth.conf import exclude_list  # pylint: disable=C0415
+            exclude_list.append(route)
+        except ImportError:
+            # auth package present at import time but missing exclude_list —
+            # treat as "no registry available".
+            pass
 
     def get(self, route: str, allow_anonymous: bool = False):
         app = self.get_app()
@@ -329,7 +338,13 @@ class Application(BaseApplication):
         def _template(func):
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
-                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
+                # ``asyncio.coroutine`` was removed in Python 3.11; wrap the
+                # sync callable in a coroutine function by hand instead.
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    async def coro(*a, **kw):  # type: ignore[no-redef]
+                        return func(*a, **kw)
                 ## getting data:
                 try:
                     context = await coro(*args)
@@ -376,8 +391,6 @@ class Application(BaseApplication):
         """
 
         def _validation(func, **kwargs):
-            print(func, **kwargs)
-
             @wraps(func)
             async def _wrap(*args: Any) -> web.StreamResponse:
                 ## building arguments:
@@ -397,7 +410,13 @@ class Application(BaseApplication):
                             new_args["errors"] = errors
                         else:
                             new_args[a] = val
-                coro = func if asyncio.iscoroutinefunction(func) else asyncio.coroutine(func)
+                # ``asyncio.coroutine`` was removed in Python 3.11; wrap
+                # sync callables in a coroutine function explicitly.
+                if asyncio.iscoroutinefunction(func):
+                    coro = func
+                else:
+                    async def coro(*a, **kw):  # type: ignore[no-redef]
+                        return func(*a, **kw)
                 try:
                     context = await coro(**new_args)
                     return context
@@ -497,7 +516,7 @@ class Application(BaseApplication):
             ssl_context.load_cert_chain(ssl_cert, ssl_key)
             ssl_context.set_ciphers(FORCED_CIPHERS)
 
-            self.logger.info(f"SSL enabled with cert: {ssl_cert}")
+            self.logger.info("SSL enabled with cert: %s", ssl_cert)
             return ssl_context
 
         except Exception as err:
@@ -645,7 +664,7 @@ class Application(BaseApplication):
 
         Args:
             app: aiohttp Application instance
-            path: Unix socket path
+            unix_path: Unix socket path
             **kwargs: Additional arguments for UnixSite
         """
         try:
@@ -667,17 +686,23 @@ class Application(BaseApplication):
             )
             await self._runner.setup()
 
-            # Create Unix site
+            # Create Unix site — only forward kwargs that ``UnixSite``
+            # actually accepts. Everything else (``access_log``,
+            # ``keepalive_timeout``, etc.) belongs to ``AppRunner`` and was
+            # already consumed above; leaking them here raises
+            # ``TypeError: unexpected keyword argument``.
             site = web.UnixSite(
                 self._runner,
-                path=str(path),
-                **kwargs
+                path=str(unix_path),
+                shutdown_timeout=kwargs.get('shutdown_timeout', 60.0),
+                ssl_context=kwargs.get('ssl_context'),
+                backlog=kwargs.get('backlog', 128),
             )
 
             await site.start()
             self._sites.append(site)
 
-            self.logger.info(f"Navigator started on unix socket: {path}")
+            self.logger.info("Navigator started on unix socket: %s", unix_path)
 
         except Exception as err:
             self.logger.exception("Failed to start Unix socket server: %s", err)
@@ -764,9 +789,7 @@ class Application(BaseApplication):
         unix_path: Union[str, Path] = None,
         **kwargs
     ) -> None:
-        """Run the Navigator application.
-
-        This method provides both legacy compatibility and modern features.
+        """Run the Navigator application using the modern AppRunner pattern.
 
         Args:
             host: Host to bind to
@@ -795,11 +818,6 @@ class Application(BaseApplication):
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-
-            # For compatibility with existing code that might expect web.run_app behavior
-            if kwargs.get('use_legacy_runner', False):
-                self._run_legacy(**kwargs)
-                return
 
             # Modern async server startup
             try:
@@ -835,72 +853,6 @@ class Application(BaseApplication):
         except Exception as err:
             self.logger.exception("Application startup failed: %s", err)
             raise
-
-    def _run_legacy(self, **kwargs) -> None:
-        """Legacy run method using web.run_app (for backward compatibility).
-
-        This method maintains compatibility with the old Navigator behavior.
-        """
-        self.logger.warning(
-            "Using legacy runner (web.run_app). Consider upgrading to modern AppRunner pattern."
-        )
-
-        try:
-            from navigator import conf  # pylint: disable=C0415
-
-            # Get configuration
-            enable_access_log = getattr(conf, 'ENABLE_ACCESS_LOG', True)
-            if enable_access_log is False:
-                enable_access_log = None
-
-            # Get the application
-            app = self.setup_app()
-
-            if self.debug:
-                self.logger.debug("Running in DEBUG mode")
-
-            # SSL configuration
-            if self.use_ssl:
-                self.logger.debug("Running in SSL mode")
-                ssl_context = self._generate_ssl_context()
-
-                web.run_app(
-                    app,
-                    host=self.host,
-                    port=self.port,
-                    ssl_context=ssl_context,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-            elif self.path:
-                # Unix socket
-                web.run_app(
-                    app,
-                    path=self.path,
-                    loop=self._loop,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-            else:
-                # Regular HTTP
-                web.run_app(
-                    app,
-                    host=self.host,
-                    port=self.port,
-                    loop=self._loop,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-
-        except Exception as err:
-            self.logger.exception(
-                "Legacy runner failed with: %s", err
-            )
-            raise
-
 
 # Utilities functions for direct AppRunner usage
 async def create_app_runner(

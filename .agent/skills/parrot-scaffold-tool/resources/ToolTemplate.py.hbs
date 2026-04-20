@@ -1,0 +1,48 @@
+"""
+{{ToolName}} Tool for ai-parrot.
+"""
+from typing import Dict, Any, Type
+from pydantic import BaseModel, Field
+from ..abstract import AbstractTool, ToolResult
+
+
+class {{ToolName}}Args(BaseModel):
+"""Arguments for the {{ToolName}}."""
+query: str = Field(description="The query or input for the tool")
+
+
+class {{ToolName}}(AbstractTool):
+"""
+{{ToolName}}: [Add brief description here]
+"""
+name = "{{ToolName}}"
+description = "{{toolDescription}}"
+args_schema = {{ToolName}}Args
+
+async def _execute(self, query: str, **kwargs) -> ToolResult:
+"""
+Execute the tool.
+
+Args:
+query: The main input for the tool.
+
+Returns:
+ToolResult object.
+"""
+try:
+# TODO: Implement tool logic here
+result = f"Processed: {query}"
+
+return ToolResult(
+status="success",
+result=result,
+metadata={
+"tool": self.name
+}
+)
+except Exception as e:
+return ToolResult(
+status="error",
+error=str(e),
+result=None
+)

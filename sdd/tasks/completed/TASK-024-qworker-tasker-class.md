@@ -195,4 +195,21 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+Implemented `QWorkerTasker` at `navigator/background/taskers/qworker.py`.
+
+- `qw.client.QClient` is lazy-imported inside `__init__()` so
+  `navigator.background.taskers` stays importable without qworker installed.
+- `ImportError` is raised at construction with the exact message specified
+  in the scope (`"qworker is required for remote task dispatch. Install it
+  with: pip install navigator-api[qworker]"`).
+- `dispatch()` supports `run`, `queue`, `publish`:
+  - `run` uses `use_wrapper=False` (raw result) and sets tracker to `done`.
+  - `queue` / `publish` use `use_wrapper=True` and set tracker status to
+    `queued_remote` in-place (falls back to `set_done()` for non-standard
+    trackers that don't expose `_lock` / `_jobs`).
+- Invalid `default_mode` / `remote_mode` raises `ValueError`.
+- Tracker updates are best-effort — wrapped in try/except so dispatch is
+  never aborted by a tracker failure.
+- `close()` is a documented no-op (QClient uses per-call TCP connections).
+
+**Verified at commit:** `87fc7b9`

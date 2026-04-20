@@ -368,7 +368,7 @@
       "feature_id": "FEAT-003",
       "feature": "backgroundservice-eventloop-error",
       "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": ["TASK-019"],
@@ -376,7 +376,8 @@
       "parallelism_notes": "Only removes dead code in queue/__init__.py. Can run in parallel with TASK-020 after TASK-019 lands.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T18:00:00Z",
-      "file": "sdd/tasks/active/TASK-021-queue-cleanup.md"
+      "completed_at": "2026-04-20T18:20:00Z",
+      "file": "sdd/tasks/completed/TASK-021-queue-cleanup.md"
     },
     {
       "id": "TASK-022",

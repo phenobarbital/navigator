@@ -1,9 +1,14 @@
+import logging
 import asyncio
 from collections.abc import Callable
 from aiohttp import web
-from navconfig.logging import logging
 from datamodel.parsers.encoders import DefaultEncoder
 from asyncdb.utils.functions import colors, cPrint
+
+try:
+    from navconfig.logging import logging
+except (ImportError, OSError):
+    pass
 
 __all__ = (
     "colors",

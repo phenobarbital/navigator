@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: medium
 **Estimated effort**: M (2-4h)
 **Depends-on**: none
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -210,10 +210,61 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / 9bd8b96
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**What shipped:**
 
-**Deviations from spec**: none | describe if any
+- `tests/conftest.py` (new) — session-scoped fixtures powered by
+  :mod:`trustme`:
+  - ``ca``               ephemeral Certificate Authority
+  - ``server_cert``      leaf cert for ``localhost``/``127.0.0.1``
+  - ``server_ssl_ctx``   server-side :class:`ssl.SSLContext`
+  - ``client_ssl_ctx``   client-side context trusting the test CA
+  - ``ssl_cert_files``   writes cert/key/CA PEMs to a tempdir so tests
+                         that need filesystem paths (the
+                         ``_generate_ssl_context`` ones) can point at
+                         real files.
+
+- `tests/test_ssl.py` (new, 7 test cases):
+  - ``TestGenerateSSLContext``
+      - returns ``None`` when ``self.use_ssl`` is ``False``.
+      - builds a valid ``ssl.SSLContext`` from cert + key, and applies
+        ``FORCED_CIPHERS`` (verified via ``get_ciphers()``).
+      - same, with an additional CA file.
+      - raises ``ValueError('SSL_CERT and SSL_KEY...')`` when the
+        required config is missing.
+      - raises ``FileNotFoundError``/``OSError``/``ssl.SSLError`` on a
+        non-existent cert path.
+  - ``TestHTTPSServer`` — end-to-end via ``web.AppRunner`` +
+    ``web.TCPSite(ssl_context=...)``, i.e. the exact plumbing used by
+    ``Application._run_tcp``:
+      - plain ``GET /ping`` → 200 ``pong``
+      - ``POST /echo`` with a JSON body → round-trips through
+        ``aiohttp.web.json_response``.
+
+  The unit tests for ``_generate_ssl_context`` call the method directly
+  on a ``types.SimpleNamespace`` stub and monkey-patch
+  ``navigator.conf.SSL_CERT`` / ``SSL_KEY`` / ``CA_FILE``. This avoids
+  instantiating the full ``Application``, which would drag in navconfig,
+  an event loop, signal handlers, etc. — a deliberately thin harness
+  that makes the tests fast and CI-friendly.
+
+- `pyproject.toml` — adds ``trustme>=1.0.0`` to
+  ``[project.optional-dependencies.test]``.
+
+**No production SSL code was modified.** The task's explicit "NOT in
+scope" list is honored.
+
+**Verification:**
+
+- `pytest tests/test_ssl.py -v` → **7 passed**.
+- `pytest tests/` → **53 passed** (32 exceptions + 14 SSE view + 7 SSL).
+- Tests run offline — trustme generates ephemeral certs in-process,
+  no committed ``.pem`` files, no external network needed.
+
+**Deviations from spec**: none. The spec's "test specification" block
+was a sketch; the concrete tests that shipped cover the same five
+behaviors (valid context, disabled SSL, invalid cert, HTTPS startup,
+HTTPS request/response) plus two extras (CA-file branch, POST/JSON).

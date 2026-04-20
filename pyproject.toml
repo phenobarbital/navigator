@@ -126,6 +126,13 @@ testing = [
     "Faker>=22.2.0",
 ]
 
+# Remote background task dispatch via qworker. Consumed by
+# navigator.background.taskers.qworker (lazy-imported). Pulls in qworker
+# and its transitive deps (flowtask, cloudpickle, redis-asyncio, ...).
+qworker = [
+    "qworker>=2.0.0",
+]
+
 
 # Development dependencies
 dev = [
@@ -174,7 +181,7 @@ docs = [
 
 # All optional dependencies
 all = [
-    "navigator-api[locale,memcache,uvloop,gunicorn,google,scraping,testing]"
+    "navigator-api[locale,memcache,uvloop,gunicorn,google,scraping,testing,qworker]"
 ]
 
 [project.urls]

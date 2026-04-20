@@ -194,10 +194,8 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
-
-**Completed by**:
-**Date**:
-**Notes**:
+**Completed by**: sdd-worker
+**Date**: 2026-04-20
+**Notes**: Replaced eager asyncio.get_event_loop() with lazy property + __loop backing field. Added setter so subclass assignments still work. Verified no other self._loop usages in base.py.
 
 **Deviations from spec**: none | describe if any

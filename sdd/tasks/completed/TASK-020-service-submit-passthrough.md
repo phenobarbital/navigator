@@ -192,10 +192,8 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
-
-**Completed by**:
-**Date**:
-**Notes**:
+**Completed by**: sdd-worker
+**Date**: 2026-04-20
+**Notes**: Popped execution_mode from kwargs before TaskWrapper construction; defaults to "same_loop"; existing TaskWrapper instances not overridden.
 
 **Deviations from spec**: none | describe if any

@@ -3,7 +3,7 @@
 **Date**: 2026-04-20
 **Author**: Jesus Lara / Claude
 **Status**: exploration
-**Recommended Option**: Option A
+**Recommended Option**: Option A (augmented with targeted Cython benchmarks)
 
 ---
 
@@ -51,7 +51,7 @@ Address each issue individually with minimal blast radius. Convert only the Cyth
 - Doesn't address deeper architectural issues (e.g., the URL class wrapping Python's urlparse negates most Cython gains)
 - Multiple tasks that must be coordinated
 
-📊 **Effort:** Medium (8-12 tasks, mostly straightforward conversions)
+📊 **Effort:** Medium (10-14 tasks, straightforward conversions + targeted benchmarks)
 
 📦 **Libraries / Tools:**
 | Package | Purpose | Notes |
@@ -61,6 +61,7 @@ Address each issue individually with minimal blast radius. Convert only the Cyth
 | `aiohttp-cors==0.8.1` | CORS | Stays, released Mar 2025 |
 | `Cython>=3.0.11` | Build | Stays for remaining .pyx |
 | `pytest-aiohttp` | Testing | For SSL integration tests |
+| `pyperf` | Micro-benchmarking | Cython vs pure Python for handlers/base and Singleton |
 
 🔗 **Existing Code to Reuse:**
 - `navigator/services/sse/manager.py` — Full SSEManager, reuse as backend for new SSEView
@@ -130,13 +131,18 @@ Only fix the critical bug (`_run_unix` variable name), bump aiohttp version, and
 
 ## Recommendation
 
-**Option A** is recommended because:
+**Option A augmented with targeted Cython benchmarks** is recommended because:
 
-- It addresses all identified issues without over-engineering or adding speculative scope (unlike Option B's benchmarking infrastructure and URL class investigation).
+- It addresses all identified issues with clear-cut Cython removal (exceptions, SafeDict, get_logger) while adding data-driven decisions for the two borderline modules: `handlers/base.pyx` (BaseAppHandler) and `utils/types.pyx` (Singleton).
+- The benchmarks are scoped to exactly two modules — not the full audit of Option B — keeping effort manageable while providing real evidence for the keep/convert decision.
 - Each task is independently deliverable and testable, making it safe for incremental release.
-- It cleans up the Cython misuse where the verdict is clear-cut (exceptions, SafeDict, Singleton, get_logger) while preserving Cython in modules where there's even a question of potential benefit (handlers/base, applications/base, types).
-- The URL class investigation (Option B scope) can happen as a follow-up once the foundation is clean.
+- The URL class investigation and `yarl.URL` migration remain out of scope (future follow-up), avoiding the full weight of Option B.
 - Option C leaves too much debt on the table — the Cython cleanup and SSE View are overdue.
+
+**Benchmark scope:**
+- `handlers/base.pyx` — Benchmark `BaseAppHandler.__init__()` + `CreateApp()` in Cython vs pure Python equivalent. If the difference is <5% (expected given it's a one-shot startup operation), convert to pure Python.
+- `utils/types.pyx` — Benchmark `Singleton.__call__()` Cython vs `datamodel.typedefs.singleton.Singleton`. If equivalent or datamodel is faster, remove the Cython version entirely.
+- Results drive the decision: keep Cython only if measured speedup exceeds 10% on the hot path.
 
 ---
 
@@ -164,9 +170,10 @@ For **framework maintainers**:
 1. Convert `exceptions/exceptions.pyx` → `exceptions/exceptions.py` preserving exact same class hierarchy and API
 2. Remove `exceptions/exceptions.pxd` and compiled `.so`
 3. Delete `utils/functions.pyx` and `utils/functions.pxd` — `SafeDict` comes from `datamodel`, `get_logger` becomes a 5-line pure Python function
-4. Delete `utils/types.pyx` — `Singleton` comes from `datamodel`
-5. Update `setup.py` to remove deleted extension definitions
-6. Add `.pyi` stubs for remaining Cython modules: `handlers/base.pyx`, `applications/base.pyx`, `types.pyx`
+4. Benchmark `utils/types.pyx` Singleton vs `datamodel.typedefs.singleton.Singleton` — if Cython version has no meaningful advantage, remove and use datamodel's
+5. Benchmark `handlers/base.pyx` BaseAppHandler: Cython vs pure Python equivalent — measure `__init__()` + `CreateApp()` cycle. If <10% speedup, convert to pure Python
+6. Update `setup.py` to remove deleted extension definitions
+7. Add `.pxd`/`.pyi` stubs for any remaining Cython modules (`applications/base.pyx`, `types.pyx`, and `handlers/base.pyx` if it stays Cython)
 
 **AppRunner modernization flow:**
 1. Fix `_run_unix()` bug: `path` → `unix_path` at lines 673, 680
@@ -343,12 +350,13 @@ from datamodel.typedefs.singleton import Singleton  # re-exported in navigator/u
 ## Parallelism Assessment
 
 - **Internal parallelism**: High. Tasks decompose into several independent streams:
-  - Stream 1: Cython cleanup (exceptions → pure Python, remove dead utils, add .pyi stubs)
+  - Stream 0: Cython benchmarks (handlers/base.pyx, Singleton) — must run FIRST, results inform Stream 1
+  - Stream 1: Cython cleanup (exceptions → pure Python, remove dead utils, benchmark-driven decisions on handlers/base and Singleton, add .pyi stubs)
   - Stream 2: AppRunner fixes (unix bug fix, remove legacy runner)
   - Stream 3: Dependency restructuring (pyproject.toml extras, bump aiohttp)
   - Stream 4: SSE View class creation
   - Stream 5: SSL test suite
-  Streams 1-3 touch different files and can run in parallel. Stream 4 depends on knowing the final BaseView API (already stable). Stream 5 is fully independent.
+  Stream 0 runs first. Then Streams 1-3 can run in parallel (touch different files). Stream 4 depends on knowing the final BaseView API (already stable). Stream 5 is fully independent and can run alongside anything.
 
 - **Cross-feature independence**: No conflicts with in-flight specs. navigator-api is not currently under active feature development.
 

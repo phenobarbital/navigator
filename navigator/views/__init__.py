@@ -10,6 +10,7 @@ from .model import ModelView, load_models
 from .mhandler import ModelHandler
 from .form import FormModel
 from .abstract import model_url, NotSet
+from .sse import SSEView
 
 
 DEFAULT_JSON_ENCODER = json_encoder
@@ -25,4 +26,5 @@ __all__ = (
     'FormModel',
     'model_url',
     'NotSet',
+    'SSEView',
 )

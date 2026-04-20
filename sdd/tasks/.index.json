@@ -45,7 +45,7 @@
       "feature_id": "FEAT-001",
       "feature": "aiohttp-navigator-modernization",
       "spec": "sdd/specs/aiohttp-navigator-modernization.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": [],
@@ -53,7 +53,8 @@
       "parallelism_notes": "Only modifies navigator/navigator.py. No overlap with other tasks' files.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T11:39:07Z",
-      "file": "sdd/tasks/active/TASK-003-apprunner-modernization.md"
+      "completed_at": "2026-04-20T14:01:30Z",
+      "file": "sdd/tasks/completed/TASK-003-apprunner-modernization.md"
     },
     {
       "id": "TASK-004",

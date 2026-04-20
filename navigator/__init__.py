@@ -32,10 +32,11 @@ from .version import (
 try:
     from .navigator import Application
     from .responses import Response
-except (ImportError, OSError) as _imp_err:  # pragma: no cover
+except Exception as _imp_err:  # pragma: no cover
     # ImportError: optional extras not installed.
-    # OSError (includes FileExistsError): navconfig env directory missing
-    # (common in CI/build environments without a full runtime layout).
+    # OSError/FileExistsError: navconfig env directory missing.
+    # ProjectDetectionError: navconfig can't find project root.
+    # Any navconfig init failure in CI/build environments.
     import logging as _logging
     _logging.getLogger(__name__).warning(
         "navigator.Application unavailable: %s", _imp_err

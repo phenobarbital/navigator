@@ -272,4 +272,43 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+Created `tests/test_qworker_tasker.py` with **31 tests** across 5 groups:
+
+- `TestQWorkerTaskerInit` (4): defaults, custom workers, invalid default
+  mode, missing-qworker ImportError.
+- `TestQWorkerTaskerDispatch` (6): all three modes (run/queue/publish),
+  `use_wrapper` contract, fallback to default_mode, invalid mode, exception
+  propagation.
+- `TestQWorkerTaskerTracker` (6): run→done, queue→queued_remote,
+  publish→queued_remote, exception→failed, no-tracker noop,
+  close() is a noop.
+- `TestTaskWrapperRemote` (9): VALID_EXECUTION_MODES, construction,
+  kwarg-stripping, same_loop/thread untouched, run/queue/publish dispatch
+  via `QWorkerTasker`, exception path returns `{"status": "failed"}`.
+- `TestBackgroundServiceRemote` (2): end-to-end `/remote` submit forwards
+  `remote_mode` / `worker_list` / `remote_timeout` to a mocked
+  `QWorkerTasker`; plain `submit()` still defaults to `same_loop` and
+  executes locally.
+- `TestPackageWiring` (4): `import navigator.background` is clean,
+  `QWorkerTasker` re-exports, `__all__`.
+
+### Testing strategy
+
+Because the real `qw.client` module has a broken transitive import chain
+(via `flowtask`) in the minimal test environment, we inject a fake
+`qw.client` module into `sys.modules` before construction. This exercises
+the real lazy-import code path inside `QWorkerTasker.__init__` while
+keeping the test suite hermetic.
+
+### Results
+
+```
+tests/test_qworker_tasker.py ............................... 31 passed
+tests/test_background_service.py ......                        7 passed
+=============================================================
+                                                              38 passed
+```
+
+No regressions in the pre-existing background service tests.
+
+**Verified at commit:** `4da7e77`

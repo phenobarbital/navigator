@@ -502,7 +502,7 @@
       "feature_id": "FEAT-004",
       "feature": "new-backgroundqueue-tasker",
       "spec": "sdd/specs/new-backgroundqueue-tasker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": ["TASK-024", "TASK-025", "TASK-026", "TASK-027"],
@@ -510,7 +510,9 @@
       "parallelism_notes": "Final task — tests all modules. Must run after all implementation tasks.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T22:00:00Z",
-      "file": "sdd/tasks/active/TASK-028-tests.md"
+      "completed_at": "2026-04-21T00:15:00Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-028-tests.md"
     }
   ]
 }

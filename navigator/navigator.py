@@ -645,7 +645,7 @@ class Application(BaseApplication):
 
         Args:
             app: aiohttp Application instance
-            path: Unix socket path
+            unix_path: Unix socket path
             **kwargs: Additional arguments for UnixSite
         """
         try:
@@ -670,14 +670,14 @@ class Application(BaseApplication):
             # Create Unix site
             site = web.UnixSite(
                 self._runner,
-                path=str(path),
+                path=str(unix_path),
                 **kwargs
             )
 
             await site.start()
             self._sites.append(site)
 
-            self.logger.info(f"Navigator started on unix socket: {path}")
+            self.logger.info(f"Navigator started on unix socket: {unix_path}")
 
         except Exception as err:
             self.logger.exception("Failed to start Unix socket server: %s", err)
@@ -764,9 +764,7 @@ class Application(BaseApplication):
         unix_path: Union[str, Path] = None,
         **kwargs
     ) -> None:
-        """Run the Navigator application.
-
-        This method provides both legacy compatibility and modern features.
+        """Run the Navigator application using the modern AppRunner pattern.
 
         Args:
             host: Host to bind to
@@ -795,11 +793,6 @@ class Application(BaseApplication):
                 except RuntimeError:
                     loop = asyncio.new_event_loop()
                     asyncio.set_event_loop(loop)
-
-            # For compatibility with existing code that might expect web.run_app behavior
-            if kwargs.get('use_legacy_runner', False):
-                self._run_legacy(**kwargs)
-                return
 
             # Modern async server startup
             try:
@@ -835,72 +828,6 @@ class Application(BaseApplication):
         except Exception as err:
             self.logger.exception("Application startup failed: %s", err)
             raise
-
-    def _run_legacy(self, **kwargs) -> None:
-        """Legacy run method using web.run_app (for backward compatibility).
-
-        This method maintains compatibility with the old Navigator behavior.
-        """
-        self.logger.warning(
-            "Using legacy runner (web.run_app). Consider upgrading to modern AppRunner pattern."
-        )
-
-        try:
-            from navigator import conf  # pylint: disable=C0415
-
-            # Get configuration
-            enable_access_log = getattr(conf, 'ENABLE_ACCESS_LOG', True)
-            if enable_access_log is False:
-                enable_access_log = None
-
-            # Get the application
-            app = self.setup_app()
-
-            if self.debug:
-                self.logger.debug("Running in DEBUG mode")
-
-            # SSL configuration
-            if self.use_ssl:
-                self.logger.debug("Running in SSL mode")
-                ssl_context = self._generate_ssl_context()
-
-                web.run_app(
-                    app,
-                    host=self.host,
-                    port=self.port,
-                    ssl_context=ssl_context,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-            elif self.path:
-                # Unix socket
-                web.run_app(
-                    app,
-                    path=self.path,
-                    loop=self._loop,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-            else:
-                # Regular HTTP
-                web.run_app(
-                    app,
-                    host=self.host,
-                    port=self.port,
-                    loop=self._loop,
-                    handle_signals=True,
-                    access_log=enable_access_log,
-                    **kwargs
-                )
-
-        except Exception as err:
-            self.logger.exception(
-                "Legacy runner failed with: %s", err
-            )
-            raise
-
 
 # Utilities functions for direct AppRunner usage
 async def create_app_runner(

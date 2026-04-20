@@ -272,7 +272,7 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": [
@@ -288,7 +288,8 @@
       "parallelism_notes": "Integration task \u2014 depends on all modules. Modifies every manager + __init__.py.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-017-package-init.md"
+      "file": "sdd/tasks/completed/TASK-017-package-init.md",
+      "completed_at": "2026-04-20T01:15:00Z"
     },
     {
       "id": "TASK-018",

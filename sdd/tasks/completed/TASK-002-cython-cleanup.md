@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: L (4-8h)
 **Depends-on**: TASK-001
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -275,10 +275,60 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / 04624fa
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**Unconditional conversions (exceptions + utils/functions):**
+- Created `navigator/exceptions/exceptions.py` with pure-Python replacements
+  for `NavException`, `InvalidArgument`, `ConfigError`, `ValidationError`,
+  `UserNotFound`, `Unauthorized`, `InvalidAuth`, `FailedAuth`, `AuthExpired`
+  and `ActionError`. API parity is 1:1 — same default state codes, same
+  `__init__` signatures (including the `stacktrace` kwarg), same
+  `__str__`/`get()` behavior, same (tuple-coerced) `self.args` override.
+- Created `navigator/utils/functions.py` providing `get_logger` only. The
+  Cython `SafeDict` was dead code (shadowed by
+  `datamodel.typedefs.types.SafeDict` in `utils/__init__.py`), so it is
+  not ported.
+- Deleted `.pyx` / `.pxd` / `.c` / `.so` artifacts for both modules.
 
-**Deviations from spec**: none | describe if any
+**Conditional conversions (TASK-001 benchmark verdict):**
+- `BaseAppHandler` was **-31.3 %** vs pure Python → converted
+  `navigator/handlers/base.pyx` → `base.py`. The conversion forced the
+  downstream `cimport` site at `navigator/applications/base.pyx:17` to be
+  converted as well, so `navigator/applications/base.pyx` → `base.py`.
+  The `cimport` became a regular Python import.
+- `applications/base.pyi` stub was removed because `base.py` now carries
+  inline type annotations.
+- `Singleton` was **+62.3 %** vs datamodel → **kept** `utils/types.pyx`
+  per the task's conditional rule. (Note: the Singleton is still dead code
+  at runtime because `utils/__init__.py` imports from datamodel, but the
+  task rule is threshold-based and does not authorize removing the file.
+  Follow-up cleanup is a candidate for a future spec.)
+
+**setup.py updated**: the four removed extensions are gone; the two
+surviving extensions (`navigator.types`, `navigator.utils.types`) still
+build cleanly (`python setup.py build_ext --inplace` verified).
+
+**Tests**: added `tests/test_exceptions.py` with 32 parametrized cases
+covering every exception class (default/custom state, custom messages,
+`stacktrace` kwarg, integer coercion of `state`, tuple-coercion of
+`self.args`, `isinstance(NavException)`). Also relaxed `.gitignore`
+(`!tests/**/test_*.py`) so pytest files under `tests/` are tracked — the
+previous overly-broad `test_*.py` rule was hiding them.
+
+**Regression verification:**
+- `pytest tests/` → **32 passed, 0 failed**.
+- Full import chain still works:
+  `navigator.Application`, `BaseApplication`, `BaseAppHandler`,
+  `AppHandler`, every exception, `SafeDict`/`Singleton` (from datamodel),
+  `get_logger`, `navigator.utils.types.Singleton` (Cython),
+  `navigator.types.URL` (Cython) all import without error.
+- `benchmarks/cython_benchmarks.py --fast` still runs; the "Cython"
+  arm now measures the converted Python `BaseAppHandler` (naturally) and
+  remains useful as a regression guard.
+
+**Deviations from spec**: none. Every acceptance criterion from the task
+is satisfied; the one judgement call was the `Singleton` keep-vs-remove
+question, which I resolved by strictly following the task rule (threshold
+passes → keep).

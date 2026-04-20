@@ -45,18 +45,38 @@ class BackgroundService:
         jitter: float = 0.0,
         **kwargs
     ) -> uuid.UUID:
+        """Submit a task for background execution.
+
+        Args:
+            fn: A callable, coroutine function, or existing TaskWrapper.
+            *args: Positional arguments forwarded to fn.
+            jitter: Maximum jitter delay in seconds (default 0.0).
+            execution_mode: ``"same_loop"`` (default) or ``"thread"``.
+                Forwarded to TaskWrapper if fn is not already a TaskWrapper.
+            **kwargs: Additional keyword arguments forwarded to fn (and
+                recognised TaskWrapper params such as ``name``, ``callback``).
+
+        Returns:
+            The JobRecord for the submitted task.
+        """
         if not callable(fn):
             raise ValueError(
                 "fn must be a callable function or TaskWrapper instance"
             )
+        # Extract execution_mode before forwarding kwargs to TaskWrapper
+        # so it is not passed twice (as explicit param AND in **kwargs).
+        execution_mode = kwargs.pop('execution_mode', 'same_loop')
+
         if isinstance(fn, TaskWrapper):
-            # If fn is already a TaskWrapper, use it directly
+            # If fn is already a TaskWrapper, use it directly.
+            # Do NOT override its execution_mode — caller already set it.
             tw = fn
         else:
-            # Otherwise, create a new TaskWrapper
+            # Otherwise, create a new TaskWrapper forwarding execution_mode.
             tw = TaskWrapper(
                 fn,
                 *args,
+                execution_mode=execution_mode,
                 tracker=self.tracker,
                 jitter=jitter,
                 **kwargs

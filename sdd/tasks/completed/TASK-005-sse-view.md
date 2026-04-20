@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: medium
 **Estimated effort**: M (2-4h)
 **Depends-on**: none
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -245,10 +245,46 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / e6dd2aa
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**What shipped**:
 
-**Deviations from spec**: none | describe if any
+- `navigator/views/sse.py` — new module with `class SSEView(BaseView)`:
+  - `sse_manager` property reads `request.app['sse_manager']`
+    (RuntimeError with a clear hint if missing).
+  - `async get()` resolves `task_id` from `match_info`, invokes an
+    overridable `on_subscribe` hook, extracts `user_id`, then
+    delegates to `SSEManager.subscribe_to_task`.
+  - `async get_stats()` returns a JSON snapshot of `SSEManager.get_stats`.
+  - Broadcast helpers `create_task` / `notify_progress` /
+    `notify_result` / `notify_error` (same signatures as
+    `SSEMixin`).
+  - `_extract_user_id` default: Navigator session → `?user_id=`
+    query parameter → None. Overridable.
+
+- `navigator/views/__init__.py` — exports `SSEView` and adds it to
+  `__all__`.
+
+- `tests/test_sse_view.py` — 14 tests covering:
+  - Export surface (`from navigator.views import SSEView`).
+  - Inheritance chain (`BaseView`, `aiohttp_cors.CorsViewMixin`).
+  - Backward compat (legacy `SSEMixin` and `SSEEventView` still import).
+  - HTTP 404 propagated from SSEManager for unknown task ids.
+  - 5xx response when no `sse_manager` is registered on the app.
+  - Method-surface guard: every expected async method exists and is a
+    coroutine function.
+
+**Backward compatibility**: `navigator/services/sse/mixin.py` was not
+touched. Spec §8 answers "coexist" for the old vs new path, and that is
+what is delivered. Consumers of `SSEMixin` / `SSEEventView` continue to
+work unchanged.
+
+**Verification**:
+- `python -c "from navigator.views import SSEView"` succeeds.
+- `pytest tests/test_sse_view.py -v` → **14 passed**.
+- `pytest tests/` → **46 passed, 0 failed**.
+- `issubclass(SSEView, BaseView)` → `True`.
+
+**Deviations from spec**: none.

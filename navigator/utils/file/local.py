@@ -1,20 +1,14 @@
 """
-TempFileManager.
+LocalFileManager.
 
-Temporary file manager with auto-cleanup on context-manager exit,
-process exit (atexit), and garbage collection (__del__).
-
-Implements FileManagerInterface — all operations are sandboxed to the
-system temp directory.
+Local disk file manager with sandboxing (path traversal protection),
+symlink control, and async-first I/O via asyncio.to_thread().
 """
 import asyncio
-import atexit
-import contextlib
 import fnmatch
 import mimetypes
 import os
 import shutil
-import tempfile
 from datetime import datetime
 from io import BytesIO, StringIO
 from pathlib import Path
@@ -25,125 +19,89 @@ from navconfig.logging import logging
 from .abstract import FileManagerInterface, FileMetadata
 
 
-class TempFileManager(FileManagerInterface):
-    """Temporary file manager sandboxed to a dedicated temp directory.
+class LocalFileManager(FileManagerInterface):
+    """Local filesystem file manager.
 
-    Files are auto-cleaned on context-manager exit, interpreter shutdown
-    (``atexit``), or garbage collection (``__del__``).
+    All blocking I/O operations are executed via ``asyncio.to_thread()``
+    so they do not block the event loop.
+
+    Sandboxing is enabled by default: any path that resolves outside
+    ``base_path`` raises ``ValueError``.  Symlink traversal can be
+    controlled via ``follow_symlinks``.
 
     Attributes:
         manager_name: Identifier used in app context registration.
-        prefix: Prefix for the temp directory name.
-        cleanup_on_exit: Whether to register atexit cleanup handler.
-        cleanup_on_delete: Whether to clean on __del__.
+        base_path: Root directory for all operations.
+        sandboxed: Whether to enforce sandbox restrictions.
+        follow_symlinks: Whether symlinks are allowed.
     """
 
-    manager_name: str = "tempfile"
+    manager_name: str = "localfile"
 
     def __init__(
         self,
-        prefix: str = "navigator_",
-        cleanup_on_exit: bool = True,
-        cleanup_on_delete: bool = True,
+        base_path: Optional[Union[str, Path]] = None,
+        create_base: bool = True,
+        follow_symlinks: bool = False,
+        sandboxed: bool = True,
     ) -> None:
-        """Initialize TempFileManager and create the temp directory.
+        """Initialize the LocalFileManager.
 
         Args:
-            prefix: Prefix for the temp directory name (default ``"navigator_"``).
-            cleanup_on_exit: Register atexit cleanup (default True).
-            cleanup_on_delete: Clean on __del__ (default True).
+            base_path: Root directory. Defaults to current working directory.
+            create_base: If True, create base_path if it does not exist.
+            follow_symlinks: If False (default), symlinks are rejected.
+            sandboxed: If True (default), block path traversal outside base.
         """
-        self.prefix = prefix
-        self.cleanup_on_delete = cleanup_on_delete
-        self.logger = logging.getLogger("navigator.storage.Temp")
+        self.base_path = Path(base_path) if base_path else Path.cwd()
+        self.follow_symlinks = follow_symlinks
+        self.sandboxed = sandboxed
+        self.logger = logging.getLogger("navigator.storage.Local")
 
-        self._temp_dir = Path(tempfile.mkdtemp(prefix=prefix))
-        self.logger.info("TempFileManager directory: %s", self._temp_dir)
+        if create_base and not self.base_path.exists():
+            self.base_path.mkdir(parents=True, exist_ok=True)
 
-        if cleanup_on_exit:
-            atexit.register(self.cleanup)
-
-    # ------------------------------------------------------------------ #
-    # Cleanup                                                              #
-    # ------------------------------------------------------------------ #
-
-    def cleanup(self) -> None:
-        """Remove the temp directory and all its contents.
-
-        Errors are suppressed to avoid issues during interpreter shutdown.
-        """
-        with contextlib.suppress(Exception):
-            if self._temp_dir.exists():
-                shutil.rmtree(str(self._temp_dir), ignore_errors=True)
-
-    def __del__(self) -> None:
-        """Clean up on garbage collection if configured."""
-        if self.cleanup_on_delete:
-            self.cleanup()
-
-    async def __aenter__(self) -> "TempFileManager":
-        """Async context manager entry — returns self."""
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Async context manager exit — cleans up the temp directory."""
-        self.cleanup()
-
-    # ------------------------------------------------------------------ #
-    # Backward-compat static methods (preserved from old TempFileManager) #
-    # ------------------------------------------------------------------ #
-
-    @staticmethod
-    def create_temp_file(suffix: str = "", prefix: str = "tmp", dir=None) -> str:
-        """Create a temporary file and return its path.
-
-        Args:
-            suffix: File suffix.
-            prefix: File prefix.
-            dir: Directory to create the file in (defaults to system temp).
-
-        Returns:
-            Absolute path string to the new temp file.
-        """
-        fd, path = tempfile.mkstemp(suffix=suffix, prefix=prefix, dir=dir)
-        os.close(fd)
-        return path
-
-    @staticmethod
-    def remove_temp_file(file_path: str) -> None:
-        """Remove a temp file by path.
-
-        Args:
-            file_path: Absolute path to the file to remove.
-        """
-        with contextlib.suppress(FileNotFoundError, OSError):
-            if os.path.exists(file_path):
-                os.remove(file_path)
+        self.logger.info(
+            "LocalFileManager initialised at %s (sandboxed=%s)",
+            self.base_path,
+            self.sandboxed,
+        )
 
     # ------------------------------------------------------------------ #
     # Internal helpers                                                     #
     # ------------------------------------------------------------------ #
 
     def _resolve_path(self, path: str) -> Path:
-        """Resolve path within the temp directory, enforcing sandbox.
+        """Resolve a relative path against base_path, enforcing the sandbox.
 
         Args:
-            path: Relative path within the temp directory.
+            path: Relative file path within the sandbox.
 
         Returns:
             Absolute resolved Path.
 
         Raises:
-            ValueError: If the resolved path escapes the temp directory.
+            ValueError: If the resolved path escapes the sandbox or if
+                        the path points to a symlink and follow_symlinks
+                        is False.
         """
+        # Strip leading slashes so Path joining works correctly
         stripped = path.lstrip("/")
-        candidate = (self._temp_dir / stripped).resolve()
-        try:
-            candidate.relative_to(self._temp_dir.resolve())
-        except ValueError:
+        candidate = (self.base_path / stripped).resolve()
+
+        if not self.follow_symlinks and candidate.is_symlink():
             raise ValueError(
-                f"Path traversal detected: {path!r} escapes the temp directory."
+                f"Symlink traversal blocked: {path!r} resolves to a symlink."
             )
+
+        if self.sandboxed:
+            try:
+                candidate.relative_to(self.base_path.resolve())
+            except ValueError:
+                raise ValueError(
+                    f"Path traversal detected: {path!r} escapes the sandbox."
+                )
+
         return candidate
 
     def _get_file_metadata(self, resolved: Path) -> FileMetadata:
@@ -157,7 +115,7 @@ class TempFileManager(FileManagerInterface):
         """
         stat = resolved.stat()
         content_type, _ = mimetypes.guess_type(resolved.name)
-        rel_path = str(resolved.relative_to(self._temp_dir))
+        rel_path = str(resolved.relative_to(self.base_path))
         return FileMetadata(
             name=resolved.name,
             path=rel_path,
@@ -174,20 +132,22 @@ class TempFileManager(FileManagerInterface):
     async def list_files(
         self, path: str = "", pattern: str = "*"
     ) -> List[FileMetadata]:
-        """List files in the temp directory.
+        """List files in a directory, optionally filtered by glob pattern.
 
         Args:
-            path: Sub-directory relative to the temp root (default: root).
+            path: Sub-directory relative to base_path (default: root).
             pattern: Glob pattern applied to filenames (default ``"*"``).
 
         Returns:
-            List of FileMetadata for matching files.
+            List of FileMetadata for matching files (non-recursive).
         """
 
         def _list() -> List[FileMetadata]:
-            target = self._resolve_path(path) if path else self._temp_dir.resolve()
+            target = self._resolve_path(path) if path else self.base_path.resolve()
             results: List[FileMetadata] = []
             for entry in target.iterdir():
+                if entry.is_symlink() and not self.follow_symlinks:
+                    continue
                 if not entry.is_file():
                     continue
                 if not fnmatch.fnmatch(entry.name, pattern):
@@ -198,11 +158,11 @@ class TempFileManager(FileManagerInterface):
         return await asyncio.to_thread(_list)
 
     async def get_file_url(self, path: str, expiry: int = 3600) -> str:
-        """Return a file:// URI for a temp file.
+        """Return a file:// URI for the resolved path.
 
         Args:
-            path: Relative path within temp directory.
-            expiry: Ignored (present for interface compat).
+            path: Relative file path.
+            expiry: Ignored for local files (present for interface compat).
 
         Returns:
             ``file://`` URI string.
@@ -216,14 +176,14 @@ class TempFileManager(FileManagerInterface):
     async def upload_file(
         self, source: Union[BinaryIO, Path], destination: str
     ) -> FileMetadata:
-        """Store a file in the temp directory.
+        """Copy a file from source into the sandbox at destination.
 
         Args:
             source: Local Path or open binary stream to read from.
-            destination: Target path relative to the temp directory.
+            destination: Target path relative to base_path.
 
         Returns:
-            FileMetadata for the stored file.
+            FileMetadata for the written file.
         """
 
         def _upload() -> FileMetadata:
@@ -241,66 +201,43 @@ class TempFileManager(FileManagerInterface):
     async def download_file(
         self, source: str, destination: Union[Path, BinaryIO]
     ) -> Path:
-        """Move a temp file to the destination (move semantics).
-
-        Moving out of the temp directory is intentional — once the caller
-        "downloads" a file it is no longer managed by the temp manager.
+        """Copy a file from the sandbox to a destination path or stream.
 
         Args:
-            source: Relative source path inside the temp directory.
+            source: Relative source path inside the sandbox.
             destination: Target Path or open binary stream.
 
         Returns:
-            Path where the file was written.
+            Path where the file was written (or source resolved path if stream).
         """
 
         def _download() -> Path:
             src = self._resolve_path(source)
             if isinstance(destination, Path):
                 destination.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src), str(destination))
+                shutil.copy2(str(src), str(destination))
                 return destination
             else:
                 with open(src, "rb") as fin:
                     shutil.copyfileobj(fin, destination)
-                src.unlink(missing_ok=True)
                 return src
 
         return await asyncio.to_thread(_download)
 
     async def copy_file(self, source: str, destination: str) -> FileMetadata:
-        """Copy a file within the temp directory.
-
-        If the destination falls outside the temp dir, the file is moved there
-        (external move semantics).
+        """Copy a file within the sandbox.
 
         Args:
             source: Source relative path.
             destination: Destination relative path.
 
         Returns:
-            FileMetadata for the resulting file.
+            FileMetadata for the copied file.
         """
 
         def _copy() -> FileMetadata:
             src = self._resolve_path(source)
-            try:
-                dest = self._resolve_path(destination)
-            except ValueError:
-                # Destination is outside temp dir — external move
-                dest = Path(destination)
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(src), str(dest))
-                content_type, _ = mimetypes.guess_type(dest.name)
-                stat = dest.stat()
-                return FileMetadata(
-                    name=dest.name,
-                    path=str(dest),
-                    size=stat.st_size,
-                    content_type=content_type,
-                    modified_at=datetime.fromtimestamp(stat.st_mtime),
-                    url=dest.as_uri(),
-                )
+            dest = self._resolve_path(destination)
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(str(src), str(dest))
             return self._get_file_metadata(dest)
@@ -308,13 +245,13 @@ class TempFileManager(FileManagerInterface):
         return await asyncio.to_thread(_copy)
 
     async def delete_file(self, path: str) -> bool:
-        """Delete a file from the temp directory.
+        """Delete a file from the sandbox.
 
         Args:
             path: Relative file path to delete.
 
         Returns:
-            True if deleted, False if not found.
+            True if deleted, False if the file did not exist.
         """
 
         def _delete() -> bool:
@@ -324,13 +261,13 @@ class TempFileManager(FileManagerInterface):
                     target.unlink()
                     return True
                 return False
-            except (FileNotFoundError, ValueError):
+            except FileNotFoundError:
                 return False
 
         return await asyncio.to_thread(_delete)
 
     async def exists(self, path: str) -> bool:
-        """Check whether a file exists in the temp directory.
+        """Check whether a file exists in the sandbox.
 
         Args:
             path: Relative file path.
@@ -349,7 +286,7 @@ class TempFileManager(FileManagerInterface):
         return await asyncio.to_thread(_exists)
 
     async def get_file_metadata(self, path: str) -> FileMetadata:
-        """Return metadata for a single file in the temp directory.
+        """Return metadata for a single file in the sandbox.
 
         Args:
             path: Relative file path.
@@ -364,13 +301,13 @@ class TempFileManager(FileManagerInterface):
         def _meta() -> FileMetadata:
             target = self._resolve_path(path)
             if not target.exists():
-                raise FileNotFoundError(f"Temp file not found: {path!r}")
+                raise FileNotFoundError(f"File not found: {path!r}")
             return self._get_file_metadata(target)
 
         return await asyncio.to_thread(_meta)
 
     async def create_file(self, path: str, content: bytes) -> bool:
-        """Create or overwrite a file in the temp directory with raw bytes.
+        """Create or overwrite a file with raw bytes.
 
         Args:
             path: Relative file path.
@@ -389,18 +326,61 @@ class TempFileManager(FileManagerInterface):
 
         return await asyncio.to_thread(_create)
 
+    async def find_files(
+        self,
+        keywords: Optional[Union[str, List[str]]] = None,
+        extension: Optional[str] = None,
+        prefix: Optional[str] = None,
+    ) -> List[FileMetadata]:
+        """Find files by keyword(s) and/or extension (recursive search).
+
+        Args:
+            keywords: Substring(s) that must appear in the filename.
+            extension: File extension to filter by (e.g. ``".txt"``).
+            prefix: Sub-directory to restrict the search scope.
+
+        Returns:
+            List of matching FileMetadata objects.
+        """
+
+        def _find() -> List[FileMetadata]:
+            root = (
+                self._resolve_path(prefix)
+                if prefix
+                else self.base_path.resolve()
+            )
+            results: List[FileMetadata] = []
+            for entry in root.rglob("*"):
+                if entry.is_symlink() and not self.follow_symlinks:
+                    continue
+                if not entry.is_file():
+                    continue
+                name = entry.name
+                if extension and not name.endswith(extension):
+                    continue
+                if keywords:
+                    kw_list: List[str] = (
+                        [keywords] if isinstance(keywords, str) else list(keywords)
+                    )
+                    if not all(kw in name for kw in kw_list):
+                        continue
+                results.append(self._get_file_metadata(entry))
+            return results
+
+        return await asyncio.to_thread(_find)
+
     # ------------------------------------------------------------------ #
     # Backward-compatible web-serving helpers                             #
     # ------------------------------------------------------------------ #
 
-    def setup(self, app, route: str = "data", base_url: str = None):
+    def setup(self, app, route: str = "/data", base_url: str = None):
         """Set up web-serving for this manager (backward compat).
 
         Delegates to FileServingExtension.
 
         Args:
             app: aiohttp Application or BaseApplication.
-            route: URL prefix (default ``"data"``).
+            route: URL prefix (default ``"/data"``).
             base_url: Ignored (kept for signature compat).
 
         Returns:
@@ -410,7 +390,7 @@ class TempFileManager(FileManagerInterface):
 
         ext = FileServingExtension(
             manager=self,
-            route=route if route.startswith("/") else "/" + route,
+            route=route,
             manager_name=self.manager_name,
         )
         return ext.setup(app)

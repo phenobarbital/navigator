@@ -119,4 +119,4 @@ When you pick up this task:
 ---
 
 ## Completion Note
-*(Agent fills this in when done)*
+GCSFileManager rewritten implementing FileManagerInterface. All GCS SDK calls wrapped in asyncio.to_thread(). Resumable uploads for files >= 5MB. Three credential modes (json dict, file path, ADC). Folder ops (create/remove/rename_folder, rename_file). Signed URLs v4. Prefix management. manager_name=gcsfile.

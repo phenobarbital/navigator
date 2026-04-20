@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: medium
 **Estimated effort**: S (< 2h)
 **Depends-on**: TASK-002
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -215,10 +215,72 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / cb16720
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**Surviving Cython modules (per TASK-002):**
 
-**Deviations from spec**: none | describe if any
+- `navigator/types.pyx`        — URL class, HTTP type aliases.
+- `navigator/utils/types.pyx`  — Singleton metaclass (+62 % vs datamodel
+  in TASK-001 benchmarks).
+
+Handlers and applications were converted to pure Python in TASK-002, so
+no stubs are generated for them — their `.py` files now carry inline
+type annotations directly.
+
+**Stubs created:**
+
+| File | Role |
+|---|---|
+| `navigator/types.pxd`        | Cython declaration of URL attributes + cpdef methods. |
+| `navigator/types.pyi`        | Python type stub for URL + HTTP aliases (WebApp, HTTPMethod, HTTPRequest, HTTPResponse, HTTPHandler, HTTPRoute). |
+| `navigator/utils/types.pxd`  | Cython declaration of Singleton + `_instances` cache. |
+| `navigator/utils/types.pyi`  | Python typing for Singleton metaclass. |
+
+**Required knock-on edits to `.pyx` sources**
+
+The task's "NOT in scope" language bars gratuitous rewrites of the
+`.pyx` implementations, but Cython's rules force two small, mechanical
+edits any time a new `.pxd` is introduced:
+
+1. `navigator/types.pyx` — the `cdef str value / scheme / path / ...`
+   attribute declaration block inside the `URL` class body was removed.
+   Cython forbids declaring the same `cdef` attribute in both `.pxd` and
+   `.pyx` ("`C attributes cannot be added in implementation part of
+   extension type defined in a pxd`"). The declarations moved verbatim
+   into `navigator/types.pxd`, keeping the at-rest memory layout
+   byte-identical.
+
+2. `navigator/utils/types.pyx` — `cdef dict _instances` moved to
+   `utils/types.pxd`, and the dead `cdef object __new__(cls, args,
+   kwargs)` method was **removed**. It was unreachable (the enclosing
+   `__call__` handles instance caching via `super().__call__`) and
+   Cython refuses to keep a `cdef __new__` on a `cdef class` once a
+   `.pxd` is present (it warns that "`__new__` method of extension
+   type will change semantics in a future version of Pyrex and Cython.
+   Use `__cinit__` instead.") Removing dead code is safe: a repo-wide
+   grep confirms no caller ever invokes `Singleton.__new__` directly.
+
+These edits are mechanical consequences of introducing the stubs rather
+than redesign — documenting them here for traceability.
+
+**Verification:**
+
+- `python setup.py build_ext --inplace` → both extensions compile
+  cleanly with the new `.pxd` files.
+- `from navigator.types import URL` and `from navigator.utils.types
+  import Singleton` both import and behave identically to the pre-stub
+  build (URL parses a URL correctly; `class X(metaclass=Singleton)`
+  returns the same instance on repeat calls).
+- `pytest tests/` → **46 passed**.
+- `ast.parse()` of each `.pyi` file succeeds (valid Python syntax).
+
+**Deviations from spec**:
+
+- No stub for `handlers/base` or `applications/base` — both are pure
+  Python now, so the task's "CONDITIONAL CREATE/UPDATE" rows are moot
+  (`applications/base.pyi` was deleted in TASK-002 when the `.pyx` was
+  converted, and a `.pyi` alongside a typed `.py` is actively harmful).
+- Two minor `.pyx` touch-ups as described above — documented and
+  justified, no behavior change.

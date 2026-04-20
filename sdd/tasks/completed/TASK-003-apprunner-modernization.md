@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: S (< 2h)
 **Depends-on**: none
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -131,10 +131,38 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / 23d49e8
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**Bug fix (`_run_unix`)**: the two references to the undefined name `path`
+(line 673 inside the `web.UnixSite(...)` call and line 680 in the
+"Navigator started on unix socket..." log message) were replaced with
+the actual parameter `unix_path`. The method docstring was also updated
+from `path: Unix socket path` to `unix_path: Unix socket path` so the
+parameter documentation matches the signature.
 
-**Deviations from spec**: none | describe if any
+**Legacy runner removal**:
+- The `_run_legacy()` method was deleted in full (64 lines).
+- The `use_legacy_runner` kwarg branch inside `run()` that dispatched
+  to `_run_legacy()` was removed.
+- `run()`'s docstring was updated — it no longer advertises "legacy
+  compatibility".
+
+**Scope guard**: the task flagged `create_unix_site()` (utility function
+at the bottom of the module) as a potential same-bug site. Verified in
+place — its parameter is already named `path` and the body correctly
+uses `path=str(path)`; no change needed, no change made.
+
+**Verification**:
+
+| Check | Result |
+|---|---|
+| `grep _run_legacy navigator/navigator.py` | 0 matches |
+| `grep use_legacy_runner navigator/navigator.py` | 0 matches |
+| `grep 'path=str(path)' navigator/navigator.py` | only in `create_unix_site` (intentional) |
+| `Application._run_legacy` attribute check | `False` (removed) |
+| `Application._run_unix`, `Application.run` attribute checks | `True` (preserved) |
+| `pytest tests/` | 32 passed |
+
+**Deviations from spec**: none.

@@ -1,487 +1,543 @@
 """
 GCSFileManager.
 
-Exposing Files stored in Google Cloud Storage as static File Manager.
+Google Cloud Storage file manager implementing FileManagerInterface.
+All GCS SDK calls are wrapped in asyncio.to_thread() to avoid blocking
+the event loop (the google-cloud-storage SDK is synchronous).
 
-The ``google-cloud-*`` and ``google-auth`` libraries moved from the base
-install to the ``navigator-api[google]`` extra in spec FEAT-001 /
-TASK-004, so they are imported lazily inside ``GCSFileManager.__init__``.
-Importing this module without the extras installed is safe — the
-``ImportError`` is only raised when a user actually constructs a
-``GCSFileManager`` instance, with a message that points them at the
-right pip extra.
+Supports:
+  - Resumable uploads (5MB threshold, 256KB chunks)
+  - Three credential modes (dict, file path, google.auth.default())
+  - Folder operations (create, remove, rename)
+  - Signed URLs (v4) and app-served URLs
+  - Prefix management
 """
-from typing import Union, Any
+import asyncio
+import fnmatch
+import mimetypes
 import os
 from datetime import datetime, timedelta, timezone
-from pathlib import PurePath
-from urllib.parse import quote, urljoin
-from aiohttp import web
+from io import BytesIO, StringIO
+from pathlib import Path, PurePath
+from typing import BinaryIO, List, Optional, Union
+from urllib.parse import quote
+
+import google.auth
+from google.cloud import storage
+from google.oauth2 import service_account
 from navconfig.logging import logging
-from ...types import WebApp
-from ...applications.base import BaseApplication
+
+from .abstract import FileManagerInterface, FileMetadata
 
 
-_GCS_HINT = (
-    "Install the Google extras with: pip install 'navigator-api[google]'"
-)
+class GCSFileManager(FileManagerInterface):
+    """Google Cloud Storage file manager with async-first design.
 
+    Every GCS SDK call is executed via ``asyncio.to_thread()`` because
+    the ``google-cloud-storage`` library is synchronous.
 
-def _import_google_cloud():
-    """Return (``google.auth``, ``storage``, ``service_account``) lazily.
-
-    Raises :class:`ImportError` with a clear remediation hint if the
-    ``navigator-api[google]`` extras are not installed.
+    Attributes:
+        manager_name: Identifier used in app context registration.
+        RESUMABLE_THRESHOLD: File size threshold for resumable uploads (5MB).
+        CHUNK_SIZE: Chunk size for resumable uploads (256KB).
     """
-    try:
-        import google.auth  # type: ignore[import-not-found]
-        from google.cloud import storage  # type: ignore[import-not-found]
-        from google.oauth2 import service_account  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise ImportError(
-            f"google-cloud-storage / google-auth are required by "
-            f"GCSFileManager. {_GCS_HINT}"
-        ) from exc
-    return google.auth, storage, service_account
 
+    manager_name: str = "gcsfile"
 
-class GCSFileManager:
-    """
-    GCSFileManager class.
-
-    Exposing Files stored in Google Cloud Storage as static File Manager.
-    """
+    RESUMABLE_THRESHOLD: int = 5 * 1024 * 1024   # 5MB
+    CHUNK_SIZE: int = 256 * 1024                  # 256KB
 
     def __init__(
         self,
         bucket_name: str,
-        route: str = '/data',
-        **kwargs
-    ):
-        """
-        Initialize the GCSFileManager.
+        prefix: str = "",
+        json_credentials: Optional[dict] = None,
+        credentials: Optional[str] = None,
+        scopes: Optional[List[str]] = None,
+        project: Optional[str] = None,
+        resumable_threshold: Optional[int] = None,
+        **kwargs,
+    ) -> None:
+        """Initialize GCSFileManager.
+
+        Credential modes (in priority order):
+        1. ``json_credentials`` -- dict with service account JSON.
+        2. ``credentials`` -- path to a service account JSON file.
+        3. ``google.auth.default()`` -- Application Default Credentials.
 
         Args:
-            bucket_name (str): The name of the GCS bucket.
-            credentials (google.auth.credentials.Credentials, optional):
-            The credentials to use.
+            bucket_name: GCS bucket name.
+            prefix: Key prefix prepended to all operations.
+            json_credentials: Service account credentials as a dict.
+            credentials: Path to a service account JSON file.
+            scopes: OAuth2 scopes. Defaults to cloud-platform.
+            project: GCP project ID (used with ADC mode).
+            resumable_threshold: Override default 5MB resumable threshold.
+            **kwargs: Passed through for extensibility.
         """
-        google_auth, storage, service_account = _import_google_cloud()
-        self.app = None
-        self.route = route
-        self.base_url = None
         self.bucket_name = bucket_name
-        self.credentials = None
-        self.project = None
-        json_credentials = kwargs.get('json_credentials', None)
-        credentials = kwargs.get('credentials', None)
-        # Example Scope: ['https://www.googleapis.com/auth/cloud-platform']
-        self.scopes: list = kwargs.get('scopes', None)
+        self.prefix = prefix.rstrip("/") + "/" if prefix else ""
+        self.resumable_threshold = resumable_threshold or self.RESUMABLE_THRESHOLD
+        self.logger = logging.getLogger("navigator.storage.GCS")
+        self._project = project
+        self._creds = None
+
+        default_scopes = scopes or ["https://www.googleapis.com/auth/cloud-platform"]
         scoped_credentials = None
+
         if json_credentials:
-            # Using Json:
-            self.credentials = service_account.Credentials.from_service_account_info(
+            self._creds = service_account.Credentials.from_service_account_info(
                 json_credentials
             )
         elif credentials:
-            # Using File
-            self.credentials = service_account.Credentials.from_service_account_file(
+            self._creds = service_account.Credentials.from_service_account_file(
                 credentials
             )
         else:
-            self.credentials, self.project = google_auth.default(
-                scopes=['https://www.googleapis.com/auth/cloud-platform']
+            self._creds, self._project = google.auth.default(
+                scopes=default_scopes
             )
-        if self.scopes:
-            scoped_credentials = self.credentials.with_scopes(
-                self.scopes
-            )
-        # Initialize the GCS client
-        if scoped_credentials:
-            self.client = storage.Client(credentials=scoped_credentials)
-        else:
-            self.client = storage.Client(credentials=self.credentials)
+
+        if scopes and self._creds:
+            scoped_credentials = self._creds.with_scopes(scopes)
+
+        self.client = storage.Client(
+            credentials=scoped_credentials or self._creds,
+            project=self._project,
+        )
         self.bucket = self.client.bucket(bucket_name)
-        self.logger = logging.getLogger('storage.GCS')
+
         self.logger.info(
-            f"Started GCSFileManager for bucket: {bucket_name}"
+            "GCSFileManager initialised for bucket=%s prefix=%r",
+            bucket_name,
+            self.prefix,
         )
 
-    def list_all_files(self, prefix=None):
-        """
-        List all files in the bucket.
+    # ------------------------------------------------------------------ #
+    # Internal helpers                                                     #
+    # ------------------------------------------------------------------ #
+
+    def _prefixed(self, key: str) -> str:
+        """Return the key with the manager prefix applied."""
+        return self.prefix + key.lstrip("/")
+
+    def _unprefixed(self, key: str) -> str:
+        """Strip the manager prefix from a key."""
+        if self.prefix and key.startswith(self.prefix):
+            return key[len(self.prefix):]
+        return key
+
+    def _make_metadata(self, blob) -> FileMetadata:
+        """Build FileMetadata from a GCS blob.
 
         Args:
-            prefix (str, optional): The prefix to filter by.
+            blob: A google.cloud.storage.Blob instance.
 
         Returns:
-            list: A list of blob names.
+            FileMetadata instance.
         """
-        blobs = self.bucket.list_blobs(prefix=prefix)
-        return blobs
-
-    def list_files(self, prefix=None):
-        """
-        List files in the bucket.
-
-        Args:
-            prefix (str, optional): The prefix to filter by.
-
-        Returns:
-            list: A list of blob names.
-        """
-        blobs = self.bucket.list_blobs(prefix=prefix)
-        return [blob.name for blob in blobs]
-
-    def upload_file(
-        self,
-        source_file_path,
-        destination_blob_name: Union[str, PurePath] = None
-    ):
-        """
-        Uploads a file to the bucket.
-
-        Args:
-            source_file_path (str): The path to the file to upload.
-            destination_blob_name (str): The destination blob name in GCS.
-
-        Returns:
-            str: The blob name.
-        """
-        if isinstance(source_file_path, PurePath) and destination_blob_name is None:
-            destination_blob_name = str(source_file_path.name)
-        blob = self.bucket.blob(destination_blob_name)
-        blob.upload_from_filename(source_file_path)
-        return destination_blob_name
-
-    def upload_file_from_bytes(
-        self,
-        file_obj: bytes,
-        destination_blob_name,
-        content_type='application/zip'
-    ):
-        """
-        Uploads data to the bucket from a file-like object.
-
-        Args:
-            file_obj (BytesIO): The file-like object containing the data to upload.
-            destination_blob_name (str): The destination blob name in GCS.
-
-        Returns:
-            str: The blob name.
-        """
-        # Ensure the file pointer is at the beginning
-        file_obj.seek(0)
-        blob = self.bucket.blob(destination_blob_name)
-        blob.upload_from_file(file_obj, content_type=content_type)
-        return destination_blob_name
-
-    def upload_file_from_string(self, data: Any, destination_blob_name):
-        """
-        Uploads data to the bucket from a string or bytes object.
-
-        Args:
-            data (str or bytes): The data to upload.
-            destination_blob_name (str): The destination blob name in GCS.
-
-        Returns:
-            str: The blob name.
-        """
-        blob = self.bucket.blob(destination_blob_name)
-        blob.upload_from_string(data)
-        return destination_blob_name
-
-    def delete_file(self, blob_name):
-        """
-        Deletes a blob from the bucket.
-
-        Args:
-            blob_name (str): The name of the blob to delete.
-        """
-        blob = self.bucket.blob(blob_name)
-        blob.delete()
-
-    def get_response(
-        self,
-        reason: str = 'OK',
-        status: int = 200
-    ):
-        """
-        Get a response object.
-
-        Args:
-            content_type (str, optional): The content type of the response.
-            binary (bool, optional): if True, file is a octect stream.
-        Returns:
-            aiohttp.web.Response: The response object.
-        """
-        current = datetime.now(timezone.utc)
-        expires = current + timedelta(days=7)
-        last_modified = current - timedelta(hours=1)
-        return web.StreamResponse(
-            status=status,
-            reason=reason,
-            headers={
-                "Pragma": "public",  # required,
-                "Last-Modified": last_modified.strftime("%a, %d %b %Y %H:%M:%S GMT"),
-                "Expires": expires.strftime("%a, %d %b %Y %H:%M:%S GMT"),
-                "Connection": "keep-alive",
-                "Cache-Control": "private",  # required for certain browsers,
-                "Content-Description": "File Transfer",
-                "Content-Transfer-Encoding": "binary",
-                "Date": current.strftime("%a, %d %b %Y %H:%M:%S GMT"),
-            },
+        key = self._unprefixed(blob.name)
+        name = os.path.basename(key) or key
+        content_type, _ = mimetypes.guess_type(name)
+        return FileMetadata(
+            name=name,
+            path=key,
+            size=blob.size or 0,
+            content_type=blob.content_type or content_type,
+            modified_at=blob.updated,
+            url=blob.public_url if blob.public_url else None,
         )
 
-    async def handle_file(self, request):
-        """
-        Handle the file request by streaming the file from GCS to the client.
+    # ------------------------------------------------------------------ #
+    # Abstract method implementations                                     #
+    # ------------------------------------------------------------------ #
+
+    async def list_files(
+        self, path: str = "", pattern: str = "*"
+    ) -> List[FileMetadata]:
+        """List blobs in the bucket.
 
         Args:
-            request (aiohttp.web.Request): The incoming request.
+            path: Key prefix to list (appended to manager prefix).
+            pattern: Glob pattern for blob name filtering (default "*").
 
         Returns:
-            aiohttp.web.StreamResponse: The streaming response.
+            List of FileMetadata for matching blobs.
         """
-        filename = request.match_info.get('filepath', None)
 
-        if not filename:
-            raise web.HTTPNotFound()
+        def _list() -> List[FileMetadata]:
+            prefix = self._prefixed(path)
+            blobs = list(self.bucket.list_blobs(prefix=prefix))
+            results: List[FileMetadata] = []
+            for blob in blobs:
+                key = self._unprefixed(blob.name)
+                name = os.path.basename(key) or key
+                if not fnmatch.fnmatch(name, pattern):
+                    continue
+                results.append(self._make_metadata(blob))
+            return results
 
-        # Sanitize the filename to prevent path traversal attacks
-        try:
-            filename = PurePath(filename).relative_to('/')
-        except ValueError:
-            pass
-        blob = self.bucket.blob(filename)
+        return await asyncio.to_thread(_list)
 
-        if not blob.exists():
-            return web.Response(
-                status=404,
-                text='File not found'
+    async def get_file_url(self, path: str, expiry: int = 3600) -> str:
+        """Generate a signed URL (v4) for a GCS blob.
+
+        Args:
+            path: Blob name (without manager prefix).
+            expiry: Signed URL expiry in seconds (default 3600).
+
+        Returns:
+            Signed URL string.
+        """
+
+        def _url() -> str:
+            key = self._prefixed(path)
+            blob = self.bucket.blob(key)
+            return blob.generate_signed_url(
+                version="v4",
+                expiration=timedelta(seconds=expiry),
+                method="GET",
             )
 
-        # Get the blob size
-        blob.reload()  # Fetch the latest blob metadata
+        return await asyncio.to_thread(_url)
 
-        response = self.get_response()
-        response.enable_chunked_encoding = False  # Disable chunked encoding
-        response.content_length = blob.size  # Set the total content length
+    async def upload_file(
+        self, source: Union[BinaryIO, Path], destination: str
+    ) -> FileMetadata:
+        """Upload a file to GCS, using resumable upload for large files.
 
-        file = os.path.basename(filename)
-        response.headers['Content-Disposition'] = f'attachment; filename="{file}"'
-        response.headers['Content-Type'] = blob.content_type or 'application/octet-stream'
+        Args:
+            source: Local Path or open binary stream.
+            destination: Target blob name (without manager prefix).
 
-        # Handle Range requests for partial content
-        if 'Range' in request.headers:
-            start, end = self.parse_range_header(
-                request.headers['Range'], blob.size
-            )
-            response.content_length = end - start + 1
-            response.set_status(206)  # Partial Content
-            response.headers['Content-Range'] = f'bytes {start}-{end}/{blob.size}'
-            blob_file = blob.open('rb')
-            blob_file.seek(start)
+        Returns:
+            FileMetadata for the uploaded blob.
+        """
+        key = self._prefixed(destination)
+        name = os.path.basename(destination) or destination
+        content_type, _ = mimetypes.guess_type(name)
+        content_type = content_type or "application/octet-stream"
+
+        if isinstance(source, Path):
+            file_size = source.stat().st_size
+
+            def _upload_path() -> None:
+                chunk = self.CHUNK_SIZE if file_size >= self.resumable_threshold else None
+                blob = self.bucket.blob(key, chunk_size=chunk)
+                blob.upload_from_filename(str(source), content_type=content_type)
+
+            await asyncio.to_thread(_upload_path)
+            size = file_size
         else:
-            start = 0
-            end = blob.size - 1
-            blob_file = blob.open('rb')
+            data = source.read() if hasattr(source, "read") else bytes(source)
+            size = len(data)
 
-        await response.prepare(request)
+            def _upload_bytes() -> None:
+                chunk = self.CHUNK_SIZE if size >= self.resumable_threshold else None
+                blob = self.bucket.blob(key, chunk_size=chunk)
+                blob.upload_from_string(data, content_type=content_type)
 
-        # Stream the file in chunks to the client
-        chunk_size = 1024 * 1024  # 1 MB
-        while start <= end:
-            chunk = blob_file.read(min(chunk_size, end - start + 1))
-            if not chunk:
-                break
-            await response.write(chunk)
-            start += len(chunk)
+            await asyncio.to_thread(_upload_bytes)
 
-        blob_file.close()
-        await response.write_eof()
-        return response
+        def _get_blob():
+            b = self.bucket.blob(key)
+            b.reload()
+            return b
 
-    def parse_range_header(self, range_header, file_size):
-        """
-        Parses a Range header to get the start and end byte positions.
+        blob = await asyncio.to_thread(_get_blob)
+        return self._make_metadata(blob)
+
+    async def download_file(
+        self, source: str, destination: Union[Path, BinaryIO]
+    ) -> Path:
+        """Download a GCS blob to a local path or file-like object.
 
         Args:
-            range_header (str): The Range header value.
-            file_size (int): The total size of the file.
+            source: Blob name (without manager prefix).
+            destination: Target local Path or open binary stream.
 
         Returns:
-            tuple: A tuple containing the start and end byte positions.
+            Path where the file was written.
         """
-        try:
-            unit, ranges = range_header.strip().split('=')
-            if unit != 'bytes':
-                raise ValueError('Invalid unit in Range header')
-            start, end = ranges.split('-')
-            start = int(start) if start else 0
-            end = int(end) if end else file_size - 1
-            if start > end or end >= file_size:
-                raise ValueError('Invalid range in Range header')
-            return start, end
-        except (ValueError, IndexError) as e:
-            raise web.HTTPBadRequest(reason=f'Invalid Range header: {e}')
+        key = self._prefixed(source)
 
-    def setup(
-        self,
-        app: Union[WebApp, web.Application],
-        route: str = 'data',
-        base_url: str = None
+        if isinstance(destination, Path):
+            destination.parent.mkdir(parents=True, exist_ok=True)
+
+            def _download_to_file() -> None:
+                blob = self.bucket.blob(key)
+                blob.download_to_filename(str(destination))
+
+            await asyncio.to_thread(_download_to_file)
+            return destination
+        else:
+            def _download_to_stream() -> bytes:
+                blob = self.bucket.blob(key)
+                return blob.download_as_bytes()
+
+            data = await asyncio.to_thread(_download_to_stream)
+            destination.write(data)
+            return Path(source)
+
+    async def copy_file(self, source: str, destination: str) -> FileMetadata:
+        """Copy a GCS blob within the same bucket.
+
+        Args:
+            source: Source blob name (without manager prefix).
+            destination: Destination blob name (without manager prefix).
+
+        Returns:
+            FileMetadata for the copied blob.
+        """
+        src_key = self._prefixed(source)
+        dst_key = self._prefixed(destination)
+
+        def _copy():
+            src_blob = self.bucket.blob(src_key)
+            new_blob = self.bucket.copy_blob(src_blob, self.bucket, dst_key)
+            return new_blob
+
+        new_blob = await asyncio.to_thread(_copy)
+        return self._make_metadata(new_blob)
+
+    async def delete_file(self, path: str) -> bool:
+        """Delete a GCS blob.
+
+        Args:
+            path: Blob name (without manager prefix).
+
+        Returns:
+            True if deleted, False if the blob did not exist.
+        """
+        key = self._prefixed(path)
+
+        def _delete() -> bool:
+            blob = self.bucket.blob(key)
+            if blob.exists():
+                blob.delete()
+                return True
+            return False
+
+        return await asyncio.to_thread(_delete)
+
+    async def exists(self, path: str) -> bool:
+        """Check whether a GCS blob exists.
+
+        Args:
+            path: Blob name (without manager prefix).
+
+        Returns:
+            True if the blob exists.
+        """
+        key = self._prefixed(path)
+
+        def _exists() -> bool:
+            blob = self.bucket.blob(key)
+            return blob.exists()
+
+        return await asyncio.to_thread(_exists)
+
+    async def get_file_metadata(self, path: str) -> FileMetadata:
+        """Return metadata for a single GCS blob.
+
+        Args:
+            path: Blob name (without manager prefix).
+
+        Returns:
+            FileMetadata for the blob.
+
+        Raises:
+            FileNotFoundError: If the blob does not exist.
+        """
+        key = self._prefixed(path)
+
+        def _meta():
+            blob = self.bucket.blob(key)
+            if not blob.exists():
+                raise FileNotFoundError(f"GCS blob not found: {path!r}")
+            blob.reload()
+            return blob
+
+        blob = await asyncio.to_thread(_meta)
+        return self._make_metadata(blob)
+
+    async def create_file(self, path: str, content: bytes) -> bool:
+        """Create or overwrite a GCS blob with raw bytes.
+
+        Args:
+            path: Blob name (without manager prefix).
+            content: Raw bytes to upload.
+
+        Returns:
+            True on success.
+        """
+        key = self._prefixed(path)
+        content_type, _ = mimetypes.guess_type(os.path.basename(path))
+
+        def _create() -> None:
+            blob = self.bucket.blob(key)
+            blob.upload_from_string(
+                content, content_type=content_type or "application/octet-stream"
+            )
+
+        await asyncio.to_thread(_create)
+        return True
+
+    # ------------------------------------------------------------------ #
+    # GCS-specific folder operations                                      #
+    # ------------------------------------------------------------------ #
+
+    async def create_folder(self, folder_name: str) -> None:
+        """Create a GCS "folder" by uploading an empty placeholder blob.
+
+        Args:
+            folder_name: Folder name (trailing / will be added if missing).
+        """
+        if not folder_name.endswith("/"):
+            folder_name += "/"
+
+        def _create_folder() -> None:
+            blob = self.bucket.blob(self._prefixed(folder_name))
+            blob.upload_from_string("")
+
+        await asyncio.to_thread(_create_folder)
+
+    async def remove_folder(self, folder_name: str) -> None:
+        """Remove a GCS "folder" by deleting all blobs with its prefix.
+
+        Args:
+            folder_name: Folder name (trailing / will be added if missing).
+        """
+        if not folder_name.endswith("/"):
+            folder_name += "/"
+        prefix = self._prefixed(folder_name)
+
+        def _remove_folder() -> None:
+            blobs = list(self.bucket.list_blobs(prefix=prefix))
+            for blob in blobs:
+                blob.delete()
+
+        await asyncio.to_thread(_remove_folder)
+
+    async def rename_folder(
+        self, old_folder_name: str, new_folder_name: str
     ) -> None:
-        """
-        Setup GCSFileManager to be used as a static class.
+        """Rename a GCS "folder" by renaming all blobs with its prefix.
 
         Args:
-            app (web.Application): The aiohttp application.
-            route (str): The route under which to serve the files.
-            base_url (str): The base URL of the server.
-        """
-        if isinstance(app, BaseApplication):
-            app = app.get_app()
-        elif isinstance(app, WebApp):
-            app = app
-
-        self.app = app
-        self.route = route
-        self.base_url = base_url
-
-        app["gcsfile"] = self
-
-        # Set the route with a wildcard
-        app.router.add_get(
-            route + "/{filepath:.*}", self.handle_file
-        )
-
-    def get_file_url(
-        self,
-        blob_name,
-        base_url=None,
-        use_signed_url=False,
-        expiration=3600
-    ):
-        """
-        Generate a URL to access the file.
-
-        Args:
-            blob_name (str): The name of the blob.
-            base_url (str, optional): The base URL of the server.
-            use_signed_url (bool, optional): If True, generate a signed GCS URL.
-            expiration (int, optional): Time in seconds for the signed URL to expire.
-
-        Returns:
-            str: The URL to access the file.
-        """
-        if use_signed_url:
-            # Generate a signed URL to GCS
-            blob = self.bucket.blob(blob_name)
-            url = blob.generate_signed_url(
-                expiration=timedelta(seconds=expiration)
-            )
-            return url
-        else:
-            # Generate a URL to serve the file via the web application
-            filename_encoded = quote(blob_name)
-            if base_url is None:
-                if self.base_url:
-                    base_url = self.base_url
-                else:
-                    raise ValueError(
-                        "Base URL is not set. Please provide base_url in setup()."
-                    )
-            # Ensure the route starts with '/'
-            route = self.route if self.route.startswith('/') else '/' + self.route
-            # Build the URL
-            url = urljoin(
-                base_url.rstrip('/') + '/', route.lstrip('/') + '/'
-            )
-            full_url = url + filename_encoded
-            return full_url
-
-    def find_files(self, keywords=None, extension=None, prefix=None):
-        """
-        Find files in the bucket based on keywords or extension.
-
-        Args:
-            keywords (str or list, optional): Keywords to search for in the file name.
-            extension (str, optional): File extension to filter by (e.g., ".csv").
-            prefix (str, optional): The prefix to filter by.
-
-        Returns:
-            list: A list of matching blob names.
-        """
-        blobs = self.bucket.list_blobs(prefix=prefix)
-        matching_files = []
-
-        for blob in blobs:
-            if keywords:
-                if isinstance(keywords, str):
-                    keywords = [keywords]
-                if not all(keyword in blob.name for keyword in keywords):
-                    continue
-
-            if extension:
-                if not blob.name.endswith(extension):
-                    continue
-
-            matching_files.append(blob.name)
-
-        return matching_files
-
-    def create_folder(self, folder_name):
-        """
-        Create a "folder" in GCS (simulated by creating an empty object).
-
-        Args:
-            folder_name (str): The name of the folder to create.
-                Should end with a slash ("/").
-        """
-        if not folder_name.endswith("/"):
-            folder_name += "/"
-        blob = self.bucket.blob(folder_name)
-        blob.upload_from_string("")
-
-    def remove_folder(self, folder_name):
-        """
-        Remove a "folder" in GCS (by deleting all objects with the prefix).
-
-        Args:
-            folder_name (str): The name of the folder to remove.
-        """
-        if not folder_name.endswith("/"):
-            folder_name += "/"
-        blobs = self.bucket.list_blobs(prefix=folder_name)
-        for blob in blobs:
-            blob.delete()
-
-    def rename_folder(self, old_folder_name, new_folder_name):
-        """
-        Rename a "folder" in GCS (by renaming all objects with the prefix).
-
-        Args:
-            old_folder_name (str): The current name of the folder.
-            new_folder_name (str): The new name for the folder.
+            old_folder_name: Current folder name.
+            new_folder_name: New folder name.
         """
         if not old_folder_name.endswith("/"):
             old_folder_name += "/"
         if not new_folder_name.endswith("/"):
             new_folder_name += "/"
+        old_prefix = self._prefixed(old_folder_name)
+        new_prefix = self._prefixed(new_folder_name)
 
-        blobs = self.bucket.list_blobs(prefix=old_folder_name)
-        for blob in blobs:
-            new_blob_name = blob.name.replace(old_folder_name, new_folder_name, 1)
-            self.bucket.rename_blob(blob, new_blob_name)
+        def _rename_folder() -> None:
+            blobs = list(self.bucket.list_blobs(prefix=old_prefix))
+            for blob in blobs:
+                new_name = blob.name.replace(old_prefix, new_prefix, 1)
+                self.bucket.rename_blob(blob, new_name)
 
-    def rename_file(self, old_file_name, new_file_name):
-        """
-        Rename a file in GCS.
+        await asyncio.to_thread(_rename_folder)
+
+    async def rename_file(self, old_file_name: str, new_file_name: str) -> None:
+        """Rename a GCS blob.
 
         Args:
-            old_file_name (str): The current name of the file.
-            new_file_name (str): The new name for the file.
+            old_file_name: Current blob name (without manager prefix).
+            new_file_name: New blob name (without manager prefix).
         """
-        blob = self.bucket.blob(old_file_name)
-        self.bucket.rename_blob(blob, new_file_name)
+        old_key = self._prefixed(old_file_name)
+        new_key = self._prefixed(new_file_name)
+
+        def _rename() -> None:
+            blob = self.bucket.blob(old_key)
+            self.bucket.rename_blob(blob, new_key)
+
+        await asyncio.to_thread(_rename)
+
+    # ------------------------------------------------------------------ #
+    # Override find_files with server-side prefix filtering               #
+    # ------------------------------------------------------------------ #
+
+    async def find_files(
+        self,
+        keywords: Optional[Union[str, List[str]]] = None,
+        extension: Optional[str] = None,
+        prefix: Optional[str] = None,
+    ) -> List[FileMetadata]:
+        """Find GCS blobs by keyword(s), extension, and/or prefix.
+
+        Args:
+            keywords: Substring(s) that must appear in the blob name.
+            extension: File extension to filter by (e.g. ".csv").
+            prefix: Blob name prefix to restrict the search scope.
+
+        Returns:
+            List of matching FileMetadata objects.
+        """
+
+        def _find() -> List[FileMetadata]:
+            server_prefix = self._prefixed(prefix or "")
+            blobs = list(self.bucket.list_blobs(prefix=server_prefix))
+            results: List[FileMetadata] = []
+            for blob in blobs:
+                key = self._unprefixed(blob.name)
+                name = os.path.basename(key) or key
+                if extension and not name.endswith(extension):
+                    continue
+                if keywords:
+                    kw_list: List[str] = (
+                        [keywords] if isinstance(keywords, str) else list(keywords)
+                    )
+                    if not all(kw in name for kw in kw_list):
+                        continue
+                results.append(self._make_metadata(blob))
+            return results
+
+        return await asyncio.to_thread(_find)
+
+    # ------------------------------------------------------------------ #
+    # Backward-compatible web-serving helpers                             #
+    # ------------------------------------------------------------------ #
+
+    def setup(self, app, route: str = "data", base_url: str = None):
+        """Set up web-serving for this manager (backward compat).
+
+        Delegates to FileServingExtension.
+
+        Args:
+            app: aiohttp Application or BaseApplication.
+            route: URL prefix (default ``"data"``).
+            base_url: Ignored (kept for signature compat).
+
+        Returns:
+            The configured app.
+        """
+        from .web import FileServingExtension
+
+        ext = FileServingExtension(
+            manager=self,
+            route=route if route.startswith("/") else "/" + route,
+            manager_name=self.manager_name,
+        )
+        return ext.setup(app)
+
+    async def handle_file(self, request):
+        """Handle a file request (backward compat).
+
+        Delegates to FileServingExtension.
+
+        Args:
+            request: aiohttp Request.
+
+        Returns:
+            StreamResponse.
+        """
+        from .web import FileServingExtension
+
+        ext = FileServingExtension(manager=self, manager_name=self.manager_name)
+        return await ext.handle_file(request)

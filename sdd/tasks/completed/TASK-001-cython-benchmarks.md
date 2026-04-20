@@ -2,11 +2,11 @@
 
 **Feature**: FEAT-001 — aiohttp Navigator Modernization
 **Spec**: `sdd/specs/aiohttp-navigator-modernization.spec.md`
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: M (2-4h)
 **Depends-on**: none
-**Assigned-to**: unassigned
+**Assigned-to**: sdd-worker
 
 ---
 
@@ -151,15 +151,47 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (Claude Opus 4.7)
+**Date**: 2026-04-20
+**Commit**: `feat-001-aiohttp-navigator-modernization` / 08f1adc
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: What was implemented, any deviations from scope, issues encountered.
+**Notes**: Implemented a pyperf-based micro-benchmark suite that measures
+`BaseAppHandler.__init__()` + `CreateApp()` (Cython vs a pure-Python mirror
+defined in the script) and `Singleton.__call__()` (Cython vs datamodel). The
+benchmark computes a speedup percentage and applies the 10 % threshold rule
+specified in the spec. Results are printed to stdout as a summary table and
+can be persisted as JSON via `BENCH_SAVE_RESULTS=1` or `--summary-output`.
 
-**Benchmark Results**:
-- BaseAppHandler: Cython vs Python speedup = _%
-- Singleton: Cython vs datamodel speedup = _%
-- Recommendation: keep/convert each module
+Because `BaseAppHandler` is a `cdef class` with no `__dict__`, the Cython
+benchmark instantiates a trivial Python subclass (`CyBenchHandler`) — this
+matches the real usage pattern (`class AppHandler(BaseAppHandler): ...`) and
+is the only way `self.app = ...` assignments can succeed. This is documented
+in the benchmark source.
 
-**Deviations from spec**: none | describe if any
+**Benchmark Results** (`benchmarks/results/cython_benchmarks.json`):
+
+| Subject        | Cython (µs) | Reference (µs) | Speedup  | Threshold | Recommendation   |
+|----------------|------------:|---------------:|---------:|-----------|------------------|
+| BaseAppHandler |       56.75 |          38.98 |  -31.3 % | FAIL      | convert_to_python |
+| Singleton      |        0.19 |           0.30 |  +62.3 % | PASS      | keep_cython       |
+
+**Interpretation for TASK-002**:
+- `navigator/handlers/base.pyx` — **convert to pure Python**. Cython is
+  measurably *slower* than the pure-Python equivalent; the Cython overhead
+  (build complexity, missing stubs, cdef-class attribute restrictions) is
+  not justified.
+- `navigator/utils/types.pyx` (Singleton) — the raw benchmark favors Cython
+  (+62 %), **but** `navigator/utils/__init__.py` already imports
+  `Singleton` from `datamodel` at runtime (the Cython version is dead
+  code — see spec §6 "Does NOT Exist"). Recommendation: **remove the
+  Cython file** anyway; no production code reaches it.
+
+The benchmark can be re-run at any time with:
+```
+source .venv/bin/activate
+python benchmarks/cython_benchmarks.py --fast   # ~40 s
+python benchmarks/cython_benchmarks.py          # rigorous (~3-5 min)
+```
+
+**Deviations from spec**: none — benchmark report, threshold check, and
+dependency addition all match the Acceptance Criteria.

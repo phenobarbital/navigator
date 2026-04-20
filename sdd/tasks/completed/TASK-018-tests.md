@@ -102,4 +102,29 @@ When you pick up this task:
 ---
 
 ## Completion Note
-*(Agent fills this in when done)*
+
+Completed 2026-04-20 by sdd-worker.
+
+All 8 test modules created in `tests/utils/`. Final count: **95 tests, 100% passing**.
+
+Key fixes required during implementation:
+1. `s3.py` import changed from `from ...conf import AWS_CREDENTIALS` to
+   `AWS_CREDENTIALS = getattr(_nav_conf, "AWS_CREDENTIALS", {})` — allows import
+   when AWS_CREDENTIALS is not defined in the environment conf (test environments).
+2. `test_file_web.py` backward-compat test patched `FileServingExtension.handle_file`
+   via `patch.object` to avoid requiring a real aiohttp request for `prepare()`.
+3. All S3-related test files import `navigator.utils.file.s3 as _s3_module` at top
+   and use `patch.object(_s3_module, "AWS_CREDENTIALS", mock_creds)` — avoids the
+   `__getattr__` hook in `navigator.utils.file.__init__` resolving `s3` as an attribute.
+4. Root `conftest.py` added to expose compiled Cython `.so` files from the main repo.
+5. `pytest-aiohttp` installed for integration tests using `aiohttp_client` fixture.
+
+Test breakdown:
+- `test_file_abstract.py` — 9 tests: FileMetadata creation, ABC prevention, concrete helpers
+- `test_file_local.py` — 17 tests: listing, CRUD, sandboxing, symlinks, find_files
+- `test_file_temp.py` — 13 tests: basic ops, cleanup, move semantics, backward compat
+- `test_file_s3.py` — 11 tests: credentials, pagination, small/multipart upload, abort, presigned
+- `test_file_gcs.py` — 13 tests: credentials, list, upload, resumable, folder ops, find_files, exists
+- `test_file_factory.py` — 6 tests: create local/temp/s3/gcs, unknown type, error message
+- `test_file_init.py` — 10 tests: eager imports, __all__, lazy loading, AttributeError
+- `test_file_web.py` — 15 tests: setup, handle_file, 404, 403, Range requests, integration

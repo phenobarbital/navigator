@@ -91,4 +91,4 @@ When you pick up this task:
 ---
 
 ## Completion Note
-*(Agent fills this in when done)*
+__init__.py rewritten: eager exports for Local/Temp/Abstract/Web/Factory; S3/GCS lazy-loaded via __getattr__ + importlib. __all__ lists all 8 public names. Backward-compat setup()/handle_file() added to all 4 managers, delegating to FileServingExtension.

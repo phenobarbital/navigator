@@ -483,7 +483,7 @@
       "feature_id": "FEAT-004",
       "feature": "new-backgroundqueue-tasker",
       "spec": "sdd/specs/new-backgroundqueue-tasker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": ["TASK-024"],
@@ -491,7 +491,9 @@
       "parallelism_notes": "Only modifies __init__.py exports and pyproject.toml. No overlap with TASK-025/026 code changes.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T22:00:00Z",
-      "file": "sdd/tasks/active/TASK-027-package-wiring.md"
+      "completed_at": "2026-04-21T00:10:00Z",
+      "verification": "verified",
+      "file": "sdd/tasks/completed/TASK-027-package-wiring.md"
     },
     {
       "id": "TASK-028",

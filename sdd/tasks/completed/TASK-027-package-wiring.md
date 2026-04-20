@@ -149,4 +149,21 @@ When you pick up this task:
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+- `navigator/background/taskers/__init__.py` now lazy-exports
+  `QWorkerTasker` (falls back to `None` on `ImportError`). A module-level
+  `__all__` was added.
+- `navigator/background/__init__.py` re-exports `QWorkerTasker` with the
+  same lazy-guard pattern, so downstream code can
+  `from navigator.background import QWorkerTasker` regardless of whether
+  qworker is installed at import time.
+- `pyproject.toml` gained a new `qworker = ["qworker>=2.0.0"]` optional
+  extra between `testing` and `dev`; the `all` extra was updated to
+  include `qworker`.
+- Verified:
+  - `import navigator.background` succeeds without side-effects.
+  - `from navigator.background import QWorkerTasker` returns the class.
+  - `from navigator.background.taskers import QWorkerTasker` returns the
+    same class.
+  - `pyproject.toml` parses and contains the new extra.
+
+**Verified at commit:** `90185d5`

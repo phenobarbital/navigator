@@ -404,7 +404,7 @@
       "feature_id": "FEAT-003",
       "feature": "backgroundservice-eventloop-error",
       "spec": "sdd/specs/backgroundservice-eventloop-error.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": ["TASK-019", "TASK-020", "TASK-021", "TASK-022"],
@@ -412,7 +412,8 @@
       "parallelism_notes": "Final task — tests all modules. Must run after all implementation tasks.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T18:00:00Z",
-      "file": "sdd/tasks/active/TASK-023-eventloop-tests.md"
+      "completed_at": "2026-04-20T18:40:00Z",
+      "file": "sdd/tasks/completed/TASK-023-eventloop-tests.md"
     }
   ]
 }

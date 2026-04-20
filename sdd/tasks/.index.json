@@ -130,7 +130,7 @@
       "feature_id": "FEAT-002",
       "feature": "file-interfaces",
       "spec": "sdd/specs/file-interfaces.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": [],
@@ -138,7 +138,8 @@
       "parallelism_notes": "Foundation task \u2014 all other FEAT-002 tasks depend on this.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-04-20T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-010-abstract-interface.md"
+      "file": "sdd/tasks/completed/TASK-010-abstract-interface.md",
+      "completed_at": "2026-04-20T00:10:00Z"
     },
     {
       "id": "TASK-011",

@@ -565,8 +565,44 @@ class S3FileManager(FileManagerInterface):
         return results
 
     # ------------------------------------------------------------------ #
-    # Backward-compatible web-serving helpers                             #
+    # Backward-compatible helpers                                         #
     # ------------------------------------------------------------------ #
+
+    async def upload_file_from_bytes(
+        self,
+        file_obj: bytes,
+        destination_key: str,
+        content_type: str = "application/octet-stream",
+    ) -> str:
+        """Upload a raw bytes payload to S3 under ``destination_key``.
+
+        Backward-compatible helper preserved from the pre-FEAT-002 API.
+        Applies the manager prefix and uses multipart upload when the payload
+        exceeds ``multipart_threshold``.
+
+        Args:
+            file_obj: Raw bytes to upload.
+            destination_key: Target S3 key (without manager prefix).
+            content_type: MIME type for the object. Defaults to
+                ``"application/octet-stream"``.
+
+        Returns:
+            The ``destination_key`` as provided (unprefixed), matching the
+            original contract.
+        """
+        key = self._prefixed(destination_key)
+        size = len(file_obj)
+        if size >= self.multipart_threshold:
+            await self._multipart_upload_bytes(file_obj, key, content_type)
+        else:
+            async with await self._s3_client() as s3:
+                await s3.put_object(
+                    Bucket=self.bucket_name,
+                    Key=key,
+                    Body=file_obj,
+                    ContentType=content_type,
+                )
+        return destination_key
 
     def setup(self, app, route: str = "/data", base_url: str = None):
         """Set up web-serving for this manager (backward compat).

@@ -1,44 +1,121 @@
 from typing import Optional, Union, Callable
 import uuid
+import warnings
 from aiohttp import web
 from ..queue import BackgroundQueue
 from ..tracker import JobTracker, RedisJobTracker, JobRecord
 from ..wrappers import TaskWrapper
 from ...conf import CACHE_URL
 
+# Registry pattern: one AppKey points to a dict[name -> BackgroundService].
+# Allows N named instances per Application without polluting app._state with
+# N separate AppKeys, while still being type-safe and namespaced.
+SERVICES_REGISTRY_KEY: web.AppKey[dict] = web.AppKey("background_services")
+
+DEFAULT_SERVICE_NAME: str = "default"
+
+# Kept for backward-compat with consumers that still access the FIRST/DEFAULT
+# service via the historical AppKey or string. New code should use
+# BackgroundService.from_app(app, name=...).
 BACKGROUND_SERVICE_KEY: web.AppKey["BackgroundService"] = web.AppKey("background_service")
 SERVICE_TRACKER_KEY: web.AppKey[JobTracker] = web.AppKey("service_tracker")
 
 
 class BackgroundService:
-    """
-    Interface for BackgroundQueue: one object that knows about
-    both the queue and the tracker.
+    """Interface for BackgroundQueue + JobTracker.
+
+    Multiple instances can coexist in the same Application, distinguished by
+    ``name``. Use :meth:`from_app`, :meth:`exists`, and :meth:`list_services`
+    for lookups.
+
+    The first registered instance is also exposed under the legacy keys
+    ``BACKGROUND_SERVICE_KEY`` (typed) and ``'background_service'`` (string)
+    for backward compatibility with older consumers. Subsequent instances
+    are only reachable through the registry by name.
     """
     def __init__(
         self,
         app: web.Application,
+        name: str = DEFAULT_SERVICE_NAME,
         queue: Optional[BackgroundQueue] = None,
         tracker: Optional[JobTracker] = None,
         tracker_type: str = 'memory',
         **kwargs
     ) -> None:
+        self.name = name
         self.queue = queue or BackgroundQueue(app, **kwargs)
-        # Create a new JobTracker if not provided
         self.tracker = tracker
         if not tracker:
             if tracker_type == 'redis':
                 self.tracker = RedisJobTracker(
                     url=kwargs.get('redis_url', CACHE_URL),
-                    prefix=kwargs.get('tracker_prefix', 'job:')
+                    prefix=kwargs.get('tracker_prefix', f'job:{name}:')
                 )
             else:
                 self.tracker = JobTracker()
-        # Register the queue and tracker in the application
-        app[BACKGROUND_SERVICE_KEY] = self
-        app[SERVICE_TRACKER_KEY] = self.tracker
+
+        # Register in the per-app registry (canonical lookup path).
+        registry = app.get(SERVICES_REGISTRY_KEY)
+        if registry is None:
+            registry = {}
+            app[SERVICES_REGISTRY_KEY] = registry
+        if name in registry:
+            raise ValueError(
+                f"BackgroundService named '{name}' is already registered."
+            )
+        registry[name] = self
+
+        # Backward-compat bridge: expose the FIRST registered service under
+        # the historical keys. Direct _state assignment bypasses
+        # NotAppKeyWarning for the string aliases (they are deprecated and
+        # will be removed in a future major release).
+        if BACKGROUND_SERVICE_KEY not in app:
+            app[BACKGROUND_SERVICE_KEY] = self
+            app[SERVICE_TRACKER_KEY] = self.tracker
+            app._state['background_service'] = self
+            app._state['service_tracker'] = self.tracker
+
         app.on_startup.append(self._start_tracker)
         app.on_cleanup.append(self._stop_tracker)
+
+    # -----------------------------------------------------------
+    # Lookup helpers
+    # -----------------------------------------------------------
+    @classmethod
+    def from_app(
+        cls,
+        app: web.Application,
+        name: str = DEFAULT_SERVICE_NAME,
+    ) -> "BackgroundService":
+        """Return the BackgroundService registered under ``name``.
+
+        Raises:
+            KeyError: if no service with that name is registered.
+        """
+        registry = app.get(SERVICES_REGISTRY_KEY) or {}
+        try:
+            return registry[name]
+        except KeyError as exc:
+            raise KeyError(
+                f"No BackgroundService named '{name}' registered. "
+                f"Known: {list(registry.keys())}"
+            ) from exc
+
+    @classmethod
+    def exists(
+        cls,
+        app: web.Application,
+        name: str = DEFAULT_SERVICE_NAME,
+    ) -> bool:
+        """Return True if a BackgroundService with ``name`` is registered."""
+        registry = app.get(SERVICES_REGISTRY_KEY)
+        return registry is not None and name in registry
+
+    @classmethod
+    def list_services(cls, app: web.Application) -> list:
+        """Return the names of all registered BackgroundServices."""
+        registry = app.get(SERVICES_REGISTRY_KEY)
+        return list(registry.keys()) if registry else []
 
     async def _start_tracker(self, app: web.Application) -> None:
         if hasattr(self.tracker, 'start'):

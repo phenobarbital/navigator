@@ -185,17 +185,33 @@ jobs:
             fi
           done
 
+      - name: Prepare SITE_ROOT for navconfig
+        run: |
+          # navconfig searches for project markers walking up from its own
+          # site-packages location, not from CWD. Without a marker it raises
+          # ProjectDetectionError on import. Create a temp project root with
+          # the supported markers and export SITE_ROOT for the next steps.
+          ROOT="${RUNNER_TEMP}/nav-root"
+          mkdir -p "${ROOT}/etc"
+          touch "${ROOT}/.env"
+          touch "${ROOT}/pyproject.toml"
+          printf "[navconfig]\n" > "${ROOT}/etc/config.ini"
+          echo "SITE_ROOT=${ROOT}" >> "$GITHUB_ENV"
+
       - name: Test basic imports
+        working-directory: ${{ runner.temp }}/nav-root
         run: |
           python -c "import navigator; print('✅ Navigator import successful')"
           python -c "import navigator.commands; print('✅ Commands import successful')"
           python -c "from navigator.version import __version__; print('✅ Version:', __version__)"
 
       - name: Test CLI command
+        working-directory: ${{ runner.temp }}/nav-root
         run: |
           nav --version || echo "⚠️ CLI test failed on ${{ matrix.os }}"
 
       - name: Test package contents
+        working-directory: ${{ runner.temp }}/nav-root
         run: |
           python -c "
           import navigator

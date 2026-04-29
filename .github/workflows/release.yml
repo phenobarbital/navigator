@@ -12,16 +12,16 @@ jobs:
         include:
           # Linux builds - use manylinux for maximum compatibility
           - os: ubuntu-latest
-            python-version: "3.10"
-            pyver: "310"
-            platform: linux
-          - os: ubuntu-latest
             python-version: "3.11"
             pyver: "311"
             platform: linux
           - os: ubuntu-latest
             python-version: "3.12"
             pyver: "312"
+            platform: linux
+          - os: ubuntu-latest
+            python-version: "3.13"
+            pyver: "313"
             platform: linux
 
 
@@ -158,7 +158,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.11", "3.12", "3.13"]
 
     steps:
       - name: Set up Python

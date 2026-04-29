@@ -7,7 +7,7 @@ from asyncdb.utils.functions import colors, cPrint
 
 try:
     from navconfig.logging import logging
-except (ImportError, OSError):
+except Exception:
     pass
 
 __all__ = (

@@ -185,6 +185,13 @@ jobs:
             fi
           done
 
+      - name: Scaffold navconfig environment
+        run: |
+          mkdir -p env/dev etc
+          touch env/dev/.env
+          touch etc/config.ini
+          touch pyproject.toml
+
       - name: Test basic imports
         run: |
           python -c "import navigator; print('✅ Navigator import successful')"

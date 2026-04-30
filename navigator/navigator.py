@@ -83,7 +83,7 @@ class Application(BaseApplication):
         from navigator.conf import Context  # pylint: disable=C0415
         self._runner: Optional[web.AppRunner] = None
         self._sites: list = []
-        self._shutdown_timeout = 30.0
+        self._shutdown_timeout = float(kwargs.pop('shutdown_timeout', 30.0))
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -631,6 +631,7 @@ class Application(BaseApplication):
                 backlog=kwargs.get('backlog', 128),
                 reuse_address=kwargs.get('reuse_address', True),
                 reuse_port=kwargs.get('reuse_port', False),
+                shutdown_timeout=kwargs.get('shutdown_timeout', self._shutdown_timeout),
             )
 
             await site.start()
@@ -694,7 +695,7 @@ class Application(BaseApplication):
             site = web.UnixSite(
                 self._runner,
                 path=str(unix_path),
-                shutdown_timeout=kwargs.get('shutdown_timeout', 60.0),
+                shutdown_timeout=kwargs.get('shutdown_timeout', self._shutdown_timeout),
                 ssl_context=kwargs.get('ssl_context'),
                 backlog=kwargs.get('backlog', 128),
             )

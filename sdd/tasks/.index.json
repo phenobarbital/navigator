@@ -576,7 +576,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": ["TASK-029"],
@@ -584,7 +584,8 @@
       "parallelism_notes": "Stream B. Owns navigator/brokers/rabbitmq/downlink.py and an append to brokers/rabbitmq/__init__.py. Shares the __init__.py edit with TASK-031 — merge sequentially if both PRs target the same line.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-032-mqtt-downlink-publisher.md"
+      "completed_at": "2026-05-27T00:40:00Z",
+      "file": "sdd/tasks/completed/TASK-032-mqtt-downlink-publisher.md"
     },
     {
       "id": "TASK-033",

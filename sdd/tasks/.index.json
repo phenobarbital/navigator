@@ -738,7 +738,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "XL",
       "depends_on": ["TASK-030", "TASK-031", "TASK-032", "TASK-034", "TASK-035", "TASK-036", "TASK-037", "TASK-038", "TASK-039"],
@@ -746,7 +746,8 @@
       "parallelism_notes": "Stream E. Only touches tests/. Can run in parallel with TASK-040.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-041-tests.md"
+      "completed_at": "2026-05-27T03:00:00Z",
+      "file": "sdd/tasks/completed/TASK-041-tests.md"
     }
   ]
 }

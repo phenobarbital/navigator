@@ -684,7 +684,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
       "depends_on": ["TASK-033", "TASK-034"],
@@ -692,7 +692,8 @@
       "parallelism_notes": "Stream D. Owns navigator/ext/geofencing/crud.py. Independent of dispatcher/push/webhooks code. Can run in parallel with TASK-037.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-038-geofence-crud-and-hot-reload.md"
+      "completed_at": "2026-05-27T01:50:00Z",
+      "file": "sdd/tasks/completed/TASK-038-geofence-crud-and-hot-reload.md"
     },
     {
       "id": "TASK-039",

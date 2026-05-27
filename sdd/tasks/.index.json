@@ -531,6 +531,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T00:10:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-029-mqtt-config-and-shapely-dep.md"
     },
     {
@@ -549,6 +550,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T00:20:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-030-mqtt-auth-handlers.md"
     },
     {
@@ -567,6 +569,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T00:30:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-031-employee-events-bridge.md"
     },
     {
@@ -585,6 +588,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T00:40:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-032-mqtt-downlink-publisher.md"
     },
     {
@@ -603,6 +607,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T00:50:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-033-geofence-models-and-migration.md"
     },
     {
@@ -621,6 +626,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T01:00:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-034-geofence-engine.md"
     },
     {
@@ -639,6 +645,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T01:10:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-035-on-geofence-event-decorator.md"
     },
     {
@@ -657,6 +664,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T01:20:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-036-fcm-and-webhook-helpers.md"
     },
     {
@@ -675,6 +683,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T01:35:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-037-notification-dispatcher.md"
     },
     {
@@ -693,6 +702,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T01:50:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-038-geofence-crud-and-hot-reload.md"
     },
     {
@@ -711,6 +721,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T02:00:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-039-geofencing-extension-wiring.md"
     },
     {
@@ -729,6 +740,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T02:15:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-040-ops-docs-and-examples.md"
     },
     {
@@ -747,6 +759,7 @@
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
       "completed_at": "2026-05-27T03:00:00Z",
+      "verification": "verified",
       "file": "sdd/tasks/completed/TASK-041-tests.md"
     }
   ]

@@ -16,6 +16,7 @@ See Also:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import time
@@ -93,6 +94,9 @@ class FCMProvider(PushProvider):
         # Token cache
         self._access_token: Optional[str] = None
         self._token_expires_at: float = 0.0
+        # Lock serialises concurrent token refresh coroutines so that only one
+        # HTTP round-trip to the Google token endpoint is made at a time.
+        self._token_lock: asyncio.Lock = asyncio.Lock()
 
         self.logger = logging.getLogger(self.__class__.__name__)
 
@@ -151,11 +155,23 @@ class FCMProvider(PushProvider):
     async def _get_access_token(self) -> str:
         """Return a valid OAuth2 access token, refreshing if necessary.
 
+        Uses a double-checked locking pattern with :attr:`_token_lock` to
+        serialise concurrent refresh coroutines and avoid redundant HTTP
+        round-trips to the Google token endpoint.
+
         Returns:
             Valid Bearer access token string.
         """
-        if self._access_token is None or time.time() >= self._token_expires_at:
-            await self._refresh_access_token()
+        # Fast path — no lock needed if the token is still valid
+        if self._access_token is not None and time.time() < self._token_expires_at:
+            return self._access_token
+
+        # Slow path — acquire the lock and re-check inside
+        async with self._token_lock:
+            # Another coroutine may have refreshed while we waited for the lock
+            if self._access_token is None or time.time() >= self._token_expires_at:
+                await self._refresh_access_token()
+
         return self._access_token  # type: ignore[return-value]
 
     async def send(self, device_token: str, payload: dict) -> None:

@@ -32,9 +32,11 @@ See Also:
 
 from __future__ import annotations
 
-import asyncio
+import json
 import logging
+import uuid
 from collections.abc import Awaitable, Callable
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from navigator.extensions import BaseExtension
@@ -142,7 +144,6 @@ class _GeofenceConsumer(RMQConsumer):
         """
         try:
             if isinstance(body, str):
-                import json
                 event = json.loads(body)
             else:
                 event = body
@@ -153,8 +154,6 @@ class _GeofenceConsumer(RMQConsumer):
             ts_raw = event.get("ts", event.get("timestamp"))
             source_event_id = event.get("event_id", event.get("id", ""))
 
-            from datetime import datetime, timezone
-            import uuid
             if ts_raw is None:
                 ts = datetime.now(tz=timezone.utc)
             elif isinstance(ts_raw, (int, float)):
@@ -163,13 +162,15 @@ class _GeofenceConsumer(RMQConsumer):
                 ts = datetime.fromisoformat(str(ts_raw))
 
             tenant_id = await self._tenant_resolver(employee_id)
-            position = Position(lat=lat, lng=lng, ts=ts)
 
-            transitions = await self._engine.evaluate(
+            source_uuid = uuid.UUID(str(source_event_id)) if source_event_id else uuid.uuid4()
+            transitions = self._engine.evaluate(
                 employee_id=employee_id,
                 tenant_id=tenant_id,
-                position=position,
-                source_event_id=uuid.UUID(str(source_event_id)) if source_event_id else uuid.uuid4(),
+                lat=lat,
+                lng=lng,
+                ts=ts,
+                source_event_id=source_uuid,
             )
             for transition in transitions:
                 await self._dispatcher.dispatch(transition)
@@ -264,7 +265,15 @@ class GeofencingExtension(BaseExtension):
 
         self._app_db = app_db
         self._fcm_credentials = fcm_credentials
-        self._secret_encrypt = secret_encrypt or (lambda x: x)
+        if secret_encrypt is None:
+            logger.warning(
+                "GeofencingExtension: no secret_encrypt callable provided. "
+                "Webhook HMAC secrets will be stored in plaintext. "
+                "Provide a secret_encrypt function for production use."
+            )
+            self._secret_encrypt: Callable[[bytes], bytes] = lambda x: x
+        else:
+            self._secret_encrypt = secret_encrypt
         self._secret_decrypt = secret_decrypt or (lambda x: x)
         async def _noop_token_lookup(employee_id: str) -> list:
             return []
@@ -415,27 +424,54 @@ class GeofencingExtension(BaseExtension):
         logger.info("GeofencingExtension: startup complete")
 
     async def _on_shutdown_handler(self, app: Any) -> None:
-        """Shutdown handler: cancel dwell timers, close dispatcher and consumers.
+        """Shutdown handler: stop consumers, bridge, cancel dwell timers, close dispatcher.
+
+        Shutdown order:
+        1. Stop geofence and reload consumers (stop accepting new messages).
+        2. Stop bridge (stop ingesting new MQTT events).
+        3. Cancel all pending dwell timers.
+        4. Close dispatcher (closes owned HTTP session).
+        5. Stop producers.
 
         Args:
             app: The aiohttp application (passed by aiohttp signal dispatch).
         """
         logger.info("GeofencingExtension: shutting down")
 
-        # Cancel all pending dwell timers
+        # 1. Stop consumers
+        for consumer in [self._geo_consumer, self._reload_consumer]:
+            if consumer is not None:
+                try:
+                    await consumer.stop(app)
+                except Exception as exc:
+                    logger.warning(
+                        "GeofencingExtension: error stopping consumer %s: %s",
+                        getattr(consumer, "_name_", consumer.__class__.__name__),
+                        exc,
+                    )
+
+        # 2. Stop bridge
+        if self._bridge is not None:
+            try:
+                await self._bridge.stop(app)
+            except Exception as exc:
+                logger.warning("GeofencingExtension: error stopping bridge: %s", exc)
+
+        # 3. Cancel all pending dwell timers
         if self._engine is not None:
+            timer_count = len(self._engine._dwell_timers)
             for timer in list(self._engine._dwell_timers.values()):
                 timer.cancel()
-            logger.debug(
-                "GeofencingExtension: cancelled %d dwell timers",
-                len(self._engine._dwell_timers),
-            )
+            if timer_count:
+                logger.debug(
+                    "GeofencingExtension: cancelled %d dwell timers", timer_count
+                )
 
-        # Close dispatcher (closes owned HTTP session)
+        # 4. Close dispatcher (closes owned HTTP session)
         if self._dispatcher is not None:
             await self._dispatcher.aclose()
 
-        # Stop producers
+        # 5. Stop producers
         if self._downlink is not None:
             await self._downlink.stop(app)
         if self._reload_publisher is not None:
@@ -547,13 +583,12 @@ class GeofencingExtension(BaseExtension):
         """
         try:
             if isinstance(body, str):
-                import json
                 event = json.loads(body)
             else:
                 event = body
             geofence_id = event.get("geofence_id")
             if geofence_id is not None:
-                await self._engine.reload_one(int(geofence_id))
+                await self._engine.reload_one(str(geofence_id))
                 logger.debug(
                     "_on_reload_message: reloaded geofence_id=%s", geofence_id
                 )

@@ -31,7 +31,7 @@ from navigator.ext.geofencing.decorators import on_geofence_event, clear_registr
 def _make_transition(kind="enter") -> GeofenceTransition:
     return GeofenceTransition(
         employee_id="emp-001",
-        geofence_id=1,
+        geofence_id="11111111-1111-1111-1111-111111111111",
         tenant_id="acme",
         kind=kind,
         location=Position(lat=19.43, lng=-99.13, ts=datetime.now(tz=timezone.utc)),
@@ -201,6 +201,7 @@ async def test_fcm_provider_token_refresh():
     provider._service_account = fake_sa
     provider._access_token = None
     provider._token_expires_at = 0.0
+    provider._token_lock = asyncio.Lock()
     provider.logger = MagicMock()
 
     refresh_called = 0

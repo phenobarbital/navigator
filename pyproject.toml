@@ -78,6 +78,7 @@ dependencies = [
     "navigator-auth>=0.15.8",
     "python-datamodel>=0.10.19",
     "shapely>=2.1.2",
+    "cachetools>=5.3.0",
 ]
 dynamic = ["version"]
 

@@ -12,7 +12,7 @@
 -- geofences
 -- -------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS geofences (
-    id              SERIAL PRIMARY KEY,
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id       VARCHAR(64) NOT NULL,
     name            VARCHAR(128) NOT NULL,
     polygon         TEXT NOT NULL,           -- GeoJSON or WKT; evaluated in-memory by Shapely
@@ -29,11 +29,11 @@ CREATE INDEX IF NOT EXISTS idx_geofences_tenant_active
 -- webhooks
 -- -------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS webhooks (
-    id                SERIAL PRIMARY KEY,
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id         VARCHAR(64) NOT NULL,
     url               TEXT NOT NULL,
     secret_encrypted  BYTEA NOT NULL,          -- HMAC secret, encrypted at rest
-    geofence_filter   INTEGER NULL REFERENCES geofences(id) ON DELETE SET NULL,
+    geofence_filter   UUID NULL REFERENCES geofences(id) ON DELETE SET NULL,
     active            BOOLEAN NOT NULL DEFAULT TRUE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()

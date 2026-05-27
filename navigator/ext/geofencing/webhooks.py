@@ -143,6 +143,14 @@ async def dispatch_webhook(
                     attempt,
                     retries,
                 )
+                # Don't retry client errors (except 429 Too Many Requests)
+                if 400 <= resp.status < 500 and resp.status != 429:
+                    logger.warning(
+                        "dispatch_webhook: %d is a client error — not retrying url=%s",
+                        resp.status,
+                        webhook.url,
+                    )
+                    break
         except aiohttp.ClientError as exc:
             last_exc = exc
             logger.warning(

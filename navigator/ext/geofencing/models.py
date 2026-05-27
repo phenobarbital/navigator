@@ -42,7 +42,7 @@ class Geofence:
     No PostGIS dependency — evaluation is in-memory via Shapely.
 
     Attributes:
-        id: Primary key.
+        id: Primary key (UUID string matching the ``UUID`` DB column).
         tenant_id: Owning tenant identifier (NOT NULL).
         name: Human-readable geofence name.
         polygon: Polygon definition as GeoJSON or WKT string.
@@ -53,7 +53,7 @@ class Geofence:
         updated_at: Last-modified timestamp.
     """
 
-    id: int
+    id: str  # UUID string — matches UUID PRIMARY KEY in migration
     tenant_id: str
     name: str
     polygon: str  # GeoJSON or WKT — no PostGIS required
@@ -70,7 +70,7 @@ class GeofenceTransition:
 
     Attributes:
         employee_id: Employee whose position triggered this transition.
-        geofence_id: Foreign key to :class:`Geofence`.
+        geofence_id: Foreign key to :class:`Geofence` (UUID string).
         tenant_id: Tenant that owns the geofence.
         kind: Transition type — ``"enter"``, ``"exit"``, or ``"dwell"``.
         location: GPS fix that caused the transition.
@@ -81,7 +81,7 @@ class GeofenceTransition:
     """
 
     employee_id: str
-    geofence_id: int
+    geofence_id: str  # UUID string — matches UUID PRIMARY KEY in migration
     tenant_id: str
     kind: Literal["enter", "exit", "dwell"]
     location: Position
@@ -110,11 +110,11 @@ class Webhook:
         updated_at: Last-modified timestamp.
     """
 
-    id: int
+    id: str  # UUID string — matches UUID PRIMARY KEY in migration
     tenant_id: str
     url: str
     secret_encrypted: bytes  # decrypted at dispatch; never returned by API
-    geofence_filter: Optional[int]  # if set, fires only for this geofence
+    geofence_filter: Optional[str]  # UUID string; if set, fires only for this geofence
     active: bool
     created_at: datetime
     updated_at: datetime

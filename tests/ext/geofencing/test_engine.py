@@ -144,11 +144,10 @@ async def test_engine_out_of_order_ignored(sample_tenant_geofences):
 @pytest.mark.asyncio
 async def test_engine_dwell_timer_fires():
     """Dwell timer fires within dwell_seconds (fast test with dwell_seconds=1)."""
-    import json
     from datetime import datetime, timezone
     fence_with_fast_dwell = [
         Geofence(
-            id=1,
+            id="22222222-2222-2222-2222-222222222222",
             tenant_id="acme",
             name="fast_dwell_fence",
             polygon=MEXICO_CITY_POLYGON_GEOJSON,
@@ -211,12 +210,15 @@ async def test_engine_reload_one(sample_tenant_geofences):
         call_count += 1
         return sample_tenant_geofences
 
+    async def _noop_emit(transition):
+        pass
+
     engine = GeofenceEngine(
         db_loader=counting_loader,
-        emit=lambda t: None,
+        emit=_noop_emit,
         dwell_default=2,
     )
     await engine.load_from_db()
     assert call_count == 1
-    await engine.reload_one(geofence_id=1)
+    await engine.reload_one(geofence_id="test-uuid-1")
     assert call_count == 2

@@ -204,17 +204,12 @@ async def _publish_synthetic_location(app: web.Application) -> None:
         print("Engine not initialised — skipping synthetic event")
         return
 
-    from navigator.ext.geofencing.models import Position
-
-    position = Position(
+    transitions = ext._engine.evaluate(
+        employee_id="emp-001",
+        tenant_id="acme",
         lat=37.7749,
         lng=-122.4194,
         ts=datetime.now(tz=timezone.utc),
-    )
-    transitions = await ext._engine.evaluate(
-        employee_id="emp-001",
-        tenant_id="acme",
-        position=position,
         source_event_id=uuid.uuid4(),
     )
     for t in transitions:

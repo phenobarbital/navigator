@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from datetime import datetime
 from typing import Optional
@@ -83,15 +84,15 @@ class GeofenceEngine:
         # _trees[tenant_id] = STRtree of shapely Polygon objects
         self._trees: dict[str, STRtree] = {}
         # _polys_by_tenant[tenant_id] = [(geofence_id, Polygon, dwell_seconds_override)]
-        self._polys_by_tenant: dict[str, list[tuple[int, Polygon, Optional[int]]]] = {}
+        self._polys_by_tenant: dict[str, list[tuple[str, Polygon, Optional[int]]]] = {}
         # _prepared_by_tenant[tenant_id] = [PreparedGeometry, ...]  (parallel to _polys_by_tenant)
         self._prepared_by_tenant: dict[str, list[PreparedGeometry]] = {}
 
         # Per-employee state
-        self._inside: dict[str, set[int]] = {}         # employee_id → {geofence_id, ...}
-        self._entered_at: dict[tuple[str, int], datetime] = {}  # (emp, geo) → ts
-        self._dwell_timers: dict[tuple[str, int], asyncio.TimerHandle] = {}
-        self._last_seen_ts: dict[str, datetime] = {}   # employee_id → last ts
+        self._inside: dict[str, set[str]] = {}         # employee_id → {geofence_id, ...}
+        self._entered_at: dict[tuple[str, str], datetime] = {}  # (emp, geo) → ts
+        self._dwell_timers: dict[tuple[str, str], asyncio.TimerHandle] = {}
+        self._last_seen_ts: dict[str, float] = {}      # employee_id → last seen unix timestamp
 
         self._load_lock = asyncio.Lock()
 
@@ -156,7 +157,7 @@ class GeofenceEngine:
                 poly = self._parse_polygon(gf.polygon)
                 if poly is None:
                     self.logger.warning(
-                        "GeofenceEngine: could not parse polygon for geofence id=%d tenant=%s",
+                        "GeofenceEngine: could not parse polygon for geofence id=%s tenant=%s",
                         gf.id,
                         tenant_id,
                     )
@@ -180,7 +181,7 @@ class GeofenceEngine:
             len(geofences),
         )
 
-    async def reload_one(self, geofence_id: int) -> None:
+    async def reload_one(self, geofence_id: str) -> None:
         """Reload a single geofence (or handle its deletion).
 
         Fetches all active geofences and rebuilds only the affected tenant's
@@ -188,13 +189,13 @@ class GeofenceEngine:
         optimization.
 
         Args:
-            geofence_id: The ID of the changed geofence.
+            geofence_id: The UUID string ID of the changed geofence.
         """
         # Reload all — we need to find which tenant owns geofence_id.
         # In v1 this is the simplest correct implementation.
         await self.load_from_db()
         self.logger.debug(
-            "GeofenceEngine: reload_one(%d) complete (full reload)", geofence_id
+            "GeofenceEngine: reload_one(%s) complete (full reload)", geofence_id
         )
 
     # ------------------------------------------------------------------
@@ -203,7 +204,7 @@ class GeofenceEngine:
 
     def _query_tenant(
         self, tenant_id: str, point: Point
-    ) -> set[int]:
+    ) -> set[str]:
         """Return the set of geofence IDs that contain ``point`` for a tenant.
 
         Args:
@@ -211,7 +212,7 @@ class GeofenceEngine:
             point: Shapely Point (``Point(lng, lat)`` ordering).
 
         Returns:
-            Set of ``geofence_id`` integers whose polygons contain the point.
+            Set of ``geofence_id`` UUID strings whose polygons contain the point.
         """
         tree = self._trees.get(tenant_id)
         if tree is None:
@@ -222,7 +223,7 @@ class GeofenceEngine:
 
         # STRtree.query returns numpy array of indices into the original geom_list
         candidate_indices = tree.query(point, predicate="intersects")
-        result: set[int] = set()
+        result: set[str] = set()
         for idx in candidate_indices:
             idx_int = int(idx)
             if idx_int < len(prepared) and prepared[idx_int].contains(point):
@@ -238,7 +239,7 @@ class GeofenceEngine:
         self,
         employee_id: str,
         tenant_id: str,
-        geofence_id: int,
+        geofence_id: str,
         location: Position,
         dwell_seconds: Optional[int],
         source_event_id: UUID,
@@ -249,7 +250,7 @@ class GeofenceEngine:
         Args:
             employee_id: Employee identifier.
             tenant_id: Tenant identifier.
-            geofence_id: Geofence identifier.
+            geofence_id: Geofence UUID string identifier.
             location: GPS fix at entry time.
             dwell_seconds: Per-geofence override; None uses the default.
             source_event_id: UUID of the source MQTT event.
@@ -284,12 +285,12 @@ class GeofenceEngine:
                 geofence_id,
             )
 
-    def _cancel_dwell(self, employee_id: str, geofence_id: int) -> None:
+    def _cancel_dwell(self, employee_id: str, geofence_id: str) -> None:
         """Cancel a pending dwell timer for ``(employee_id, geofence_id)``.
 
         Args:
             employee_id: Employee identifier.
-            geofence_id: Geofence identifier.
+            geofence_id: Geofence UUID string identifier.
         """
         key = (employee_id, geofence_id)
         handle = self._dwell_timers.pop(key, None)
@@ -300,7 +301,7 @@ class GeofenceEngine:
         self,
         employee_id: str,
         tenant_id: str,
-        geofence_id: int,
+        geofence_id: str,
         location: Position,
         source_event_id: UUID,
         ts: datetime,
@@ -315,7 +316,7 @@ class GeofenceEngine:
         Args:
             employee_id: Employee identifier.
             tenant_id: Tenant identifier.
-            geofence_id: Geofence identifier.
+            geofence_id: Geofence UUID string identifier.
             location: GPS fix at entry time.
             source_event_id: Source MQTT event UUID.
             ts: Entry timestamp.
@@ -354,6 +355,66 @@ class GeofenceEngine:
             )
 
     # ------------------------------------------------------------------
+    # Employee state eviction helpers
+    # ------------------------------------------------------------------
+
+    def evict_employee(self, employee_id: str) -> None:
+        """Remove all geofence state for an employee (e.g., after offboarding).
+
+        Cancels any pending dwell timers for the employee and removes all
+        per-employee tracking dicts.  Safe to call even if the employee has
+        no state.
+
+        Args:
+            employee_id: The employee's identifier.
+        """
+        self._inside.pop(employee_id, None)
+        self._entered_at.pop(employee_id, None)
+        self._last_seen_ts.pop(employee_id, None)
+        # Cancel any pending dwell timers for this employee
+        keys_to_remove = [key for key in self._dwell_timers if key[0] == employee_id]
+        for key in keys_to_remove:
+            handle = self._dwell_timers.pop(key)
+            handle.cancel()
+        if keys_to_remove:
+            self.logger.debug(
+                "GeofenceEngine.evict_employee: evicted employee=%s (%d timers cancelled)",
+                employee_id,
+                len(keys_to_remove),
+            )
+
+    def evict_stale_employees(self, max_age_seconds: float = 604800) -> int:
+        """Evict employees not seen for longer than ``max_age_seconds``.
+
+        Useful as a periodic cleanup to prevent unbounded growth of the
+        per-employee state dicts for employees who stop sending location
+        updates (e.g., device offline or employee offboarded).
+
+        Args:
+            max_age_seconds: Maximum age in seconds before an employee is
+                considered stale and evicted.  Defaults to 7 days (604 800 s).
+
+        Returns:
+            Number of employees evicted.
+        """
+        now = time.time()
+        stale = [
+            eid
+            for eid, last_ts in self._last_seen_ts.items()
+            if (now - last_ts) > max_age_seconds
+        ]
+        for eid in stale:
+            self.evict_employee(eid)
+        if stale:
+            self.logger.info(
+                "GeofenceEngine.evict_stale_employees: evicted %d stale employees "
+                "(max_age=%.0fs)",
+                len(stale),
+                max_age_seconds,
+            )
+        return len(stale)
+
+    # ------------------------------------------------------------------
     # evaluate
     # ------------------------------------------------------------------
 
@@ -384,17 +445,17 @@ class GeofenceEngine:
             List of :class:`GeofenceTransition` emitted for this fix.
             Callers should forward these to :attr:`_emit`.
         """
-        # Out-of-order guard
-        last_ts = self._last_seen_ts.get(employee_id)
-        if last_ts is not None and ts < last_ts:
+        # Out-of-order guard (compare as unix timestamps for consistency)
+        ts_float = ts.timestamp()
+        last_ts_float = self._last_seen_ts.get(employee_id)
+        if last_ts_float is not None and ts_float < last_ts_float:
             self.logger.debug(
-                "GeofenceEngine: out-of-order fix for employee=%s ts=%s last=%s — skipping",
+                "GeofenceEngine: out-of-order fix for employee=%s ts=%s — skipping",
                 employee_id,
                 ts,
-                last_ts,
             )
             return []
-        self._last_seen_ts[employee_id] = ts
+        self._last_seen_ts[employee_id] = ts_float
 
         # Point: Shapely uses (x=lng, y=lat) ordering
         point = Point(lng, lat)
@@ -424,8 +485,8 @@ class GeofenceEngine:
             # Look up per-geofence dwell override
             polys = self._polys_by_tenant.get(tenant_id, [])
             dwell_override: Optional[int] = None
-            for geofence_id_stored, _, dwell_s in polys:
-                if geofence_id_stored == gid:
+            for gf_id_stored, _, dwell_s in polys:
+                if gf_id_stored == gid:
                     dwell_override = dwell_s
                     break
             self._schedule_dwell(
@@ -475,6 +536,18 @@ class GeofenceEngine:
         ``inside`` sets is returned.
 
         This is the v2 Cython migration target — keep this API surface stable.
+
+        **Dwell timer side effects:**
+        In both collapse and non-collapse modes, intermediate positions schedule
+        dwell timers via :meth:`_schedule_dwell`.  If an employee enters a
+        geofence in an early position and exits in a later position within the
+        same batch, the dwell timer scheduled on entry is correctly cancelled by
+        the exit via :meth:`_cancel_dwell`.  However, if collapse mode is active
+        and the net result is "entered" (enter in first position, exit, enter
+        again in last position), only the final dwell timer remains active — the
+        intermediate timers were cancelled on the intermediate exits.  Callers
+        relying on dwell-timer timing accuracy should be aware that the timer
+        start time is based on the *final* entry position in the batch.
 
         Args:
             employee_id: Employee identifier.

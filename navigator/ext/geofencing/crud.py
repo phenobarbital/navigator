@@ -30,12 +30,14 @@ See Also:
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import logging
 import uuid
 from collections.abc import Callable
 from datetime import datetime, timezone
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 from aiohttp import web
 from shapely.geometry import shape
@@ -74,7 +76,7 @@ def _validate_polygon(polygon_text: str) -> Optional[str]:
     try:
         geojson_dict = json.loads(polygon_text)
         geom = shape(geojson_dict)
-    except Exception:
+    except (json.JSONDecodeError, ValueError, TypeError, AttributeError):
         pass
 
     # Fall back to WKT
@@ -88,6 +90,52 @@ def _validate_polygon(polygon_text: str) -> Optional[str]:
     if validity != "Valid Geometry":
         return validity
     return None
+
+
+def _validate_webhook_url(url: str) -> Optional[str]:
+    """Validate a webhook URL to prevent SSRF attacks.
+
+    Enforces HTTPS-only and blocks private/loopback/reserved IP ranges
+    and well-known localhost hostnames.
+
+    Args:
+        url: The candidate webhook URL string.
+
+    Returns:
+        ``None`` if the URL is valid; an error message string if invalid.
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return "Invalid URL format"
+
+    if parsed.scheme != "https":
+        return "Webhook URL must use HTTPS"
+
+    host = parsed.hostname or ""
+    if not host:
+        return "Webhook URL must have a valid hostname"
+
+    # Block common internal hostnames
+    blocked_hosts = {"localhost", "127.0.0.1", "::1", "0.0.0.0"}
+    if host.lower() in blocked_hosts:
+        return "Webhook URL must not target localhost"
+
+    # Block IP addresses in private/reserved ranges
+    try:
+        addr = ipaddress.ip_address(host)
+        if (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+        ):
+            return "Webhook URL must not target private or reserved IP addresses"
+    except ValueError:
+        pass  # hostname, not a bare IP — acceptable
+
+    return None  # valid
 
 
 def _has_cross_tenant_scope(session: Any) -> bool:
@@ -503,6 +551,10 @@ class _GeofencingCRUD:
         if not url:
             raise web.HTTPBadRequest(reason="url is required")
 
+        url_error = _validate_webhook_url(url)
+        if url_error:
+            return web.Response(status=400, text=url_error)
+
         secret_plaintext = body.get("secret", "")
         if not secret_plaintext:
             raise web.HTTPBadRequest(reason="secret is required")
@@ -598,6 +650,12 @@ class _GeofencingCRUD:
         geofence_filter = body.get("geofence_filter", row["geofence_filter"])
         active = body.get("active", row["active"])
         now = _now_iso()
+
+        # Validate URL if it is being updated
+        if "url" in body:
+            url_error = _validate_webhook_url(url)
+            if url_error:
+                return web.Response(status=400, text=url_error)
 
         secret_encrypted = row["secret_encrypted"]
         if "secret" in body:

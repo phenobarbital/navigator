@@ -56,7 +56,7 @@ def sample_tenant_geofences() -> list[Geofence]:
     """
     return [
         Geofence(
-            id=1,
+            id="11111111-1111-1111-1111-111111111111",
             tenant_id="acme",
             name="mexico_city_office",
             polygon=MEXICO_CITY_POLYGON_GEOJSON,

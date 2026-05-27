@@ -33,8 +33,6 @@ from navigator.conf import (
     MQTT_MAX_BATCH_SIZE,
 )
 
-logger = logging.getLogger(__name__)
-
 # Routing key constants
 _TYPE_TO_ROUTING_KEY: dict[str, str] = {
     "status": "employee.status.updated",

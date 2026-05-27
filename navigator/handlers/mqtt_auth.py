@@ -30,10 +30,10 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-import time
 from typing import Optional
 
 from aiohttp import web
+from cachetools import TTLCache
 
 from navigator.conf import MQTT_AUTH_CACHE_TTL, RABBITMQ_VHOST
 from navigator.handlers._mqtt_jwt import (
@@ -47,8 +47,14 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # In-memory TTL cache
 # ---------------------------------------------------------------------------
-# Key: tuple of request discriminators; Value: (allow_text: str, expires_at: float)
-_CACHE: dict[tuple, tuple[str, float]] = {}
+# Key: tuple of request discriminators; Value: allow/deny text string
+# TTLCache evicts entries automatically after MQTT_AUTH_CACHE_TTL seconds and
+# bounds total memory usage to at most 10 000 cached decisions.
+_CACHE: TTLCache = TTLCache(maxsize=10_000, ttl=MQTT_AUTH_CACHE_TTL)
+
+# Short TTL for deny decisions — avoids caching stale denies for too long
+# while still protecting against brute-force bursts (5 seconds).
+_DENY_TTL: int = 5
 
 _DENY = "deny"
 
@@ -59,20 +65,45 @@ def _cache_key(*parts: str) -> tuple:
 
 
 def _cache_get(key: tuple) -> Optional[str]:
-    """Return the cached response text if still valid, else None."""
-    entry = _CACHE.get(key)
-    if entry is None:
-        return None
-    text, expires_at = entry
-    if time.time() > expires_at:
-        del _CACHE[key]
-        return None
-    return text
+    """Return the cached response text if still valid, else None.
+
+    Checks both the standard TTL cache and the short deny cache.
+
+    Args:
+        key: Cache key tuple.
+
+    Returns:
+        Cached response text, or ``None`` on cache miss.
+    """
+    # Check deny cache first (short TTL)
+    deny_entry = _DENY_CACHE.get(key)
+    if deny_entry is not None:
+        return deny_entry
+    return _CACHE.get(key)
 
 
-def _cache_set(key: tuple, text: str) -> None:
-    """Store a decision in the cache with a TTL expiry."""
-    _CACHE[key] = (text, time.time() + MQTT_AUTH_CACHE_TTL)
+def _cache_set(key: tuple, text: str, *, ttl_override: Optional[int] = None) -> None:
+    """Store a decision in the cache.
+
+    For deny decisions, pass ``ttl_override=_DENY_TTL`` to use a much shorter
+    TTL so that transient auth failures expire quickly.
+
+    Args:
+        key: Cache key tuple.
+        text: Response text to cache (``"allow ..."`` or ``"deny"``).
+        ttl_override: If provided, store with this TTL (seconds) instead of
+            the default ``MQTT_AUTH_CACHE_TTL``.  Used for deny responses.
+    """
+    if ttl_override is not None:
+        # TTLCache does not support per-entry TTLs natively; use a separate
+        # short-lived cache for deny responses to approximate the behaviour.
+        _DENY_CACHE[key] = text
+    else:
+        _CACHE[key] = text
+
+
+# Separate short-TTL cache for deny decisions (prevents caching stale denies).
+_DENY_CACHE: TTLCache = TTLCache(maxsize=10_000, ttl=_DENY_TTL)
 
 
 def _password_hash(password: str) -> str:
@@ -107,10 +138,20 @@ async def mqtt_auth_user(request: web.Request) -> web.Response:
         logger.debug("MQTT auth user: cache hit for username=%s", username)
         return web.Response(text=cached, content_type="text/plain")
 
-    payload = await decode_mqtt_token(password)
+    try:
+        payload = await decode_mqtt_token(password)
+    except NotImplementedError:
+        logger.warning(
+            "MQTT auth user: JWT validation is not wired — denying username=%s. "
+            "Wire navigator_auth before enabling MQTT auth in production.",
+            username,
+        )
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
+        return web.Response(text=_DENY, content_type="text/plain")
+
     if payload is None:
         logger.warning("MQTT auth user: invalid/expired JWT for username=%s", username)
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     result = "allow tags=management"
@@ -141,9 +182,18 @@ async def mqtt_auth_vhost(request: web.Request) -> web.Response:
     if cached is not None:
         return web.Response(text=cached, content_type="text/plain")
 
-    payload = await decode_mqtt_token(password)
+    try:
+        payload = await decode_mqtt_token(password)
+    except NotImplementedError:
+        logger.warning(
+            "MQTT auth vhost: JWT validation is not wired — denying username=%s.",
+            username,
+        )
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
+        return web.Response(text=_DENY, content_type="text/plain")
+
     if payload is None:
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     # Allow only the configured RabbitMQ vhost (or "/" which some MQTT clients send)
@@ -152,7 +202,7 @@ async def mqtt_auth_vhost(request: web.Request) -> web.Response:
         logger.warning(
             "MQTT auth vhost: denied vhost=%s for username=%s", vhost, username
         )
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     _cache_set(cache_key, "allow")
@@ -186,9 +236,18 @@ async def mqtt_auth_resource(request: web.Request) -> web.Response:
     if cached is not None:
         return web.Response(text=cached, content_type="text/plain")
 
-    payload = await decode_mqtt_token(password)
+    try:
+        payload = await decode_mqtt_token(password)
+    except NotImplementedError:
+        logger.warning(
+            "MQTT auth resource: JWT validation is not wired — denying username=%s.",
+            username,
+        )
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
+        return web.Response(text=_DENY, content_type="text/plain")
+
     if payload is None:
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     _cache_set(cache_key, "allow")
@@ -225,9 +284,18 @@ async def mqtt_auth_topic(request: web.Request) -> web.Response:
     if cached is not None:
         return web.Response(text=cached, content_type="text/plain")
 
-    payload = await decode_mqtt_token(password)
+    try:
+        payload = await decode_mqtt_token(password)
+    except NotImplementedError:
+        logger.warning(
+            "MQTT auth topic: JWT validation is not wired — denying username=%s.",
+            username,
+        )
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
+        return web.Response(text=_DENY, content_type="text/plain")
+
     if payload is None:
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     # Admin scope grants unrestricted access
@@ -241,7 +309,7 @@ async def mqtt_auth_topic(request: web.Request) -> web.Response:
         logger.warning(
             "MQTT auth topic: no employee_id in JWT for username=%s", username
         )
-        _cache_set(cache_key, _DENY)
+        _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
         return web.Response(text=_DENY, content_type="text/plain")
 
     # routing_key comes in dot-form: e.g. "employees.123.location"
@@ -257,7 +325,7 @@ async def mqtt_auth_topic(request: web.Request) -> web.Response:
         routing_key,
         permission,
     )
-    _cache_set(cache_key, _DENY)
+    _cache_set(cache_key, _DENY, ttl_override=_DENY_TTL)
     return web.Response(text=_DENY, content_type="text/plain")
 
 

@@ -33,8 +33,11 @@ logger = logging.getLogger(__name__)
 async def decode_mqtt_token(token: str) -> Optional[dict]:
     """Decode and validate an MQTT JWT bearer token.
 
-    Delegates to navigator_auth's existing JWT helpers. Returns the decoded
-    payload dict on success, or None if the token is invalid/expired.
+    Raises:
+        NotImplementedError: JWT signature verification is not yet wired.
+            Wire navigator_auth JWT validation before enabling MQTT auth in
+            production.  Replace this stub with the real navigator_auth helper
+            once the concrete symbol name is confirmed (see TODO below).
 
     Args:
         token: Raw JWT string from the MQTT ``password`` field.
@@ -44,31 +47,22 @@ async def decode_mqtt_token(token: str) -> Optional[dict]:
 
     Note:
         TODO(navigator_auth-helper): Wire to the confirmed navigator_auth
-        helper once Jesus confirms the concrete symbol name. Currently falls
-        back to a PyJWT decode WITHOUT signature verification as a stub —
-        this means tokens are NOT cryptographically verified in v1 until
-        the wiring is complete. The topic ACL enforcement still fires based
-        on the ``sub`` claim, so the security posture is "trust the username
-        from the token but not the token's signature" — acceptable as a stub
-        pending the nav-auth wiring.
-    """
-    try:
-        import jwt  # PyJWT — transitive via navigator_auth
+        helper once Jesus confirms the concrete symbol name.  The
+        navigator_auth IDP backend exposes::
 
-        # Decode without verification as a stub.
-        # TODO(navigator_auth-helper): Replace with:
-        #   from navigator_auth.backends.idp import get_idp_instance
-        #   ok, payload = get_idp_instance().decode_token(token)
-        #   return payload if ok else None
-        payload = jwt.decode(
-            token,
-            options={"verify_signature": False},
-            algorithms=["RS256", "HS256", "RS512"],
-        )
-        return payload
-    except Exception as exc:  # jwt.InvalidTokenError, etc.
-        logger.debug("MQTT JWT decode failed: %s", exc)
-        return None
+            idp.decode_token(code: str, issuer: str = None) -> tuple[bool, dict]
+
+        Replace this stub with::
+
+            from navigator_auth.backends.idp import get_idp_instance
+            ok, payload = get_idp_instance().decode_token(token)
+            return payload if ok else None
+    """
+    raise NotImplementedError(
+        "JWT signature verification is not wired. "
+        "Wire navigator_auth JWT validation before enabling MQTT auth in production. "
+        "See navigator/handlers/_mqtt_jwt.py TODO(navigator_auth-helper)."
+    )
 
 
 def extract_employee_id(payload: dict) -> Optional[str]:

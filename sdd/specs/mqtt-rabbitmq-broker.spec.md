@@ -3,7 +3,7 @@
 **Feature ID**: FEAT-005
 **Date**: 2026-05-27
 **Author**: Jesus Lara
-**Status**: draft
+**Status**: approved
 **Target version**: next
 **Source brainstorm**: `sdd/proposals/mqtt-rabbitmq-broker.brainstorm.md`
 
@@ -1004,19 +1004,19 @@ WEBHOOK_SIGNING_ALGORITHM = config.get(
 
 ## 8. Open Questions
 
-- [ ] Exact `navigator_auth` helper function names to import for JWT decode/validation
+- [x] Exact `navigator_auth` helper function names to import for JWT decode/validation
       and scope checks. The contract is "delegate to existing helpers"; the concrete
-      symbols must be confirmed during Module 2 task design. — *Owner: Jesus*
-- [ ] DB migration location and tooling (Alembic? raw SQL files?). Module 5 leaves the
+      symbols must be confirmed during Module 2 task design. — *Owner: Jesus*: repository at: /home/jesuslara/proyectos/navigator/navigator-auth/ do a research
+- [x] DB migration location and tooling (Alembic? raw SQL files?). Module 5 leaves the
       filename and runner up to the task author since the codebase does not yet have a
-      visible canonical migration directory in `navigator/`. — *Owner: Jesus*
-- [ ] FCM service-account key storage: file path vs `navigator_auth` secret reference?
+      visible canonical migration directory in `navigator/`. — *Owner: Jesus*: we don't have any migration tooling, only raw sql files.
+- [x] FCM service-account key storage: file path vs `navigator_auth` secret reference?
       Recommendation is the secret-storage primitives, mirroring webhook secrets, but
-      needs sign-off. — *Owner: Jesus*
-- [ ] Should `GeofencingExtension` instantiate and own `EmployeeEventsBridge` (so a single
+      needs sign-off. — *Owner: Jesus*: if this is per-service (and not per-user) the secret need to be stored at a file path.
+- [x] Should `GeofencingExtension` instantiate and own `EmployeeEventsBridge` (so a single
       `setup(app)` brings up the whole stack), or should the bridge be a sibling
       `BaseConnection` configured independently? The brainstorm leans toward the former
-      for usability; the latter preserves single-responsibility. — *Owner: Jesus*
+      for usability; the latter preserves single-responsibility. — *Owner: Jesus*: a single setup(app) brings the whole stack.
 - [ ] Confirmation of RabbitMQ MQTT plugin version that propagates `user_id` on
       AMQP republish. Documented as "3.12+" — verify against the ops target version.
       — *Owner: ops*

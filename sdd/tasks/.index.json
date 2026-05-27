@@ -558,7 +558,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
       "depends_on": ["TASK-029"],
@@ -566,7 +566,8 @@
       "parallelism_notes": "Stream B. Owns navigator/brokers/rabbitmq/bridge.py and an append to brokers/rabbitmq/__init__.py. Shares the __init__.py edit with TASK-032 — merge sequentially if both PRs target the same line.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-031-employee-events-bridge.md"
+      "completed_at": "2026-05-27T00:30:00Z",
+      "file": "sdd/tasks/completed/TASK-031-employee-events-bridge.md"
     },
     {
       "id": "TASK-032",

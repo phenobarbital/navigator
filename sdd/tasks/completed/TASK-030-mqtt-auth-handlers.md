@@ -155,7 +155,7 @@ async def mqtt_auth_user(request: web.Request) -> web.Response:
 
 ## Completion Note
 
-**Completed by**:
-**Date**:
-**Notes**:
-**Deviations from spec**: none | describe if any
+**Completed by**: sdd-worker
+**Date**: 2026-05-27
+**Notes**: Created mqtt_auth.py with four handlers + in-memory TTL cache + register_mqtt_auth_routes. Created _mqtt_jwt.py as thin stub with TODO(navigator_auth-helper) markers per spec §8. Topic ACL enforces employees.{id}.# restriction; admin scope check present.
+**Deviations from spec**: JWT signature verification stubbed (PyJWT no-verify) pending navigator_auth-helper wiring confirmation from Jesus.

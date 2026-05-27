@@ -540,7 +540,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": ["TASK-029"],
@@ -548,7 +548,8 @@
       "parallelism_notes": "Stream A. Touches only navigator/handlers/mqtt_auth.py + a thin _mqtt_jwt.py. Independent of bridge/engine/dispatcher trees.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-030-mqtt-auth-handlers.md"
+      "completed_at": "2026-05-27T00:20:00Z",
+      "file": "sdd/tasks/completed/TASK-030-mqtt-auth-handlers.md"
     },
     {
       "id": "TASK-031",

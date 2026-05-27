@@ -630,7 +630,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": ["TASK-033"],
@@ -638,7 +638,8 @@
       "parallelism_notes": "Stream D. Owns navigator/ext/geofencing/decorators.py only. No file overlap with engine/dispatcher/CRUD.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-035-on-geofence-event-decorator.md"
+      "completed_at": "2026-05-27T01:10:00Z",
+      "file": "sdd/tasks/completed/TASK-035-on-geofence-event-decorator.md"
     },
     {
       "id": "TASK-036",

@@ -666,7 +666,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "M",
       "depends_on": ["TASK-032", "TASK-034", "TASK-035", "TASK-036"],
@@ -674,7 +674,8 @@
       "parallelism_notes": "Stream D convergence. Imports from downlink, engine, decorators, push/webhooks. Cannot start before those land.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-037-notification-dispatcher.md"
+      "completed_at": "2026-05-27T01:35:00Z",
+      "file": "sdd/tasks/completed/TASK-037-notification-dispatcher.md"
     },
     {
       "id": "TASK-038",

@@ -612,7 +612,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "L",
       "depends_on": ["TASK-029", "TASK-033"],
@@ -620,7 +620,8 @@
       "parallelism_notes": "Stream C. Owns navigator/ext/geofencing/engine.py only. Independent of bridge/dispatcher trees.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-034-geofence-engine.md"
+      "completed_at": "2026-05-27T01:00:00Z",
+      "file": "sdd/tasks/completed/TASK-034-geofence-engine.md"
     },
     {
       "id": "TASK-035",

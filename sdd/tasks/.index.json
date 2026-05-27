@@ -522,7 +522,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "high",
       "effort": "S",
       "depends_on": [],
@@ -530,7 +530,8 @@
       "parallelism_notes": "Foundation task. Touches only navigator/conf.py and pyproject.toml — no overlap with code modules. Other Stream A/B/C tasks depend on these symbols.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-029-mqtt-config-and-shapely-dep.md"
+      "completed_at": "2026-05-27T00:10:00Z",
+      "file": "sdd/tasks/completed/TASK-029-mqtt-config-and-shapely-dep.md"
     },
     {
       "id": "TASK-030",

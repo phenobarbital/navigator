@@ -118,7 +118,7 @@ MQTT_ACCEPTED_SCHEMA_VERSIONS = set(map(int,
 
 ## Completion Note
 
-**Completed by**:
-**Date**:
-**Notes**:
-**Deviations from spec**: none | describe if any
+**Completed by**: sdd-worker
+**Date**: 2026-05-27
+**Notes**: Used `float(config.get(...))` instead of `config.getfloat(...)` because navconfig does not expose `getfloat`. All 14 config keys appended after `BROKER_MANAGER_QUEUE_SIZE`. `shapely>=2.1.2` added via `uv add shapely`.
+**Deviations from spec**: Minor: used `float(config.get(..., fallback='5.0'))` for `GEOFENCE_HANDLER_TIMEOUT` instead of `config.getfloat(...)` — navconfig doesn't support `getfloat`.

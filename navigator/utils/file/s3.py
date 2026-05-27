@@ -588,7 +588,13 @@ class S3FileManager(FileManagerInterface):
 
         Returns:
             The ``destination_key`` as provided (unprefixed), matching the
-            original contract.
+            original contract. Only returned on successful upload.
+
+        Raises:
+            botocore.exceptions.ClientError: If S3 rejects the request
+                (missing bucket, access denied, invalid key, etc.).
+            botocore.exceptions.EndpointConnectionError: If the S3 endpoint
+                is unreachable.
         """
         key = self._prefixed(destination_key)
         size = len(file_obj)

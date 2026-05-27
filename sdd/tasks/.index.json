@@ -648,7 +648,7 @@
       "feature_id": "FEAT-005",
       "feature": "mqtt-rabbitmq-broker",
       "spec": "sdd/specs/mqtt-rabbitmq-broker.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "M",
       "depends_on": ["TASK-033"],
@@ -656,7 +656,8 @@
       "parallelism_notes": "Stream D. Owns push_providers/ + webhooks.py. Independent of engine/decorator/CRUD trees.",
       "assigned_to": "sdd-worker",
       "started_at": "2026-05-27T00:00:00Z",
-      "file": "sdd/tasks/active/TASK-036-fcm-and-webhook-helpers.md"
+      "completed_at": "2026-05-27T01:20:00Z",
+      "file": "sdd/tasks/completed/TASK-036-fcm-and-webhook-helpers.md"
     },
     {
       "id": "TASK-037",

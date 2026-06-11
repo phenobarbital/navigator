@@ -6,4 +6,4 @@ GA_SERVICE_ACCOUNT_NAME = config.get('GA_SERVICE_ACCOUNT_NAME', fallback="google
 GA_SERVICE_PATH = config.get('GA_SERVICE_PATH', fallback="google/")
 
 ## Google API:
-GOOGLE_API_KEY = config.get('GOOGLE_API_KEY')
+GOOGLE_API_KEY = config.get('GOOGLE_PLACES_API_KEY')

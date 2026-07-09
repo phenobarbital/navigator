@@ -3,7 +3,7 @@
 **Feature**: FEAT-006 — OdooHelpdesk Action Class (Zammad→Odoo drop-in, NAV-9101 / G10)
 **Spec**: `sdd/specs/odoo-helpdesk-action.spec.md`
 **Jira**: NAV-9101
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: S (< 2h)
 **Depends-on**: none
@@ -120,4 +120,20 @@ class Odoo(RESTAction):
 ---
 
 ## Completion Note
-(fill on completion — list exact paths touched)
+
+Implemented the scaffold, settings, and adapter helpers.
+
+**Files touched:**
+- `navigator/conf.py` — added `ODOO_HELPDESK_INSTANCE/API_KEY/COMPANY` after the `ZAMMAD_*` block (with a comment noting per-tenant values live in navapi, per Spec §8 Q3).
+- `navigator/actions/odoo_helpdesk.py` (NEW) — `class OdooHelpdesk(AbstractTicket, RESTAction)` with `__init__` (pops `instance`/`api_key`/`company_id`/`as_user` with `ODOO_HELPDESK_*` fallbacks; sets `self.headers['X-Helpdesk-Api-Key']`; does NOT set `auth_type='apikey'`), helpers `_company_qs()`, `_to_zammad_ticket()`, `_parse_attachment_path()`, and a `create()` `NotImplementedError` stub.
+
+**Verification (runtime, source on `PYTHONPATH`):** all acceptance checks pass — module imports, `auth_type` stays `'key'`, `X-Helpdesk-Api-Key` set with no `Authorization` header, `_parse_attachment_path('/12/34/56')=='56'`, `_company_qs()` raises `ConfigError` when `company_id` unset, `_to_zammad_ticket()` maps `number`←`name`/`id`/nested `state`/`customer`, `create()` raises `NotImplementedError`. The existing `navigator.actions.odoo.Odoo` still imports unchanged.
+
+**Base-class assumptions confirmed (no NAV-9101 corrections needed for this task):**
+- `RESTAction.__init__` builds `self.headers` (rest.py:64) so setting `X-Helpdesk-Api-Key` after `super().__init__()` works.
+- `RESTAction.auth_type` default is `'key'` (rest.py:46); the `'apikey'` Bearer-injection branch is at rest.py request-path (confirmed) — correctly avoided.
+- `AbstractAction.__init__` leaves popped keys out of `self._kwargs`, and `AbstractTicket` provides the `create` abstract + `run` dispatch; `__aenter__`/`__aexit__` inherited.
+
+**Deployment note (flag, not a blocker):** navapi's venv has `navigator` installed as a **copied** package in `site-packages`, not editable — the running app will not see `odoo_helpdesk.py` until `navigator` is reinstalled/rebuilt in navapi's environment. Verification here was done with the source repo on `PYTHONPATH`. Relevant when the later tenant-migration ticket wires this in.
+
+**Lint nits (intentional, match house style):** `_company_qs(extra: dict = None)` mirrors `Zammad.find_user(search: dict = None)`; the unused `**kwargs` in the `create()` stub is by design (filled in TASK-043).

@@ -3,7 +3,7 @@
 **Feature**: FEAT-006 — OdooHelpdesk Action Class (Zammad→Odoo drop-in, NAV-9101 / G10)
 **Spec**: `sdd/specs/odoo-helpdesk-action.spec.md`
 **Jira**: NAV-9101
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: M (2-4h)
 **Depends-on**: TASK-042, TASK-043, TASK-044, TASK-045
@@ -97,4 +97,32 @@ from navigator.actions.odoo_helpdesk import OdooHelpdesk
 ---
 
 ## Completion Note
-(fill on completion — include the FEAT-006 file-path summary + assumption corrections required by NAV-9101 AC)
+
+Added `tests/actions/test_odoo_helpdesk.py` (+ `tests/actions/__init__.py`) with **13 tests** covering all 6 NAV-9101 areas. HTTP layer mocked via `unittest.mock.AsyncMock` on `OdooHelpdesk.request`; `StreamResponse` patched for the attachment test. Result:
+
+```
+$ PYTHONPATH=<navigator> python -m pytest tests/actions/test_odoo_helpdesk.py -v --noconftest
+13 passed in 4.95s
+```
+
+(`--noconftest` avoids the repo-root `tests/conftest.py`, which imports `trustme` for unrelated SSL fixtures not installed here; `asyncio_mode = auto` from `pytest.ini` runs the `async def` tests without a marker.)
+
+---
+
+## FEAT-006 — final summary (NAV-9101 AC)
+
+**Exact file paths touched (all in the `navigator` framework repo):**
+- `navigator/conf.py` — added `ODOO_HELPDESK_INSTANCE/API_KEY/COMPANY`.
+- `navigator/actions/odoo_helpdesk.py` (NEW) — `class OdooHelpdesk(AbstractTicket, RESTAction)` with `create`, `update`, `get_ticket`, `list_tickets`, `get_articles`, `get_attachment_img`, `find_user`, `create_user` + helpers `_company_qs`, `_to_zammad_ticket`, `_parse_attachment_path`, `_ticket_payload`.
+- `tests/actions/__init__.py` (NEW), `tests/actions/test_odoo_helpdesk.py` (NEW).
+- SDD artifacts: `sdd/proposals/odoo-helpdesk-action.brainstorm.md`, `sdd/specs/odoo-helpdesk-action.spec.md`, `sdd/tasks/{active,completed}/TASK-042..046-*.md`.
+- Untouched (verified): the existing `Odoo` class in `navigator/actions/odoo.py`; all navapi tenant view files.
+
+**NAV-9101 assumptions that proved wrong / needed correcting (for the next reader):**
+1. **Settings location** — the ticket said to add per-tenant `ODOO_<TENANT>_*` to `navigator/conf.py`. Wrong: the existing per-tenant `ZAMMAD_<TENANT>_*` pattern lives in the **navapi** consumer's `settings/settings.py`, not the framework `conf.py`. Only the generic `ODOO_HELPDESK_*` were added here; per-tenant values are deferred to the navapi-side migration ticket.
+2. **Test path** — the ticket said `navigator/tests/actions/test_odoo_helpdesk.py`. Wrong: this repo's tests live at repo-root `tests/`, so they landed at `tests/actions/test_odoo_helpdesk.py`.
+3. **`RESTAction.request()` POST vs PUT serialization asymmetry** (not stated in the ticket, discovered by reading `rest.py`): POST auto-`dumps` the `data` (pass a dict), but PUT does **not** (must pre-`dumps`). Mirrors `Zammad.create`/`Zammad.update`.
+4. **Deliberate deviations from Zammad in `get_attachment_img`** (spec §8 Q2): dropped the `image/*`-only guard and hard filename requirement — Odoo attachments include PDFs/docs; added a graceful `attachment_<id>` filename fallback.
+5. **`number` mapping** (spec §8 Q1): exposed as the Odoo sequence `name` (e.g. `"TICKET/0042"`), with the numeric id also available under `id`.
+
+**Deployment caveat (flagged earlier, still open):** navapi's venv has `navigator` installed as a **copied** package in `site-packages`, not editable — the running app will not see `odoo_helpdesk.py` until `navigator` is reinstalled/rebuilt in navapi's env. All verification here used the source repo on `PYTHONPATH`. `pytest`/`pytest-asyncio` were installed into navapi's venv to run these tests (they were absent).

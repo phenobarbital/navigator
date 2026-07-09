@@ -3,7 +3,7 @@
 **Feature**: FEAT-006 — OdooHelpdesk Action Class (Zammad→Odoo drop-in, NAV-9101 / G10)
 **Spec**: `sdd/specs/odoo-helpdesk-action.spec.md`
 **Jira**: NAV-9101
-**Status**: pending
+**Status**: done
 **Priority**: medium
 **Estimated effort**: M (2-4h)
 **Depends-on**: TASK-042, TASK-043
@@ -89,4 +89,15 @@ Completes the method surface (Spec §2, §3 Module 1). Odoo has no "article" con
 ---
 
 ## Completion Note
-(fill on completion)
+
+Implemented `get_articles()`, `get_attachment_img()`, `find_user()`, `create_user()` in `navigator/actions/odoo_helpdesk.py`, and added the `datetime`/`BytesIO`/`aiohttp.web` imports the scaffold hadn't needed yet.
+
+- **`get_articles(ticket_id)`**: calls `get_ticket()` and returns a single synthetic article `[{id, subject, body, attachments}]` (Odoo has no article concept).
+- **`get_attachment_img(attachment, request, user=None)`**: parses the trailing id via `_parse_attachment_path`, GETs `helpdesk/attachment/<id>?company_id=...[&as_user=...]` with `file_buffer=True`, unpacks the `((buffer, response), error)` tuple, and streams via the same chunked `StreamResponse`/`Content-Range` machinery as `Zammad`. **Two deliberate deviations from Zammad (Spec §8 Q2):** (1) no `image/*`-only guard — Odoo attachments include PDFs/docs; (2) graceful filename fallback (`attachment_<id>`) when `Content-Disposition` lacks a filename, instead of hard-failing.
+- **`find_user()`/`create_user()`**: truthy no-ops (`{"noop": True}`), no HTTP — Odoo auto-creates the partner from `customer`, so `if not result: await user.create_user()` branches never fire.
+
+**Verification (runtime, `request`/`StreamResponse` mocked):** `get_articles` returns the 1-element synthetic list from `get_ticket`; `get_attachment_img("/12/34/56")` hits `helpdesk/attachment/56?company_id=1`, streams the full body (both `BytesIO` and raw-`bytes` payloads), accepts `application/pdf`, sets `Content-Range`, and falls back to `attachment_99` when the filename header is missing; both user methods return truthy without a request.
+
+**Files touched:** `navigator/actions/odoo_helpdesk.py` (added 3 imports + 4 methods).
+
+**Test-harness notes (not code issues):** the runtime check needed a fake `StreamResponse` that captures the `headers=` kwarg (the real class stores them); the streaming write loop and `file_buffer` unpacking match `Zammad`'s verified shape (`rest.py:391` returns `((buffer, response), error)`).

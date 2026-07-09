@@ -19,7 +19,11 @@ See ``sdd/specs/odoo-helpdesk-action.spec.md`` (FEAT-006, NAV-9101 / G10).
     :meth:`__init__` (mirroring the direct-header idiom of the existing
     ``navigator.actions.odoo.Odoo`` class).
 """
+from datetime import datetime, timedelta
+from io import BytesIO
 from urllib.parse import urlencode
+
+from aiohttp.web import Request, StreamResponse
 
 from ..exceptions import ConfigError
 from ..conf import (
@@ -308,3 +312,141 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error listing Odoo Helpdesk Tickets: {e}"
             ) from e
+
+    async def get_articles(self, ticket_id: int):
+        """Return the ticket's "articles", Zammad-style.
+
+        Odoo Helpdesk has no article concept, so this synthesizes a single
+        article from the ticket record (subject/body/attachments), matching the
+        shape Zammad callers iterate over.
+
+        Args:
+            ticket_id: The Odoo ticket id.
+
+        Returns:
+            A single-element list with one synthetic article dict.
+        """
+        z = await self.get_ticket(ticket_id)
+        return [{
+            "id": ticket_id,
+            "subject": z.get("subject"),
+            "body": z.get("body"),
+            "attachments": z.get("attachments", []),
+        }]
+
+    async def get_attachment_img(
+        self, attachment: str, request: Request, user: str = None
+    ):
+        """Stream a ticket attachment back to the client.
+
+        Args:
+            attachment: A Zammad-style attachment path
+                (``"/{ticket}/{article}/{attachment}"``); only the trailing id
+                is used for the Odoo call.
+            request: The aiohttp request (needed to prepare the StreamResponse).
+            user: Optional agent login to impersonate (``as_user``).
+
+        Returns:
+            A prepared aiohttp ``StreamResponse`` streaming the binary.
+
+        Raises:
+            ConfigError: On a webhook error or a streaming failure.
+
+        Note:
+            Unlike Zammad's version, this does NOT restrict to ``image/*``
+            content types -- Odoo attachments legitimately include PDFs and
+            documents (see spec §8 Q2).
+        """
+        att_id = self._parse_attachment_path(attachment)
+        qs = self._company_qs({'as_user': user} if user else None)
+        self.url = f"{self.instance}helpdesk/attachment/{att_id}?{qs}"
+        self.method = 'get'
+        self.file_buffer = True
+
+        try:
+            result, error = await self.request(self.url, self.method)
+            if error:
+                msg = error.get('message', 'Unknown error') if isinstance(
+                    error, dict
+                ) else str(error)
+                raise ConfigError(
+                    f"Error Getting Odoo Helpdesk Attachment: {msg}"
+                )
+
+            # file_buffer path returns ((buffer, response), error)
+            image, response = result
+
+            content_type = response.headers.get(
+                'Content-Type', 'application/octet-stream'
+            )
+            # Graceful filename fallback (Odoo attachments are not image-only).
+            content_disposition = response.headers.get('Content-Disposition')
+            if content_disposition and 'filename=' in content_disposition:
+                file_name = content_disposition.split('filename=')[-1].strip('"')
+            else:
+                file_name = f"attachment_{att_id}"
+
+            if isinstance(image, BytesIO):
+                image_data = image.getvalue()
+            else:
+                image_data = image
+
+            expiring_date = datetime.now() + timedelta(days=2)
+            chunk_size = 16384
+            content_length = len(image_data)
+            stream = StreamResponse(
+                status=200,
+                headers={
+                    'Content-Type': content_type,
+                    'Content-Disposition': f'attachment; filename="{file_name}"',
+                    'Content-Transfer-Encoding': 'binary',
+                    'Transfer-Encoding': 'chunked',
+                    'Connection': 'keep-alive',
+                    "Content-Description": "File Transfer",
+                    'Expires': expiring_date.strftime('%a, %d %b %Y %H:%M:%S GMT'),
+                }
+            )
+            stream.headers[
+                "Content-Range"
+            ] = f"bytes 0-{chunk_size}/{content_length}"
+            try:
+                i = 0
+                await stream.prepare(request)
+                while True:
+                    chunk = image_data[i: i + chunk_size]
+                    i += chunk_size
+                    if not chunk:
+                        break
+                    await stream.write(chunk)
+                    await stream.drain()  # deprecated
+                await stream.write_eof()
+                return stream
+            except Exception as e:
+                raise ConfigError(
+                    f"Error while writing attachment: {e}"
+                ) from e
+        except ConfigError:
+            raise
+        except KeyError as e:
+            raise ConfigError(f"Missing required header: {e}") from e
+        except Exception as e:
+            raise ConfigError(
+                f"Unexpected error while fetching attachment: {e}"
+            ) from e
+
+    async def find_user(self, search: dict = None):
+        """No-op user lookup.
+
+        Odoo auto-creates the partner server-side from the ``customer`` field
+        (plus optional ``firstname``/``lastname``), so there is no user to look
+        up. Returns a truthy sentinel so existing
+        ``if not result: await user.create_user()`` branches never fire.
+        """
+        return {"noop": True}
+
+    async def create_user(self):
+        """No-op user creation (partner is auto-created server-side).
+
+        Returns a truthy sentinel; see :meth:`find_user`.
+        """
+        return {"noop": True}

@@ -3,7 +3,7 @@
 **Feature**: FEAT-006 — OdooHelpdesk Action Class (Zammad→Odoo drop-in, NAV-9101 / G10)
 **Spec**: `sdd/specs/odoo-helpdesk-action.spec.md`
 **Jira**: NAV-9101
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: M (2-4h)
 **Depends-on**: TASK-042
@@ -90,4 +90,17 @@ Implements the update path and the list path (Spec §2, §3 Module 1). Independe
 ---
 
 ## Completion Note
-(fill on completion)
+
+Implemented `update()` and `list_tickets()` in `navigator/actions/odoo_helpdesk.py`.
+
+**`update(ticket, **kwargs)`**: `PUT {instance}helpdesk/ticket/<ticket>`. Reuses `_ticket_payload()` (flat forward + control-key stripping) and additionally pops `ticket` (the id travels in the URL). **Pre-serializes** the body with `self._encoder.dumps(...)` because `RESTAction.request()` does NOT dump for PUT (confirmed in TASK-043 against rest.py:238-242; mirrors `Zammad.update`). Adapts `{"ticket":{...}}` via `_to_zammad_ticket` and never reads a description change back (a `body` kwarg becomes an internal chatter note server-side).
+
+**`list_tickets(user=None, **kwargs)`**: drops the Zammad-only `state_id` kwarg (not forwarded); maps optional `team_id`/`stage_id`/`limit`/`offset` + `user`→`as_user` into the query via `_company_qs` (mandatory `company_id`). Adapts `{count,limit,offset,tickets}` → `{"tickets": [...], "tickets_count": count, "assets": {"Ticket": {str(id): _to_zammad_ticket(t)}}}`. Kept `tickets` as the raw Odoo list (Zammad also returns a raw list there); `assets.Ticket` holds the adapted records callers primarily read.
+
+**Verification (runtime, `request` mocked):**
+- `update()` → PUT to `helpdesk/ticket/42`; body is a **pre-serialized string** (not a dict), contains `body`/note text, control keys stripped; return Zammad-shaped with `number`.
+- `list_tickets(state_id=[1,2,3], team_id=5, stage_id=2, limit=10, user="agentA")` → GET `helpdesk/tickets?` with `company_id`, `as_user`, `team_id`, `stage_id`, `limit` present and **no `state_id`**; return has `tickets_count==2` and `assets.Ticket` keyed by string id with adapted records.
+
+**Files touched:** `navigator/actions/odoo_helpdesk.py` (added `update`, `list_tickets`).
+
+**Note (pre-existing constraint, not a bug):** `update(ticket, **kwargs)` shares `Zammad.update`'s constraint — callers must not pass a `ticket` key inside `**kwargs` when also giving the positional id (Python raises "multiple values"). Tenant callers pass the id positionally only.

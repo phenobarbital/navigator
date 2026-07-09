@@ -219,3 +219,92 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
             raise ConfigError(
                 f"Error creating Odoo Helpdesk Ticket: {e}"
             ) from e
+
+    async def update(self, ticket: int, **kwargs):
+        """Update an existing Helpdesk ticket.
+
+        The webhook ``PUT`` returns the fully serialized record. Note that a
+        ``body`` in the payload is posted as an internal chatter note
+        server-side (not a description change), so this does not attempt to
+        read a description change back out of the response.
+
+        Args:
+            ticket: The Odoo ticket id to update.
+            **kwargs: Fields to update (same flat semantics as ``create``).
+
+        Returns:
+            A Zammad-shaped ticket dict built from the updated record.
+
+        Raises:
+            ConfigError: On a webhook error.
+        """
+        self.url = f"{self.instance}helpdesk/ticket/{ticket}"
+        self.method = 'put'
+        payload = self._ticket_payload(kwargs)
+        payload.pop('ticket', None)  # id travels in the URL, not the body
+        # PUT does not serialize internally in RESTAction.request() -> pre-dump
+        # (mirrors Zammad.update).
+        data = self._encoder.dumps(payload)
+        try:
+            result, error = await self.request(
+                self.url, self.method, data=data
+            )
+            if error is not None:
+                raise ConfigError(
+                    f"Error Updating Odoo Helpdesk Ticket: {error['message']}"
+                )
+            return self._to_zammad_ticket(result['ticket'])
+        except ConfigError:
+            raise
+        except Exception as e:
+            raise ConfigError(
+                f"Error Updating Odoo Helpdesk Ticket: {e}"
+            ) from e
+
+    async def list_tickets(self, user: str = None, **kwargs):
+        """List Helpdesk tickets, adapted to the Zammad list shape.
+
+        Args:
+            user: Optional agent login to impersonate (``as_user``).
+            **kwargs: Optional Odoo filters (``team_id``, ``stage_id``,
+                ``limit``, ``offset``). A Zammad-only ``state_id`` kwarg is
+                dropped, not forwarded.
+
+        Returns:
+            ``{"tickets": [...], "tickets_count": N,
+               "assets": {"Ticket": {"<id>": <zammad-shaped>, ...}}}``.
+
+        Raises:
+            ConfigError: On a webhook error or a missing ``company_id``.
+        """
+        kwargs.pop('state_id', None)  # Zammad-only; Odoo has no such filter
+        extra = {'as_user': user} if user else {}
+        for key in ('team_id', 'stage_id', 'limit', 'offset'):
+            if kwargs.get(key) is not None:
+                extra[key] = kwargs[key]
+        qs = self._company_qs(extra)
+        self.url = f"{self.instance}helpdesk/tickets?{qs}"
+        self.method = 'get'
+        try:
+            result, error = await self.request(self.url, self.method)
+            if error is not None:
+                raise ConfigError(
+                    f"Error listing Odoo Helpdesk Tickets: {error['message']}"
+                )
+            tickets = result.get('tickets', [])
+            return {
+                "tickets": tickets,
+                "tickets_count": result.get('count', len(tickets)),
+                "assets": {
+                    "Ticket": {
+                        str(t['id']): self._to_zammad_ticket(t)
+                        for t in tickets
+                    }
+                },
+            }
+        except ConfigError:
+            raise
+        except Exception as e:
+            raise ConfigError(
+                f"Error listing Odoo Helpdesk Tickets: {e}"
+            ) from e

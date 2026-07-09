@@ -3,7 +3,7 @@
 **Feature**: FEAT-006 — OdooHelpdesk Action Class (Zammad→Odoo drop-in, NAV-9101 / G10)
 **Spec**: `sdd/specs/odoo-helpdesk-action.spec.md`
 **Jira**: NAV-9101
-**Status**: pending
+**Status**: done
 **Priority**: high
 **Estimated effort**: M (2-4h)
 **Depends-on**: TASK-042
@@ -91,4 +91,22 @@ if error is not None:
 ---
 
 ## Completion Note
-(fill on completion)
+
+Implemented `get_ticket()` and `create()` in `navigator/actions/odoo_helpdesk.py` (+ a private `_ticket_payload()` helper and a `_control_keys` tuple).
+
+**Design refinement vs. the task's literal "pop each mapped key" wording:** the Odoo webhook maps standard keys to native fields and routes tenant-prefixed/unknown keys to extra fields **server-side**. So the faithful drop-in is to forward the caller payload **flat** after stripping only adapter-level control keys (`instance`, `api_key`, `company_id`, `as_user`, `action`) via `_ticket_payload()` — rather than re-mapping fields the server already maps. This is more correct (no double-mapping) and matches Spec §2 ("Standard keys map to native fields... tenant-prefixed keys land in extra fields").
+
+**Confirmed against `rest.py` (the task's "confirm before using" item):**
+- `RESTAction.request()` for **POST** with `data_format='raw'` (inherited default) does `self._encoder.dumps(data)` internally (rest.py:231) → pass a **dict**, exactly like `Zammad.create`. Do NOT pre-dump for POST.
+- **PUT** (rest.py:238-242) does NOT dump → the caller must pre-dump (relevant to TASK-044, matching `Zammad.update`).
+- **GET** passes `data` as `params` (rest.py:216-221); this impl puts the query string directly in the URL instead, so `request(url, 'get')` is called with `data=None`.
+- On success with `accept='application/json'`, `result = self._encoder.loads(response.text)` (rest.py:414) → a parsed **dict**, so `result['ticket_id']` / `result['ticket']` are valid.
+- HTTP errors **raise** `ConfigError` from inside `request()` (rest.py:299/312); the `if error is not None` check is defensive. `create()`/`get_ticket()` mirror `Zammad`'s dual guard (check `error` + wrap in try/except).
+
+**Verification (runtime, `request` mocked):** POST→GET two-step in order; POST hits `helpdesk/ticket`, follow-up GET hits `helpdesk/ticket/42?company_id=1`; POST body forwards app fields (`title`, `apple_serial`) and strips control keys; return is Zammad-shaped with `number=="TICKET/0042"`, `id==42`, flattened `customer`/`state`; `get_ticket(42, user="agentB")` overrides instance `as_user`; error path raises `ConfigError` carrying the webhook `message`.
+
+**Files touched:** `navigator/actions/odoo_helpdesk.py` (added `_ticket_payload`, `get_ticket`, `create`; replaced the TASK-042 stub).
+
+**No NAV-9101 base-class assumption proved wrong** for this task — the `RESTAction` POST/PUT dump asymmetry is the one non-obvious fact, now documented above and carried into TASK-044.
+
+**Type-checker note:** pyright flags `result['ticket']` etc. because `RESTAction.request()` is untyped (infers a `Path|None` union); runtime is correct and `zammad.py` has the same pattern. Left as-is to match house style.

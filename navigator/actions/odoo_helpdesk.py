@@ -130,10 +130,92 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
         """
         return str(path).strip('/').split('/')[-1]
 
-    # -- ticket API (implemented in later FEAT-006 tasks) ----------------------
+    # Adapter-level control keys that must never be forwarded as ticket fields
+    # (credentials / routing internals / dispatch), stripped before POST/PUT.
+    _control_keys = ('instance', 'api_key', 'company_id', 'as_user', 'action')
+
+    def _ticket_payload(self, kwargs: dict) -> dict:
+        """Build the flat webhook body from caller kwargs.
+
+        The Odoo webhook maps standard keys to native fields and routes
+        tenant-prefixed / unrecognized keys to "extra fields" server-side, so
+        the faithful drop-in behaviour is to forward the payload flat after
+        removing adapter-level control keys.
+
+        Args:
+            kwargs: The keyword arguments the caller passed to ``create``/``update``.
+
+        Returns:
+            The flat JSON-serializable body to send to the webhook.
+        """
+        payload = dict(kwargs)
+        for key in self._control_keys:
+            payload.pop(key, None)
+        return payload
+
+    # -- ticket API ------------------------------------------------------------
+
+    async def get_ticket(self, ticket_id, user: str = None):
+        """Fetch a single Helpdesk ticket, adapted to the Zammad shape.
+
+        Args:
+            ticket_id: The Odoo ticket id.
+            user: Optional agent login to impersonate (``as_user``); overrides
+                the instance-level ``as_user`` for this call.
+
+        Returns:
+            A Zammad-shaped ticket dict with top-level ``subject``/``body``.
+
+        Raises:
+            ConfigError: On a webhook error or a missing ``company_id``.
+        """
+        qs = self._company_qs({'as_user': user} if user else None)
+        self.url = f"{self.instance}helpdesk/ticket/{ticket_id}?{qs}"
+        self.method = 'get'
+        try:
+            result, error = await self.request(self.url, self.method)
+            if error is not None:
+                raise ConfigError(
+                    f"Error Getting Odoo Helpdesk Ticket: {error['message']}"
+                )
+            return self._to_zammad_ticket(result['ticket'])
+        except ConfigError:
+            raise
+        except Exception as e:
+            raise ConfigError(
+                f"Error Getting Odoo Helpdesk Ticket: {e}"
+            ) from e
 
     async def create(self, **kwargs):
-        """Create a new Helpdesk ticket (implemented in TASK-043)."""
-        raise NotImplementedError(
-            "OdooHelpdesk.create() is implemented in FEAT-006 TASK-043."
-        )
+        """Create a new Helpdesk ticket.
+
+        The webhook ``POST`` returns a flat ``{ok, ticket_id, ticket_name}``
+        with no full record, so this performs a follow-up ``GET`` on the new id
+        to build the Zammad-shaped dict (which includes the ``number`` key
+        downstream callers rely on).
+
+        Returns:
+            A Zammad-shaped ticket dict (with a ``number`` key).
+
+        Raises:
+            ConfigError: On a webhook error.
+        """
+        self.url = f"{self.instance}helpdesk/ticket"
+        self.method = 'post'
+        data = self._ticket_payload(kwargs)
+        try:
+            result, error = await self.request(
+                self.url, self.method, data=data
+            )
+            if error is not None:
+                raise ConfigError(
+                    f"Error creating Odoo Helpdesk Ticket: {error['message']}"
+                )
+            ticket_id = result['ticket_id']
+            return await self.get_ticket(ticket_id)
+        except ConfigError:
+            raise
+        except Exception as e:
+            raise ConfigError(
+                f"Error creating Odoo Helpdesk Ticket: {e}"
+            ) from e

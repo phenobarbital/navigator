@@ -151,6 +151,23 @@ async def test_create_two_step_post_then_get(odoo_ticket_record):
     assert get_call.args[1] == "get"
 
 
+async def test_create_uses_post_ticket_when_present(odoo_ticket_record):
+    # Newer webhook returns the full ticket in the POST response -> no follow-up GET.
+    post_result = {
+        "ok": True, "ticket_id": 42, "ticket_name": "Broken widget",
+        "ticket": odoo_ticket_record,
+    }
+    request = AsyncMock(return_value=(post_result, None))
+    with patch.object(OdooHelpdesk, "request", request):
+        hd = make_helpdesk()
+        result = await hd.create(title="Broken widget")
+
+    assert request.call_count == 1  # POST only, no follow-up GET
+    assert result["number"] == "TICKET/0042"
+    assert result["id"] == 42
+    assert result["subject"] == "Broken widget"
+
+
 async def test_create_raises_on_error():
     from navigator.exceptions import ConfigError
 

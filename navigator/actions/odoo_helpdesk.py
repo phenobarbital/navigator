@@ -193,10 +193,11 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
     async def create(self, **kwargs):
         """Create a new Helpdesk ticket.
 
-        The webhook ``POST`` returns a flat ``{ok, ticket_id, ticket_name}``
-        with no full record, so this performs a follow-up ``GET`` on the new id
-        to build the Zammad-shaped dict (which includes the ``number`` key
-        downstream callers rely on).
+        The webhook ``POST`` returns ``{ok, ticket_id, ticket_name, ticket:{...}}``.
+        When the full ``ticket`` is present it is adapted directly (no follow-up
+        request); older webhook versions that return only the flat body trigger a
+        follow-up ``GET`` on the new id. Either way the returned Zammad-shaped
+        dict includes the ``number`` key downstream callers rely on.
 
         Returns:
             A Zammad-shaped ticket dict (with a ``number`` key).
@@ -215,6 +216,11 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
                 raise ConfigError(
                     f"Error creating Odoo Helpdesk Ticket: {error['message']}"
                 )
+            # Prefer the full ticket returned by the POST (avoids a follow-up GET
+            # and its mandatory company_id, which would 404 on a company mismatch
+            # even though the ticket was created).
+            if isinstance(result, dict) and result.get('ticket'):
+                return self._to_zammad_ticket(result['ticket'])
             ticket_id = result['ticket_id']
             return await self.get_ticket(ticket_id)
         except ConfigError:

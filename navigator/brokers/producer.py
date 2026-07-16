@@ -42,7 +42,13 @@ class BrokerProducer(BaseConnection, ABC):
         self._num_workers = num_workers
         self._workers = []
         self._broker_service: str = kwargs.get('broker_service', 'rabbitmq')
-        super(BrokerProducer, self).__init__(credentials, timeout, **kwargs)
+        # Keyword form is required: BaseConnection.__init__ declares
+        # credentials/timeout as keyword-only (after *args) — passing them
+        # positionally lands them in *args and they get forwarded to
+        # object.__init__, raising TypeError on EVERY producer construction.
+        super(BrokerProducer, self).__init__(
+            credentials=credentials, timeout=timeout, **kwargs
+        )
 
     def setup(self, app: web.Application = None) -> None:
         """

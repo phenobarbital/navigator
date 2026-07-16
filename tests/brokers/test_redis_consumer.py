@@ -75,3 +75,13 @@ async def test_reclaim_leaves_failed_unacked():
     assert processed == 1  # only the healthy entry
     acked = [call.args[2] for call in client.xack.await_args_list]
     assert acked == ["1-2"]  # the failed one stays pending
+
+
+def test_producer_constructs():
+    """Regression: BrokerProducer passed credentials/timeout positionally into
+    BaseConnection's keyword-only params, so RedisProducer(credentials=None)
+    raised 'object.__init__() takes exactly one argument' on every call."""
+    from navigator.brokers.redis.producer import RedisProducer
+
+    producer = RedisProducer(credentials=None)
+    assert producer is not None

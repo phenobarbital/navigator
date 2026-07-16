@@ -12,12 +12,11 @@ and the credentials block -- no changes to view logic or response parsing.
 See ``sdd/specs/odoo-helpdesk-action.spec.md`` (FEAT-006, NAV-9101 / G10).
 
 .. note::
-    This class must **not** set ``auth_type = 'apikey'``: that would make
-    :class:`~navigator.actions.rest.RESTAction` inject an
-    ``Authorization: Bearer <token>`` header, which the Odoo webhook rejects.
-    The API key is sent via the ``X-Helpdesk-Api-Key`` header, set directly in
-    :meth:`__init__` (mirroring the direct-header idiom of the existing
-    ``navigator.actions.odoo.Odoo`` class).
+    Authentication uses Odoo's native API-key mechanism: the key is sent as an
+    ``Authorization: Bearer <api_key>`` header (``api_key`` is an Odoo
+    ``res.users.apikeys`` token). The header is set directly in :meth:`__init__`
+    rather than via ``auth_type = 'apikey'`` to avoid depending on
+    :class:`~navigator.actions.rest.RESTAction`'s ``self.auth`` plumbing.
 """
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -53,8 +52,10 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
         self.company_id = self._kwargs.pop('company_id', ODOO_HELPDESK_COMPANY)
         # Optional agent impersonation (Odoo ``as_user`` query parameter).
         self.as_user = self._kwargs.pop('as_user', None)
-        # Direct header -- do NOT set ``auth_type = 'apikey'`` (see module docstring).
-        self.headers['X-Helpdesk-Api-Key'] = self.api_key
+        # Odoo native API-key auth via Bearer (see module docstring). Set the
+        # header directly instead of auth_type='apikey' to avoid the self.auth
+        # plumbing in RESTAction.request().
+        self.headers['Authorization'] = f'Bearer {self.api_key}'
 
     # -- helpers ---------------------------------------------------------------
 

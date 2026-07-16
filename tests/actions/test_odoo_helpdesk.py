@@ -10,7 +10,7 @@ the six areas required by NAV-9101:
 3. ``list_tickets()`` shape adaptation + ``state_id`` dropped.
 4. ``get_attachment_img()`` trailing-id extraction from a Zammad-style path.
 5. ``find_user()`` / ``create_user()`` truthy no-ops.
-6. ``X-Helpdesk-Api-Key`` header set; no ``Authorization: Bearer`` injected.
+6. API key sent as ``Authorization: Bearer`` (Odoo native API key).
 
 Note: the repo's ``pytest.ini`` sets ``asyncio_mode = auto`` so ``async def``
 tests run without an explicit marker.
@@ -91,14 +91,13 @@ class _FakeStream:
 
 
 # --------------------------------------------------------------------------- #
-# 6. Header wiring (auth_type regression guard)
+# 6. Header wiring — Odoo native API key via Authorization: Bearer
 # --------------------------------------------------------------------------- #
-def test_api_key_header_set_no_bearer():
+def test_api_key_sent_as_bearer():
     hd = make_helpdesk()
-    assert hd.headers.get("X-Helpdesk-Api-Key") == "k-123"
-    assert "Authorization" not in hd.headers
-    # auth_type must NOT have been inherited/overridden to 'apikey'
-    assert hd.auth_type != "apikey"
+    assert hd.headers.get("Authorization") == "Bearer k-123"
+    # legacy X-Helpdesk-Api-Key header must not be used anymore
+    assert "X-Helpdesk-Api-Key" not in hd.headers
 
 
 # --------------------------------------------------------------------------- #

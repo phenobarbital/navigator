@@ -27,9 +27,12 @@ class RedisConsumer(RedisConnection, BrokerConsumer):
         callback: Optional[Union[Awaitable, Callable]] = None,
         **kwargs
     ):
-        self._queue_name = kwargs.get('queue_name', 'message_stream')
-        self._group_name = kwargs.get('group_name', 'default_group')
-        self._consumer_name = kwargs.get('consumer_name', 'default_consumer')
+        # pop() (not get()) — these keys are forwarded explicitly below, so
+        # leaving them inside **kwargs raises "got multiple values for
+        # keyword argument 'queue_name'" in RedisConnection.__init__.
+        self._queue_name = kwargs.pop('queue_name', 'message_stream')
+        self._group_name = kwargs.pop('group_name', 'default_group')
+        self._consumer_name = kwargs.pop('consumer_name', 'default_consumer')
         super().__init__(
             credentials=credentials,
             timeout=timeout,

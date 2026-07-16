@@ -266,6 +266,81 @@ class RedisConnection(BaseConnection):
             self.logger.error(f"Error consuming messages from stream '{stream}': {e}")
             raise
 
+    async def reclaim_pending_messages(
+        self,
+        queue_name: Optional[str],
+        callback: Callable[[Dict[str, Any], str], Awaitable[None]],
+        min_idle_time: int = 30000,
+        count: int = 10,
+        **kwargs
+    ) -> int:
+        """
+        Reclaim idle pending messages of this consumer group and re-process them.
+
+        ``consume_messages`` only acknowledges a message after its callback
+        succeeds — a message whose callback raised stays in the group's
+        Pending Entries List (PEL) and, without this method, would never be
+        delivered again to any consumer. Calling this periodically (or on a
+        schedule alongside ``consume_messages``) uses ``XAUTOCLAIM`` to take
+        over entries that have been pending for at least ``min_idle_time``
+        milliseconds and runs them through the same callback + ``XACK`` path,
+        giving consumer groups genuine at-least-once redelivery.
+
+        Args:
+            queue_name: Stream to sweep; defaults to this connection's queue.
+            callback: Same contract as ``consume_messages``' callback.
+            min_idle_time: Minimum pending idle time (ms) before an entry is
+                reclaimed — keeps in-flight entries from being stolen.
+            count: Max entries reclaimed per XAUTOCLAIM call.
+
+        Returns:
+            Number of messages successfully processed and acknowledged.
+        """
+        stream = queue_name or self._queue_name
+        consumer_name = kwargs.get('consumer_name', self._consumer_name)
+        processed = 0
+        start_id = '0-0'
+        try:
+            while True:
+                next_id, messages, _deleted = await self._connection.xautoclaim(
+                    name=stream,
+                    groupname=self._group_name,
+                    consumername=consumer_name,
+                    min_idle_time=min_idle_time,
+                    start_id=start_id,
+                    count=count
+                )
+                for message_id, message_data in messages:
+                    try:
+                        processed_message = await self.process_message(message_data)
+                        data = {
+                            "message_id": message_id,
+                            "data": message_data
+                        }
+                        if asyncio.iscoroutinefunction(callback):
+                            await callback(data, processed_message)
+                        else:
+                            callback(data, processed_message)
+                        await self._connection.xack(stream, self._group_name, message_id)
+                        processed += 1
+                        self.logger.info(
+                            f"Reclaimed message {message_id} re-processed and acknowledged."
+                        )
+                    except Exception as e:
+                        # Leave unacked — it stays pending for a later sweep.
+                        self.logger.error(
+                            f"Error re-processing reclaimed message {message_id}: {e}"
+                        )
+                # XAUTOCLAIM returns '0-0' as next cursor when the PEL scan wrapped.
+                if not messages or next_id in (b'0-0', '0-0'):
+                    break
+                start_id = next_id
+        except Exception as e:
+            self.logger.error(
+                f"Error reclaiming pending messages from stream '{stream}': {e}"
+            )
+        return processed
+
     async def cleanup_old_messages(self, stream):
         """Removes messages older than 7 days from the stream."""
         try:

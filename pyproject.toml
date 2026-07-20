@@ -68,7 +68,6 @@ dependencies = [
     "brotlicffi>=1.1.0.0",
     "aiofile>=3.9.0",
     "psutil>=6.0.0",
-    "aiormq>=6.8.1",
     "cloudpickle>=3.0.0",
     "async-timeout>=4.0.3",
     "msgpack>=1.1.0",
@@ -132,6 +131,15 @@ testing = [
 # and its transitive deps (flowtask, cloudpickle, redis-asyncio, ...).
 qworker = [
     "qworker>=2.0.0",
+]
+
+# Message brokers (Redis Streams / RabbitMQ / AWS SQS). The broker
+# implementations were extracted to the navigator-eventbus package
+# (FEAT-316); navigator no longer ships them in-tree. Opt in explicitly
+# via `pip install navigator-api[brokers]`. Consumed by
+# examples/brokers/nav_*_consumer.py.
+brokers = [
+    "navigator-eventbus[brokers]>=0.1.0rc1",
 ]
 
 
@@ -291,7 +299,6 @@ module = [
     "polyline.*",
     "beautifulsoup4.*",
     "psycopg2.*",
-    "aiormq.*",
     "cloudpickle.*",
 ]
 ignore_missing_imports = true

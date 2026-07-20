@@ -1,5 +1,5 @@
 from navigator import Application
-from navigator.brokers.sqs import SQSConsumer
+from navigator_eventbus.brokers.sqs import SQSConsumer
 
 
 async def sqs_callback(*args, **kwargs):

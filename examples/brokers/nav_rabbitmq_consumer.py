@@ -1,5 +1,5 @@
 from navigator import Application
-from navigator.brokers.rabbitmq import RMQConsumer
+from navigator_eventbus.brokers.rabbitmq import RMQConsumer
 
 
 async def rabbit_callback(*args, **kwargs):

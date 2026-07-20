@@ -1,5 +1,5 @@
 from navigator import Application
-from navigator.brokers.redis import RedisConsumer
+from navigator_eventbus.brokers.redis import RedisConsumer
 
 
 async def redis_callback(*args, **kwargs):

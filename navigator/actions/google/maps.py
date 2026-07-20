@@ -4,10 +4,16 @@ Google Maps API.
 Interface for interacting with Google Maps API.
 
 Heavy mapping dependencies (``polyline``, ``matplotlib``, ``cartopy``) have
-moved to the ``navigator-api[google]`` extra. They are imported lazily at
-first use via the ``_import_*`` helpers below, which raise a clear,
-actionable :class:`ImportError` when the extra is not installed.
+moved to the ``navigator-api[google]`` extra:
+
+* ``polyline`` is imported at module load. If the extra is not installed,
+  a warning is logged and the module-level ``polyline`` is set to ``None``;
+  calls that depend on it will fail at use time.
+* ``matplotlib`` and ``cartopy`` are imported lazily via the ``_import_*``
+  helpers below, which raise a clear, actionable :class:`ImportError` when
+  the extra is not installed.
 """
+import logging
 import string
 import datetime
 from datetime import timezone
@@ -27,16 +33,14 @@ _EXTRA_HINT = (
 )
 
 
-def _import_polyline():
-    """Return :mod:`polyline` (lazy) or raise a helpful ImportError."""
-    try:
-        import polyline  # type: ignore[import-not-found]
-    except ImportError as exc:
-        raise ImportError(
-            f"polyline is required for Google Maps route decoding. "
-            f"{_EXTRA_HINT}"
-        ) from exc
-    return polyline
+try:
+    import polyline  # type: ignore[import-not-found]
+except ImportError:
+    logging.warning(
+        "polyline is required for Google Maps route decoding. %s",
+        _EXTRA_HINT,
+    )
+    polyline = None
 
 
 def _import_matplotlib():
@@ -336,7 +340,6 @@ class Route(GoogleService):
             if result['status'] == 'OK':
                 # Extracting route, duration, and distance information
                 route = result['routes'][0]
-                polyline = _import_polyline()
                 encoded_polyline = route['overview_polyline']['points']
                 decoded_polyline = polyline.decode(encoded_polyline)
                 map_url = self.get_google_map(

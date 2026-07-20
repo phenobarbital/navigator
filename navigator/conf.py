@@ -230,6 +230,37 @@ BROKER_MANAGER_QUEUE_SIZE = config.getint(
 )
 
 """
+MQTT Bridge Configuration (off by default — set USE_MQTT_BRIDGE=true to activate).
+"""
+USE_MQTT_BRIDGE = config.getboolean('USE_MQTT_BRIDGE', fallback=False)
+MQTT_TOPIC_NAMESPACE = config.get('MQTT_TOPIC_NAMESPACE', fallback='employees')
+MQTT_AUTH_CACHE_TTL = config.getint('MQTT_AUTH_CACHE_TTL', fallback=60)
+MQTT_EVENT_DEDUP_TTL = config.getint('MQTT_EVENT_DEDUP_TTL', fallback=600)
+MQTT_EVENT_DEDUP_REDIS_URL = config.get('MQTT_EVENT_DEDUP_REDIS_URL', fallback=CACHE_URL)
+MQTT_ACCEPTED_SCHEMA_VERSIONS = set(map(int,
+    config.get('MQTT_ACCEPTED_SCHEMA_VERSIONS', fallback='1').split(',')))
+MQTT_MAX_BATCH_SIZE = config.getint('MQTT_MAX_BATCH_SIZE', fallback=200)
+MQTT_ENFORCE_EMPLOYEE_ID_CONSISTENCY = config.getboolean(
+    'MQTT_ENFORCE_EMPLOYEE_ID_CONSISTENCY', fallback=True)
+
+"""
+Geofencing Configuration.
+"""
+GEOFENCE_RELOAD_EXCHANGE = config.get(
+    'GEOFENCE_RELOAD_EXCHANGE', fallback='geofence.changed')
+GEOFENCE_COLLAPSE_INTRA_BATCH = config.getboolean(
+    'GEOFENCE_COLLAPSE_INTRA_BATCH', fallback=True)
+GEOFENCE_DWELL_DURATION = config.getint('GEOFENCE_DWELL_DURATION', fallback=300)
+GEOFENCE_HANDLER_TIMEOUT = float(config.get('GEOFENCE_HANDLER_TIMEOUT', fallback='5.0'))
+EMPLOYEE_EVENTS_EXCHANGE = config.get(
+    'EMPLOYEE_EVENTS_EXCHANGE', fallback='employee.events')
+WEBHOOK_SIGNING_ALGORITHM = config.get(
+    'WEBHOOK_SIGNING_ALGORITHM', fallback='sha256')
+# Intentionally NOT added:
+#   MQTT_JWT_SECRET   — JWT signing lives in navigator_auth; no duplication
+#   APNS_*            — iOS via FCM-APNs bridge; native APNs deferred to v2
+
+"""
 Redis Configuration.
 """
 REDIS_BROKER_HOST = config.get("REDIS_BROKER_HOST", fallback=CACHE_HOST)

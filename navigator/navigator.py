@@ -83,7 +83,7 @@ class Application(BaseApplication):
         from navigator.conf import Context  # pylint: disable=C0415
         self._runner: Optional[web.AppRunner] = None
         self._sites: list = []
-        self._shutdown_timeout = 30.0
+        self._shutdown_timeout = float(kwargs.pop('shutdown_timeout', 30.0))
         # configuring asyncio loop
         try:
             self._loop = asyncio.get_event_loop()
@@ -602,12 +602,23 @@ class Application(BaseApplication):
         port = port or self.port
 
         try:
+            # ``AppRunner`` forwards any extra kwargs to aiohttp's
+            # ``Server``/``RequestHandler``. ``client_timeout`` and
+            # ``max_request_size`` are NOT valid ``RequestHandler`` arguments,
+            # so passing them raised a ``TypeError`` that aiohttp swallowed,
+            # logging "Failed to create request handler with custom kwargs ...
+            # falling back to filtered kwargs" and silently dropping *every*
+            # custom setting. Only forward kwargs ``RequestHandler`` accepts.
             runner_kwargs = {
                 'handle_signals': handle_signals,
                 'keepalive_timeout': kwargs.get('keepalive_timeout', 30),
-                'client_timeout': kwargs.get('client_timeout', 60),
-                'max_request_size': kwargs.get('max_request_size', 1024**2),
             }
+            # The body-size limit belongs to the ``Application``
+            # (``client_max_size``), not to the request handler. Apply it to
+            # the app before the runner is set up.
+            max_request_size = kwargs.get('max_request_size', 1024**2)
+            if max_request_size is not None:
+                app._client_max_size = int(max_request_size)
             # Only add these if they're explicitly provided (not None)
             if 'access_log_class' in kwargs and kwargs['access_log_class'] is not None:
                 runner_kwargs['access_log_class'] = kwargs['access_log_class']
@@ -631,6 +642,7 @@ class Application(BaseApplication):
                 backlog=kwargs.get('backlog', 128),
                 reuse_address=kwargs.get('reuse_address', True),
                 reuse_port=kwargs.get('reuse_port', False),
+                shutdown_timeout=kwargs.get('shutdown_timeout', self._shutdown_timeout),
             )
 
             await site.start()
@@ -677,6 +689,12 @@ class Application(BaseApplication):
                 unix_path.unlink()
                 self.logger.debug(f"Removed existing socket: {unix_path}")
 
+            # Body-size limit belongs to the ``Application``
+            # (``client_max_size``), not to the request handler.
+            max_request_size = kwargs.get('max_request_size', 1024**2)
+            if max_request_size is not None:
+                app._client_max_size = int(max_request_size)
+
             # Create and setup runner
             self._runner = web.AppRunner(
                 app,
@@ -694,7 +712,7 @@ class Application(BaseApplication):
             site = web.UnixSite(
                 self._runner,
                 path=str(unix_path),
-                shutdown_timeout=kwargs.get('shutdown_timeout', 60.0),
+                shutdown_timeout=kwargs.get('shutdown_timeout', self._shutdown_timeout),
                 ssl_context=kwargs.get('ssl_context'),
                 backlog=kwargs.get('backlog', 128),
             )

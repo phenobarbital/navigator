@@ -2,7 +2,7 @@ from dataclasses import dataclass
 import asyncio
 from datamodel import BaseModel
 from navconfig import config
-from navigator.brokers.sqs import SQSConnection
+from navigator_eventbus.brokers.sqs import SQSConnection
 
 AWS_ACCESS_KEY = config.get('AWS_KEY')
 AWS_SECRET_KEY = config.get('AWS_SECRET')

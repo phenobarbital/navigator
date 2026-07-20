@@ -1,6 +1,6 @@
 import asyncio
 from navconfig import config
-from navigator.brokers.sqs import SQSConnection
+from navigator_eventbus.brokers.sqs import SQSConnection
 import pandas as pd
 
 AWS_ACCESS_KEY = config.get('AWS_KEY')

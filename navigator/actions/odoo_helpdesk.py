@@ -324,7 +324,7 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
                     f"Error listing Odoo Helpdesk Tickets: {error['message']}"
                 )
             tickets = result.get('tickets', [])
-            return {
+            out = {
                 "tickets": tickets,
                 "tickets_count": result.get('count', len(tickets)),
                 "assets": {
@@ -334,6 +334,12 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
                     }
                 },
             }
+            # Surface the webhook's non-fatal filter warnings (e.g. an
+            # unknown stage_name/category resolving to 0 results) so the
+            # frontend can tell "no matches" from "bad filter value".
+            if result.get('warnings'):
+                out["warnings"] = result["warnings"]
+            return out
         except ConfigError:
             raise
         except Exception as e:

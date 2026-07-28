@@ -274,6 +274,26 @@ async def test_list_tickets_forwards_filters():
     assert "bogus_filter" not in qs  # only LIST_QUERY_PARAMS are forwarded
 
 
+async def test_list_tickets_surfaces_warnings():
+    """A non-fatal webhook `warnings` (e.g. unknown stage_name) is passed
+    through; absent warnings add no key."""
+    payload = {"count": 0, "limit": 80, "offset": 0, "tickets": [],
+               "warnings": ["unknown stage_name 'Nope'"]}
+    request = AsyncMock(return_value=(payload, None))
+    with patch.object(OdooHelpdesk, "request", request):
+        hd = make_helpdesk()
+        result = await hd.list_tickets(stage_name="Nope")
+    assert result["warnings"] == ["unknown stage_name 'Nope'"]
+
+    # No warnings in the webhook response -> no warnings key in the result.
+    request2 = AsyncMock(return_value=(
+        {"count": 0, "limit": 80, "offset": 0, "tickets": []}, None))
+    with patch.object(OdooHelpdesk, "request", request2):
+        hd2 = make_helpdesk()
+        result2 = await hd2.list_tickets()
+    assert "warnings" not in result2
+
+
 # --------------------------------------------------------------------------- #
 # get_ticket() / get_articles()
 # --------------------------------------------------------------------------- #

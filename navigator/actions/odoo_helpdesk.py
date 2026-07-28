@@ -41,6 +41,24 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
     interface and Zammad-shaped responses as the ``Zammad`` action.
     """
 
+    #: Query params ``list_tickets`` forwards to the Helpdesk ``GET /tickets``
+    #: webhook. Human-friendly values (name/email/date) rather than Odoo
+    #: internal ids, so navapi/frontend filter without knowing Odoo primary
+    #: keys. The webhook translates each into its Odoo search ``domain``
+    #: (NAV-9101 filters/listing). ``company_id`` is added separately and is
+    #: always present; ``state_id`` is a Zammad-only concept and is dropped.
+    LIST_QUERY_PARAMS = (
+        "team_id",       # Helpdesk team (int) — pre-existing
+        "stage_id",      # stage by id (int)
+        "stage_name",    # stage by name (str)
+        "category",      # category by name (str)
+        "partner_email",  # requester (Partner) email (str)
+        "date_from",     # create_date >= (ISO date/datetime)
+        "date_to",       # create_date <= (ISO date/datetime)
+        "limit",         # page size (int) — pre-existing
+        "offset",        # page offset (int) — pre-existing
+    )
+
     def __init__(self, *args, **kwargs):
         super(OdooHelpdesk, self).__init__(*args, **kwargs)
         self.timeout = 360
@@ -277,9 +295,12 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
 
         Args:
             user: Optional agent login to impersonate (``as_user``).
-            **kwargs: Optional Odoo filters (``team_id``, ``stage_id``,
-                ``limit``, ``offset``). A Zammad-only ``state_id`` kwarg is
-                dropped, not forwarded.
+            **kwargs: Optional listing filters / pagination forwarded to the
+                webhook — see :attr:`LIST_QUERY_PARAMS` (``team_id``,
+                ``stage_id``, ``stage_name``, ``category``, ``partner_email``,
+                ``date_from``, ``date_to``, ``limit``, ``offset``). Unknown
+                kwargs and the Zammad-only ``state_id`` are dropped, not
+                forwarded.
 
         Returns:
             ``{"tickets": [...], "tickets_count": N,
@@ -290,7 +311,7 @@ class OdooHelpdesk(AbstractTicket, RESTAction):
         """
         kwargs.pop('state_id', None)  # Zammad-only; Odoo has no such filter
         extra = {'as_user': user} if user else {}
-        for key in ('team_id', 'stage_id', 'limit', 'offset'):
+        for key in self.LIST_QUERY_PARAMS:
             if kwargs.get(key) is not None:
                 extra[key] = kwargs[key]
         qs = self._company_qs(extra)

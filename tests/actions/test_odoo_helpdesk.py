@@ -246,6 +246,34 @@ async def test_list_tickets_drops_state_id():
     assert "state_id" not in url  # Zammad-only kwarg must be dropped
 
 
+async def test_list_tickets_forwards_filters():
+    """stage/category/partner/date filters reach the webhook query string;
+    unknown kwargs are dropped (NAV-9101 filters/listing)."""
+    from urllib.parse import parse_qs, urlparse
+
+    payload = {"count": 0, "limit": 80, "offset": 0, "tickets": []}
+    request = AsyncMock(return_value=(payload, None))
+    with patch.object(OdooHelpdesk, "request", request):
+        hd = make_helpdesk()
+        await hd.list_tickets(
+            stage_name="Assigned",
+            category="Hardware",
+            partner_email="a@b.com",
+            date_from="2026-07-01",
+            date_to="2026-07-28",
+            bogus_filter="drop-me",  # unknown -> must not be forwarded
+        )
+
+    url = request.call_args.args[0]
+    qs = parse_qs(urlparse(url).query)
+    assert qs["stage_name"] == ["Assigned"]
+    assert qs["category"] == ["Hardware"]
+    assert qs["partner_email"] == ["a@b.com"]
+    assert qs["date_from"] == ["2026-07-01"]
+    assert qs["date_to"] == ["2026-07-28"]
+    assert "bogus_filter" not in qs  # only LIST_QUERY_PARAMS are forwarded
+
+
 # --------------------------------------------------------------------------- #
 # get_ticket() / get_articles()
 # --------------------------------------------------------------------------- #

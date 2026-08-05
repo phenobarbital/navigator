@@ -282,6 +282,15 @@ ZAMMAD_DEFAULT_CATALOG = config.get('ZAMMAD_DEFAULT_CATALOG')
 ZAMMAD_ORGANIZATION = config.get('ZAMMAD_ORGANIZATION')
 ZAMMAD_DEFAULT_ROLE = config.get('ZAMMAD_DEFAULT_ROLE', 'Customer')
 
+### Odoo Helpdesk Integration via Actions:
+# Generic fallbacks for the OdooHelpdesk action (Zammad->Odoo drop-in, NAV-9101).
+# Per-tenant ODOO_<TENANT>_* values live in the navapi consumer's settings and
+# are wired in during the later per-tenant migration ticket, mirroring the
+# existing per-tenant ZAMMAD_<TENANT>_* pattern there.
+ODOO_HELPDESK_INSTANCE = config.get('ODOO_HELPDESK_INSTANCE')
+ODOO_HELPDESK_API_KEY = config.get('ODOO_HELPDESK_API_KEY')
+ODOO_HELPDESK_COMPANY = config.get('ODOO_HELPDESK_COMPANY')
+
 # AI Models Cache Configuration
 HUGGINGFACE_EMBEDDING_CACHE_DIR = config.get(
     'HUGGINGFACE_EMBEDDING_CACHE_DIR',

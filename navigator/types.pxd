@@ -12,9 +12,6 @@
 # not repeat them. TASK-006 therefore carries a small, mechanical
 # knock-on edit in ``types.pyx`` (the attribute-declaration block is
 # removed), tracked in the TASK-006 completion note.
-from libcpp cimport bool
-
-
 cdef class URL:
     cdef str value
     cdef str scheme
@@ -25,7 +22,7 @@ cdef class URL:
     cdef str query
     cdef str fragment
     cdef dict params
-    cdef bool is_absolute
+    cdef bint is_absolute
 
     cpdef URL change_scheme(self, str scheme)
     cpdef URL change_host(self, str host)

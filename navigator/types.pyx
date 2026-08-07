@@ -1,7 +1,6 @@
 # cython: language_level=3, embedsignature=True, boundscheck=False, wraparound=True, initializedcheck=False
 # Copyright (C) 2018-present Jesus Lara
 #
-from libcpp cimport bool
 from typing import Tuple, Callable, Awaitable
 from urllib.parse import urlparse, parse_qs, ParseResult
 from aiohttp import web

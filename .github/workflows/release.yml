@@ -56,15 +56,43 @@ jobs:
             (apt-get update && apt-get install -y libpq-dev libssl-dev zlib1g-dev libmemcached-dev libxmlsec1-dev))
           CIBW_ENVIRONMENT: "PATH=/root/.cargo/bin:$PATH"
           CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: python -c "import navigator; print('✅ Navigator test passed:', navigator.version())"
+          # Import the two Cython extensions explicitly and assert they
+          # resolved to a compiled .so (not e.g. a stray .py shadow), so a
+          # regression in the Cython build silently falling back — or the
+          # extensions going missing from the wheel — fails CI instead of
+          # passing on the pure-Python "import navigator" smoke test alone.
+          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.so'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.so'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('✅ Navigator test passed:', navigator.version()); print('✅ Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
           # cassandra-driver (transitive via asyncdb[default]) ships no cp313
           # manylinux wheel and its sdist's ez_setup.py is broken on 3.13
           # (TarFile.chown signature changed). Skip the post-build install test
           # on cp313 only — the wheel itself is built and repaired correctly.
+          # The structural check below (present for every pyver, including
+          # cp313) still verifies the compiled extensions ship in the wheel
+          # without requiring the full runtime dependency set to install.
           CIBW_TEST_SKIP: "cp313-*"
 
+      - name: Verify compiled extensions are present in the wheel
+        if: matrix.platform == 'linux'
+        run: |
+          python - <<'PYEOF'
+          import glob
+          import sys
+          import zipfile
 
+          required = ["navigator/types", "navigator/utils/types"]
+          wheels = glob.glob("wheelhouse/*.whl")
+          if not wheels:
+              sys.exit("❌ No wheels found in wheelhouse/")
 
+          for wheel_path in wheels:
+              names = zipfile.ZipFile(wheel_path).namelist()
+              so_files = [n for n in names if n.endswith(".so")]
+              for mod in required:
+                  matches = [n for n in so_files if n.startswith(f"{mod}.cpython-")]
+                  if not matches:
+                      sys.exit(f"❌ {wheel_path}: missing compiled extension for {mod}")
+                  print(f"✅ {wheel_path}: {matches[0]}")
+          PYEOF
 
 
       - name: Upload wheel artifacts

@@ -179,6 +179,10 @@ test = [
     "coverage>=6.0",
     "aioresponses>=0.7.4",
     "trustme>=1.0.0",
+    # Parses .github/workflows/release.yml directly in
+    # tests/test_release_workflow.py and tests/test_release_documentation.py
+    # (FEAT-007). Previously only available transitively via pre-commit.
+    "pyyaml>=6.0",
 ]
 
 # Documentation

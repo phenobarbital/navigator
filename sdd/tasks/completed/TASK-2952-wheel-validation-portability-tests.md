@@ -99,12 +99,12 @@ Use the current post-publish environment setup at
 
 ## Acceptance Criteria
 
-- [ ] Archive tests validate both required extensions for Linux and Windows.
-- [ ] Windows checks require `win_amd64` and `.pyd`.
-- [ ] Supported cp311–cp314 tags are covered; excluded tags are rejected.
-- [ ] Core import smoke tests scaffold a temporary navconfig environment.
-- [ ] Tests require no external service and do not install the full optional graph.
-- [ ] Focused tests pass on the available local interpreter.
+- [x] Archive tests validate both required extensions for Linux and Windows.
+- [x] Windows checks require `win_amd64` and `.pyd`.
+- [x] Supported cp311–cp314 tags are covered; excluded tags are rejected.
+- [x] Core import smoke tests scaffold a temporary navconfig environment.
+- [x] Tests require no external service and do not install the full optional graph.
+- [x] Focused tests pass on the available local interpreter.
 
 ## Test Specification
 
@@ -130,10 +130,23 @@ CI archive-only step.
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (session_01ASHPx3ufe76XXQEpoGNxMM)
+**Date**: 2026-09-08
+**Notes**: Added `tests/test_release_wheel.py` with reusable pure-stdlib
+helpers (`parse_wheel_tags`, `is_excluded_tag`,
+`is_supported_linux_platform_tag`, `is_supported_windows_platform_tag`,
+`wheel_archive_members`, `missing_required_extensions`) plus 24 tests
+covering synthetic Linux `.so` / Windows `.pyd` archive validation, the
+cp311–cp314 supported tag matrix, rejection of win32/win_arm64/
+free-threaded(`cp3xxt`)/i686/musllinux/macOS/PyPy tags, and an isolated
+core-import smoke test that scaffolds `env/<ENV>/.env`, `.env`,
+`pyproject.toml`, `etc/config.ini`, and `SITE_ROOT` before importing
+`navigator`, `navigator.types`, `navigator.utils.types` in a subprocess.
+Added `tests/test_windows_compatibility.py` with 2 tests confirming the
+core import path (and `navigator.utils.uv.install_uvloop()`) tolerate
+`uvloop` being unimportable, simulating the real Windows condition.
+`tests/conftest.py` required no changes (all fixtures used are pytest
+built-ins: `tmp_path`, `monkeypatch`). All 26 new tests pass; full
+focused suite across TASK-2950/2951/2952 (31 tests) passes.
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: 
-
-**Deviations from spec**: none | describe if any
+**Deviations from spec**: none

@@ -113,14 +113,14 @@ installation tests.
 
 ## Acceptance Criteria
 
-- [ ] Linux x86_64 and Windows AMD64 jobs request cp311–cp314.
-- [ ] Finalized cp314 wheels are actually produced rather than silently skipped.
-- [ ] Required wheel archive checks block publication on missing artifacts.
-- [ ] Linux and Windows artifacts are aggregated and uploaded to PyPI.
-- [ ] Rust installation and unused Cargo environment configuration are removed.
-- [ ] Excluded platforms/ABIs are not built.
-- [ ] Post-publish smoke tests scaffold navconfig's environment and cover both OS families.
-- [ ] sdist publication remains functional.
+- [x] Linux x86_64 and Windows AMD64 jobs request cp311–cp314.
+- [x] Finalized cp314 wheels are actually produced rather than silently skipped.
+- [x] Required wheel archive checks block publication on missing artifacts.
+- [x] Linux and Windows artifacts are aggregated and uploaded to PyPI.
+- [x] Rust installation and unused Cargo environment configuration are removed.
+- [x] Excluded platforms/ABIs are not built.
+- [x] Post-publish smoke tests scaffold navconfig's environment and cover both OS families.
+- [x] sdist publication remains functional.
 
 ## Test Specification
 
@@ -143,10 +143,50 @@ from a development branch.
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (session_01ASHPx3ufe76XXQEpoGNxMM)
+**Date**: 2026-09-08
+**Notes**: Rewrote `.github/workflows/release.yml`'s `build` job matrix
+with explicit Linux x86_64 (manylinux_2_28) and Windows AMD64 entries
+for cp311-cp314 (8 total combinations), upgrading
+`pypa/cibuildwheel` from `v2.21.3` to `v3.2.1` per the spec's External
+Dependencies table. Removed the `rustup` install and
+`CIBW_ENVIRONMENT: PATH=/root/.cargo/bin:$PATH` injection entirely.
+`CIBW_SKIP` excludes win32/win_arm64/i686/musllinux/PyPy(`pp*`)/
+free-threaded(`*t-*`) on both platforms; macOS was never in the matrix.
+The archive-validation step ("Verify compiled extensions are present in
+the wheel") now runs unconditionally (no `if:` guard) for every pyver
+including cp314, and reuses `tests/test_release_wheel.py`'s helpers
+(`wheel_archive_members`, `missing_required_extensions`,
+`parse_wheel_tags`, `is_supported_linux_platform_tag`,
+`is_supported_windows_platform_tag`) via `sys.path.insert(0, "tests")`
+instead of duplicating tag-parsing logic, per TASK-2952's design intent.
+`CIBW_TEST_SKIP` (the dependency-heavy install/import test inside
+cibuildwheel) is narrowed from the stale `cp313-*` to `cp314-*` only,
+since asyncdb/python-datamodel are the current cp314 gap. The `deploy`
+job now aggregates and uploads both `*-manylinux*.whl` and
+`*-win_amd64.whl` under the existing `NAVIGATOR_API_PYPI_API_TOKEN`
+secret; sdist publication is unchanged. `test-installation` now runs a
+`{ubuntu-latest, windows-latest} x {3.11..3.14}` matrix with
+`continue-on-error` true only for `3.14` (structural validation in
+`build` stays blocking regardless); its "Prepare navconfig project
+environment" step scaffolds `env/dev/.env`, `.env`, `pyproject.toml`,
+`etc/config.ini`, and `SITE_ROOT`/`ENV`, and "Test basic imports" now
+explicitly imports `navigator.types`/`navigator.utils.types` (the
+previous job only imported the top-level `navigator` package). All
+`shell:`-bearing steps in that job use `bash` so the same script runs
+on `windows-latest`. Added `tests/test_release_workflow.py`
+implementing the task's three Test Specification functions plus one
+extra covering the `test-installation` matrix, by parsing the workflow
+YAML directly (`pyyaml`, already available transitively) — no network
+access, no real publish triggered. Validated the YAML (`yaml.safe_load`)
+and both embedded Python scripts (`compile()`) locally, and ran the
+archive-validation heredoc end-to-end against a synthetic wheel. All 35
+focused tests across TASK-2950/2951/2952/2953 pass.
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: 
-
-**Deviations from spec**: none | describe if any
+**Deviations from spec**: Added `tests/test_release_workflow.py` beyond
+the task's "Files to Create/Modify" table (which only listed
+`.github/workflows/release.yml` and "tests/ MODIFY only if needed") to
+satisfy the task's own Test Specification section, which named three
+`test_release_workflow_*` functions with no other file able to host
+them; kept strictly to static/offline validation, no other scope
+change.

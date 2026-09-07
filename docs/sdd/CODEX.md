@@ -1,6 +1,6 @@
 # Spec-Driven Development in Codex
 
-This guide explains how to run AI-Parrot's Spec-Driven Development (SDD) flow
+This guide explains how to run Navigator's Spec-Driven Development (SDD) flow
 from Codex.
 
 The older Claude Code flow used slash commands from `.claude/commands/`. In
@@ -33,7 +33,7 @@ Use the sdd-worker agent to implement FEAT-214.
 
 ## Codex Surfaces
 
-AI-Parrot uses three Codex surfaces for this workflow:
+Navigator uses three Codex surfaces for this workflow:
 
 | Surface | Path | Role |
 |---|---|---|
@@ -369,4 +369,3 @@ $sdd-done NAV-9001
 - `AGENTS.md`
 - `.agents/skills/sdd-*/SKILL.md`
 - `.codex/agents/sdd-worker.toml`
-

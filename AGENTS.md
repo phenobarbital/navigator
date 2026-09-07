@@ -92,3 +92,18 @@ Verify libraries in `package.json` or `requirements.txt` before importing.
 
 **Correctness First:**
 - If there is ambiguity in requirements, stop and ask before guessing.
+
+<!-- navigator:wiki:codex:begin -->
+## Codebase Knowledge Graph
+
+Before broad source scans for architectural or SDD work, run:
+
+```bash
+wikitoolkit query "<focused question>"
+```
+
+Inspect a relevant result with `wikitoolkit page <id>` or
+`wikitoolkit related <id>` when the tool is available. Record durable project
+decisions with `wikitoolkit remember "<fact>" --category decision`.
+
+<!-- navigator:wiki:codex:end -->

@@ -96,11 +96,11 @@ URL parsing or Cython directives.
 
 ## Acceptance Criteria
 
-- [ ] `navigator/types.pyx` no longer imports unused navconfig configuration names.
-- [ ] Both Cython extension declarations remain present and correctly typed.
-- [ ] Focused Cython/import regression coverage passes.
-- [ ] No unrelated runtime navconfig imports are changed.
-- [ ] No Rust or maturin tooling is introduced.
+- [x] `navigator/types.pyx` no longer imports unused navconfig configuration names.
+- [x] Both Cython extension declarations remain present and correctly typed.
+- [x] Focused Cython/import regression coverage passes.
+- [x] No unrelated runtime navconfig imports are changed.
+- [x] No Rust or maturin tooling is introduced.
 
 ## Test Specification
 
@@ -119,10 +119,20 @@ and setup declarations, then run the narrowest available Cython/import tests.
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (session_01ASHPx3ufe76XXQEpoGNxMM)
+**Date**: 2026-09-08
+**Notes**: Removed `from navconfig import config, DEBUG` from
+`navigator/types.pyx` (verified unused). Rebuilt the Cython extension
+locally (`python setup.py build_ext --inplace`) and confirmed
+`import navigator.types` no longer raises `FileExistsError` in a
+directory with no navconfig project assets (previously reproduced the
+exact bug). `setup.py`'s extension declarations were verified unchanged.
+Added `tests/test_cython_import_boundary.py` with the two specified
+regression tests, both passing. Note: the `URL.port` int/str type
+mismatch and the missing `.path`/`.value` Python-level properties are
+pre-existing behaviors outside this task's scope and were left
+untouched; the regression test only asserts the currently-working
+public contract (`scheme`, `host`, `qs_params`, `__str__`, `__repr__`,
+`change_host`).
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: 
-
-**Deviations from spec**: none | describe if any
+**Deviations from spec**: none

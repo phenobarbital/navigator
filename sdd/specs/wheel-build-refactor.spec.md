@@ -12,7 +12,7 @@ reuse_feature_id: FEAT-007
 **Feature ID**: FEAT-007
 **Date**: 2026-09-08
 **Author**: Jesus Lara / Codex
-**Status**: draft
+**Status**: approved
 **Target version**: TBD
 
 > `FEAT-007` is intentionally reused from the existing `wheel-build-refactor`

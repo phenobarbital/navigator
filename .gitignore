@@ -20,6 +20,7 @@ apps/*
 build/
 dist/
 templates/
+!sdd/templates/
 settings/
 # External Applications
 apps/

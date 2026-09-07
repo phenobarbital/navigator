@@ -5,7 +5,7 @@
   "type": "feature",
   "base_branch": "dev",
   "created_at": "2026-09-08T00:00:00+02:00",
-  "completed_at": null,
+  "completed_at": "2026-09-08T01:40:00Z",
   "parallelism_notes": "Tasks are intentionally staged: metadata and the Cython import boundary establish the package contract; validation tests then define reusable artifact checks; release workflow integration follows those contracts; documentation closes the feature. Only TASK-2950 is initially independent.",
   "tasks": [
     {
@@ -91,7 +91,7 @@
       "title": "Document the supported wheel matrix and maintenance contract",
       "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
       "spec": "sdd/specs/wheel-build-refactor.spec.md",
-      "status": "in-progress",
+      "status": "done",
       "priority": "medium",
       "effort": "S",
       "depends_on": [
@@ -104,8 +104,8 @@
       "assigned_to": "sdd-worker",
       "created_at": "2026-09-08T00:00:00+02:00",
       "started_at": "2026-09-07T23:18:35Z",
-      "completed_at": null,
-      "file": "sdd/tasks/active/TASK-2954-release-documentation-maintenance-contract.md"
+      "completed_at": "2026-09-08T01:40:00Z",
+      "file": "sdd/tasks/completed/TASK-2954-release-documentation-maintenance-contract.md"
     }
   ]
 }

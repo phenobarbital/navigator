@@ -206,9 +206,16 @@ nav = "navigator.commands:main"
 
 # Setuptools configuration for Cython extensions
 [tool.setuptools]
-packages = ["navigator"]
 include-package-data = true
 zip-safe = false
+
+# Explicitly discover every real subpackage under navigator/ (navigator,
+# navigator.utils, navigator.utils.file, ...). Before this, `packages =
+# ["navigator"]` declared only the top-level package and subpackages were
+# swept into the wheel only as an accident of `global-include *.py` in
+# MANIFEST.in — any change there could silently drop entire subpackages.
+[tool.setuptools.packages.find]
+include = ["navigator*"]
 
 [tool.setuptools_scm]
 write_to = "navigator/_version.py"

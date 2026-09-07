@@ -8,6 +8,7 @@ jobs:
   build:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Linux builds - use manylinux for maximum compatibility
@@ -23,8 +24,27 @@ jobs:
             python-version: "3.13"
             pyver: "313"
             platform: linux
-
-
+          - os: ubuntu-latest
+            python-version: "3.13"
+            pyver: "314"
+            platform: linux
+          # Windows builds - win_amd64 only
+          - os: windows-latest
+            python-version: "3.11"
+            pyver: "311"
+            platform: windows
+          - os: windows-latest
+            python-version: "3.12"
+            pyver: "312"
+            platform: windows
+          - os: windows-latest
+            python-version: "3.13"
+            pyver: "313"
+            platform: windows
+          - os: windows-latest
+            python-version: "3.13"
+            pyver: "314"
+            platform: windows
 
     steps:
       - uses: actions/checkout@v4
@@ -44,17 +64,19 @@ jobs:
 
       - name: Build wheels for Linux (manylinux)
         if: matrix.platform == 'linux'
-        uses: pypa/cibuildwheel@v2.21.3
+        uses: pypa/cibuildwheel@v3.2.1
         env:
           CIBW_BUILD: cp${{ matrix.pyver }}-*
+          CIBW_ARCHS_LINUX: "x86_64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
+          # Skip win32/win_arm64 (not applicable to a Linux job), i686,
+          # musllinux, PyPy ("pp*"), and free-threaded builds ("*t-*").
+          # macOS is out of scope for this feature entirely.
+          CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux* pp* *t-*"
           CIBW_BEFORE_BUILD: >
-            curl https://sh.rustup.rs -sSf | sh -s -- -y &&
-            pip install setuptools>=74.0.0 Cython>=3.0.11 wheel>=0.44.0 setuptools-scm>=8.0 &&
+            pip install setuptools>=67.6.1 Cython>=3.1.4 wheel>=0.44.0 setuptools-scm>=8.0 &&
             (yum install -y postgresql-devel openssl-devel zlib-devel libmemcached-devel xmlsec1-devel libtool-ltdl-devel ||
             (apt-get update && apt-get install -y libpq-dev libssl-dev zlib1g-dev libmemcached-dev libxmlsec1-dev))
-          CIBW_ENVIRONMENT: "PATH=/root/.cargo/bin:$PATH"
           CIBW_TEST_REQUIRES: pytest
           # Import the two Cython extensions explicitly and assert they
           # resolved to a compiled .so (not e.g. a stray .py shadow), so a
@@ -62,43 +84,84 @@ jobs:
           # extensions going missing from the wheel — fails CI instead of
           # passing on the pure-Python "import navigator" smoke test alone.
           CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.so'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.so'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('✅ Navigator test passed:', navigator.version()); print('✅ Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
-          # cassandra-driver (transitive via asyncdb[default]) ships no cp313
-          # manylinux wheel and its sdist's ez_setup.py is broken on 3.13
-          # (TarFile.chown signature changed). Skip the post-build install test
-          # on cp313 only — the wheel itself is built and repaired correctly.
-          # The structural check below (present for every pyver, including
-          # cp313) still verifies the compiled extensions ship in the wheel
-          # without requiring the full runtime dependency set to install.
-          CIBW_TEST_SKIP: "cp313-*"
+          # cp314: asyncdb and python-datamodel (both runtime dependencies)
+          # do not yet publish finalized cp314 wheels, so a full dependency
+          # install can fail even though Navigator's own extensions compile
+          # and the wheel is structurally correct. Skip only the post-build
+          # install/import test for cp314; the archive check below (which
+          # never installs the runtime dependency graph) still blocks the
+          # job for every pyver, including cp314.
+          CIBW_TEST_SKIP: ${{ matrix.pyver == '314' && 'cp314-*' || '' }}
+
+      - name: Build wheels for Windows (win_amd64)
+        if: matrix.platform == 'windows'
+        uses: pypa/cibuildwheel@v3.2.1
+        env:
+          CIBW_BUILD: cp${{ matrix.pyver }}-*
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          # Skip win32/win_arm64, PyPy ("pp*"), and free-threaded builds
+          # ("*t-*"). musllinux/manylinux i686/macOS do not apply to Windows.
+          CIBW_SKIP: "*-win32 *-win_arm64 pp* *t-*"
+          CIBW_BEFORE_BUILD: >
+            pip install setuptools>=67.6.1 Cython>=3.1.4 wheel>=0.44.0 setuptools-scm>=8.0
+          CIBW_TEST_REQUIRES: pytest
+          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.pyd'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.pyd'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('✅ Navigator test passed:', navigator.version()); print('✅ Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
+          # See the Linux job's CIBW_TEST_SKIP comment: cp314 upstream
+          # runtime dependencies (asyncdb, python-datamodel) are not yet
+          # published for cp314, so only the install/import test is
+          # skipped there. Structural validation remains blocking below.
+          CIBW_TEST_SKIP: ${{ matrix.pyver == '314' && 'cp314-*' || '' }}
+
+      - name: Install validation test dependencies
+        run: python -m pip install --quiet pytest
 
       - name: Verify compiled extensions are present in the wheel
-        if: matrix.platform == 'linux'
+        shell: bash
         run: |
           python - <<'PYEOF'
           import glob
           import sys
-          import zipfile
 
-          required = ["navigator/types", "navigator/utils/types"]
+          # Reuse the pure-stdlib wheel-validation helpers from the focused
+          # test suite (FEAT-007 / TASK-2952) instead of re-implementing
+          # archive/tag parsing here.
+          sys.path.insert(0, "tests")
+          from test_release_wheel import (  # noqa: E402
+              is_supported_linux_platform_tag,
+              is_supported_windows_platform_tag,
+              missing_required_extensions,
+              parse_wheel_tags,
+              wheel_archive_members,
+          )
+
+          platform = "${{ matrix.platform }}"
+          suffix = ".pyd" if platform == "windows" else ".so"
+
           wheels = glob.glob("wheelhouse/*.whl")
           if not wheels:
               sys.exit("❌ No wheels found in wheelhouse/")
 
           for wheel_path in wheels:
-              names = zipfile.ZipFile(wheel_path).namelist()
-              so_files = [n for n in names if n.endswith(".so")]
-              for mod in required:
-                  matches = [n for n in so_files if n.startswith(f"{mod}.cpython-")]
-                  if not matches:
-                      sys.exit(f"❌ {wheel_path}: missing compiled extension for {mod}")
-                  print(f"✅ {wheel_path}: {matches[0]}")
-          PYEOF
+              members = wheel_archive_members(wheel_path)
+              missing = missing_required_extensions(members, suffix)
+              if missing:
+                  sys.exit(f"❌ {wheel_path}: missing compiled extension(s) for {missing}")
 
+              _python_tag, _abi_tag, platform_tag = parse_wheel_tags(wheel_path)
+              if platform == "windows":
+                  supported = is_supported_windows_platform_tag(platform_tag)
+              else:
+                  supported = is_supported_linux_platform_tag(platform_tag)
+              if not supported:
+                  sys.exit(f"❌ {wheel_path}: unsupported platform tag {platform_tag}")
+
+              print(f"✅ {wheel_path}: required extensions present ({platform_tag})")
+          PYEOF
 
       - name: Upload wheel artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.platform }}-py${{ matrix.python-version }}
+          name: wheels-${{ matrix.platform }}-${{ matrix.pyver }}
           path: wheelhouse/*.whl
 
   build-source:
@@ -151,20 +214,19 @@ jobs:
 
       - name: Organize artifacts by platform
         run: |
-          mkdir -p dist/linux dist/source
+          mkdir -p dist/linux dist/windows dist/source
 
           # Move artifacts to platform-specific directories
           find dist-artifacts -name '*-manylinux*.whl' -exec mv {} dist/linux/ \;
-
+          find dist-artifacts -name '*-win_amd64.whl' -exec mv {} dist/windows/ \;
 
           find dist-artifacts -name '*.tar.gz' -exec mv {} dist/source/ \;
 
           echo "=== Linux wheels (manylinux) ==="
           ls -la dist/linux/ || echo "No Linux wheels found"
 
-
-
-
+          echo "=== Windows wheels (win_amd64) ==="
+          ls -la dist/windows/ || echo "No Windows wheels found"
 
           echo "=== Source distribution ==="
           ls -la dist/source/ || echo "No source distribution found"
@@ -175,9 +237,11 @@ jobs:
           echo "Uploading Linux manylinux wheels..."
           uv tool run twine upload dist/linux/*-manylinux*.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
 
-
-
-
+      - name: Upload Windows wheels (win_amd64)
+        if: hashFiles('dist/windows/*.whl') != ''
+        run: |
+          echo "Uploading Windows win_amd64 wheels..."
+          uv tool run twine upload dist/windows/*-win_amd64.whl --username __token__ --password ${{ secrets.NAVIGATOR_API_PYPI_API_TOKEN }}
 
       - name: Upload source distribution
         if: hashFiles('dist/source/*.tar.gz') != ''
@@ -189,9 +253,38 @@ jobs:
     needs: deploy
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.11", "3.12", "3.13"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.11"
+            continue-on-error: false
+          - os: ubuntu-latest
+            python-version: "3.12"
+            continue-on-error: false
+          - os: ubuntu-latest
+            python-version: "3.13"
+            continue-on-error: false
+          # cp314: asyncdb / python-datamodel do not yet publish cp314
+          # wheels. Structural wheel validation for cp314 already runs
+          # (and blocks) in the build job above; only this dependency-heavy
+          # install test is allowed to fail here.
+          - os: ubuntu-latest
+            python-version: "3.14"
+            continue-on-error: true
+          - os: windows-latest
+            python-version: "3.11"
+            continue-on-error: false
+          - os: windows-latest
+            python-version: "3.12"
+            continue-on-error: false
+          - os: windows-latest
+            python-version: "3.13"
+            continue-on-error: false
+          - os: windows-latest
+            python-version: "3.14"
+            continue-on-error: true
+    continue-on-error: ${{ matrix.continue-on-error }}
 
     steps:
       - name: Set up Python
@@ -205,6 +298,7 @@ jobs:
           python -c "import time; time.sleep(120)"
 
       - name: Install package from PyPI
+        shell: bash
         run: |
           python -m pip install --upgrade pip
           # Try installing with retries in case of propagation delays
@@ -218,33 +312,43 @@ jobs:
             fi
           done
 
-      - name: Prepare SITE_ROOT for navconfig
+      - name: Prepare navconfig project environment
+        shell: bash
         run: |
           # navconfig searches for project markers walking up from its own
-          # site-packages location, not from CWD. Without a marker it raises
-          # ProjectDetectionError on import. Create a temp project root with
-          # the supported markers and export SITE_ROOT for the next steps.
+          # site-packages location, not from CWD. Without the required
+          # markers it raises FileExistsError/ProjectDetectionError on
+          # import. Scaffold a temp project root with the supported
+          # markers (env/<ENV>/.env, .env, pyproject.toml, etc/config.ini)
+          # and export SITE_ROOT/ENV for the next steps, matching the
+          # focused test fixture in tests/test_release_wheel.py.
           ROOT="${RUNNER_TEMP}/nav-root"
-          mkdir -p "${ROOT}/etc"
+          mkdir -p "${ROOT}/etc" "${ROOT}/env/dev"
           touch "${ROOT}/.env"
+          touch "${ROOT}/env/dev/.env"
           touch "${ROOT}/pyproject.toml"
           printf "[navconfig]\n" > "${ROOT}/etc/config.ini"
           echo "SITE_ROOT=${ROOT}" >> "$GITHUB_ENV"
+          echo "ENV=dev" >> "$GITHUB_ENV"
 
       - name: Test basic imports
         working-directory: ${{ runner.temp }}/nav-root
+        shell: bash
         run: |
           python -c "import navigator; print('✅ Navigator import successful')"
+          python -c "import navigator.types, navigator.utils.types; print('✅ Compiled extensions import successful')"
           python -c "import navigator.commands; print('✅ Commands import successful')"
           python -c "from navigator.version import __version__; print('✅ Version:', __version__)"
 
       - name: Test CLI command
         working-directory: ${{ runner.temp }}/nav-root
+        shell: bash
         run: |
           nav --version || echo "⚠️ CLI test failed on ${{ matrix.os }}"
 
       - name: Test package contents
         working-directory: ${{ runner.temp }}/nav-root
+        shell: bash
         run: |
           python -c "
           import navigator
@@ -279,8 +383,8 @@ jobs:
       - name: Test Results Summary
         run: |
           echo "## 🎉 Release Testing Complete"
-          echo "✅ Package successfully built for Linux"
+          echo "✅ Package successfully built for Linux (manylinux x86_64) and Windows (win_amd64)"
           echo "✅ Package uploaded to PyPI"
-          echo "✅ Installation and import tests completed"
+          echo "✅ Installation and import tests completed for cp311-cp314 on both platforms"
           echo ""
           echo "The new release is ready for use! 🚀"

@@ -107,19 +107,20 @@ Distribution: 7 high, 1 medium, 0 low. Overall confidence is high: the failure l
 
 ## 5. Open Questions
 
-All four questions are resolved (2026-09-08). Decisions marked *recommended* are evidence-backed defaults that the owner can flip before `/sdd-spec`.
+All four questions are resolved and confirmed by the maintainer (2026-09-08): macOS dropped, no Rust, Windows `win_amd64` required, and the Actions failure root-caused.
 
 - [x] **What exact error appears in Actions run `33763696379`, job `100676045151`?** — Resolved (C5, F008).
   **Class: test-harness / import-time coupling.** Build and `auditwheel` repair succeeded (`manylinux_2_17`-eligible). The `CIBW_TEST_COMMAND` runs in an empty temp directory and executes `import navigator.types`; `navigator/types.pyx:7` does `from navconfig import config, DEBUG`, navconfig's lazy `__getattr__` runs `bootstrap()`, and `BaseLoader.__init__` raises `FileExistsError: NavConfig could not find the expected environment directory. Looked for: /tmp/tmp.yrcnYmd8BK/env`. The guard in `navigator/__init__.py` covers only `Application`, not an explicit `navigator.types` import. cp311 and cp312 fail identically; cp313 passed only because `CIBW_TEST_SKIP: cp313-*` skipped the test. `config` and `DEBUG` are never used in `types.pyx`, so the import is dead code.
-  **Spec implications**: (1) delete the unused navconfig import from `navigator/types.pyx`; (2) make the archive-level `.so`/`.pyd` check the blocking gate and replace the inline shell test with a cross-platform Python smoke script that scaffolds `env/<env>/.env` and `SITE_ROOT` before importing (the post-publish `test-installation` job already does this scaffolding); (3) bump `pypa/cibuildwheel` from v2.21.3 (no cp314) to v4.x; (4) remove the unused rustup install from `CIBW_BEFORE_BUILD`; (5) drop `navconfig[default]` from `[build-system].requires`, since `setup.py` never imports it; (6) re-evaluate `CIBW_TEST_SKIP: cp313-*`, whose cassandra-driver rationale is stale.
+  Maintainer note: `env/` is a required navconfig folder (`kardex env create`) and `navigator/conf.py` legitimately needs navconfig at runtime; navconfig is not needed at build time.
+  **Spec implications**: (1) delete the unused navconfig import from `navigator/types.pyx`; (2) make the archive-level `.so`/`.pyd` check the blocking gate and replace the inline shell test with a cross-platform Python smoke script that scaffolds the project with `kardex env create` (or `env/<env>/.env` + `SITE_ROOT`) before importing (the post-publish `test-installation` job already does this scaffolding); (3) bump `pypa/cibuildwheel` from v2.21.3 (no cp314) to v4.x; (4) remove the unused rustup install from `CIBW_BEFORE_BUILD`; (5) drop `navconfig[default]` from `[build-system].requires`, since `setup.py` never imports it; (6) re-evaluate `CIBW_TEST_SKIP: cp313-*`, whose cassandra-driver rationale is stale.
 
-- [x] **Should macOS wheels remain part of the release promise?** — Resolved *(recommended)*: **Linux x86_64 + Windows AMD64 only; macOS deferred** (C2, F009).
+- [x] **Should macOS wheels remain part of the release promise?** — Resolved by maintainer: **macOS dropped; Linux x86_64 + Windows AMD64 only** (C2, F009).
   Navigator has never published a macOS wheel (every release 3.1.0–3.2.2 is manylinux + sdist); `macos-latest` rows were added to the matrix once and later removed. navconfig and python-datamodel publish no macOS wheels, so a macOS Navigator wheel would still compile those two from sdist on the user's machine, and macOS runners bill at 10× Linux minutes. asyncdb does ship macOS x86_64/arm64, so nothing blocks adding macOS later as a single matrix row with `CIBW_ARCHS_MACOS: "x86_64 arm64"`. The spec should make the matrix data-driven so macOS is an additive change.
 
-- [x] **Should Rust/PyO3 or maturin be introduced now?** — Resolved *(recommended)*: **No Rust now; keep the seam open** (C6, F006, F010).
+- [x] **Should Rust/PyO3 or maturin be introduced now?** — Resolved by maintainer: **No Rust extensions in this repository; Cython-only** (C6, F006, F010).
   asyncdb's tracked tree has no `.rs` files, no `Cargo.toml`, and uses `setuptools.build_meta`; its `rst_convert` Rust directory is an untracked local experiment. Navigator's rustup install in the workflow is consumed by nothing. Keep setuptools as the backend: maturin cannot drive Cython extensions, whereas `setuptools-rust`'s `RustExtension` coexists with Cython `Extension` entries in `setup.py`. A future Rust module therefore needs only: `setuptools-rust` in `[build-system]`, a `RustExtension` entry, `CIBW_BEFORE_ALL` rustup on Linux/Windows, and one more required-artifact name in the archive check. The spec should document that extension point and nothing more.
 
-- [x] **Is the Windows target CPython AMD64 for 3.11–3.14?** — Resolved: **Yes, `win_amd64` only, cp311–cp314** (C7, C8, F009).
+- [x] **Is the Windows target CPython AMD64 for 3.11–3.14?** — Resolved by maintainer: **Windows is a must. `win_amd64` only, cp311–cp314** (C7, C8, F009).
   navconfig 2.5.1 (2026-09-07) ships `win_amd64` for cp310–cp314; asyncdb, python-datamodel, xmlsec and pymssql ship `win_amd64`; no upstream ships `win32` or `win_arm64`, so those are skipped (`*-win32`, no ARM64). Two dependency constraints the spec must carry: (1) `asyncdb[uvloop,…]` in the base dependencies pulls `uvloop==0.21.0`, which has no Windows wheels and blocks `pip install navigator-api` on Windows; move `uvloop` out of the base extras and guard it with `sys_platform != 'win32'` as navconfig 2.5.1 does (`navigator/__init__.py` already tolerates a missing uvloop). (2) asyncdb and python-datamodel publish no cp314 wheels yet (asyncdb's release pins host Python 3.10, gets cibuildwheel 2.23.4, and silently skips cp314), so Navigator's cp314 wheels are buildable and should ship, but the post-publish install test for 3.14 must be `continue-on-error` until those upstreams publish cp314 wheels. Free-threaded builds (`cp31?t-*`) are skipped: orjson and others ship no free-threaded wheels.
 
 ## 6. Recommended Next Step
@@ -129,7 +130,7 @@ All four questions are resolved (2026-09-08). Decisions marked *recommended* are
 ### Alternatives
 
 - **Hotfix first on `main`** — the root cause is a one-line dead import; shipping that alone restores the Linux release pipeline before the refactor lands.
-- **`/sdd-brainstorm wheel-build-refactor`** — only if the owner wants to reopen the macOS or Rust recommendations above.
+- **`/sdd-brainstorm wheel-build-refactor`** — not needed; all decisions are confirmed by the maintainer.
 
 ## 7. Research Audit
 

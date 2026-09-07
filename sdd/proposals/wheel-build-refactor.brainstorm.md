@@ -7,7 +7,7 @@ base_branch: dev
 
 **Date**: 2026-09-08
 **Author**: Codex
-**Status**: questions-resolved
+**Status**: decisions-final
 **Recommended Option**: A
 
 ## Problem Statement
@@ -73,6 +73,18 @@ fetched with `gh api`, PyPI file lists, and the asyncdb/navconfig trees).
   rustup install in `CIBW_BEFORE_BUILD` is consumed by nothing.
   `[build-system].requires` lists `navconfig[default]` although `setup.py`
   never imports it.
+
+### Round 4 — maintainer decisions (2026-09-08)
+
+1. `env/` is a required navconfig folder (`kardex env create` scaffolds it).
+   `navigator/conf.py` legitimately requires navconfig at runtime, so every
+   import smoke test must scaffold a project first. navconfig is **not**
+   needed in the build phase: the only build-time pull is the stale
+   `navconfig[default]` entry in `[build-system].requires`, and the CI
+   failure came from the unused import in `navigator/types.pyx`.
+2. **macOS is dropped.** Navigator targets Linux and Windows only.
+3. **No Rust extensions** in this repository; the refactor is Cython-only.
+4. **Windows is a must**: `win_amd64`, cp311–cp314.
 
 ## Constraints & Requirements
 
@@ -320,11 +332,10 @@ No new runtime imports are proposed.
 
 ## Open Questions
 
-All questions are resolved. Items marked *recommended* are evidence-backed
-defaults the maintainer can flip before `/sdd-spec`.
+All questions are resolved and confirmed by the maintainer (Round 4).
 
-- [x] What exact failure is reported by the linked Actions job? — *Owner: maintainer*: `FileExistsError: NavConfig could not find the expected environment directory` raised from navconfig's `BaseLoader.__init__` during `import navigator.types` inside cibuildwheel's test command (cp311 and cp312; cp313 skipped its test). Class: test-harness / import-time coupling, not compilation, dependency install, or publication. Fix: remove the unused `from navconfig import config, DEBUG` in `navigator/types.pyx`, make the archive-level `.so`/`.pyd` check the blocking gate, and run the import smoke test from a Python script that scaffolds `env/<env>/.env` and `SITE_ROOT` (as the post-publish `test-installation` job already does). See F008.
-- [x] Is macOS still a required published platform, in addition to Linux and Windows? — *Owner: maintainer* *(recommended)*: No. Target Linux x86_64 + Windows AMD64; defer macOS. Navigator has never published a macOS wheel, `macos-latest` rows were added and removed in the workflow's history, and navconfig and python-datamodel ship no macOS wheels, so a macOS Navigator wheel would still compile those from sdist on the user's machine. asyncdb does ship macOS x86_64/arm64, so macOS remains a one-row additive change (`CIBW_ARCHS_MACOS: "x86_64 arm64"`) later. See F009.
-- [x] Is the Windows target CPython AMD64 for 3.11–3.14, or another ABI/architecture set? — *Owner: maintainer*: `win_amd64` only, cp311–cp314. Every upstream native wheel (navconfig, asyncdb, python-datamodel, xmlsec, pymssql) is `win_amd64`; nobody ships `win_arm64`, and `win32` is skipped as in asyncdb. Free-threaded (`cp31?t-*`) builds are skipped. Navigator cp314 wheels are buildable and should ship, but the post-publish install test on 3.14 stays `continue-on-error` until asyncdb and python-datamodel publish cp314 wheels. See F009, F010.
-- [x] Is a concrete Rust/PyO3 extension planned for Navigator now, or should the first refactor remain Cython-only but extensible? — *Owner: maintainer* *(recommended)*: Cython-only, extensible. asyncdb's tracked tree has no `.rs` or `Cargo.toml` and uses `setuptools.build_meta`; its `rst_convert` Rust directory is an untracked local experiment. Keep setuptools (maturin cannot drive Cython; `setuptools-rust`'s `RustExtension` coexists with Cython `Extension` entries), remove the dead rustup step, and document the seam: `setuptools-rust` in `[build-system]`, a `RustExtension`, `CIBW_BEFORE_ALL` rustup, and one more name in the archive check. See F006, F010.
+- [x] What exact failure is reported by the linked Actions job? — *Owner: maintainer*: `FileExistsError: NavConfig could not find the expected environment directory` raised from navconfig's `BaseLoader.__init__` during `import navigator.types` inside cibuildwheel's test command (cp311 and cp312; cp313 skipped its test). Class: test-harness / import-time coupling, not compilation, dependency install, or publication. Maintainer note: `env/` is required by navconfig and `navigator/conf.py` legitimately depends on it at runtime; navconfig is not needed at build time. Fix: remove the unused `from navconfig import config, DEBUG` in `navigator/types.pyx`, drop `navconfig[default]` from `[build-system].requires`, make the archive-level `.so`/`.pyd` check the blocking gate, and run the import smoke test from a Python script that scaffolds the project with `kardex env create` (or equivalent `env/<env>/.env` + `SITE_ROOT`) before importing. See F008.
+- [x] Is macOS still a required published platform, in addition to Linux and Windows? — *Owner: maintainer*: **No, macOS is dropped.** Target Linux x86_64 + Windows AMD64. Navigator has never published a macOS wheel, `macos-latest` rows were added and removed in the workflow's history, and navconfig and python-datamodel ship no macOS wheels, so a macOS Navigator wheel would still compile those from sdist on the user's machine. asyncdb does ship macOS x86_64/arm64, so macOS remains a one-row additive change (`CIBW_ARCHS_MACOS: "x86_64 arm64"`) later. See F009.
+- [x] Is the Windows target CPython AMD64 for 3.11–3.14, or another ABI/architecture set? — *Owner: maintainer*: **Windows is a must.** `win_amd64` only, cp311–cp314. Every upstream native wheel (navconfig, asyncdb, python-datamodel, xmlsec, pymssql) is `win_amd64`; nobody ships `win_arm64`, and `win32` is skipped as in asyncdb. Free-threaded (`cp31?t-*`) builds are skipped. Navigator cp314 wheels are buildable and should ship, but the post-publish install test on 3.14 stays `continue-on-error` until asyncdb and python-datamodel publish cp314 wheels. See F009, F010.
+- [x] Is a concrete Rust/PyO3 extension planned for Navigator now, or should the first refactor remain Cython-only but extensible? — *Owner: maintainer*: **No Rust extensions exist or are planned in this repository; the refactor is Cython-only.** asyncdb's tracked tree has no `.rs` or `Cargo.toml` and uses `setuptools.build_meta`; its `rst_convert` Rust directory is an untracked local experiment. Keep setuptools (maturin cannot drive Cython; `setuptools-rust`'s `RustExtension` coexists with Cython `Extension` entries), remove the dead rustup step, and document the seam: `setuptools-rust` in `[build-system]`, a `RustExtension`, `CIBW_BEFORE_ALL` rustup, and one more name in the archive check. See F006, F010.
 - [x] Are asyncdb and navconfig credible implementation precedents? — *Owner: maintainer*: Yes, with one caveat: navconfig 2.5.1 is the closer precedent (Linux + Windows, cp310–cp314, `uv build --wheel` on `windows-latest`, uvloop platform marker). asyncdb proves the three-OS cibuildwheel matrix and the archive-level check, but not cp314, because its own release skips it (see Round 3). See F010.

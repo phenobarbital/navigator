@@ -1,16 +1,97 @@
 {
-  "schema_version":"1.0",
-  "feat_id":"FEAT-007",
-  "feature_slug":"wheel-build-refactor",
-  "started_at":"2026-09-08T00:00:00+02:00",
-  "updated_at":"2026-09-08T00:00:00+02:00",
-  "source":{"kind":"inline","jira_key":null,"jira_url":null,"raw_path":"sdd/state/FEAT-007/source.md","fetched_at":"2026-09-08T00:00:00+02:00","summary_oneline":"Refactor Navigator wheel infrastructure for Cython, future native code, Python 3.13/3.14, and Windows artifacts."},
-  "mode":"auto",
-  "detected_mode":"enrichment",
-  "phase":"proposal_drafted",
-  "phases":{"source":{"status":"completed","completed_at":"2026-09-08T00:00:00+02:00"},"plan":{"status":"completed","completed_at":"2026-09-08T00:00:00+02:00","queries_total":12,"approved_by_user":true,"edited_by_user":false,"plan_path":"sdd/state/FEAT-007/research_plan.json"},"research":{"status":"completed","completed_at":"2026-09-08T00:00:00+02:00","queries_executed":12,"queries_skipped":0,"depth_reached":1,"files_read":12,"grep_calls":3,"git_calls":2,"truncated":false,"truncation_reason":null},"synthesis":{"status":"completed","completed_at":"2026-09-08T00:00:00+02:00","synthesis_path":"sdd/state/FEAT-007/synthesis.json","thinking_path":null,"overall_confidence":"medium","claims_total":6,"claims_high_conf":3,"claims_medium_conf":3,"claims_low_conf":0,"unknowns_count":4,"lint_passed":true,"lint_iterations":1},"qa":{"status":"skipped","skipped_reason":"No targeted user answers were available during this run; material unknowns are preserved in synthesis.json."},"output":{"status":"completed","completed_at":"2026-09-08T00:00:00+02:00","proposal_path":"sdd/proposals/wheel-build-refactor.proposal.md","commit_sha":null,"next_command_recommended":"sdd-brainstorm","next_command_rationale":"Medium confidence and unresolved architecture choices require a focused brainstorm before formal specification."}},
-  "budget":{"profile":"default","max_files_read":40,"max_grep_calls":25,"max_git_calls":10,"max_depth":2,"max_wall_seconds":300},
-  "consumed":{"files_read":12,"grep_calls":3,"git_calls":2,"wall_seconds":12.0},
-  "errors":[{"phase":"research","at":"2026-09-08T00:00:00+02:00","message":"wikitoolkit command unavailable; GitHub Actions job fetch returned cache miss; local build probe failed because build module is not installed.","recoverable":true}],
-  "resume_hint":{"next_phase":"qa_pending","next_action":"Resolve U1-U4 or run sdd-brainstorm before sdd-spec."}
+  "schema_version": "1.0",
+  "feat_id": "FEAT-007",
+  "feature_slug": "wheel-build-refactor",
+  "started_at": "2026-09-08T00:00:00+02:00",
+  "updated_at": "2026-09-08T12:00:00+02:00",
+  "source": {
+    "kind": "inline",
+    "jira_key": null,
+    "jira_url": null,
+    "raw_path": "sdd/state/FEAT-007/source.md",
+    "fetched_at": "2026-09-08T00:00:00+02:00",
+    "summary_oneline": "Refactor Navigator wheel infrastructure for Cython, future native code, Python 3.13/3.14, and Windows artifacts."
+  },
+  "mode": "auto",
+  "detected_mode": "enrichment",
+  "phase": "proposal_drafted",
+  "phases": {
+    "source": {
+      "status": "completed",
+      "completed_at": "2026-09-08T00:00:00+02:00"
+    },
+    "plan": {
+      "status": "completed",
+      "completed_at": "2026-09-08T00:00:00+02:00",
+      "queries_total": 12,
+      "approved_by_user": true,
+      "edited_by_user": false,
+      "plan_path": "sdd/state/FEAT-007/research_plan.json"
+    },
+    "research": {
+      "status": "completed",
+      "completed_at": "2026-09-08T00:00:00+02:00",
+      "queries_executed": 12,
+      "queries_skipped": 0,
+      "depth_reached": 1,
+      "files_read": 12,
+      "grep_calls": 3,
+      "git_calls": 2,
+      "truncated": false,
+      "truncation_reason": null
+    },
+    "synthesis": {
+      "status": "completed",
+      "completed_at": "2026-09-08T00:00:00+02:00",
+      "synthesis_path": "sdd/state/FEAT-007/synthesis.json",
+      "thinking_path": null,
+      "overall_confidence": "high",
+      "claims_total": 6,
+      "claims_high_conf": 3,
+      "claims_medium_conf": 3,
+      "claims_low_conf": 0,
+      "unknowns_count": 0,
+      "lint_passed": true,
+      "lint_iterations": 1
+    },
+    "qa": {
+      "status": "completed",
+      "completed_at": "2026-09-08T12:00:00+02:00",
+      "note": "Open questions U1-U4 resolved interactively; findings F008-F010 added."
+    },
+    "output": {
+      "status": "completed",
+      "completed_at": "2026-09-08T00:00:00+02:00",
+      "proposal_path": "sdd/proposals/wheel-build-refactor.proposal.md",
+      "commit_sha": null,
+      "next_command_recommended": "sdd-spec",
+      "next_command_rationale": "All open questions resolved with evidence (F008-F010); platform, Rust and root-cause forks are closed."
+    }
+  },
+  "budget": {
+    "profile": "default",
+    "max_files_read": 40,
+    "max_grep_calls": 25,
+    "max_git_calls": 10,
+    "max_depth": 2,
+    "max_wall_seconds": 300
+  },
+  "consumed": {
+    "files_read": 12,
+    "grep_calls": 3,
+    "git_calls": 2,
+    "wall_seconds": 12.0
+  },
+  "errors": [
+    {
+      "phase": "research",
+      "at": "2026-09-08T00:00:00+02:00",
+      "message": "wikitoolkit command unavailable; GitHub Actions job fetch returned cache miss; local build probe failed because build module is not installed.",
+      "recoverable": true
+    }
+  ],
+  "resume_hint": {
+    "next_phase": "spec",
+    "next_action": "Run /sdd-spec wheel-build-refactor; consider a hotfix for the dead navconfig import in navigator/types.pyx first."
+  }
 }

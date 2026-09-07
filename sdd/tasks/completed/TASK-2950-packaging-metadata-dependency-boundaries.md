@@ -100,13 +100,13 @@ discovery at `pyproject.toml:207-221`.
 
 ## Acceptance Criteria
 
-- [ ] Build-system requirements no longer include `navconfig[default]`.
-- [ ] Python 3.14 is advertised and build requirements support it.
-- [ ] No universal or hard-coded `py310` wheel metadata remains for compiled wheels.
-- [ ] Windows installation does not resolve uvloop through Navigator's base asyncdb dependency.
-- [ ] Linux production installations retain an explicit optional uvloop path.
-- [ ] Existing package discovery and Cython source inclusion remain intact.
-- [ ] Focused metadata tests pass.
+- [x] Build-system requirements no longer include `navconfig[default]`.
+- [x] Python 3.14 is advertised and build requirements support it.
+- [x] No universal or hard-coded `py310` wheel metadata remains for compiled wheels.
+- [x] Windows installation does not resolve uvloop through Navigator's base asyncdb dependency.
+- [x] Linux production installations retain an explicit optional uvloop path.
+- [x] Existing package discovery and Cython source inclusion remain intact.
+- [x] Focused metadata tests pass.
 
 ## Test Specification
 
@@ -128,10 +128,16 @@ run focused tests, and leave the task pending until the executor completes it.
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (session_01ASHPx3ufe76XXQEpoGNxMM)
+**Date**: 2026-09-08
+**Notes**: Removed `navconfig[default]` from `[build-system].requires`;
+added the Python 3.14 classifier; aligned `Cython` to `>=3.1.4,<4` in
+build-system requires, base dependencies, and the `build` extra; deleted
+the stale `[wheel]` (`python-tag = py310`, `universal = 1`) section from
+`setup.cfg`; dropped the `uvloop` extra from the base `asyncdb[...]`
+dependency and added a `sys_platform != 'win32'` marker to the `uvloop`
+and `production` optional-dependency entries. Added
+`tests/test_packaging_metadata.py` with the three specified tests, all
+passing (`pytest tests/test_packaging_metadata.py -v`).
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: 
-
-**Deviations from spec**: none | describe if any
+**Deviations from spec**: none

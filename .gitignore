@@ -14,6 +14,7 @@ __pycache__
 *.c
 *.cpp
 # External Extensions
+etc/
 extensions/*
 services/*
 apps/*

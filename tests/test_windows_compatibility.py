@@ -12,6 +12,7 @@ them) by simulating uvloop's absence rather than requiring a Windows
 runner; the actual Windows job in the release workflow (Module 4)
 exercises the real platform.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -26,8 +27,7 @@ def test_core_import_does_not_require_uvloop_on_windows(tmp_path):
     install where Navigator's uvloop extra is excluded — and confirm the
     core import path still succeeds.
     """
-    script = textwrap.dedent(
-        """
+    script = textwrap.dedent("""
         import builtins
 
         _real_import = builtins.__import__
@@ -45,8 +45,7 @@ def test_core_import_does_not_require_uvloop_on_windows(tmp_path):
         # Calling it again must not raise even though uvloop is unimportable.
         install_uvloop()
         print("IMPORT_OK", navigator.version())
-        """
-    )
+        """)
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=tmp_path,

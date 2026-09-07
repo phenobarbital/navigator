@@ -15,6 +15,7 @@ navconfig requires at runtime, before importing ``navigator``,
 ``navigator.types``, and ``navigator.utils.types`` — the same import
 sequence the release smoke test performs.
 """
+
 from __future__ import annotations
 
 import os
@@ -234,9 +235,9 @@ def test_supported_wheel_tags(cpython_tag, platform_tag):
 
     assert python_tag in SUPPORTED_CPYTHON_TAGS
     assert not is_excluded_tag(python_tag, parsed_platform_tag)
-    assert is_supported_linux_platform_tag(parsed_platform_tag) or is_supported_windows_platform_tag(
+    assert is_supported_linux_platform_tag(
         parsed_platform_tag
-    )
+    ) or is_supported_windows_platform_tag(parsed_platform_tag)
 
 
 @pytest.mark.parametrize(
@@ -264,8 +265,7 @@ def test_excluded_wheel_tags_are_rejected(filename):
 def test_core_import_with_scaffolded_navconfig_environment(tmp_path):
     _scaffold_navconfig_project(tmp_path)
 
-    script = textwrap.dedent(
-        """
+    script = textwrap.dedent("""
         import navigator
         import navigator.types
         import navigator.utils.types
@@ -273,8 +273,7 @@ def test_core_import_with_scaffolded_navconfig_environment(tmp_path):
         assert navigator.types.__file__.endswith((".so", ".pyd")), navigator.types.__file__
         assert navigator.utils.types.__file__.endswith((".so", ".pyd")), navigator.utils.types.__file__
         print("IMPORT_OK", navigator.version())
-        """
-    )
+        """)
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=tmp_path,

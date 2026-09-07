@@ -7,6 +7,7 @@ the spec: Linux x86_64 manylinux and Windows AMD64 wheels for
 CPython 3.11-3.14, a blocking structural validation gate, and
 publication of both wheel families alongside the source distribution.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -33,7 +34,11 @@ def test_release_workflow_requests_supported_matrix():
     matrix_entries = build_job["strategy"]["matrix"]["include"]
 
     seen = {(entry["platform"], entry["pyver"]) for entry in matrix_entries}
-    expected = {(platform, pyver) for platform in ("linux", "windows") for pyver in SUPPORTED_PYVERS}
+    expected = {
+        (platform, pyver)
+        for platform in ("linux", "windows")
+        for pyver in SUPPORTED_PYVERS
+    }
     assert seen == expected
 
     # No excluded platform/ABI is requested anywhere in the matrix.
@@ -54,14 +59,20 @@ def test_release_workflow_validates_platform_specific_extensions():
     build_job = _build_job(_load_workflow())
     steps = build_job["steps"]
 
-    linux_build = next(s for s in steps if s.get("name") == "Build wheels for Linux (manylinux)")
-    windows_build = next(s for s in steps if s.get("name") == "Build wheels for Windows (win_amd64)")
+    linux_build = next(
+        s for s in steps if s.get("name") == "Build wheels for Linux (manylinux)"
+    )
+    windows_build = next(
+        s for s in steps if s.get("name") == "Build wheels for Windows (win_amd64)"
+    )
 
     assert linux_build["env"]["CIBW_TEST_COMMAND"].count(".so") >= 2
     assert windows_build["env"]["CIBW_TEST_COMMAND"].count(".pyd") >= 2
 
     verify_step = next(
-        s for s in steps if s.get("name") == "Verify compiled extensions are present in the wheel"
+        s
+        for s in steps
+        if s.get("name") == "Verify compiled extensions are present in the wheel"
     )
     script = verify_step["run"]
 
@@ -83,12 +94,16 @@ def test_release_workflow_publishes_manylinux_and_windows_artifacts():
     workflow = _load_workflow()
     deploy_steps = workflow["jobs"]["deploy"]["steps"]
 
-    organize = next(s for s in deploy_steps if s.get("name") == "Organize artifacts by platform")
+    organize = next(
+        s for s in deploy_steps if s.get("name") == "Organize artifacts by platform"
+    )
     assert "manylinux" in organize["run"]
     assert "win_amd64" in organize["run"]
     assert ".tar.gz" in organize["run"]
 
-    upload_names = [s["name"] for s in deploy_steps if s.get("name", "").startswith("Upload")]
+    upload_names = [
+        s["name"] for s in deploy_steps if s.get("name", "").startswith("Upload")
+    ]
     assert "Upload Linux wheels (manylinux)" in upload_names
     assert "Upload Windows wheels (win_amd64)" in upload_names
     assert "Upload source distribution" in upload_names
@@ -118,7 +133,9 @@ def test_release_workflow_test_installation_covers_both_platforms_and_cp314():
         assert entry["continue-on-error"] == expected_continue
 
     steps = test_job["steps"]
-    prepare_env = next(s for s in steps if s.get("name") == "Prepare navconfig project environment")
+    prepare_env = next(
+        s for s in steps if s.get("name") == "Prepare navconfig project environment"
+    )
     assert "env/dev/.env" in prepare_env["run"]
     assert "SITE_ROOT" in prepare_env["run"]
 

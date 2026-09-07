@@ -6,6 +6,7 @@ release matrix implemented in ``.github/workflows/release.yml``
 (TASK-2953) — no stale cp313-only or macOS claims, and the excluded
 platforms are explicit.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -46,7 +47,9 @@ def test_documented_wheel_matrix_matches_release_contract():
     # No stale claim that Navigator only supports up to cp313.
     assert "3.11, 3.12, 3.13\n" not in readme
     assert "up to 3.13" not in readme.lower()
-    assert "3.9+ (3.11+ recommended)" in readme  # unrelated min-version claim, unchanged
+    assert (
+        "3.9+ (3.11+ recommended)" in readme
+    )  # unrelated min-version claim, unchanged
 
     # Cython-only / no-Rust contract is documented.
     assert "Cython-only" in readme

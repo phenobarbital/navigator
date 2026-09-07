@@ -16,6 +16,7 @@ These tests confirm:
   with no navconfig project assets no longer raises that error, while
   the ``URL`` extension's public contract is unchanged.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -34,12 +35,10 @@ def test_navigator_types_import_does_not_bootstrap_navconfig(tmp_path):
     # Dynamic check: importing the compiled extension from a directory
     # with no navconfig project assets (mirroring cibuildwheel's empty
     # temporary smoke-test directory) must not raise FileExistsError.
-    script = textwrap.dedent(
-        """
+    script = textwrap.dedent("""
         import navigator.types
         print("IMPORT_OK")
-        """
-    )
+        """)
     result = subprocess.run(
         [sys.executable, "-c", script],
         cwd=tmp_path,

@@ -17,6 +17,7 @@ on Windows:
 These tests require no network access or external services; they only
 parse the repository's own metadata files.
 """
+
 from __future__ import annotations
 
 import tomllib
@@ -56,7 +57,10 @@ def test_build_system_does_not_require_navconfig_runtime_extra(pyproject):
     # The build requirements should describe only what setup.py imports:
     # setuptools, Cython, wheel, and setuptools_scm for version generation.
     lowered = [req.lower() for req in build_requires]
-    assert any(req.startswith("setuptools>") or req.startswith("setuptools=") for req in lowered)
+    assert any(
+        req.startswith("setuptools>") or req.startswith("setuptools=")
+        for req in lowered
+    )
     assert any(req.startswith("cython") for req in lowered)
     assert any(req.startswith("wheel") for req in lowered)
 

@@ -89,11 +89,11 @@ Linux/Windows scope rather than copying asyncdb's macOS matrix.
 
 ## Acceptance Criteria
 
-- [ ] Supported Python/platform wheel matrix is documented accurately.
-- [ ] Excluded platforms and optional-provider limitations are explicit.
-- [ ] Cython-only/native extension contract is documented.
-- [ ] Changelog/release notes follow repository convention.
-- [ ] Documentation contains no stale cp313-only or macOS claims.
+- [x] Supported Python/platform wheel matrix is documented accurately.
+- [x] Excluded platforms and optional-provider limitations are explicit.
+- [x] Cython-only/native extension contract is documented.
+- [x] Changelog/release notes follow repository convention.
+- [x] Documentation contains no stale cp313-only or macOS claims.
 
 ## Test Specification
 
@@ -109,10 +109,33 @@ files before editing and keep the change limited to release support claims.
 
 ## Completion Note
 
-*(Agent fills this in when done)*
+**Completed by**: sdd-worker (session_01ASHPx3ufe76XXQEpoGNxMM)
+**Date**: 2026-09-08
+**Notes**: Added a "🖥️ Platform & Wheel Support" section to `README.md`
+documenting the `manylinux_2_28_x86_64` / `win_amd64` wheel matrix for
+CPython 3.11-3.14, explicitly listing macOS/`win32`/`win_arm64`/
+free-threaded/`i686`/`musllinux`/PyPy as not built or published, the
+Cython-only (no Rust/PyO3/maturin) build contract, and that optional
+integrations (uvloop, individual providers) may have narrower Windows/
+cp314 support than the core package. Added a "🧑‍🔧 Building From
+Source (Maintainers)" section recording the navconfig project-
+scaffolding requirement (`env/<ENV>/.env`, `.env`, `pyproject.toml`,
+`etc/config.ini`, `SITE_ROOT`) needed to exercise the compiled
+extensions against real configuration, referencing
+`tests/test_release_wheel.py`'s fixture and the release workflow.
+Recorded the release-infrastructure change in `CHANGELOG.md`'s
+`[Unreleased]` section under new `### Added`/`### Fixed` headings plus
+an addition to the existing `### Changed` heading, following the
+repository's Keep a Changelog convention. Added
+`tests/test_release_documentation.py` implementing
+`test_documented_wheel_matrix_matches_release_contract`, which parses
+`.github/workflows/release.yml`'s actual build matrix (via `pyyaml`)
+and cross-checks it against the README's documented claims, so the
+docs cannot silently drift from the release matrix implemented in
+TASK-2953. All 36 focused tests across TASK-2950-2954 pass.
 
-**Completed by**: <session or agent ID>
-**Date**: YYYY-MM-DD
-**Notes**: 
-
-**Deviations from spec**: none | describe if any
+**Deviations from spec**: none — `docs/` exists (Sphinx API docs,
+`docs/sdd/`, `docs/ops/`) but has no existing release/wheel-support
+documentation path, so `README.md`/`CHANGELOG.md` were selected as the
+user/maintainer-facing documentation per the task's "MODIFY if selected
+by project convention" instruction.

@@ -284,9 +284,6 @@ navigator-api[uvloop]         # uvloop for better async performance
 # Internationalization
 navigator-api[locale]         # Babel for i18n support
 
-# Caching
-navigator-api[memcache]       # Memcached support
-
 # Production deployment
 navigator-api[gunicorn]       # Gunicorn WSGI server
 

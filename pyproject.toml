@@ -86,9 +86,6 @@ dynamic = ["version"]
 locale = [
     "Babel>=2.9.1,<=2.17.0",
 ]
-memcache = [
-    "aiomcache>=0.8.2",
-]
 uvloop = [
     "uvloop>=0.21.0; sys_platform != 'win32'",
 ]
@@ -194,7 +191,7 @@ docs = [
 
 # All optional dependencies
 all = [
-    "navigator-api[locale,memcache,uvloop,gunicorn,google,scraping,testing,qworker]"
+    "navigator-api[locale,uvloop,gunicorn,google,scraping,testing,qworker]"
 ]
 
 [project.urls]

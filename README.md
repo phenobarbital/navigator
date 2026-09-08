@@ -339,7 +339,63 @@ CMD ["nav", "run", "--port", "8000"]
 - **Dependencies**:
   - aiohttp >= 3.10.0
   - asyncio (built-in)
-  - uvloop >= 0.21.0 (optional, recommended)
+  - uvloop >= 0.21.0 (optional, recommended; not installed on Windows — see
+    [Platform & Wheel Support](#-platform--wheel-support))
+
+## 🖥️ Platform & Wheel Support
+
+Navigator ships **prebuilt, Cython-compiled wheels** for:
+
+| Platform | Wheel tag | CPython versions |
+|---|---|---|
+| Linux x86_64 | `manylinux_2_28_x86_64` | 3.11, 3.12, 3.13, 3.14 |
+| Windows AMD64 | `win_amd64` | 3.11, 3.12, 3.13, 3.14 |
+
+Every published wheel bundles Navigator's two compiled extensions —
+`navigator.types` and `navigator.utils.types` — as a platform-native
+`.so` (Linux) or `.pyd` (Windows) file; the release pipeline fails before
+publication if either extension is missing from a wheel. **No Rust,
+PyO3, or maturin toolchain is used or required** — Navigator's native
+code is Cython-only, built with `setuptools` from `setup.py`.
+
+**Not currently built or published**: macOS, `win32`, `win_arm64`,
+free-threaded CPython builds, `i686`, `musllinux`, and PyPy. If your
+platform isn't listed above, install from the source distribution
+instead (`pip install navigator-api --no-binary navigator-api`), which
+requires a C/C++ compiler and Cython locally.
+
+**Optional integrations may have narrower platform support than the
+core package.** In particular:
+
+- `uvloop` (the `navigator-api[uvloop]` / `navigator-api[production]`
+  extras) is excluded on Windows — `asyncdb`'s own `uvloop` extra is
+  likewise never pulled in unconditionally, so a Windows install of
+  Navigator's base package never tries to resolve uvloop. Navigator
+  falls back to the standard asyncio event loop policy there.
+- Not every optional database/provider integration under
+  `navigator-api[...]` is guaranteed to work on Windows or under
+  CPython 3.14; check the individual dependency's own platform support
+  before relying on it in production.
+
+## 🧑‍🔧 Building From Source (Maintainers)
+
+Navigator's two Cython extensions are compiled by `setup.py` via
+`setuptools`; `pyproject.toml`'s `[build-system].requires` lists only
+what that build actually needs (`setuptools`, `Cython`, `wheel`,
+`setuptools_scm`) — `navconfig`, a legitimate *runtime* dependency, is
+never required just to compile the extensions.
+
+Importing `navigator` — including in an isolated build/test environment
+with no project scaffolding — never crashes on a missing `navconfig`
+project. Directly exercising `navigator.types` / `navigator.utils.types`
+against a real `navconfig`-backed configuration (as the release
+pipeline's post-publish smoke test does) requires the project markers
+`navconfig` expects: an `env/<ENV>/.env` file, a top-level `.env` file,
+`pyproject.toml`, and `etc/config.ini`, with `SITE_ROOT` (and optionally
+`ENV`) pointing at that scaffolded directory. See
+`tests/test_release_wheel.py` for a reusable fixture that builds this
+layout, and `.github/workflows/release.yml` for how the release
+pipeline scaffolds it before running its own smoke tests.
 
 ## 🧪 Testing
 

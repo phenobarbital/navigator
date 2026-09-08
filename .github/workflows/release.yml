@@ -112,7 +112,14 @@ jobs:
           # runtime dependencies (asyncdb, python-datamodel) are not yet
           # published for cp314, so only the install/import test is
           # skipped there. Structural validation remains blocking below.
-          CIBW_TEST_SKIP: ${{ matrix.pyver == '314' && 'cp314-*' || '' }}
+          #
+          # cp313 (Windows only): pymssql (pulled in transitively via
+          # asyncdb[boto3,default]) has no win_amd64/cp313 wheel on PyPI
+          # yet, so pip falls back to building it from sdist; that sdist
+          # pins setuptools_scm[toml]>=5.0,<9.0, which conflicts with the
+          # setuptools_scm version pip's resolver otherwise picks, aborting
+          # the install. Linux cp313 is unaffected and stays blocking.
+          CIBW_TEST_SKIP: ${{ (matrix.pyver == '314' || matrix.pyver == '313') && format('cp{0}-*', matrix.pyver) || '' }}
 
       - name: Install validation test dependencies
         run: python -m pip install --quiet pytest

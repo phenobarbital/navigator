@@ -85,7 +85,7 @@ jobs:
           # regression in the Cython build silently falling back — or the
           # extensions going missing from the wheel — fails CI instead of
           # passing on the pure-Python "import navigator" smoke test alone.
-          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.so'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.so'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('✅ Navigator test passed:', navigator.version()); print('✅ Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
+          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.so'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.so'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('OK - Navigator test passed:', navigator.version()); print('OK - Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
           # cp314: asyncdb and python-datamodel (both runtime dependencies)
           # do not yet publish finalized cp314 wheels, so a full dependency
           # install can fail even though Navigator's own extensions compile
@@ -107,7 +107,7 @@ jobs:
           CIBW_BEFORE_BUILD: >
             pip install setuptools>=67.6.1 Cython>=3.1.4 wheel>=0.44.0 setuptools-scm>=8.0
           CIBW_TEST_REQUIRES: pytest
-          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.pyd'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.pyd'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('✅ Navigator test passed:', navigator.version()); print('✅ Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
+          CIBW_TEST_COMMAND: python -c "import navigator, navigator.types, navigator.utils.types; assert navigator.types.__file__.endswith('.pyd'), f'navigator.types not compiled -> {navigator.types.__file__}'; assert navigator.utils.types.__file__.endswith('.pyd'), f'navigator.utils.types not compiled -> {navigator.utils.types.__file__}'; print('OK - Navigator test passed:', navigator.version()); print('OK - Compiled extensions verified:', navigator.types.__file__, navigator.utils.types.__file__)"
           # See the Linux job's CIBW_TEST_SKIP comment: cp314 upstream
           # runtime dependencies (asyncdb, python-datamodel) are not yet
           # published for cp314, so only the install/import test is
@@ -141,13 +141,13 @@ jobs:
 
           wheels = glob.glob("wheelhouse/*.whl")
           if not wheels:
-              sys.exit("❌ No wheels found in wheelhouse/")
+              sys.exit("ERROR: No wheels found in wheelhouse/")
 
           for wheel_path in wheels:
               members = wheel_archive_members(wheel_path)
               missing = missing_required_extensions(members, suffix)
               if missing:
-                  sys.exit(f"❌ {wheel_path}: missing compiled extension(s) for {missing}")
+                  sys.exit(f"ERROR: {wheel_path}: missing compiled extension(s) for {missing}")
 
               _python_tag, _abi_tag, platform_tag = parse_wheel_tags(wheel_path)
               if platform == "windows":
@@ -155,9 +155,9 @@ jobs:
               else:
                   supported = is_supported_linux_platform_tag(platform_tag)
               if not supported:
-                  sys.exit(f"❌ {wheel_path}: unsupported platform tag {platform_tag}")
+                  sys.exit(f"ERROR: {wheel_path}: unsupported platform tag {platform_tag}")
 
-              print(f"✅ {wheel_path}: required extensions present ({platform_tag})")
+              print(f"OK: {wheel_path}: required extensions present ({platform_tag})")
           PYEOF
 
       - name: Upload wheel artifacts
@@ -345,16 +345,16 @@ jobs:
         working-directory: ${{ runner.temp }}/nav-root
         shell: bash
         run: |
-          python -c "import navigator; print('✅ Navigator import successful')"
-          python -c "import navigator.types, navigator.utils.types; print('✅ Compiled extensions import successful')"
-          python -c "import navigator.commands; print('✅ Commands import successful')"
-          python -c "from navigator.version import __version__; print('✅ Version:', __version__)"
+          python -c "import navigator; print('OK: Navigator import successful')"
+          python -c "import navigator.types, navigator.utils.types; print('OK: Compiled extensions import successful')"
+          python -c "import navigator.commands; print('OK: Commands import successful')"
+          python -c "from navigator.version import __version__; print('OK: Version:', __version__)"
 
       - name: Test CLI command
         working-directory: ${{ runner.temp }}/nav-root
         shell: bash
         run: |
-          nav --version || echo "⚠️ CLI test failed on ${{ matrix.os }}"
+          nav --version || echo "WARNING: CLI test failed on ${{ matrix.os }}"
 
       - name: Test package contents
         working-directory: ${{ runner.temp }}/nav-root
@@ -372,16 +372,16 @@ jobs:
           for dir_name in critical_dirs:
               dir_path = os.path.join(navigator_path, dir_name)
               if os.path.exists(dir_path):
-                  print(f'✅ {dir_name} directory found')
+                  print(f'OK: {dir_name} directory found')
               else:
                   missing_dirs.append(dir_name)
-                  print(f'❌ {dir_name} directory missing')
+                  print(f'ERROR: {dir_name} directory missing')
 
           if missing_dirs:
-              print(f'⚠️ Missing directories: {missing_dirs}')
+              print(f'WARNING: Missing directories: {missing_dirs}')
               exit(1)
           else:
-              print('✅ All critical directories present')
+              print('OK: All critical directories present')
           "
 
   test-summary:

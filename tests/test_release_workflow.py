@@ -90,6 +90,34 @@ def test_release_workflow_validates_platform_specific_extensions():
     assert "if" not in verify_step
 
 
+def test_windows_python_output_is_ascii_safe():
+    """Windows runners may expose cp1252 as stdout encoding."""
+    build_job = _build_job(_load_workflow())
+    steps = build_job["steps"]
+
+    windows_build = next(
+        s for s in steps if s.get("name") == "Build wheels for Windows (win_amd64)"
+    )
+    verify_step = next(
+        s
+        for s in steps
+        if s.get("name") == "Verify compiled extensions are present in the wheel"
+    )
+
+    windows_python_output = "\n".join(
+        [
+            windows_build["env"]["CIBW_TEST_COMMAND"],
+            verify_step["run"],
+        ]
+    )
+    assert windows_python_output.isascii()
+
+    installation_steps = _load_workflow()["jobs"]["test-installation"]["steps"]
+    for step_name in ("Test basic imports", "Test package contents"):
+        step = next(s for s in installation_steps if s.get("name") == step_name)
+        assert step["run"].isascii()
+
+
 def test_release_workflow_publishes_manylinux_and_windows_artifacts():
     workflow = _load_workflow()
     deploy_steps = workflow["jobs"]["deploy"]["steps"]

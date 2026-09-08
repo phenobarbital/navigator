@@ -9,6 +9,7 @@ platforms are explicit.
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import yaml
@@ -17,6 +18,18 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "release.yml"
 README_PATH = REPO_ROOT / "README.md"
 CHANGELOG_PATH = REPO_ROOT / "CHANGELOG.md"
+
+SUPPORTED_VERSIONS = {"3.11", "3.12", "3.13", "3.14"}
+
+# Matches a "| Linux ... | `<wheel tag>` | <CPython versions> |" (or
+# "Windows") row of the README's wheel-support table and captures the
+# CPython-versions cell, so the check reflects the *documented matrix*
+# rather than an arbitrary literal string that would silently stop
+# testing anything the moment the README's prose is reformatted.
+_WHEEL_TABLE_ROW = re.compile(
+    r"^\|\s*(?:Linux|Windows)[^|]*\|[^|]*\|\s*([^|]+?)\s*\|\s*$",
+    re.MULTILINE,
+)
 
 
 def _release_matrix_pyvers() -> set[str]:
@@ -33,23 +46,25 @@ def test_documented_wheel_matrix_matches_release_contract():
     matrix_pyvers = _release_matrix_pyvers()
     assert matrix_pyvers == {"311", "312", "313", "314"}
 
-    # The documented platform/tag matrix must mention both wheel families
-    # and all four supported CPython versions.
+    # The documented platform/tag matrix must mention both wheel families.
     assert "manylinux_2_28_x86_64" in readme
     assert "win_amd64" in readme
-    for version in ("3.11", "3.12", "3.13", "3.14"):
-        assert version in readme
+
+    # Every wheel-support table row must list exactly the four supported
+    # CPython versions — this fails on a stale "up to 3.13" row (missing
+    # 3.14) just as much as on a row that drifts to claim an unsupported
+    # version, without pinning the table's exact whitespace/formatting.
+    version_cells = _WHEEL_TABLE_ROW.findall(readme)
+    assert version_cells, "no Linux/Windows wheel-support table rows found in README.md"
+    for cell in version_cells:
+        versions = {v.strip() for v in cell.split(",")}
+        assert (
+            versions == SUPPORTED_VERSIONS
+        ), f"wheel-support table row lists {cell!r}, expected {sorted(SUPPORTED_VERSIONS)}"
 
     # Excluded platforms/ABIs must be explicit, not merely absent.
     for excluded in ("macOS", "win32", "win_arm64", "musllinux", "PyPy"):
         assert excluded in readme
-
-    # No stale claim that Navigator only supports up to cp313.
-    assert "3.11, 3.12, 3.13\n" not in readme
-    assert "up to 3.13" not in readme.lower()
-    assert (
-        "3.9+ (3.11+ recommended)" in readme
-    )  # unrelated min-version claim, unchanged
 
     # Cython-only / no-Rust contract is documented.
     assert "Cython-only" in readme

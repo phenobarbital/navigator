@@ -53,7 +53,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -69,10 +69,12 @@ jobs:
           CIBW_BUILD: cp${{ matrix.pyver }}-*
           CIBW_ARCHS_LINUX: "x86_64"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
-          # Skip win32/win_arm64 (not applicable to a Linux job), i686,
-          # musllinux, PyPy ("pp*"), and free-threaded builds ("*t-*").
-          # macOS is out of scope for this feature entirely.
-          CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux* pp* *t-*"
+          # Skip i686, musllinux, PyPy ("pp*"), and free-threaded builds
+          # ("*t-*"). win32/win_arm64 build identifiers never occur on a
+          # Linux job (they are Windows platform tags) and macOS is out
+          # of scope for this feature entirely, so neither needs a
+          # pattern here.
+          CIBW_SKIP: "*-manylinux_i686 *-musllinux* pp* *t-*"
           CIBW_BEFORE_BUILD: >
             pip install setuptools>=67.6.1 Cython>=3.1.4 wheel>=0.44.0 setuptools-scm>=8.0 &&
             (yum install -y postgresql-devel openssl-devel zlib-devel libmemcached-devel xmlsec1-devel libtool-ltdl-devel ||
@@ -173,7 +175,7 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
@@ -288,7 +290,7 @@ jobs:
 
     steps:
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -301,16 +303,24 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          # Try installing with retries in case of propagation delays
+          # Try installing with retries in case of propagation delays.
+          # Fail the step (instead of silently continuing to later steps)
+          # if every attempt is exhausted.
+          installed=false
           for i in {1..5}; do
             if pip install navigator-api --no-cache-dir; then
               echo "Successfully installed navigator-api"
+              installed=true
               break
             else
               echo "Attempt $i failed, waiting 30 seconds..."
               sleep 30
             fi
           done
+          if [ "$installed" != "true" ]; then
+            echo "::error::Failed to install navigator-api from PyPI after 5 attempts"
+            exit 1
+          fi
 
       - name: Prepare navconfig project environment
         shell: bash

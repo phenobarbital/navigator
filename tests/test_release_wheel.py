@@ -40,14 +40,16 @@ SUPPORTED_CPYTHON_TAGS: frozenset[str] = frozenset({"cp311", "cp312", "cp313", "
 
 # Substrings that identify a platform/ABI tag this feature explicitly
 # excludes: win32, win_arm64, free-threaded (cp3XXt), i686, musllinux,
-# macOS, and PyPy.
+# and macOS. Every real macOS platform tag (e.g. "macosx_11_0_x86_64",
+# "macosx_11_0_universal2") already contains "macosx", so no separate
+# "universal2" marker is needed. PyPy is excluded via the "pp" python
+# tag prefix, handled separately in is_excluded_tag().
 EXCLUDED_TAG_MARKERS: tuple[str, ...] = (
     "win32",
     "win_arm64",
     "i686",
     "musllinux",
     "macosx",
-    "universal2",
 )
 
 

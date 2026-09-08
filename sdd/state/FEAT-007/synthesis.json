@@ -1,0 +1,44 @@
+{
+  "schema_version": "1.0",
+  "feat_id": "FEAT-007",
+  "mode": "enrichment",
+  "summary_oneline": "Refactor Navigator wheel infrastructure for Cython, future native code, Python 3.13/3.14, and Windows artifacts.",
+  "localization": [
+    {"path":"pyproject.toml","symbol":"[build-system] and [tool.setuptools.packages.find]","lines":"1-9,31-51,207-221","role":"declares build backend, supported Python metadata, and package discovery","evidence":["F001"]},
+    {"path":"setup.py","symbol":"extensions and setup()","lines":"9-56","role":"declares and cythonizes Navigator's C and C++ extension modules","evidence":["F001"]},
+    {"path":"setup.cfg","symbol":"[wheel]","lines":"1-4","role":"declares legacy wheel tags that may conflict with compiled extensions","evidence":["F001"]},
+    {"path":".github/workflows/release.yml","symbol":"build, deploy, test-installation jobs","lines":"7-224","role":"builds, verifies, publishes, and smoke-tests release artifacts","evidence":["F002","F003"]},
+    {"path":"/home/jesuslara/proyectos/asyncdb/.github/workflows/release.yml","symbol":"build and deploy jobs","lines":"7-125","role":"comparison implementation for multi-platform cibuildwheel production","evidence":["F004"]}
+  ],
+  "constraints": [
+    {"statement":"The package contains compiled Cython extensions in both C and C++ modes.","evidence":["F001"],"implication":"Build and validation logic must handle interpreter/platform-specific extension names and compiler differences."},
+    {"statement":"The current release workflow's post-build validation and publication are Linux/manylinux-specific.","evidence":["F002"],"implication":"Windows support requires coordinated build, archive validation, artifact aggregation, and publication changes."},
+    {"statement":"A recent fix was needed to make package discovery and compiled-extension presence explicit, and cp313 dependency installation is already a known risk.","evidence":["F003"],"implication":"The refactor should preserve structural wheel checks and separate artifact validation from dependency-heavy install tests."},
+    {"statement":"asyncdb validates wheel archives without installing its full optional dependency graph.","evidence":["F004","F005"],"implication":"Navigator should use the same lightweight validation boundary for cross-platform wheels."},
+    {"statement":"No Rust/Cargo build contract exists in Navigator today.","evidence":["F006"],"implication":"Rust integration should be an extensibility requirement only if explicitly approved, not assumed as an immediate module migration."}
+  ],
+  "enrichment": {
+    "new": ["A portable wheel-build contract covering CPython 3.13 and 3.14, Windows AMD64, and existing Linux artifacts.","A reusable archive/tag/extension validation path for `.so` and `.pyd` wheels.","A documented extension point for future Rust/PyO3 or maturin components, if selected after design review."],
+    "modified": ["pyproject.toml, setup.py, setup.cfg, and/or MANIFEST.in as required to make wheel metadata and native source inclusion coherent (F001).",".github/workflows/release.yml for an OS-aware cibuildwheel matrix, artifact aggregation, publication, and installation smoke tests (F002,F004).","Focused packaging tests and release validation helpers following asyncdb's portability boundaries (F005)."],
+    "untouched": ["Navigator runtime APIs and application behavior.","Optional integration/provider implementations unless Windows packaging research proves a dependency boundary must change.","A Rust module implementation; the repository has no current Rust source contract (F006)."],
+    "patterns": ["Use cibuildwheel with explicit CPython selectors and Windows AMD64 architecture (F004).","Validate wheel filenames and archive contents before publication, accepting `.pyd` on Windows and `.so` on Unix (F004,F005).","Keep core/archive checks independent from installing all optional dependencies (F005)."],
+    "risks": ["Navigator's broad dependency graph may prevent Windows installation even after its own extension compiles (F002,F003).","A generic selector or stale setup.cfg wheel tag can produce artifacts that are installable only by accident (F001).","Adding Rust tooling prematurely could create an unused build dependency and increase CI complexity because no Rust module exists yet (F006)."]
+  },
+  "confidence_map": [
+    {"id":"C1","statement":"Navigator currently compiles two Cython extensions and uses setuptools as its build backend.","evidence":["F001"],"confidence":"high","reasoning":"Direct reads of pyproject.toml and setup.py."},
+    {"id":"C2","statement":"The current release workflow does not build or publish Windows wheels and does not request Python 3.14.","evidence":["F002"],"confidence":"high","reasoning":"Direct read of matrix, cibuildwheel environment, deploy filters, and test matrix."},
+    {"id":"C3","statement":"setup.cfg contains stale legacy wheel declarations that are unsafe as the authority for compiled wheel compatibility.","evidence":["F001"],"confidence":"medium","reasoning":"The declarations are directly present; their exact effect under the current setuptools configuration needs a build-metadata probe."},
+    {"id":"C4","statement":"asyncdb is a viable local pattern for multi-platform wheel production and lightweight native-extension validation.","evidence":["F004","F005"],"confidence":"high","reasoning":"Direct reads of its workflow and completed portability contracts."},
+    {"id":"C5","statement":"The exact root cause of the linked Actions failure is not established.","evidence":["F007"],"confidence":"high","reasoning":"The authoritative job log was inaccessible and the local build probe could not run."},
+    {"id":"C6","statement":"Immediate Rust integration is not grounded in current Navigator source files.","evidence":["F006"],"confidence":"medium","reasoning":"No tracked Rust build files were found, but the requested future architecture may still require a design decision."}
+  ],
+  "unknowns": [
+    {"id":"U1","question":"What exact error appears in GitHub Actions run 33763696379/job 100676045151?","blocks_claims":["C5"],"plausible_answers":["build backend or Cython compilation failure","dependency installation failure","artifact collection/publication failure"],"ask_user":true},
+    {"id":"U2","question":"Should macOS wheels remain part of Navigator's release promise, or is the target limited to Linux and Windows?","blocks_claims":["C2"],"plausible_answers":["retain macOS","Linux and Windows only"],"ask_user":true},
+    {"id":"U3","question":"Does this proposal need to introduce Rust/PyO3 or maturin now, or only keep the build architecture extensible for a later native module?","blocks_claims":["C6"],"plausible_answers":["introduce now","design for later without adding Rust code"],"ask_user":true},
+    {"id":"U4","question":"Should Windows support mean CPython AMD64 wheels only, and should Python 3.11–3.13 remain supported alongside 3.14?","blocks_claims":["C2"],"plausible_answers":["CPython AMD64 3.11–3.14","another ABI/architecture policy"],"ask_user":true}
+  ],
+  "recommended_next_command":{"command":"sdd-brainstorm","rationale":"The current localization is strong, but the exact failure is unavailable and the proposal has architectural forks around Windows dependency scope, macOS retention, and whether Rust is immediate or future-facing."},
+  "overall_confidence":"medium",
+  "meta":{"findings_used":["F001","F002","F003","F004","F005","F006","F007"],"findings_unused":[],"notes":"wikitoolkit was unavailable; GitHub Actions job fetch returned cache miss; local build probe lacked the build module."}
+}

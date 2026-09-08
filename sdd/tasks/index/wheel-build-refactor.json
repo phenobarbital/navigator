@@ -1,0 +1,111 @@
+{
+  "feature": "wheel-build-refactor",
+  "feature_id": "FEAT-007",
+  "spec": "sdd/specs/wheel-build-refactor.spec.md",
+  "type": "feature",
+  "base_branch": "dev",
+  "created_at": "2026-09-08T00:00:00+02:00",
+  "completed_at": "2026-09-08T01:40:00Z",
+  "parallelism_notes": "Tasks are intentionally staged: metadata and the Cython import boundary establish the package contract; validation tests then define reusable artifact checks; release workflow integration follows those contracts; documentation closes the feature. Only TASK-2950 is initially independent.",
+  "tasks": [
+    {
+      "id": "TASK-2950",
+      "slug": "packaging-metadata-dependency-boundaries",
+      "title": "Align packaging metadata and dependency boundaries",
+      "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
+      "spec": "sdd/specs/wheel-build-refactor.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "M",
+      "depends_on": [],
+      "parallel": true,
+      "assigned_to": "sdd-worker",
+      "created_at": "2026-09-08T00:00:00+02:00",
+      "started_at": "2026-09-07T23:18:35Z",
+      "completed_at": "2026-09-07T23:40:00Z",
+      "file": "sdd/tasks/completed/TASK-2950-packaging-metadata-dependency-boundaries.md"
+    },
+    {
+      "id": "TASK-2951",
+      "slug": "cython-extension-import-boundary",
+      "title": "Remove Cython extension runtime import coupling",
+      "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
+      "spec": "sdd/specs/wheel-build-refactor.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "S",
+      "depends_on": [
+        "TASK-2950"
+      ],
+      "parallel": false,
+      "assigned_to": "sdd-worker",
+      "created_at": "2026-09-08T00:00:00+02:00",
+      "started_at": "2026-09-07T23:18:35Z",
+      "completed_at": "2026-09-08T00:05:00Z",
+      "file": "sdd/tasks/completed/TASK-2951-cython-extension-import-boundary.md"
+    },
+    {
+      "id": "TASK-2952",
+      "slug": "wheel-validation-portability-tests",
+      "title": "Add wheel validation and portability tests",
+      "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
+      "spec": "sdd/specs/wheel-build-refactor.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "M",
+      "depends_on": [
+        "TASK-2950",
+        "TASK-2951"
+      ],
+      "parallel": false,
+      "assigned_to": "sdd-worker",
+      "created_at": "2026-09-08T00:00:00+02:00",
+      "started_at": "2026-09-07T23:18:35Z",
+      "completed_at": "2026-09-08T00:35:00Z",
+      "file": "sdd/tasks/completed/TASK-2952-wheel-validation-portability-tests.md"
+    },
+    {
+      "id": "TASK-2953",
+      "slug": "release-matrix-artifact-publication",
+      "title": "Refactor release matrix and artifact publication",
+      "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
+      "spec": "sdd/specs/wheel-build-refactor.spec.md",
+      "status": "done",
+      "priority": "high",
+      "effort": "L",
+      "depends_on": [
+        "TASK-2950",
+        "TASK-2951",
+        "TASK-2952"
+      ],
+      "parallel": false,
+      "assigned_to": "sdd-worker",
+      "created_at": "2026-09-08T00:00:00+02:00",
+      "started_at": "2026-09-07T23:18:35Z",
+      "completed_at": "2026-09-08T01:10:00Z",
+      "file": "sdd/tasks/completed/TASK-2953-release-matrix-artifact-publication.md"
+    },
+    {
+      "id": "TASK-2954",
+      "slug": "release-documentation-maintenance-contract",
+      "title": "Document the supported wheel matrix and maintenance contract",
+      "feature": "FEAT-007 — Navigator Wheel Build Infrastructure Refactor",
+      "spec": "sdd/specs/wheel-build-refactor.spec.md",
+      "status": "done",
+      "priority": "medium",
+      "effort": "S",
+      "depends_on": [
+        "TASK-2950",
+        "TASK-2951",
+        "TASK-2952",
+        "TASK-2953"
+      ],
+      "parallel": false,
+      "assigned_to": "sdd-worker",
+      "created_at": "2026-09-08T00:00:00+02:00",
+      "started_at": "2026-09-07T23:18:35Z",
+      "completed_at": "2026-09-08T01:40:00Z",
+      "file": "sdd/tasks/completed/TASK-2954-release-documentation-maintenance-contract.md"
+    }
+  ]
+}

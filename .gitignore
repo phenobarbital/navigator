@@ -14,12 +14,14 @@ __pycache__
 *.c
 *.cpp
 # External Extensions
+etc/
 extensions/*
 services/*
 apps/*
 build/
 dist/
 templates/
+!sdd/templates/
 settings/
 # External Applications
 apps/

@@ -1,0 +1,30 @@
+{
+  "schema_version": "1.0",
+  "mode_hint": "enrichment",
+  "rationale": "The request combines a reported broken release pipeline with additive support for Python 3.14 and Windows, so the plan investigates current packaging contracts and existing cross-platform build patterns.",
+  "queries": [
+    {"id":"Q001","intent":"Locate Navigator packaging metadata and compiled-extension declarations.","type":"glob","priority":1,"params":{"pattern":"{pyproject.toml,setup.py,setup.cfg,MANIFEST.in}"}},
+    {"id":"Q002","intent":"Locate all Navigator release and package-build workflows.","type":"glob","priority":1,"params":{"pattern":".github/workflows/*"}},
+    {"id":"Q003","intent":"Read Navigator packaging metadata to identify Python classifiers, build backend, package discovery, and wheel tags.","type":"read","priority":1,"params":{"path":"pyproject.toml","lines":null}},
+    {"id":"Q004","intent":"Read the setup extension declarations and manifest rules that determine Cython contents in distributions.","type":"read","priority":1,"params":{"path":"setup.py","lines":null}},
+    {"id":"Q005","intent":"Read the release workflow build matrix, cibuildwheel configuration, artifact collection, and publication paths.","type":"read","priority":1,"params":{"path":".github/workflows/release.yml","lines":null}},
+    {"id":"Q006","intent":"Find Cython, Rust, cibuildwheel, platform, and Python-version references while excluding the virtual environment.","type":"grep","priority":1,"params":{"pattern":"cython|rust|pyo3|maturin|cibuildwheel|python-version|windows|manylinux|win_amd64|py310","path":".","case_sensitive":false,"max_results":120}},
+    {"id":"Q007","intent":"Inspect recent build-related history and the latest Cython wheel fix for regressions and constraints.","type":"git_log","priority":1,"params":{"path":".github/workflows/release.yml","max_results":25}},
+    {"id":"Q008","intent":"Read the asyncdb release workflow as the requested local comparison for cross-platform wheel production.","type":"read","priority":1,"params":{"path":"/home/jesuslara/proyectos/asyncdb/.github/workflows/release.yml","lines":null}},
+    {"id":"Q009","intent":"Read asyncdb setup metadata and extension declarations to compare mixed Cython/native build contracts.","type":"read","priority":2,"params":{"path":"/home/jesuslara/proyectos/asyncdb/setup.py","lines":null}},
+    {"id":"Q010","intent":"Read asyncdb portability task contracts for Windows tags, compiled extension checks, and smoke-test boundaries.","type":"read","priority":2,"params":{"path":"/home/jesuslara/proyectos/asyncdb/sdd/tasks/completed/TASK-26-windows-release-wheels.md","lines":null}},
+    {"id":"Q011","intent":"Check whether a local Rust source tree or Cargo manifest exists in Navigator itself.","type":"tree","priority":2,"params":{"path":".","max_depth":3}},
+    {"id":"Q012","intent":"Attempt a local wheel build to identify environment or packaging failures that CI may reproduce.","type":"read","priority":2,"params":{"path":"build command output: python -m build --wheel --no-isolation","lines":null}}
+  ],
+  "expected_findings": [
+    "Navigator currently has Cython extension declarations and no local Rust/Cargo build manifest.",
+    "Navigator release CI is Linux-focused and publication filters only manylinux wheels.",
+    "Navigator metadata contains stale or contradictory wheel/platform declarations.",
+    "asyncdb provides an explicit cp310-cp314, Windows AMD64, archive-validation pattern.",
+    "The linked Actions failure cannot be independently inspected from this environment."
+  ],
+  "meta": {
+    "source_signals": {"named_entities":["navigator","Python 3.13","Python 3.14","Windows","Cython","Rust","asyncdb","GitHub Actions run"],"verbs":["broken","include","build","refactor","compiling"],"polarity":"negative"},
+    "estimated_budget_use":{"files_read":12,"grep_calls":3,"git_calls":2}
+  }
+}

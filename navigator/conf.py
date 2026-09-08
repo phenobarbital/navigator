@@ -199,12 +199,6 @@ ALLOWED_HOSTS = [
 
 
 """
- Memcache
-"""
-MEMCACHE_HOST = config.get("MEMCACHE_HOST", "localhost")
-MEMCACHE_PORT = config.get("MEMCACHE_PORT", 11211)
-
-"""
 Background Tasks
 """
 QUEUE_CALLBACK = config.get('QUEUE_CALLBACK', fallback=None)

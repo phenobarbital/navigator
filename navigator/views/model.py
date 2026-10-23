@@ -128,32 +128,111 @@ class ModelView(AbstractModel):
             return self.model
 
     def _get_model(self):
-        if self.model:
-            ## Fill Primary and Required for this Model:
-            if not self._primaries:
-                for name, field in self.model.get_columns().items():
-                    try:
-                        if field.metadata["required"] is True:
-                            self._required.append(name)
-                    except KeyError:
-                        pass
-                    try:
-                        if field.metadata["primary"] is True:
-                            self._primaries.append(name)
-                    except KeyError:
-                        pass
-                    if not self._hidden:
-                        try:
-                            if field.metadata["repr"] is False:
-                                self._hidden.append(name)
-                        except KeyError:
-                            pass
-            return self.model
-        else:
+        """Return the Model of this View, deriving its column metadata once.
+
+        Raises:
+            ConfigError: when no Model is associated with this View.
+        """
+        if not self.model:
             # Model doesn't exists
             raise ConfigError(
                 f"Model {self.__name__} Doesn't Exists"
             )
+        if '_primaries' not in self.__dict__:
+            self._init_column_metadata()
+        return self.model
+
+    def _init_column_metadata(self) -> None:
+        """Derive the required, primary and hidden columns from the Model.
+
+        The three lists are stored **per instance**. They used to be class
+        attributes of :class:`ModelView` mutated in place
+        (``self._hidden.append(...)``), so the first View instantiated in a
+        process filled them for every other subclass, and one View's hidden
+        columns then drove an unrelated View's response projection.
+
+        A subclass that declares any of the three lists explicitly keeps its
+        own value; only the empty ones are derived from the Model.
+
+        Note:
+            ``_hidden`` is derived from ``secret=True`` columns only.
+            ``repr`` is a dataclass ``Field`` attribute and is NOT part of
+            ``field.metadata`` (which carries ``required``, ``primary``,
+            ``readonly``, ``secret``, ...), so the previous
+            ``field.metadata["repr"]`` lookup always raised ``KeyError`` and
+            ``_hidden`` was never populated. ``repr=False`` is deliberately
+            not treated as a serialization rule either: it marks columns
+            excluded from ``__repr__``, and Models commonly declare their
+            primary key that way -- hiding it from responses would drop the
+            key callers need.
+        """
+        required: list = []
+        primaries: list = []
+        hidden: list = []
+        for name, field in self.model.get_columns().items():
+            metadata = getattr(field, 'metadata', None) or {}
+            if metadata.get('required') is True:
+                required.append(name)
+            if metadata.get('primary') is True:
+                primaries.append(name)
+            if metadata.get('secret') is True:
+                hidden.append(name)
+        self._required = list(self._required) or required
+        self._primaries = list(self._primaries) or primaries
+        self._hidden = list(self._hidden) or hidden
+
+    @staticmethod
+    def _row_value(row: Any, column: str, default: Any = None) -> Any:
+        """Read one column from a row (``dict``, ``BaseModel`` or object)."""
+        if isinstance(row, dict):
+            return row.get(column, default)
+        return getattr(row, column, default)
+
+    @staticmethod
+    def _row_columns(row: Any) -> list:
+        """Column names available on a row."""
+        if isinstance(row, dict):
+            return list(row.keys())
+        if isinstance(row, BaseModel):
+            return list(row.get_fields())
+        return [
+            name for name in getattr(row, '__dict__', {})
+            if not name.startswith('_')
+        ]
+
+    def _visible_columns(self, row: Any, fields: list = None) -> Optional[list]:
+        """Columns to serialize for ``row``.
+
+        ``fields`` is the projection asked for by the caller (``?fields=``)
+        and ``_hidden`` is an **exclusion** list that always wins: otherwise
+        a hidden column could be read back simply by naming it.
+
+        Returns:
+            The list of columns to serialize, or ``None`` to serialize the
+            row as-is (nothing requested and nothing to hide).
+        """
+        hidden = frozenset(self._hidden or ())
+        if fields:
+            return [column for column in fields if column not in hidden]
+        if not hidden:
+            return None
+        return [
+            column for column in self._row_columns(row)
+            if column not in hidden
+        ]
+
+    def _project_row(self, row: Any, fields: list = None) -> Any:
+        """Apply ``fields`` and ``_hidden`` to a single row."""
+        columns = self._visible_columns(row, fields)
+        if columns is None:
+            return row
+        return {column: self._row_value(row, column) for column in columns}
+
+    def _project_response(self, response: Any, fields: list = None) -> Any:
+        """Apply ``fields`` and ``_hidden`` to a row or a list of rows."""
+        if isinstance(response, list):
+            return [self._project_row(row, fields) for row in response]
+        return self._project_row(response, fields)
 
     async def _model_response(
             self,
@@ -172,27 +251,8 @@ class ModelView(AbstractModel):
                 },
                 headers=headers
             )
-        # return data only
-        if fields is not None:
-            _fields = fields
-        elif self._hidden is not None:
-            _fields = self._hidden
-        if _fields:
-            if isinstance(response, list):
-                new = []
-                for r in response:
-                    row = {}
-                    for field in _fields:
-                        row[field] = getattr(r, field, None)
-                    new.append(row)
-                result = new
-            else:
-                ## filtering result to returning only fields asked:
-                result = {}
-                for field in _fields:
-                    result[field] = getattr(response, field, None)
-        else:
-            result = response
+        # return data only: the caller projection minus the hidden columns
+        result = self._project_response(response, fields)
         response = self.json_response(
             result,
             headers=headers,
@@ -416,34 +476,77 @@ class ModelView(AbstractModel):
             self.get_model.Meta.connection = None
         return data
 
-    async def _filtering(self, queryparams: dict) -> web.Response:
-        # Making a filter based on field received.
+    async def _filtering(self, queryparams: dict) -> Optional[web.Response]:
+        """Serve a prefix search requested as ``?_filter=<column>=<prefix>``.
+
+        The column is validated against the Model and must not be hidden, and
+        the value is handed to the driver as a **bound parameter** -- it is
+        never interpolated into the statement. The previous implementation
+        built the statement with f-strings from both halves of the parameter;
+        it never reached the database only because
+        ``self.get_model.column(field)`` called an instance method on the
+        Model class and raised ``TypeError`` first (answered as 406).
+
+        Args:
+            queryparams: The request query parameters.
+
+        Returns:
+            A JSON response with the matching values, ``None`` when no
+            ``_filter`` was requested (the caller then continues with the
+            normal GET flow), or an error response when the parameter is
+            malformed or names an unknown/hidden column.
+        """
         filter_param = queryparams.get('_filter')
-        if filter_param:
-            # Split the filter parameter into field and value
-            field, value = filter_param.split('=')
-            # Get the table and schema names
-            table_name = self.get_model.Meta.name
-            schema_name = self.get_model.Meta.schema
-            # TODO: discover the field type from Model.
-            ftype = self.get_model.column(field)
-            # Build the SQL query
-            query = f"""
-            SELECT {field} FROM {schema_name}.{table_name}
-            WHERE {field} LIKE '{value}%'"""
-            async with await self.handler(request=self.request) as conn:
-                result, error = await conn.query(query)
-                if error:
-                    self.logger.warning(
-                        f"Unable to filter by criteria {filter_param}"
-                    )
-                    return None
-                return self.json_response(
-                    result,
-                    status=200
-                )
-        else:
+        if not filter_param:
             return None
+        column, separator, value = filter_param.partition('=')
+        column = column.strip()
+        if not separator or not column:
+            return self.error(
+                response={
+                    "error": (
+                        "Invalid _filter: expected '_filter=<column>=<value>'"
+                    ),
+                    "payload": filter_param,
+                },
+                status=400
+            )
+        if column not in self.get_model.get_columns() or column in frozenset(
+            self._hidden or ()
+        ):
+            return self.error(
+                response={
+                    "error": (
+                        f"Invalid _filter column for {self.__name__}: {column}"
+                    ),
+                },
+                status=400
+            )
+        table_name = self.get_model.Meta.name
+        schema_name = self.get_model.Meta.schema
+        qualified = (
+            f'"{schema_name}"."{table_name}"' if schema_name
+            else f'"{table_name}"'
+        )
+        # The column name comes from the Model, never from the request; the
+        # value is bound as $1 (the pg paramstyle this View defaults to) so it
+        # cannot alter the statement. The ::text cast keeps a prefix search
+        # working on non-text columns.
+        query = (
+            f'SELECT "{column}" FROM {qualified} '
+            f'WHERE "{column}"::text LIKE $1'
+        )
+        async with await self.handler(request=self.request) as conn:
+            result, error = await conn.query(query, f'{value}%')
+            if error:
+                self.logger.warning(
+                    f"Unable to filter by criteria {filter_param}: {error}"
+                )
+                return None
+            return self.json_response(
+                result,
+                status=200
+            )
 
     @service_auth
     async def get(self):

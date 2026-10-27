@@ -64,7 +64,6 @@ TIMEZONE = config.get("TIMEZONE", fallback="UTC")
 SSL Support.
 """
 USE_SSL = config.getboolean("SSL", section="ssl", fallback=False)
-print("USE SSL:: ", USE_SSL)
 if USE_SSL is True:
     SSL_CERT = config.get("CERT", section="ssl", fallback=None)
     SSL_KEY = config.get("KEY", section="ssl", fallback=None)
